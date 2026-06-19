@@ -1,0 +1,222 @@
+import React, { useState, useRef, useEffect } from 'react'
+import { useChat, useConversations } from '../hooks/useChat'
+import { getOrCreateConversation, signOut, supabase } from '../lib/supabase'
+import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns'
+
+function Avatar({ name, size = 38 }) {
+  const initials = name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?'
+  const colors = ['#EEEDFE:#3C3489', '#E1F5EE:#085041', '#FAECE7:#712B13', '#E6F1FB:#0C447C', '#FAEEDA:#633806']
+  const idx = name ? name.charCodeAt(0) % colors.length : 0
+  const [bg, fg] = colors[idx].split(':')
+  return (
+    <div style={{ width: size, height: size, borderRadius: '50%', background: bg, color: fg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.35, fontWeight: 500, flexShrink: 0 }}>
+      {initials}
+    </div>
+  )
+}
+
+function formatMsgTime(ts) {
+  const d = new Date(ts)
+  if (isToday(d)) return format(d, 'h:mm a')
+  if (isYesterday(d)) return 'Yesterday'
+  return format(d, 'MMM d')
+}
+
+function DateDivider({ date }) {
+  const d = new Date(date)
+  const label = isToday(d) ? 'Today' : isYesterday(d) ? 'Yesterday' : format(d, 'MMMM d, yyyy')
+  return <div className="date-divider">{label}</div>
+}
+
+function MessageBubble({ msg, isMe }) {
+  return (
+    <div className={`msg-row ${isMe ? 'mine' : ''}`}>
+      {!isMe && <Avatar name={msg.profiles?.username} size={28} />}
+      <div>
+        {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
+        <div className={`msg-bubble ${msg.is_email ? 'email-msg' : ''}`}>
+          {msg.is_email && <span className="email-tag">📧 via email</span>}
+          {msg.content}
+        </div>
+        <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+      </div>
+    </div>
+  )
+}
+
+export default function ChatPage({ session }) {
+  const [activeConvo, setActiveConvo] = useState(null)
+  const [newEmail, setNewEmail] = useState('')
+  const [showNewChat, setShowNewChat] = useState(false)
+  const [inputText, setInputText] = useState('')
+  const [search, setSearch] = useState('')
+  const [profile, setProfile] = useState(null)
+  const messagesEndRef = useRef(null)
+  const typingTimer = useRef(null)
+
+  const userId = session.user.id
+  const { conversations, loading: convLoading, reload } = useConversations(userId)
+  const { messages, loading: msgLoading, typing, sendMessage, broadcastTyping } = useChat(activeConvo?.id, userId)
+
+  useEffect(() => {
+    supabase.from('profiles').select('*').eq('id', userId).single()
+      .then(({ data }) => setProfile(data))
+  }, [userId])
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  const startNewChat = async (e) => {
+    e.preventDefault()
+    try {
+      const convoId = await getOrCreateConversation(userId, newEmail)
+      await reload()
+      const found = conversations.find(c => c.id === convoId)
+      if (found) setActiveConvo(found)
+      setShowNewChat(false)
+      setNewEmail('')
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
+  const handleSend = async () => {
+    if (!inputText.trim() || !activeConvo) return
+    broadcastTyping(false)
+    await sendMessage(inputText)
+    setInputText('')
+  }
+
+  const handleTyping = (e) => {
+    setInputText(e.target.value)
+    broadcastTyping(true)
+    clearTimeout(typingTimer.current)
+    typingTimer.current = setTimeout(() => broadcastTyping(false), 1500)
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
+  }
+
+  const getConvoName = (c) => {
+    if (c.is_group) return c.name
+    const other = c.conversation_members?.find(m => m.user_id !== userId)
+    return other?.profiles?.username || other?.profiles?.email || 'Unknown'
+  }
+
+  const filtered = conversations.filter(c =>
+    getConvoName(c).toLowerCase().includes(search.toLowerCase())
+  )
+
+  return (
+    <div className="app">
+      {/* Sidebar */}
+      <div className="sidebar">
+        <div className="sidebar-header">
+          <div>
+            <div className="logo">Mattchat</div>
+            <div className="user-email">{profile?.username || session.user.email}</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="icon-btn" onClick={() => setShowNewChat(true)} title="New chat">＋</button>
+            <button className="icon-btn" onClick={signOut} title="Sign out">⏏</button>
+          </div>
+        </div>
+
+        <div className="search-box">
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search conversations…" />
+        </div>
+
+        {showNewChat && (
+          <form className="new-chat-form" onSubmit={startNewChat}>
+            <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="Friend's email address" required autoFocus />
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button type="submit" className="btn-primary" style={{ flex: 1 }}>Start chat</button>
+              <button type="button" className="btn-ghost" onClick={() => setShowNewChat(false)}>Cancel</button>
+            </div>
+          </form>
+        )}
+
+        <div className="contact-list">
+          {convLoading && <div className="loading-state">Loading…</div>}
+          {filtered.map(c => (
+            <div key={c.id} className={`contact ${activeConvo?.id === c.id ? 'active' : ''}`} onClick={() => setActiveConvo(c)}>
+              <Avatar name={getConvoName(c)} />
+              <div className="contact-info">
+                <div className="contact-name">{getConvoName(c)}</div>
+                <div className="contact-preview">{c.last_message || 'No messages yet'}</div>
+              </div>
+              <div className="contact-time">{c.updated_at ? formatMsgTime(c.updated_at) : ''}</div>
+            </div>
+          ))}
+          {!convLoading && filtered.length === 0 && (
+            <div className="empty-state">
+              <p>No conversations yet.</p>
+              <button className="btn-primary" onClick={() => setShowNewChat(true)}>Start one →</button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Chat area */}
+      {activeConvo ? (
+        <div className="chat-area">
+          <div className="chat-header">
+            <Avatar name={getConvoName(activeConvo)} size={34} />
+            <div style={{ flex: 1 }}>
+              <div className="chat-header-name">{getConvoName(activeConvo)}</div>
+              <div className="chat-header-sub">
+                {typing.length > 0 ? `${typing[0].user_id} is typing…` : 'Online'}
+              </div>
+            </div>
+            <div className="email-badge" title="Mattchat email address">
+              📧 matt+{getConvoName(activeConvo).toLowerCase().replace(/\s/g,'')}@yourdomain.com
+            </div>
+          </div>
+
+          <div className="messages">
+            {msgLoading && <div className="loading-state">Loading messages…</div>}
+            {messages.map((msg, i) => {
+              const prev = messages[i - 1]
+              const showDate = !prev || new Date(msg.created_at).toDateString() !== new Date(prev.created_at).toDateString()
+              return (
+                <React.Fragment key={msg.id}>
+                  {showDate && <DateDivider date={msg.created_at} />}
+                  <MessageBubble msg={msg} isMe={msg.sender_id === userId} />
+                </React.Fragment>
+              )
+            })}
+            {typing.length > 0 && (
+              <div className="typing-indicator">
+                <span></span><span></span><span></span>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          <div className="input-area">
+            <button className="attach-btn" title="Attach file">📎</button>
+            <textarea
+              value={inputText}
+              onChange={handleTyping}
+              onKeyDown={handleKeyDown}
+              placeholder="Type a message…"
+              rows={1}
+            />
+            <button className="send-btn" onClick={handleSend} disabled={!inputText.trim()}>➤</button>
+          </div>
+        </div>
+      ) : (
+        <div className="chat-area empty-chat">
+          <div className="empty-chat-content">
+            <div className="empty-chat-icon">💬</div>
+            <h2>Welcome to Mattchat</h2>
+            <p>Select a conversation or start a new one.<br />Friends can also message you by email!</p>
+            <button className="btn-primary" onClick={() => setShowNewChat(true)}>Start a conversation →</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
