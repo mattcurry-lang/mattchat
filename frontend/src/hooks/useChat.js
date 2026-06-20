@@ -30,16 +30,17 @@ export function useChat(conversationId, currentUserId) {
           .select('*, profiles(username, avatar_url)')
           .eq('id', payload.new.id)
           .single()
-        setMessages(prev => [...prev, msgWithProfile])
+        if (msgWithProfile) {
+          setMessages(prev => [...prev, msgWithProfile])
+        }
       })
       .on('broadcast', { event: 'typing' }, ({ payload }) => {
         if (payload.user_id === currentUserId) return
         setTyping(prev => {
-          const exists = prev.find(t => t.user_id === payload.user_id)
           if (payload.is_typing) {
-            return exists ? prev : [...prev, payload]
+            return prev.includes(payload.user_id) ? prev : [...prev, payload.user_id]
           }
-          return prev.filter(t => t.user_id !== payload.user_id)
+          return prev.filter(id => id !== payload.user_id)
         })
       })
       .subscribe()
@@ -52,8 +53,8 @@ export function useChat(conversationId, currentUserId) {
   }, [conversationId, currentUserId])
 
   const sendMessage = useCallback(async (content) => {
-    if (!content.trim()) return
-    await sendMsg(conversationId, currentUserId, content)
+    if (!conversationId || !currentUserId || !content.trim()) return
+    await sendMsg(conversationId, currentUserId, content.trim())
   }, [conversationId, currentUserId])
 
   const broadcastTyping = useCallback((isTyping) => {
@@ -88,8 +89,8 @@ export function useConversations(userId) {
     }
 
     // Step 2: fetch those conversations WITH all their members
-    // (not filtered down to just the current user — otherwise the
-    // other participant's profile gets dropped from the result).
+    // (not filtered down to just the current user, otherwise the
+    // other participant's info never comes back).
     const { data } = await supabase
       .from('conversations')
       .select(`
