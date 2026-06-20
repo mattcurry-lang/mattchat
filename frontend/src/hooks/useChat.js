@@ -73,17 +73,35 @@ export function useConversations(userId) {
 
   const load = useCallback(async () => {
     if (!userId) return
+
+    // Step 1: find which conversations this user belongs to.
+    const { data: memberRows } = await supabase
+      .from('conversation_members')
+      .select('conversation_id')
+      .eq('user_id', userId)
+
+    const conversationIds = memberRows?.map(r => r.conversation_id) || []
+    if (conversationIds.length === 0) {
+      setConversations([])
+      setLoading(false)
+      return
+    }
+
+    // Step 2: fetch those conversations WITH all their members
+    // (not filtered down to just the current user — otherwise the
+    // other participant's profile gets dropped from the result).
     const { data } = await supabase
       .from('conversations')
       .select(`
         id, updated_at, last_message, is_group, name,
-        conversation_members!inner(
+        conversation_members(
           user_id,
           profiles(id, username, email, avatar_url)
         )
       `)
-      .eq('conversation_members.user_id', userId)
+      .in('id', conversationIds)
       .order('updated_at', { ascending: false })
+
     setConversations(data || [])
     setLoading(false)
   }, [userId])
