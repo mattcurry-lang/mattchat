@@ -19,7 +19,7 @@ export default function App() {
   if (session === undefined) {
     return (
       <div className="splash">
-        <div className="splash-logo">Mattchat</div>
+       <img src="/logo.png" alt="Mattchat" className="splash-logo-img" />
       </div>
     )
   }
