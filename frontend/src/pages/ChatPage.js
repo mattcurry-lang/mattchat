@@ -115,7 +115,7 @@ export default function ChatPage({ session }) {
       <div className="sidebar">
         <div className="sidebar-header">
           <div>
-            <div className="logo">Mattchat</div>
+            <img src="/logo.png" alt="Mattchat" className="sidebar-logo-img" />
             <div className="user-email">{profile?.username || session.user.email}</div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
