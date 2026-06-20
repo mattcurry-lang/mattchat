@@ -105,3 +105,8 @@ body {
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #d3e8f7; border-radius: 4px; }
+
+/* logo image */
+.splash-logo-img { width: 180px; height: auto; }
+.auth-logo-img { width: 160px; height: auto; margin: 0 auto 6px; display: block; }
+.sidebar-logo-img { width: 100px; height: auto; }
