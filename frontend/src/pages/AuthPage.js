@@ -29,7 +29,7 @@ export default function AuthPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div className="auth-logo">Mattchat</div>
+       <img src="/logo.png" alt="Mattchat" className="auth-logo-img" />
         <p className="auth-tagline">Chat with anyone, anywhere — via email or the app</p>
 
         <div className="auth-tabs">
