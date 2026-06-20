@@ -210,9 +210,9 @@ export default function ChatPage({ session }) {
         </div>
       ) : (
         <div className="chat-area empty-chat">
-          <div className="empty-chat-content">
-            <div className="empty-chat-icon">💬</div>
-            <h2>Welcome to Mattchat</h2>
+  <img src="/logo.png" alt="" className="empty-chat-watermark" />
+  <div className="empty-chat-content">
+    <h2>Welcome to Mattchat</h2>
             <p>Select a conversation or start a new one.<br />Friends can also message you by email!</p>
             <button className="btn-primary" onClick={() => setShowNewChat(true)}>Start a conversation →</button>
           </div>
