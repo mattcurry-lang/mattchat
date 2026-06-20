@@ -111,3 +111,8 @@ body {
 .splash-logo-img { width: 180px; height: auto; }
 .auth-logo-img { width: 160px; height: auto; margin: 0 auto 6px; display: block; }
 .sidebar-logo-img { width: 100px; height: auto; }
+
+/*new watermark*/
+.empty-chat { position: relative; overflow: hidden; }
+.empty-chat-watermark { position: absolute; right: -40px; top: 50%; transform: translateY(-50%); width: 360px; height: auto; opacity: 0.07; pointer-events: none; }
+.empty-chat-content { position: relative; z-index: 1; }
