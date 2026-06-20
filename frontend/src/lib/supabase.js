@@ -93,17 +93,24 @@ export const getOrCreateConversation = async (currentUserId, otherUserEmail) => 
   )
   if (directConvo) return directConvo.id
 
-  const { data: newConvo, error } = await supabase
+  // Generate the ID ourselves so we never need to SELECT the row back.
+  // (RLS on `conversations` only allows SELECT for existing members, but
+  // at the moment of insert no membership row exists yet — chaining
+  // .select().single() onto the insert would fail RLS for that reason.)
+  const newId = crypto.randomUUID()
+
+  const { error: convoError } = await supabase
     .from('conversations')
-    .insert({ is_group: false, updated_at: new Date().toISOString() })
-    .select()
-    .single()
-  if (error) throw error
+    .insert({ id: newId, is_group: false, updated_at: new Date().toISOString() })
+  if (convoError) throw convoError
 
-  await supabase.from('conversation_members').insert([
-    { conversation_id: newConvo.id, user_id: currentUserId },
-    { conversation_id: newConvo.id, user_id: otherUser.id }
-  ])
+  const { error: memberError } = await supabase
+    .from('conversation_members')
+    .insert([
+      { conversation_id: newId, user_id: currentUserId },
+      { conversation_id: newId, user_id: otherUser.id }
+    ])
+  if (memberError) throw memberError
 
-  return newConvo.id
+  return newId
 }
