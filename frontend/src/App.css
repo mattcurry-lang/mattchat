@@ -116,3 +116,17 @@ body {
 .empty-chat { position: relative; overflow: hidden; }
 .empty-chat-watermark { position: absolute; right: -40px; top: 50%; transform: translateY(-50%); width: 360px; height: auto; opacity: 0.07; pointer-events: none; }
 .empty-chat-content { position: relative; z-index: 1; }
+
+/*size of watermark*/
+.empty-chat { position: relative; overflow: hidden; }
+.empty-chat-content { position: relative; z-index: 1; }
+.empty-chat-watermark {
+  position: absolute !important;
+  right: -20px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 180px !important;
+  height: auto !important;
+  opacity: 0.05 !important;
+  pointer-events: none !important;
+}
