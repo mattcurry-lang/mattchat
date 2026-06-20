@@ -168,7 +168,7 @@ export default function ChatPage({ session }) {
             <div style={{ flex: 1 }}>
               <div className="chat-header-name">{getConvoName(activeConvo)}</div>
               <div className="chat-header-sub">
-                {typing.length > 0 ? `${typing[0].user_id} is typing…` : 'Online'}
+                {typing.length > 0 ? `${getConvoName(activeConvo)} is typing…` : 'Online'}
               </div>
             </div>
             <div className="email-badge" title="Mattchat email address">
