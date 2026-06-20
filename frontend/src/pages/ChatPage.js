@@ -110,12 +110,12 @@ export default function ChatPage({ session }) {
   )
 
   return (
-    <div className="app">
+    <div className={`app ${activeConvo ? 'chat-open' : ''}`}>
       {/* Sidebar */}
       <div className="sidebar">
         <div className="sidebar-header">
           <div>
-            <img src="/logo.png" alt="Mattchat" className="sidebar-logo-img" />
+            <div className="logo">Mattchat</div>
             <div className="user-email">{profile?.username || session.user.email}</div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -163,6 +163,7 @@ export default function ChatPage({ session }) {
       {activeConvo ? (
         <div className="chat-area">
           <div className="chat-header">
+            <button className="back-btn" onClick={() => setActiveConvo(null)} title="Back" aria-label="Back to conversations">←</button>
             <Avatar name={getConvoName(activeConvo)} size={34} />
             <div style={{ flex: 1 }}>
               <div className="chat-header-name">{getConvoName(activeConvo)}</div>
