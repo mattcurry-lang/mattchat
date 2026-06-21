@@ -144,3 +144,11 @@ body {
   .msg-bubble { max-width: 80%; }
   .empty-chat-watermark { width: 120px; }
 }
+
+/*back button */
+@media (max-width: 768px) {
+  html, body { height: 100%; position: fixed; width: 100%; overflow: hidden; }
+  .app { height: 100vh; height: 100dvh; }
+  .chat-header { position: sticky; top: 0; z-index: 5; background: white; }
+  .input-area { position: sticky; bottom: 0; z-index: 5; background: white; }
+}
