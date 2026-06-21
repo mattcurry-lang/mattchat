@@ -67,6 +67,23 @@ export default function ChatPage({ session }) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+
+  // Push a history entry whenever a chat is opened
+useEffect(() => {
+  if (activeConvo) {
+    window.history.pushState({ chatOpen: true }, '')
+  }
+}, [activeConvo])
+
+// Catch the phone's back button / gesture and close the chat
+useEffect(() => {
+  const handlePopState = () => {
+    setActiveConvo(null)
+  }
+  window.addEventListener('popstate', handlePopState)
+  return () => window.removeEventListener('popstate', handlePopState)
+}, [])
+
   const startNewChat = async (e) => {
     e.preventDefault()
     try {
