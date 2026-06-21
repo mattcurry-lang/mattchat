@@ -82,17 +82,20 @@ export const getOrCreateConversation = async (currentUserId, otherUserEmail) => 
 
   if (!otherUser) throw new Error('User not found')
 
-  const { data: existing } = await supabase
-    .from('conversations')
-    .select('id, conversation_members!inner(user_id)')
-    .eq('is_group', false)
-    .eq('conversation_members.user_id', currentUserId)
+  const { data: myConvos } = await supabase
+    .from('conversation_members')
+    .select('conversation_id')
+    .eq('user_id', currentUserId)
 
-  const directConvo = existing?.find(c =>
-    c.conversation_members.some(m => m.user_id === otherUser.id)
-  )
-  if (directConvo) return directConvo.id
+  const { data: theirConvos } = await supabase
+    .from('conversation_members')
+    .select('conversation_id')
+    .eq('user_id', otherUser.id)
 
+  const myIds = (myConvos || []).map(r => r.conversation_id)
+  const theirIds = (theirConvos || []).map(r => r.conversation_id)
+  const shared = myIds.find(id => theirIds.includes(id))
+  if (shared) return shared
   // Generate the ID ourselves so we never need to SELECT the row back.
   // (RLS on `conversations` only allows SELECT for existing members, but
   // at the moment of insert no membership row exists yet — chaining
