@@ -84,7 +84,15 @@ useEffect(() => {
   return () => window.removeEventListener('popstate', handlePopState)
 }, [])
 
-  const startNewChat = async (e) => {
+ const deleteConversation = async (convoId) => {
+    const confirmed = window.confirm('Delete this conversation? This cannot be undone.')
+    if (!confirmed) return
+    await supabase.from('messages').delete().eq('conversation_id', convoId)
+    await supabase.from('conversation_members').delete().eq('conversation_id', convoId)
+    await supabase.from('conversations').delete().eq('id', convoId)
+    if (activeConvo?.id === convoId) setActiveConvo(null)
+    await reload()
+  }
     e.preventDefault()
     try {
       const convoId = await getOrCreateConversation(userId, newEmail)
