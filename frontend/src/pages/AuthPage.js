@@ -9,6 +9,7 @@ export default function AuthPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState('')
   const [success, setSuccess] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
   const handle = async (e) => {
     e.preventDefault()
@@ -50,7 +51,25 @@ export default function AuthPage() {
           </div>
           <div className="field">
             <label>Password</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
+          <div style={{ position: 'relative' }}>
+  <input
+    type={showPassword ? 'text' : 'password'}
+    placeholder="Password"
+    style={{ paddingRight: '40px', width: '100%' }}
+    onChange={e => setPassword(e.target.value)}
+    value={password}
+  />
+  <span
+    onClick={() => setShowPassword(!showPassword)}
+    style={{
+      position: 'absolute', right: '12px', top: '50%',
+      transform: 'translateY(-50%)', cursor: 'pointer',
+      fontSize: '16px', color: '#6b8aa3', userSelect: 'none'
+    }}
+  >
+    {showPassword ? '🙈' : '👁️'}
+  </span>
+</div>
           </div>
           {error && <div className="auth-error">{error}</div>}
           {success && <div className="auth-success">{success}</div>}
