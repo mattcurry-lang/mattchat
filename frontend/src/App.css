@@ -151,3 +151,7 @@ html, body { height: 100%; overflow: hidden; }
   .chat-header { position: sticky; top: 0; z-index: 5; background: white; }
   .input-area { position: sticky; bottom: 0; z-index: 5; background: white; }
 }
+
+/*delete functionality*/
+.delete-chat-btn { background: none; border: none; cursor: pointer; font-size: 13px; opacity: 0; padding: 2px 4px; border-radius: 4px; transition: opacity 0.15s; }
+.contact:hover .delete-chat-btn { opacity: 1; }
