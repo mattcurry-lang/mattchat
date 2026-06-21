@@ -159,13 +159,20 @@ useEffect(() => {
           {convLoading && <div className="loading-state">Loading…</div>}
           {filtered.map(c => (
             <div key={c.id} className={`contact ${activeConvo?.id === c.id ? 'active' : ''}`} onClick={() => setActiveConvo(c)}>
-              <Avatar name={getConvoName(c)} />
-              <div className="contact-info">
-                <div className="contact-name">{getConvoName(c)}</div>
-                <div className="contact-preview">{c.last_message || 'No messages yet'}</div>
-              </div>
-              <div className="contact-time">{c.updated_at ? formatMsgTime(c.updated_at) : ''}</div>
-            </div>
+  <Avatar name={getConvoName(c)} />
+  <div className="contact-info">
+    <div className="contact-name">{getConvoName(c)}</div>
+    <div className="contact-preview">{c.last_message || 'No messages yet'}</div>
+  </div>
+  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+    <div className="contact-time">{c.updated_at ? formatMsgTime(c.updated_at) : ''}</div>
+    <button
+      className="delete-chat-btn"
+      onClick={e => { e.stopPropagation(); deleteConversation(c.id) }}
+      title="Delete chat"
+    >🗑️</button>
+  </div>
+</div>
           ))}
           {!convLoading && filtered.length === 0 && (
             <div className="empty-state">
