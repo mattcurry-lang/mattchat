@@ -67,24 +67,21 @@ export default function ChatPage({ session }) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  useEffect(() => {
+    if (activeConvo) {
+      window.history.pushState({ chatOpen: true }, '')
+    }
+  }, [activeConvo])
 
-  // Push a history entry whenever a chat is opened
-useEffect(() => {
-  if (activeConvo) {
-    window.history.pushState({ chatOpen: true }, '')
-  }
-}, [activeConvo])
+  useEffect(() => {
+    const handlePopState = () => {
+      setActiveConvo(null)
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
-// Catch the phone's back button / gesture and close the chat
-useEffect(() => {
-  const handlePopState = () => {
-    setActiveConvo(null)
-  }
-  window.addEventListener('popstate', handlePopState)
-  return () => window.removeEventListener('popstate', handlePopState)
-}, [])
-
- const deleteConversation = async (convoId) => {
+  const deleteConversation = async (convoId) => {
     const confirmed = window.confirm('Delete this conversation? This cannot be undone.')
     if (!confirmed) return
     await supabase.from('messages').delete().eq('conversation_id', convoId)
@@ -93,7 +90,8 @@ useEffect(() => {
     if (activeConvo?.id === convoId) setActiveConvo(null)
     await reload()
   }
-   const startNewChat = async (e) => {
+
+  const startNewChat = async (e) => {
     e.preventDefault()
     try {
       const convoId = await getOrCreateConversation(userId, newEmail)
@@ -137,7 +135,6 @@ useEffect(() => {
 
   return (
     <div className={`app ${activeConvo ? 'chat-open' : ''}`}>
-      {/* Sidebar */}
       <div className="sidebar">
         <div className="sidebar-header">
           <div>
@@ -168,20 +165,20 @@ useEffect(() => {
           {convLoading && <div className="loading-state">Loading…</div>}
           {filtered.map(c => (
             <div key={c.id} className={`contact ${activeConvo?.id === c.id ? 'active' : ''}`} onClick={() => setActiveConvo(c)}>
-  <Avatar name={getConvoName(c)} />
-  <div className="contact-info">
-    <div className="contact-name">{getConvoName(c)}</div>
-    <div className="contact-preview">{c.last_message || 'No messages yet'}</div>
-  </div>
-  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-    <div className="contact-time">{c.updated_at ? formatMsgTime(c.updated_at) : ''}</div>
-    <button
-      className="delete-chat-btn"
-      onClick={e => { e.stopPropagation(); deleteConversation(c.id) }}
-      title="Delete chat"
-    >🗑️</button>
-  </div>
-</div>
+              <Avatar name={getConvoName(c)} />
+              <div className="contact-info">
+                <div className="contact-name">{getConvoName(c)}</div>
+                <div className="contact-preview">{c.last_message || 'No messages yet'}</div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                <div className="contact-time">{c.updated_at ? formatMsgTime(c.updated_at) : ''}</div>
+                <button
+                  className="delete-chat-btn"
+                  onClick={e => { e.stopPropagation(); deleteConversation(c.id) }}
+                  title="Delete chat"
+                >🗑️</button>
+              </div>
+            </div>
           ))}
           {!convLoading && filtered.length === 0 && (
             <div className="empty-state">
@@ -192,12 +189,11 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Chat area */}
       {activeConvo ? (
         <div className="chat-area">
           <div className="chat-header">
-  <button className="back-btn" onClick={() => setActiveConvo(null)}>←</button>
-  <Avatar name={getConvoName(activeConvo)} size={34} />
+            <button className="back-btn" onClick={() => setActiveConvo(null)}>←</button>
+            <Avatar name={getConvoName(activeConvo)} size={34} />
             <div style={{ flex: 1 }}>
               <div className="chat-header-name">{getConvoName(activeConvo)}</div>
               <div className="chat-header-sub">
@@ -243,9 +239,9 @@ useEffect(() => {
         </div>
       ) : (
         <div className="chat-area empty-chat">
-  <img src="/logo.png" alt="" className="empty-chat-watermark" />
-  <div className="empty-chat-content">
-    <h2>Welcome to Mattchat</h2>
+          <img src="/logo.png" alt="" className="empty-chat-watermark" />
+          <div className="empty-chat-content">
+            <h2>Welcome to Mattchat</h2>
             <p>Select a conversation or start a new one.<br />Friends can also message you by email!</p>
             <button className="btn-primary" onClick={() => setShowNewChat(true)}>Start a conversation →</button>
           </div>
