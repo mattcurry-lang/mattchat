@@ -93,6 +93,7 @@ useEffect(() => {
     if (activeConvo?.id === convoId) setActiveConvo(null)
     await reload()
   }
+   const startNewChat = async (e) => {
     e.preventDefault()
     try {
       const convoId = await getOrCreateConversation(userId, newEmail)
