@@ -130,3 +130,17 @@ body {
   opacity: 0.05 !important;
   pointer-events: none !important;
 }
+
+/*mobile respomsiveness*/
+.back-btn { display: none; background: none; border: none; font-size: 22px; cursor: pointer; color: #3B82C4; padding: 4px 8px 4px 0; }
+
+@media (max-width: 768px) {
+  .app { max-width: 100%; }
+  .sidebar { width: 100%; min-width: 100%; display: flex; }
+  .chat-area { display: none; width: 100%; }
+  .app.chat-open .sidebar { display: none; }
+  .app.chat-open .chat-area { display: flex; }
+  .back-btn { display: inline-block; }
+  .msg-bubble { max-width: 80%; }
+  .empty-chat-watermark { width: 120px; }
+}
