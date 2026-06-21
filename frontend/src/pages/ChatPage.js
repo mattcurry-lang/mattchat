@@ -163,8 +163,8 @@ export default function ChatPage({ session }) {
       {activeConvo ? (
         <div className="chat-area">
           <div className="chat-header">
-            <button className="back-btn" onClick={() => setActiveConvo(null)} title="Back" aria-label="Back to conversations">←</button>
-            <Avatar name={getConvoName(activeConvo)} size={34} />
+  <button className="back-btn" onClick={() => setActiveConvo(null)}>←</button>
+  <Avatar name={getConvoName(activeConvo)} size={34} />
             <div style={{ flex: 1 }}>
               <div className="chat-header-name">{getConvoName(activeConvo)}</div>
               <div className="chat-header-sub">
