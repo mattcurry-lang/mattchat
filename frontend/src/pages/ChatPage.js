@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react'
 import { useChat, useConversations } from '../hooks/useChat'
 import { getOrCreateConversation, signOut, supabase } from '../lib/supabase'
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns'
+import VoiceRecorder from '../components/VoiceRecorder'
+import VoiceMessage from '../components/VoiceMessage'
 
 function Avatar({ name, size = 38 }) {
   const initials = name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?'
@@ -29,6 +31,21 @@ function DateDivider({ date }) {
 }
 
 function MessageBubble({ msg, isMe }) {
+  // Voice note message
+  if (msg.message_type === 'voice') {
+    return (
+      <div className={`msg-row ${isMe ? 'mine' : ''}`}>
+        {!isMe && <Avatar name={msg.profiles?.username} size={28} />}
+        <div>
+          {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
+          <VoiceMessage message={msg} isMe={isMe} />
+          <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+        </div>
+      </div>
+    )
+  }
+
+  // Regular text message
   return (
     <div className={`msg-row ${isMe ? 'mine' : ''}`}>
       {!isMe && <Avatar name={msg.profiles?.username} size={28} />}
@@ -51,6 +68,7 @@ export default function ChatPage({ session }) {
   const [inputText, setInputText] = useState('')
   const [search, setSearch] = useState('')
   const [profile, setProfile] = useState(null)
+  const [showVoice, setShowVoice] = useState(false)   // ← NEW: toggle voice recorder
   const messagesEndRef = useRef(null)
   const typingTimer = useRef(null)
 
@@ -68,18 +86,19 @@ export default function ChatPage({ session }) {
   }, [messages])
 
   useEffect(() => {
-    if (activeConvo) {
-      window.history.pushState({ chatOpen: true }, '')
-    }
+    if (activeConvo) window.history.pushState({ chatOpen: true }, '')
   }, [activeConvo])
 
   useEffect(() => {
-    const handlePopState = () => {
-      setActiveConvo(null)
-    }
+    const handlePopState = () => setActiveConvo(null)
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
+
+  // ── close voice recorder when switching conversations ──────────────────────
+  useEffect(() => {
+    setShowVoice(false)
+  }, [activeConvo])
 
   const deleteConversation = async (convoId) => {
     const confirmed = window.confirm('Delete this conversation? This cannot be undone.')
@@ -201,7 +220,7 @@ export default function ChatPage({ session }) {
               </div>
             </div>
             <div className="email-badge" title="Mattchat email address">
-              📧 matt+{getConvoName(activeConvo).toLowerCase().replace(/\s/g,'')}@yourdomain.com
+              📧 matt+{getConvoName(activeConvo).toLowerCase().replace(/\s/g, '')}@yourdomain.com
             </div>
           </div>
 
@@ -218,23 +237,40 @@ export default function ChatPage({ session }) {
               )
             })}
             {typing.length > 0 && (
-              <div className="typing-indicator">
-                <span></span><span></span><span></span>
-              </div>
+              <div className="typing-indicator"><span></span><span></span><span></span></div>
             )}
             <div ref={messagesEndRef} />
           </div>
 
+          {/* ── INPUT AREA ── */}
           <div className="input-area">
-            <button className="attach-btn" title="Attach file">📎</button>
-            <textarea
-              value={inputText}
-              onChange={handleTyping}
-              onKeyDown={handleKeyDown}
-              placeholder="Type a message…"
-              rows={1}
-            />
-            <button className="send-btn" onClick={handleSend} disabled={!inputText.trim()}>➤</button>
+            {showVoice ? (
+              /* Voice recorder replaces the text input */
+              <VoiceRecorder
+                conversationId={activeConvo.id}
+                senderId={userId}
+                onSent={() => setShowVoice(false)}
+                onCancel={() => setShowVoice(false)}
+              />
+            ) : (
+              /* Normal text input */
+              <>
+                <button
+                  className="attach-btn"
+                  onClick={() => setShowVoice(true)}
+                  title="Voice note"
+                  style={{ fontSize: 20 }}
+                >🎙️</button>
+                <textarea
+                  value={inputText}
+                  onChange={handleTyping}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Type a message…"
+                  rows={1}
+                />
+                <button className="send-btn" onClick={handleSend} disabled={!inputText.trim()}>➤</button>
+              </>
+            )}
           </div>
         </div>
       ) : (
