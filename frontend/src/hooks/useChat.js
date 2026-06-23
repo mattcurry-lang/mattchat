@@ -34,6 +34,15 @@ export function useChat(conversationId, currentUserId) {
           setMessages(prev => [...prev, msgWithProfile])
         }
       })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages',
+        filter: `conversation_id=eq.${conversationId}`
+      }, (payload) => {
+        // Updates transcript status when Whisper finishes
+        setMessages(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new } : m))
+      })
       .on('broadcast', { event: 'typing' }, ({ payload }) => {
         if (payload.user_id === currentUserId) return
         setTyping(prev => {
