@@ -8,6 +8,7 @@ import PollCreator from '../components/PollCreator'
 import PollMessage from '../components/PollMessage'
 import TaskCreator from '../components/TaskCreator'
 import TaskMessage from '../components/TaskMessage'
+import PinnedBar from '../components/PinnedBar'
 
 function Avatar({ name, size = 38 }) {
   const initials = name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?'
@@ -103,6 +104,8 @@ export default function ChatPage({ session }) {
   const [showVoice, setShowVoice] = useState(false)
   const [showPoll, setShowPoll] = useState(false)
   const [showTask, setShowTask] = useState(false)
+  const [pinnedRefresh, setPinnedRefresh] = useState(0)
+  const msgRefs = useRef({})
   const messagesEndRef = useRef(null)
   const typingTimer = useRef(null)
 
@@ -145,6 +148,18 @@ export default function ChatPage({ session }) {
     if (activeConvo?.id === convoId) setActiveConvo(null)
     await reload()
   }
+  const pinMessage = async (msgId) => {
+  const { error } = await supabase
+    .from('pinned_messages')
+    .insert({ conversation_id: activeConvo.id, message_id: msgId, pinned_by: userId })
+  if (error) alert('Already pinned or could not pin message')
+  else setPinnedRefresh(v => v + 1)
+}
+
+const scrollToMessage = (msgId) => {
+  const el = msgRefs.current[msgId]
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
 
   const startNewChat = async (e) => {
     e.preventDefault()
@@ -260,18 +275,29 @@ export default function ChatPage({ session }) {
             </div>
           </div>
 
-          <div className="messages">
-            {msgLoading && <div className="loading-state">Loading messages…</div>}
-            {messages.map((msg, i) => {
-              const prev = messages[i - 1]
-              const showDate = !prev || new Date(msg.created_at).toDateString() !== new Date(prev.created_at).toDateString()
-              return (
-                <React.Fragment key={msg.id}>
-                  {showDate && <DateDivider date={msg.created_at} />}
-                  <MessageBubble msg={{ ...msg, _currentUserId: userId }} isMe={msg.sender_id === userId} />
-                </React.Fragment>
-              )
-            })}
+         <PinnedBar
+  key={pinnedRefresh}
+  conversationId={activeConvo?.id}
+  onScrollTo={scrollToMessage}
+/>
+<div className="messages">
+  {msgLoading && <div className="loading-state">Loading messages…</div>}
+  {messages.map((msg, i) => {
+    const prev = messages[i - 1]
+    const showDate = !prev || new Date(msg.created_at).toDateString() !== new Date(prev.created_at).toDateString()
+    return (
+      <React.Fragment key={msg.id}>
+        {showDate && <DateDivider date={msg.created_at} />}
+        <div
+          ref={el => msgRefs.current[msg.id] = el}
+          onContextMenu={e => { e.preventDefault(); pinMessage(msg.id) }}
+          title="Right-click to pin"
+        >
+          <MessageBubble msg={{ ...msg, _currentUserId: userId }} isMe={msg.sender_id === userId} />
+        </div>
+      </React.Fragment>
+    )
+  })}
             {typing.length > 0 && (
               <div className="typing-indicator"><span></span><span></span><span></span></div>
             )}
