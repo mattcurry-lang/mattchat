@@ -1,8 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
-
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY
-
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Auth helpers
@@ -50,11 +48,29 @@ export const getConversations = async (userId) => {
 export const getMessages = async (conversationId) => {
   const { data, error } = await supabase
     .from('messages')
-    .select(`*, profiles(username, avatar_url)`)
+    .select(`
+      id,
+      conversation_id,
+      sender_id,
+      content,
+      is_email,
+      message_type,
+      audio_url,
+      audio_duration,
+      transcript,
+      transcript_status,
+      is_pinned,
+      created_at,
+      profiles(username, avatar_url)
+    `)
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true })
-  if (error) throw error
-  return data
+
+  if (error) {
+    console.error('getMessages error:', error)
+    return []
+  }
+  return data || []
 }
 
 export const sendMessage = async (conversationId, senderId, content, isEmail = false) => {
@@ -64,12 +80,10 @@ export const sendMessage = async (conversationId, senderId, content, isEmail = f
     .select()
     .single()
   if (error) throw error
-
   await supabase
     .from('conversations')
     .update({ updated_at: new Date().toISOString(), last_message: content })
     .eq('id', conversationId)
-
   return data
 }
 
@@ -79,7 +93,6 @@ export const getOrCreateConversation = async (currentUserId, otherUserEmail) => 
     .select('id')
     .eq('email', otherUserEmail)
     .single()
-
   if (!otherUser) throw new Error('User not found')
 
   const { data: myConvos } = await supabase
@@ -96,12 +109,8 @@ export const getOrCreateConversation = async (currentUserId, otherUserEmail) => 
   const theirIds = (theirConvos || []).map(r => r.conversation_id)
   const shared = myIds.find(id => theirIds.includes(id))
   if (shared) return shared
-  // Generate the ID ourselves so we never need to SELECT the row back.
-  // (RLS on `conversations` only allows SELECT for existing members, but
-  // at the moment of insert no membership row exists yet — chaining
-  // .select().single() onto the insert would fail RLS for that reason.)
-  const newId = crypto.randomUUID()
 
+  const newId = crypto.randomUUID()
   const { error: convoError } = await supabase
     .from('conversations')
     .insert({ id: newId, is_group: false, updated_at: new Date().toISOString() })
@@ -114,6 +123,5 @@ export const getOrCreateConversation = async (currentUserId, otherUserEmail) => 
       { conversation_id: newId, user_id: otherUser.id }
     ])
   if (memberError) throw memberError
-
   return newId
 }
