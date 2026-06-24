@@ -4,6 +4,8 @@ import { getOrCreateConversation, signOut, supabase } from '../lib/supabase'
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns'
 import VoiceRecorder from '../components/VoiceRecorder'
 import VoiceMessage from '../components/VoiceMessage'
+import PollCreator from '../components/PollCreator'
+import PollMessage from '../components/PollMessage'
 
 function Avatar({ name, size = 38 }) {
   const initials = name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?'
@@ -31,6 +33,20 @@ function DateDivider({ date }) {
 }
 
 function MessageBubble({ msg, isMe }) {
+  // Poll message
+  if (msg.message_type === 'poll') {
+    return (
+      <div className={`msg-row ${isMe ? 'mine' : ''}`}>
+        {!isMe && <Avatar name={msg.profiles?.username} size={28} />}
+        <div>
+          {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
+          <PollMessage message={msg} currentUserId={msg._currentUserId} />
+          <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+        </div>
+      </div>
+    )
+  }
+
   // Voice note message
   if (msg.message_type === 'voice') {
     return (
@@ -68,7 +84,8 @@ export default function ChatPage({ session }) {
   const [inputText, setInputText] = useState('')
   const [search, setSearch] = useState('')
   const [profile, setProfile] = useState(null)
-  const [showVoice, setShowVoice] = useState(false)   // ← NEW: toggle voice recorder
+  const [showVoice, setShowVoice] = useState(false)
+  const [showPoll, setShowPoll] = useState(false)
   const messagesEndRef = useRef(null)
   const typingTimer = useRef(null)
 
@@ -95,9 +112,10 @@ export default function ChatPage({ session }) {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
-  // ── close voice recorder when switching conversations ──────────────────────
+  // ── close voice recorder and poll creator when switching conversations ───────
   useEffect(() => {
     setShowVoice(false)
+    setShowPoll(false)
   }, [activeConvo])
 
   const deleteConversation = async (convoId) => {
@@ -232,7 +250,7 @@ export default function ChatPage({ session }) {
               return (
                 <React.Fragment key={msg.id}>
                   {showDate && <DateDivider date={msg.created_at} />}
-                  <MessageBubble msg={msg} isMe={msg.sender_id === userId} />
+                  <MessageBubble msg={{ ...msg, _currentUserId: userId }} isMe={msg.sender_id === userId} />
                 </React.Fragment>
               )
             })}
@@ -243,9 +261,18 @@ export default function ChatPage({ session }) {
           </div>
 
           {/* ── INPUT AREA ── */}
-          <div className="input-area">
+          <div className="input-area" style={{ position: 'relative' }}>
+            {/* Poll creator floats above input */}
+            {showPoll && (
+              <PollCreator
+                conversationId={activeConvo.id}
+                senderId={userId}
+                onSent={() => setShowPoll(false)}
+                onCancel={() => setShowPoll(false)}
+              />
+            )}
+
             {showVoice ? (
-              /* Voice recorder replaces the text input */
               <VoiceRecorder
                 conversationId={activeConvo.id}
                 senderId={userId}
@@ -253,7 +280,6 @@ export default function ChatPage({ session }) {
                 onCancel={() => setShowVoice(false)}
               />
             ) : (
-              /* Normal text input */
               <>
                 <button
                   className="attach-btn"
@@ -261,6 +287,12 @@ export default function ChatPage({ session }) {
                   title="Voice note"
                   style={{ fontSize: 20 }}
                 >🎙️</button>
+                <button
+                  className="attach-btn"
+                  onClick={() => setShowPoll(v => !v)}
+                  title="Create poll"
+                  style={{ fontSize: 20 }}
+                >📊</button>
                 <textarea
                   value={inputText}
                   onChange={handleTyping}
