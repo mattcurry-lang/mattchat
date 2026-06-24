@@ -166,3 +166,6 @@ body {
   .auth-card { padding: 28px 20px; }
   .auth-card:hover { transform: none; }
 }
+
+/*pin message style*/
+@keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
