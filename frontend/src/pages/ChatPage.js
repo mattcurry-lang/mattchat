@@ -9,8 +9,8 @@ import PollMessage from '../components/PollMessage'
 import TaskCreator from '../components/TaskCreator'
 import TaskMessage from '../components/TaskMessage'
 import PinnedBar from '../components/PinnedBar'
-import ScheduleMessageModal from '../components/ScheduleMessageModal';
-import ScheduledMessagesList from '../components/ScheduledMessagesList';
+import ScheduleMessageModal from '../components/ScheduleMessageModal'
+import ScheduledMessagesList from '../components/ScheduledMessagesList'
 
 function Avatar({ name, size = 38 }) {
   const initials = name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?'
@@ -107,8 +107,8 @@ export default function ChatPage({ session }) {
   const [showPoll, setShowPoll] = useState(false)
   const [showTask, setShowTask] = useState(false)
   const [pinnedRefresh, setPinnedRefresh] = useState(0)
-  const [showScheduler, setShowScheduler] = useState(false);
-  const [showScheduledList, setShowScheduledList] = useState(false);
+  const [showScheduler, setShowScheduler] = useState(false)
+  const [showScheduledList, setShowScheduledList] = useState(false)
   const msgRefs = useRef({})
   const messagesEndRef = useRef(null)
   const typingTimer = useRef(null)
@@ -136,11 +136,13 @@ export default function ChatPage({ session }) {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
-  // ── close voice recorder and poll creator when switching conversations ───────
+  // ── close voice recorder, poll/task creators, and scheduler popups when switching conversations ───────
   useEffect(() => {
     setShowVoice(false)
     setShowPoll(false)
     setShowTask(false)
+    setShowScheduler(false)
+    setShowScheduledList(false)
   }, [activeConvo])
 
   const deleteConversation = async (convoId) => {
@@ -152,18 +154,19 @@ export default function ChatPage({ session }) {
     if (activeConvo?.id === convoId) setActiveConvo(null)
     await reload()
   }
-  const pinMessage = async (msgId) => {
-  const { error } = await supabase
-    .from('pinned_messages')
-    .insert({ conversation_id: activeConvo.id, message_id: msgId, pinned_by: userId })
-  if (error) alert('Already pinned or could not pin message')
-  else setPinnedRefresh(v => v + 1)
-}
 
-const scrollToMessage = (msgId) => {
-  const el = msgRefs.current[msgId]
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-}
+  const pinMessage = async (msgId) => {
+    const { error } = await supabase
+      .from('pinned_messages')
+      .insert({ conversation_id: activeConvo.id, message_id: msgId, pinned_by: userId })
+    if (error) alert('Already pinned or could not pin message')
+    else setPinnedRefresh(v => v + 1)
+  }
+
+  const scrollToMessage = (msgId) => {
+    const el = msgRefs.current[msgId]
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
 
   const startNewChat = async (e) => {
     e.preventDefault()
@@ -274,34 +277,53 @@ const scrollToMessage = (msgId) => {
                 {typing.length > 0 ? `${getConvoName(activeConvo)} is typing…` : 'Online'}
               </div>
             </div>
+            <button
+              className="scheduled-link-btn"
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: 13,
+                color: '#667eea',
+                cursor: 'pointer',
+                padding: '4px 8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+              onClick={() => setShowScheduledList(true)}
+              title="View scheduled messages"
+            >
+              🕐 Scheduled
+            </button>
             <div className="email-badge" title="Mattchat email address">
               📧 matt+{getConvoName(activeConvo).toLowerCase().replace(/\s/g, '')}@yourdomain.com
             </div>
           </div>
 
-         <PinnedBar
-  key={pinnedRefresh}
-  conversationId={activeConvo?.id}
-  onScrollTo={scrollToMessage}
-/>
-<div className="messages">
-  {msgLoading && <div className="loading-state">Loading messages…</div>}
-  {messages.map((msg, i) => {
-    const prev = messages[i - 1]
-    const showDate = !prev || new Date(msg.created_at).toDateString() !== new Date(prev.created_at).toDateString()
-    return (
-      <React.Fragment key={msg.id}>
-        {showDate && <DateDivider date={msg.created_at} />}
-        <div
-          ref={el => msgRefs.current[msg.id] = el}
-          onContextMenu={e => { e.preventDefault(); pinMessage(msg.id) }}
-          title="Right-click to pin"
-        >
-          <MessageBubble msg={{ ...msg, _currentUserId: userId }} isMe={msg.sender_id === userId} />
-        </div>
-      </React.Fragment>
-    )
-  })}
+          <PinnedBar
+            key={pinnedRefresh}
+            conversationId={activeConvo?.id}
+            onScrollTo={scrollToMessage}
+          />
+
+          <div className="messages">
+            {msgLoading && <div className="loading-state">Loading messages…</div>}
+            {messages.map((msg, i) => {
+              const prev = messages[i - 1]
+              const showDate = !prev || new Date(msg.created_at).toDateString() !== new Date(prev.created_at).toDateString()
+              return (
+                <React.Fragment key={msg.id}>
+                  {showDate && <DateDivider date={msg.created_at} />}
+                  <div
+                    ref={el => msgRefs.current[msg.id] = el}
+                    onContextMenu={e => { e.preventDefault(); pinMessage(msg.id) }}
+                    title="Right-click to pin"
+                  >
+                    <MessageBubble msg={{ ...msg, _currentUserId: userId }} isMe={msg.sender_id === userId} />
+                  </div>
+                </React.Fragment>
+              )
+            })}
             {typing.length > 0 && (
               <div className="typing-indicator"><span></span><span></span><span></span></div>
             )}
@@ -357,6 +379,12 @@ const scrollToMessage = (msgId) => {
                   title="Create task list"
                   style={{ fontSize: 20 }}
                 >✅</button>
+                <button
+                  className="attach-btn"
+                  onClick={() => setShowScheduler(true)}
+                  title="Schedule message"
+                  style={{ fontSize: 20 }}
+                >🕐</button>
                 <textarea
                   value={inputText}
                   onChange={handleTyping}
@@ -366,40 +394,28 @@ const scrollToMessage = (msgId) => {
                 />
                 <button className="send-btn" onClick={handleSend} disabled={!inputText.trim()}>➤</button>
               </>
-<button
-  style={{
-    background: 'none',
-    border: 'none',
-    fontSize: 22,
-    cursor: 'pointer',
-    padding: '0 6px',
-    opacity: 0.8,
-  }}
-  onClick={() => setShowScheduler(true)}
-  title="Schedule message"
->
-  🕐
-</button>
-
-<button
-  style={{
-    background: 'none',
-    border: 'none',
-    fontSize: 13,
-    color: '#667eea',
-    cursor: 'pointer',
-    padding: '4px 8px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 4,
-  }}
-  onClick={() => setShowScheduledList(true)}
-  title="View scheduled messages"
->
-  🕐 Scheduled
-</button>
             )}
-              
+
+            {showScheduler && (
+              <ScheduleMessageModal
+                conversationId={activeConvo.id}
+                senderId={userId}
+                onClose={(success) => {
+                  setShowScheduler(false)
+                  if (success) {
+                    alert('Message scheduled ✓')
+                  }
+                }}
+              />
+            )}
+
+            {showScheduledList && (
+              <ScheduledMessagesList
+                conversationId={activeConvo.id}
+                currentUserId={userId}
+                onClose={() => setShowScheduledList(false)}
+              />
+            )}
           </div>
         </div>
       ) : (
@@ -412,27 +428,6 @@ const scrollToMessage = (msgId) => {
           </div>
         </div>
       )}
-        showScheduler && (
-  <ScheduleMessageModal
-    conversationId={conversationId}
-    senderId={currentUser?.id}
-    onClose={(success) => {
-      setShowScheduler(false);
-      if (success) {
-        // Optional: show a brief toast
-        alert('Message scheduled ✓');
-      }
-    }}
-  />
-)}
- 
-{showScheduledList && (
-  <ScheduledMessagesList
-    conversationId={conversationId}
-    currentUserId={currentUser?.id}
-    onClose={() => setShowScheduledList(false)}
-  />
-)}
     </div>
   )
 }
