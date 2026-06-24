@@ -6,6 +6,8 @@ import VoiceRecorder from '../components/VoiceRecorder'
 import VoiceMessage from '../components/VoiceMessage'
 import PollCreator from '../components/PollCreator'
 import PollMessage from '../components/PollMessage'
+import TaskCreator from '../components/TaskCreator'
+import TaskMessage from '../components/TaskMessage'
 
 function Avatar({ name, size = 38 }) {
   const initials = name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?'
@@ -33,6 +35,20 @@ function DateDivider({ date }) {
 }
 
 function MessageBubble({ msg, isMe }) {
+  // Task list message
+  if (msg.message_type === 'task') {
+    return (
+      <div className={`msg-row ${isMe ? 'mine' : ''}`}>
+        {!isMe && <Avatar name={msg.profiles?.username} size={28} />}
+        <div>
+          {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
+          <TaskMessage message={msg} currentUserId={msg._currentUserId} />
+          <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+        </div>
+      </div>
+    )
+  }
+
   // Poll message
   if (msg.message_type === 'poll') {
     return (
@@ -86,6 +102,7 @@ export default function ChatPage({ session }) {
   const [profile, setProfile] = useState(null)
   const [showVoice, setShowVoice] = useState(false)
   const [showPoll, setShowPoll] = useState(false)
+  const [showTask, setShowTask] = useState(false)
   const messagesEndRef = useRef(null)
   const typingTimer = useRef(null)
 
@@ -116,6 +133,7 @@ export default function ChatPage({ session }) {
   useEffect(() => {
     setShowVoice(false)
     setShowPoll(false)
+    setShowTask(false)
   }, [activeConvo])
 
   const deleteConversation = async (convoId) => {
@@ -272,6 +290,16 @@ export default function ChatPage({ session }) {
               />
             )}
 
+            {/* Task creator floats above input */}
+            {showTask && (
+              <TaskCreator
+                conversationId={activeConvo.id}
+                senderId={userId}
+                onSent={() => setShowTask(false)}
+                onCancel={() => setShowTask(false)}
+              />
+            )}
+
             {showVoice ? (
               <VoiceRecorder
                 conversationId={activeConvo.id}
@@ -289,10 +317,16 @@ export default function ChatPage({ session }) {
                 >🎙️</button>
                 <button
                   className="attach-btn"
-                  onClick={() => setShowPoll(v => !v)}
+                  onClick={() => { setShowPoll(v => !v); setShowTask(false) }}
                   title="Create poll"
                   style={{ fontSize: 20 }}
                 >📊</button>
+                <button
+                  className="attach-btn"
+                  onClick={() => { setShowTask(v => !v); setShowPoll(false) }}
+                  title="Create task list"
+                  style={{ fontSize: 20 }}
+                >✅</button>
                 <textarea
                   value={inputText}
                   onChange={handleTyping}
