@@ -9,6 +9,8 @@ import PollMessage from '../components/PollMessage'
 import TaskCreator from '../components/TaskCreator'
 import TaskMessage from '../components/TaskMessage'
 import PinnedBar from '../components/PinnedBar'
+import ScheduleMessageModal from '../components/ScheduleMessageModal';
+import ScheduledMessagesList from '../components/ScheduledMessagesList';
 
 function Avatar({ name, size = 38 }) {
   const initials = name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?'
@@ -105,6 +107,8 @@ export default function ChatPage({ session }) {
   const [showPoll, setShowPoll] = useState(false)
   const [showTask, setShowTask] = useState(false)
   const [pinnedRefresh, setPinnedRefresh] = useState(0)
+  const [showScheduler, setShowScheduler] = useState(false);
+  const [showScheduledList, setShowScheduledList] = useState(false);
   const msgRefs = useRef({})
   const messagesEndRef = useRef(null)
   const typingTimer = useRef(null)
@@ -362,7 +366,40 @@ const scrollToMessage = (msgId) => {
                 />
                 <button className="send-btn" onClick={handleSend} disabled={!inputText.trim()}>➤</button>
               </>
+<button
+  style={{
+    background: 'none',
+    border: 'none',
+    fontSize: 22,
+    cursor: 'pointer',
+    padding: '0 6px',
+    opacity: 0.8,
+  }}
+  onClick={() => setShowScheduler(true)}
+  title="Schedule message"
+>
+  🕐
+</button>
+
+<button
+  style={{
+    background: 'none',
+    border: 'none',
+    fontSize: 13,
+    color: '#667eea',
+    cursor: 'pointer',
+    padding: '4px 8px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+  }}
+  onClick={() => setShowScheduledList(true)}
+  title="View scheduled messages"
+>
+  🕐 Scheduled
+</button>
             )}
+              
           </div>
         </div>
       ) : (
@@ -375,6 +412,27 @@ const scrollToMessage = (msgId) => {
           </div>
         </div>
       )}
+        showScheduler && (
+  <ScheduleMessageModal
+    conversationId={conversationId}
+    senderId={currentUser?.id}
+    onClose={(success) => {
+      setShowScheduler(false);
+      if (success) {
+        // Optional: show a brief toast
+        alert('Message scheduled ✓');
+      }
+    }}
+  />
+)}
+ 
+{showScheduledList && (
+  <ScheduledMessagesList
+    conversationId={conversationId}
+    currentUserId={currentUser?.id}
+    onClose={() => setShowScheduledList(false)}
+  />
+)}
     </div>
   )
 }
