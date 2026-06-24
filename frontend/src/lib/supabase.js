@@ -61,7 +61,7 @@ export const getMessages = async (conversationId) => {
       transcript_status,
       is_pinned,
       created_at,
-      profiles(username, avatar_url)
+      profiles!messages_sender_id_fkey(username, avatar_url)
     `)
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true })
