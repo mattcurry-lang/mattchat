@@ -5,6 +5,7 @@ export function useChat(conversationId, currentUserId) {
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
   const [typing, setTyping] = useState([])
+  const [isEmailConvo, setIsEmailConvo] = useState(false)
   const channelRef = useRef(null)
 
   useEffect(() => {
@@ -15,6 +16,14 @@ export function useChat(conversationId, currentUserId) {
       setMessages(data || [])
       setLoading(false)
     })
+
+    // Check if this is an email conversation
+    supabase
+      .from('conversations')
+      .select('email_sender')
+      .eq('id', conversationId)
+      .single()
+      .then(({ data }) => setIsEmailConvo(!!data?.email_sender))
 
     // Real-time subscription
     const channel = supabase
@@ -27,7 +36,7 @@ export function useChat(conversationId, currentUserId) {
       }, async (payload) => {
         const { data: msgWithProfile } = await supabase
           .from('messages')
-          .select('*, profiles(username, avatar_url)')
+          .select('*, profiles!messages_sender_id_fkey(username, avatar_url)')
           .eq('id', payload.new.id)
           .single()
         if (msgWithProfile) {
@@ -40,7 +49,6 @@ export function useChat(conversationId, currentUserId) {
         table: 'messages',
         filter: `conversation_id=eq.${conversationId}`
       }, (payload) => {
-        // Updates transcript status when Whisper finishes
         setMessages(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new } : m))
       })
       .on('broadcast', { event: 'typing' }, ({ payload }) => {
@@ -63,8 +71,21 @@ export function useChat(conversationId, currentUserId) {
 
   const sendMessage = useCallback(async (content) => {
     if (!conversationId || !currentUserId || !content.trim()) return
+
+    // Insert message into DB
     await sendMsg(conversationId, currentUserId, content.trim())
-  }, [conversationId, currentUserId])
+
+    // If this is an email conversation, also send an outbound email reply
+    if (isEmailConvo) {
+      await supabase.functions.invoke('send-email', {
+        body: {
+          conversationId,
+          senderId: currentUserId,
+          content: content.trim(),
+        }
+      })
+    }
+  }, [conversationId, currentUserId, isEmailConvo])
 
   const broadcastTyping = useCallback((isTyping) => {
     channelRef.current?.send({
@@ -84,7 +105,6 @@ export function useConversations(userId) {
   const load = useCallback(async () => {
     if (!userId) return
 
-    // Step 1: find which conversations this user belongs to.
     const { data: memberRows } = await supabase
       .from('conversation_members')
       .select('conversation_id')
@@ -97,13 +117,10 @@ export function useConversations(userId) {
       return
     }
 
-    // Step 2: fetch those conversations WITH all their members
-    // (not filtered down to just the current user, otherwise the
-    // other participant's info never comes back).
     const { data } = await supabase
       .from('conversations')
       .select(`
-        id, updated_at, last_message, is_group, name,
+        id, updated_at, last_message, is_group, name, email_sender,
         conversation_members(
           user_id,
           profiles(id, username, email, avatar_url)
