@@ -145,6 +145,13 @@ export default function ChatPage({ session }) {
     setShowScheduledList(false)
   }, [activeConvo])
 
+  // Ping scheduled message sender every 60 seconds
+useEffect(() => {
+  const interval = setInterval(() => {
+    supabase.functions.invoke('send-scheduled-messages')
+  }, 60000)
+  return () => clearInterval(interval)
+}, [])
   const deleteConversation = async (convoId) => {
     const confirmed = window.confirm('Delete this conversation? This cannot be undone.')
     if (!confirmed) return
