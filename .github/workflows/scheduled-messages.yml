@@ -9,15 +9,12 @@ jobs:
   send:
     runs-on: ubuntu-latest
     steps:
-      - name: Test network
-        run: curl -v https://google.com
-
       - name: Trigger edge function
         env:
           ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          curl -v -X POST \
-            "https://bqerkvywgxoiocbkxif.supabase.co/functions/v1/send-scheduled-messages" \
+          curl -s -X POST \
+            "https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/send-scheduled-messages" \
             -H "Authorization: Bearer $ANON_KEY" \
             -H "Content-Type: application/json" \
             -d '{"trigger":"cron"}'
