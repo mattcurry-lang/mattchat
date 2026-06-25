@@ -301,9 +301,18 @@ export default function ChatPage({ session }) {
             >
               🕐 Scheduled
             </button>
-            <div className="email-badge" title="Mattchat email address">
-              📧 matt+{getConvoName(activeConvo).toLowerCase().replace(/\s/g, '')}@yourdomain.com
-            </div>
+            <button
+  className="email-badge"
+  title="Share your contact link"
+  style={{ cursor: 'pointer', background: 'none', border: 'none' }}
+  onClick={() => {
+    const link = `https://mattchat-nine.vercel.app/email/${profile?.username || ''}`
+    navigator.clipboard.writeText(link)
+    alert('Contact link copied! Share it so people can message you.')
+  }}
+>
+  📧 Share link
+</button>
           </div>
 
           <PinnedBar
