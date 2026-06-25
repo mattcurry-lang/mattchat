@@ -11,6 +11,7 @@ import TaskMessage from '../components/TaskMessage'
 import PinnedBar from '../components/PinnedBar'
 import ScheduleMessageModal from '../components/ScheduleMessageModal'
 import ScheduledMessagesList from '../components/ScheduledMessagesList'
+import MessageSearch from '../components/MessageSearch'
 
 function Avatar({ name, size = 38 }) {
   const initials = name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?'
@@ -38,7 +39,6 @@ function DateDivider({ date }) {
 }
 
 function MessageBubble({ msg, isMe }) {
-  // Task list message
   if (msg.message_type === 'task') {
     return (
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
@@ -52,7 +52,6 @@ function MessageBubble({ msg, isMe }) {
     )
   }
 
-  // Poll message
   if (msg.message_type === 'poll') {
     return (
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
@@ -66,7 +65,6 @@ function MessageBubble({ msg, isMe }) {
     )
   }
 
-  // Voice note message
   if (msg.message_type === 'voice') {
     return (
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
@@ -80,7 +78,6 @@ function MessageBubble({ msg, isMe }) {
     )
   }
 
-  // Regular text message
   return (
     <div className={`msg-row ${isMe ? 'mine' : ''}`}>
       {!isMe && <Avatar name={msg.profiles?.username} size={28} />}
@@ -109,6 +106,7 @@ export default function ChatPage({ session }) {
   const [pinnedRefresh, setPinnedRefresh] = useState(0)
   const [showScheduler, setShowScheduler] = useState(false)
   const [showScheduledList, setShowScheduledList] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
   const msgRefs = useRef({})
   const messagesEndRef = useRef(null)
   const typingTimer = useRef(null)
@@ -136,22 +134,23 @@ export default function ChatPage({ session }) {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
-  // ── close voice recorder, poll/task creators, and scheduler popups when switching conversations ───────
   useEffect(() => {
     setShowVoice(false)
     setShowPoll(false)
     setShowTask(false)
     setShowScheduler(false)
     setShowScheduledList(false)
+    setShowSearch(false)
   }, [activeConvo])
 
   // Ping scheduled message sender every 60 seconds
-useEffect(() => {
-  const interval = setInterval(() => {
-    supabase.functions.invoke('send-scheduled-messages')
-  }, 60000)
-  return () => clearInterval(interval)
-}, [])
+  useEffect(() => {
+    const interval = setInterval(() => {
+      supabase.functions.invoke('send-scheduled-messages')
+    }, 60000)
+    return () => clearInterval(interval)
+  }, [])
+
   const deleteConversation = async (convoId) => {
     const confirmed = window.confirm('Delete this conversation? This cannot be undone.')
     if (!confirmed) return
@@ -285,17 +284,17 @@ useEffect(() => {
               </div>
             </div>
             <button
+              className="icon-btn"
+              onClick={() => setShowSearch(true)}
+              title="Search messages"
+              style={{ fontSize: 16 }}
+            >🔍</button>
+            <button
               className="scheduled-link-btn"
               style={{
-                background: 'none',
-                border: 'none',
-                fontSize: 13,
-                color: '#667eea',
-                cursor: 'pointer',
-                padding: '4px 8px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
+                background: 'none', border: 'none', fontSize: 13,
+                color: '#667eea', cursor: 'pointer', padding: '4px 8px',
+                display: 'flex', alignItems: 'center', gap: 4,
               }}
               onClick={() => setShowScheduledList(true)}
               title="View scheduled messages"
@@ -337,9 +336,7 @@ useEffect(() => {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* ── INPUT AREA ── */}
           <div className="input-area" style={{ position: 'relative' }}>
-            {/* Poll creator floats above input */}
             {showPoll && (
               <PollCreator
                 conversationId={activeConvo.id}
@@ -349,7 +346,6 @@ useEffect(() => {
               />
             )}
 
-            {/* Task creator floats above input */}
             {showTask && (
               <TaskCreator
                 conversationId={activeConvo.id}
@@ -368,30 +364,10 @@ useEffect(() => {
               />
             ) : (
               <>
-                <button
-                  className="attach-btn"
-                  onClick={() => setShowVoice(true)}
-                  title="Voice note"
-                  style={{ fontSize: 20 }}
-                >🎙️</button>
-                <button
-                  className="attach-btn"
-                  onClick={() => { setShowPoll(v => !v); setShowTask(false) }}
-                  title="Create poll"
-                  style={{ fontSize: 20 }}
-                >📊</button>
-                <button
-                  className="attach-btn"
-                  onClick={() => { setShowTask(v => !v); setShowPoll(false) }}
-                  title="Create task list"
-                  style={{ fontSize: 20 }}
-                >✅</button>
-                <button
-                  className="attach-btn"
-                  onClick={() => setShowScheduler(true)}
-                  title="Schedule message"
-                  style={{ fontSize: 20 }}
-                >🕐</button>
+                <button className="attach-btn" onClick={() => setShowVoice(true)} title="Voice note" style={{ fontSize: 20 }}>🎙️</button>
+                <button className="attach-btn" onClick={() => { setShowPoll(v => !v); setShowTask(false) }} title="Create poll" style={{ fontSize: 20 }}>📊</button>
+                <button className="attach-btn" onClick={() => { setShowTask(v => !v); setShowPoll(false) }} title="Create task list" style={{ fontSize: 20 }}>✅</button>
+                <button className="attach-btn" onClick={() => setShowScheduler(true)} title="Schedule message" style={{ fontSize: 20 }}>🕐</button>
                 <textarea
                   value={inputText}
                   onChange={handleTyping}
@@ -409,9 +385,7 @@ useEffect(() => {
                 senderId={userId}
                 onClose={(success) => {
                   setShowScheduler(false)
-                  if (success) {
-                    alert('Message scheduled ✓')
-                  }
+                  if (success) alert('Message scheduled ✓')
                 }}
               />
             )}
@@ -424,6 +398,16 @@ useEffect(() => {
               />
             )}
           </div>
+
+          {showSearch && (
+            <MessageSearch
+              conversationId={activeConvo.id}
+              currentUserId={userId}
+              otherUserName={getConvoName(activeConvo)}
+              onScrollTo={scrollToMessage}
+              onClose={() => setShowSearch(false)}
+            />
+          )}
         </div>
       ) : (
         <div className="chat-area empty-chat">
