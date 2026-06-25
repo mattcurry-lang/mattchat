@@ -29,7 +29,7 @@ const TYPE_OPTIONS = [
 
 export default function MessageSearch({ conversationId, currentUserId, otherUserName, onScrollTo, onClose }) {
   const [query, setQuery] = useState('');
-  const [sender, setSender] = useState('all'); // all | me | them
+  const [sender, setSender] = useState('all');
   const [msgType, setMsgType] = useState('all');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -43,11 +43,7 @@ export default function MessageSearch({ conversationId, currentUserId, otherUser
 
   useEffect(() => {
     clearTimeout(debounceRef.current);
-    if (!query.trim() && sender === 'all' && msgType === 'all') {
-      setResults([]);
-      setSearched(false);
-      return;
-    }
+    // Run search whenever filters change, even with no query
     debounceRef.current = setTimeout(() => runSearch(), 400);
     return () => clearTimeout(debounceRef.current);
   }, [query, sender, msgType]);
@@ -56,20 +52,33 @@ export default function MessageSearch({ conversationId, currentUserId, otherUser
     setLoading(true);
     setSearched(true);
 
-    let q = supabase
-      .from('messages')
-      .select('id, content, message_type, sender_id, created_at, profiles(username)')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: false })
-      .limit(50);
+    try {
+      // Build query without profiles join to avoid FK issues
+      let q = supabase
+        .from('messages')
+        .select('id, content, message_type, sender_id, created_at')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: false })
+        .limit(50);
 
-    if (query.trim()) q = q.ilike('content', `%${query.trim()}%`);
-    if (sender === 'me') q = q.eq('sender_id', currentUserId);
-    if (sender === 'them') q = q.neq('sender_id', currentUserId);
-    if (msgType !== 'all') q = q.eq('message_type', msgType);
+      if (query.trim()) q = q.ilike('content', `%${query.trim()}%`);
+      if (sender === 'me') q = q.eq('sender_id', currentUserId);
+      if (sender === 'them') q = q.neq('sender_id', currentUserId);
+      if (msgType !== 'all') q = q.eq('message_type', msgType);
 
-    const { data, error } = await q;
-    setResults(error ? [] : (data || []));
+      const { data, error } = await q;
+
+      if (error) {
+        console.error('Search error:', error);
+        setResults([]);
+      } else {
+        setResults(data || []);
+      }
+    } catch (err) {
+      console.error('Search exception:', err);
+      setResults([]);
+    }
+
     setLoading(false);
   }
 
@@ -83,13 +92,11 @@ export default function MessageSearch({ conversationId, currentUserId, otherUser
   return (
     <div style={styles.overlay} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={styles.panel}>
-        {/* Header */}
         <div style={styles.header}>
           <span style={styles.title}>🔍 Search Messages</span>
           <button style={styles.closeBtn} onClick={onClose}>✕</button>
         </div>
 
-        {/* Search input */}
         <input
           ref={inputRef}
           style={styles.input}
@@ -98,7 +105,6 @@ export default function MessageSearch({ conversationId, currentUserId, otherUser
           onChange={e => setQuery(e.target.value)}
         />
 
-        {/* Filters */}
         <div style={styles.filters}>
           <div style={styles.filterGroup}>
             <span style={styles.filterLabel}>From</span>
@@ -135,7 +141,6 @@ export default function MessageSearch({ conversationId, currentUserId, otherUser
           </div>
         </div>
 
-        {/* Results */}
         <div style={styles.results}>
           {loading && <div style={styles.status}>Searching...</div>}
 
@@ -144,7 +149,7 @@ export default function MessageSearch({ conversationId, currentUserId, otherUser
           )}
 
           {!loading && !searched && (
-            <div style={styles.status}>Type to search, or use filters above.</div>
+            <div style={styles.status}>Type to search, or pick a filter above.</div>
           )}
 
           {!loading && results.map(msg => (
@@ -155,7 +160,7 @@ export default function MessageSearch({ conversationId, currentUserId, otherUser
             >
               <div style={styles.resultMeta}>
                 <span style={styles.resultSender}>
-                  {msg.sender_id === currentUserId ? 'You' : (msg.profiles?.username || 'Them')}
+                  {msg.sender_id === currentUserId ? 'You' : otherUserName || 'Them'}
                 </span>
                 <span style={styles.resultTime}>{formatTime(msg.created_at)}</span>
               </div>
@@ -219,7 +224,6 @@ const styles = {
     background: '#2a2a3e', border: 'none', borderRadius: 10,
     padding: '10px 14px', cursor: 'pointer', textAlign: 'left',
     display: 'flex', flexDirection: 'column', gap: 4,
-    transition: 'background 0.15s',
     borderLeft: '3px solid #667eea',
   },
   resultMeta: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
