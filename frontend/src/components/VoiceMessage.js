@@ -1,134 +1,146 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
 
-function formatTime(s) {
-  if (!s || isNaN(s)) return '0:00'
-  return `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`
+// Generate a seeded pseudo-random waveform from a message id
+function generateWaveform(seed = '', bars = 32) {
+  const heights = []
+  let hash = 0
+  for (let i = 0; i < seed.length; i++) {
+    hash = ((hash << 5) - hash) + seed.charCodeAt(i)
+    hash |= 0
+  }
+  for (let i = 0; i < bars; i++) {
+    hash = ((hash << 5) - hash) + i * 2654435761
+    hash |= 0
+    const val = Math.abs(hash % 100)
+    // Shape: taller in the middle, quieter at edges
+    const center = Math.sin((i / bars) * Math.PI) * 0.6
+    heights.push(Math.max(8, Math.min(90, val * 0.6 + center * 50 + 15)))
+  }
+  return heights
 }
 
-function seededBars(seed, count = 28) {
-  let h = 0
-  for (let i = 0; i < seed.length; i++) h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0
-  return Array.from({ length: count }, (_, i) => {
-    h = (Math.imul(1664525, h) + 1013904223) | 0
-    const v = ((h >>> 0) % 75) / 100 + 0.15
-    const edge = Math.min(i, count - 1 - i) / (count * 0.3)
-    return Math.min(1, v * Math.min(1, edge + 0.4))
-  })
+function formatDuration(seconds) {
+  if (!seconds || isNaN(seconds)) return '0:00'
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
 }
 
 export default function VoiceMessage({ message, isMe }) {
-  const [audioSrc, setAudioSrc] = useState(null)
   const [playing, setPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [loadError, setLoadError] = useState(false)
+  const [duration, setDuration] = useState(message.audio_duration || 0)
   const [showTranscript, setShowTranscript] = useState(false)
-  const audioEl = useRef(null)
-  const bars = seededBars(message.id)
+  const audioRef = useRef(null)
+  const animFrameRef = useRef(null)
+  const waveform = generateWaveform(message.id, 32)
 
   useEffect(() => {
-    if (!message.audio_url) return
-    supabase.storage.from('voice-notes').createSignedUrl(message.audio_url, 3600)
-      .then(({ data, error }) => {
-        if (error || !data?.signedUrl) { setLoadError(true); return }
-        setAudioSrc(data.signedUrl)
-      })
-  }, [message.audio_url])
-
-  useEffect(() => {
-    const el = audioEl.current
-    if (!el) return
-    const onTime = () => {
-      setCurrentTime(el.currentTime)
-      setProgress(el.duration ? el.currentTime / el.duration : 0)
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
+      if (audioRef.current) audioRef.current.pause()
     }
-    const onEnd = () => { setPlaying(false); setProgress(0); setCurrentTime(0); el.currentTime = 0 }
-    el.addEventListener('timeupdate', onTime)
-    el.addEventListener('ended', onEnd)
-    return () => { el.removeEventListener('timeupdate', onTime); el.removeEventListener('ended', onEnd) }
-  }, [audioSrc])
+  }, [])
 
-  const togglePlay = async () => {
-    const el = audioEl.current
-    if (!el || loadError) return
-    if (playing) { el.pause(); setPlaying(false) }
-    else {
-      try { await el.play(); setPlaying(true) }
-      catch { setLoadError(true) }
+  function tick() {
+    if (!audioRef.current) return
+    const pct = audioRef.current.currentTime / (audioRef.current.duration || 1)
+    setProgress(pct)
+    if (!audioRef.current.paused) {
+      animFrameRef.current = requestAnimationFrame(tick)
     }
   }
 
-  const seek = e => {
-    const el = audioEl.current
-    if (!el || !el.duration) return
+  async function togglePlay() {
+    if (!audioRef.current) {
+      audioRef.current = new Audio(message.audio_url)
+      audioRef.current.onloadedmetadata = () => setDuration(audioRef.current.duration)
+      audioRef.current.onended = () => { setPlaying(false); setProgress(0) }
+    }
+
+    if (playing) {
+      audioRef.current.pause()
+      cancelAnimationFrame(animFrameRef.current)
+      setPlaying(false)
+    } else {
+      await audioRef.current.play()
+      setPlaying(true)
+      animFrameRef.current = requestAnimationFrame(tick)
+    }
+  }
+
+  function handleSeek(e) {
+    if (!audioRef.current) return
     const rect = e.currentTarget.getBoundingClientRect()
-    const ratio = (e.clientX - rect.left) / rect.width
-    el.currentTime = ratio * el.duration
-    setProgress(ratio)
+    const pct = (e.clientX - rect.left) / rect.width
+    audioRef.current.currentTime = pct * audioRef.current.duration
+    setProgress(pct)
   }
 
-  const totalDuration = audioEl.current?.duration || message.audio_duration || 0
-  const displayTime = (playing || progress > 0) ? currentTime : totalDuration
-  const accent = isMe ? '#c4b5fd' : '#7C6FF7'
+  const playedBars = Math.floor(progress * waveform.length)
+  const currentTime = audioRef.current ? audioRef.current.currentTime : 0
+
+  const accentColor = isMe ? 'rgba(255,255,255,0.9)' : '#6c63ff'
+  const dimColor    = isMe ? 'rgba(255,255,255,0.25)' : 'rgba(108,99,255,0.2)'
 
   return (
-    <div style={{ ...s.bubble, background: isMe ? '#3730a3' : '#1e1b4b' }}>
-      {audioSrc && <audio ref={audioEl} src={audioSrc} preload="metadata" />}
-
-      <div style={s.row}>
+    <div className={`msg-bubble ${isMe ? '' : ''}`} style={{ padding: 0, overflow: 'hidden', minWidth: 220 }}>
+      <div className="voice-msg">
+        {/* Play/Pause */}
         <button
-          style={{ ...s.playBtn, background: accent }}
+          className="voice-play-btn"
           onClick={togglePlay}
-          disabled={!audioSrc || loadError}
+          style={{
+            background: isMe ? 'rgba(255,255,255,0.2)' : 'rgba(108,99,255,0.2)',
+            color: isMe ? '#fff' : '#a78bfa',
+          }}
         >
-          {loadError ? '!' : playing ? '⏸' : '▶'}
+          {playing ? '⏸' : '▶'}
         </button>
 
-        <div style={s.track} onClick={seek}>
-          {bars.map((h, i) => {
-            const filled = i / bars.length < progress
-            return (
-              <div key={i} style={{
-                ...s.bar,
-                height: Math.max(3, h * 26) + 'px',
-                background: filled ? accent : 'rgba(255,255,255,0.15)',
-              }} />
-            )
-          })}
+        {/* Waveform */}
+        <div
+          className="waveform"
+          onClick={handleSeek}
+          style={{ cursor: 'pointer' }}
+        >
+          {waveform.map((h, i) => (
+            <div
+              key={i}
+              className={`waveform-bar ${i < playedBars ? 'played' : ''}`}
+              style={{
+                height: `${h}%`,
+                background: i < playedBars ? accentColor : dimColor,
+                transition: playing ? 'background 0.1s' : 'none',
+              }}
+            />
+          ))}
         </div>
 
-        <span style={s.time}>{formatTime(displayTime)}</span>
+        {/* Time */}
+        <span className="voice-duration" style={{ color: isMe ? 'rgba(255,255,255,0.7)' : '#8891aa' }}>
+          {playing ? formatDuration(currentTime) : formatDuration(duration)}
+        </span>
       </div>
 
-      {message.transcript_status === 'done' && message.transcript && (
-        <div style={s.transcriptWrap}>
-          <button style={s.toggle} onClick={() => setShowTranscript(v => !v)}>
-            {showTranscript ? 'Hide transcript' : 'Show transcript'}
-          </button>
-          {showTranscript && <p style={s.transcriptText}>{message.transcript}</p>}
+      {/* Transcript */}
+      {message.transcript && (
+        <div
+          className="voice-transcript"
+          onClick={() => setShowTranscript(v => !v)}
+          style={{
+            color: isMe ? 'rgba(255,255,255,0.6)' : '#8891aa',
+            borderTopColor: isMe ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)',
+          }}
+        >
+          {showTranscript ? message.transcript : '🔤 Show transcript'}
         </div>
       )}
       {message.transcript_status === 'processing' && (
-        <p style={s.meta}>Transcribing…</p>
+        <div className="voice-transcript" style={{ color: '#8891aa' }}>
+          ⏳ Transcribing...
+        </div>
       )}
     </div>
   )
-}
-
-const s = {
-  bubble: { borderRadius: 16, padding: '10px 12px', maxWidth: 260, minWidth: 180 },
-  row: { display: 'flex', alignItems: 'center', gap: 8 },
-  playBtn: {
-    width: 34, height: 34, borderRadius: '50%', border: 'none',
-    cursor: 'pointer', color: 'white', fontSize: 14,
-    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
-  track: { flex: 1, display: 'flex', alignItems: 'center', gap: 2, height: 30, cursor: 'pointer' },
-  bar: { flex: 1, borderRadius: 2, minWidth: 2, transition: 'background 0.1s' },
-  time: { fontSize: 11, color: 'rgba(255,255,255,0.5)', minWidth: 30, textAlign: 'right', flexShrink: 0 },
-  transcriptWrap: { marginTop: 8, borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 8 },
-  toggle: { background: 'none', border: 'none', color: 'rgba(255,255,255,0.45)', fontSize: 11, cursor: 'pointer', padding: 0, textDecoration: 'underline' },
-  transcriptText: { margin: '6px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.8)', lineHeight: 1.5, fontStyle: 'italic' },
-  meta: { margin: '6px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.35)' },
 }
