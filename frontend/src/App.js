@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import ChatPage from './pages/ChatPage'
 import AuthPage from './pages/AuthPage'
+import EmailFormPage from './pages/EmailFormPage'
 import './App.css'
 
 export default function App() {
@@ -19,7 +20,7 @@ export default function App() {
   if (session === undefined) {
     return (
       <div className="splash">
-       <img src="/logo.png" alt="Mattchat" className="splash-logo-img" />
+        <img src="/logo.png" alt="Mattchat" className="splash-logo-img" />
       </div>
     )
   }
@@ -27,6 +28,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public email contact form — no login needed */}
+        <Route path="/email/:username" element={<EmailFormPage />} />
+
         <Route path="/auth" element={!session ? <AuthPage /> : <Navigate to="/" />} />
         <Route path="/*" element={session ? <ChatPage session={session} /> : <Navigate to="/auth" />} />
       </Routes>
