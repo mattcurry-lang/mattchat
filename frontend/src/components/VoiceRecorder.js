@@ -1,263 +1,203 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
-const MAX_DURATION = 120
-const WAVEFORM_BARS = 36
-
-function formatTime(seconds) {
-  const m = Math.floor(seconds / 60).toString().padStart(2, '0')
-  const s = (seconds % 60).toString().padStart(2, '0')
-  return `${m}:${s}`
-}
+const BARS = 28
 
 export default function VoiceRecorder({ conversationId, senderId, onSent, onCancel }) {
-  const [phase, setPhase] = useState('idle') // idle | recording | preview | sending
-  const [duration, setDuration] = useState(0)
-  const [bars, setBars] = useState(Array(WAVEFORM_BARS).fill(0.1))
-  const [error, setError] = useState(null)
+  const [state, setState] = useState('idle') // idle | recording | preview
+  const [seconds, setSeconds] = useState(0)
+  const [bars, setBars] = useState(Array(BARS).fill(8))
+  const [audioBlob, setAudioBlob] = useState(null)
+  const [audioUrl, setAudioUrl] = useState(null)
+  const [sending, setSending] = useState(false)
 
-  const mediaRecorder = useRef(null)
-  const audioChunks = useRef([])
-  const audioBlob = useRef(null)
-  const audioUrl = useRef(null)
-  const analyser = useRef(null)
-  const animFrame = useRef(null)
-  const timer = useRef(null)
-  const barsSnapshot = useRef([])
-  const durationRef = useRef(0)
+  const mediaRecRef  = useRef(null)
+  const chunksRef    = useRef([])
+  const timerRef     = useRef(null)
+  const analyserRef  = useRef(null)
+  const animFrameRef = useRef(null)
+  const streamRef    = useRef(null)
 
-  useEffect(() => {
-    return () => {
-      clearInterval(timer.current)
-      cancelAnimationFrame(animFrame.current)
-      if (audioUrl.current) URL.revokeObjectURL(audioUrl.current)
-      mediaRecorder.current?.stream?.getTracks().forEach(t => t.stop())
-    }
-  }, [])
+  useEffect(() => () => cleanup(), [])
 
-  const animateWaveform = useCallback(() => {
-    if (!analyser.current) return
-    const data = new Uint8Array(analyser.current.frequencyBinCount)
-    analyser.current.getByteFrequencyData(data)
-    const step = Math.floor(data.length / WAVEFORM_BARS)
-    const newBars = Array.from({ length: WAVEFORM_BARS }, (_, i) => {
-      const slice = data.slice(i * step, (i + 1) * step)
-      const avg = slice.reduce((a, b) => a + b, 0) / slice.length
-      return Math.max(0.08, avg / 255)
-    })
-    setBars(newBars)
-    barsSnapshot.current = newBars
-    animFrame.current = requestAnimationFrame(animateWaveform)
-  }, [])
+  function cleanup() {
+    clearInterval(timerRef.current)
+    cancelAnimationFrame(animFrameRef.current)
+    streamRef.current?.getTracks().forEach(t => t.stop())
+  }
 
-  const stopRecording = useCallback(() => {
-    clearInterval(timer.current)
-    cancelAnimationFrame(animFrame.current)
-    mediaRecorder.current?.stop()
-    mediaRecorder.current?.stream?.getTracks().forEach(t => t.stop())
-  }, [])
+  function animateBars() {
+    if (!analyserRef.current) return
+    const data = new Uint8Array(analyserRef.current.frequencyBinCount)
+    analyserRef.current.getByteFrequencyData(data)
+    const slice = Math.floor(data.length / BARS)
+    setBars(
+      Array.from({ length: BARS }, (_, i) => {
+        const avg = data.slice(i * slice, (i + 1) * slice).reduce((a, b) => a + b, 0) / slice
+        return Math.max(8, Math.min(100, avg * 1.2))
+      })
+    )
+    animFrameRef.current = requestAnimationFrame(animateBars)
+  }
 
-  const startRecording = async () => {
-    setError(null)
+  async function startRecording() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const ctx = new AudioContext()
-      const source = ctx.createMediaStreamSource(stream)
-      analyser.current = ctx.createAnalyser()
-      analyser.current.fftSize = 256
-      source.connect(analyser.current)
+      streamRef.current = stream
+      chunksRef.current = []
 
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus' : 'audio/mp4'
+      // Set up analyser for live waveform
+      const ctx      = new AudioContext()
+      const src      = ctx.createMediaStreamSource(stream)
+      const analyser = ctx.createAnalyser()
+      analyser.fftSize = 128
+      src.connect(analyser)
+      analyserRef.current = analyser
 
-      mediaRecorder.current = new MediaRecorder(stream, { mimeType })
-      audioChunks.current = []
-
-      mediaRecorder.current.ondataavailable = e => {
-        if (e.data.size > 0) audioChunks.current.push(e.data)
+      const rec = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      rec.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+      rec.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        setAudioBlob(blob)
+        setAudioUrl(URL.createObjectURL(blob))
+        setState('preview')
       }
-      mediaRecorder.current.onstop = () => {
-        const blob = new Blob(audioChunks.current, { type: mimeType })
-        audioBlob.current = blob
-        audioUrl.current = URL.createObjectURL(blob)
-        setPhase('preview')
-      }
+      rec.start(100)
+      mediaRecRef.current = rec
 
-      mediaRecorder.current.start(100)
-      setPhase('recording')
-      setDuration(0)
-      durationRef.current = 0
-
-      timer.current = setInterval(() => {
-        durationRef.current += 1
-        setDuration(durationRef.current)
-        if (durationRef.current >= MAX_DURATION) stopRecording()
-      }, 1000)
-
-      animateWaveform()
-    } catch (err) {
-      setError('Microphone access denied. Allow microphone in your browser settings.')
+      setState('recording')
+      setSeconds(0)
+      timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000)
+      animateBars()
+    } catch {
+      alert('Microphone access denied.')
     }
   }
 
-  const sendVoiceNote = async () => {
-    if (!audioBlob.current) return
-    setPhase('sending')
-    setError(null)
+  function stopRecording() {
+    clearInterval(timerRef.current)
+    cancelAnimationFrame(animFrameRef.current)
+    streamRef.current?.getTracks().forEach(t => t.stop())
+    mediaRecRef.current?.stop()
+  }
+
+  function discard() {
+    cleanup()
+    setAudioBlob(null)
+    setAudioUrl(null)
+    setState('idle')
+    setSeconds(0)
+    setBars(Array(BARS).fill(8))
+    onCancel()
+  }
+
+  async function send() {
+    if (!audioBlob || sending) return
+    setSending(true)
     try {
-      const ext = audioBlob.current.type.includes('mp4') ? 'mp4' : 'webm'
-      const path = `${senderId}/${conversationId}/${Date.now()}.${ext}`
-
-      const { error: uploadError } = await supabase.storage
+      const filename = `${senderId}/${Date.now()}.webm`
+      const { error: upErr } = await supabase.storage
         .from('voice-notes')
-        .upload(path, audioBlob.current, { contentType: audioBlob.current.type })
+        .upload(filename, audioBlob, { contentType: 'audio/webm' })
+      if (upErr) throw upErr
 
-      if (uploadError) throw uploadError
+      const { data: { publicUrl } } = supabase.storage
+        .from('voice-notes')
+        .getPublicUrl(filename)
 
-      const { data: msg, error: msgError } = await supabase
+      const { data: msg, error: msgErr } = await supabase
         .from('messages')
         .insert({
           conversation_id: conversationId,
           sender_id: senderId,
-          content: '🎙️ Voice note',
+          content: '',
           message_type: 'voice',
-          audio_url: path,
-          audio_duration: durationRef.current,
+          audio_url: publicUrl,
+          audio_duration: seconds,
           transcript_status: 'pending',
         })
         .select()
         .single()
+      if (msgErr) throw msgErr
 
-      if (msgError) throw msgError
-
-      // Update conversation last_message
-      await supabase
-        .from('conversations')
-        .update({ updated_at: new Date().toISOString(), last_message: '🎙️ Voice note' })
-        .eq('id', conversationId)
-
-      // Fire transcription in background — don't block UI
+      // Trigger transcription (fire and forget)
       supabase.functions.invoke('transcribe-voice-note', {
-        body: { messageId: msg.id, audioPath: path },
+        body: { messageId: msg.id, audioUrl: publicUrl },
       }).catch(() => {})
 
-      onSent && onSent(msg)
+      onSent()
     } catch (err) {
-      console.error('Voice send failed:', err)
-      setError('Failed to send. Try again.')
-      setPhase('preview')
+      alert('Failed to send voice note.')
+      setSending(false)
     }
   }
 
-  const discard = () => {
-    clearInterval(timer.current)
-    cancelAnimationFrame(animFrame.current)
-    mediaRecorder.current?.stream?.getTracks().forEach(t => t.stop())
-    if (audioUrl.current) URL.revokeObjectURL(audioUrl.current)
-    audioBlob.current = null
-    audioUrl.current = null
-    durationRef.current = 0
-    setDuration(0)
-    setBars(Array(WAVEFORM_BARS).fill(0.1))
-    setPhase('idle')
-    onCancel && onCancel()
+  function fmt(s) {
+    return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`
   }
 
-  return (
-    <div style={s.wrap}>
-      {error && <p style={s.error}>{error}</p>}
+  // ── IDLE: just the mic button ──
+  if (state === 'idle') {
+    return (
+      <button
+        className="attach-btn"
+        onClick={startRecording}
+        title="Record voice note"
+        style={{ fontSize: 20 }}
+      >
+        🎙️
+      </button>
+    )
+  }
 
-      {phase === 'idle' && (
-        <button style={s.micBtn} onClick={startRecording} title="Record voice note">
-          <MicIcon />
+  // ── RECORDING ──
+  if (state === 'recording') {
+    return (
+      <div className="voice-recorder">
+        <div className="rec-dot" />
+        <span className="rec-time">{fmt(seconds)}</span>
+        <div className="rec-waves">
+          {bars.map((h, i) => (
+            <div
+              key={i}
+              className="rec-wave-bar"
+              style={{ height: `${h}%` }}
+            />
+          ))}
+        </div>
+        <button
+          className="attach-btn"
+          onClick={stopRecording}
+          title="Stop recording"
+          style={{ fontSize: 18, background: 'rgba(248,113,113,0.15)', borderColor: 'rgba(248,113,113,0.4)', color: '#f87171' }}
+        >
+          ⏹
         </button>
-      )}
+      </div>
+    )
+  }
 
-      {phase === 'recording' && (
-        <div style={s.row}>
-          <button style={s.iconBtn} onClick={discard} title="Cancel"><TrashIcon /></button>
-          <div style={s.waveWrap}>
-            {bars.map((h, i) => (
-              <div key={i} style={{ ...s.bar, height: Math.max(3, h * 32) + 'px', opacity: 0.5 + h * 0.5 }} />
-            ))}
-          </div>
-          <span style={s.timer}>{formatTime(duration)}</span>
-          <button style={{ ...s.iconBtn, background: '#ef4444' }} onClick={stopRecording} title="Stop">
-            <StopIcon />
-          </button>
-        </div>
-      )}
-
-      {phase === 'preview' && (
-        <div style={s.row}>
-          <button style={s.iconBtn} onClick={discard} title="Discard"><TrashIcon /></button>
-          <audio src={audioUrl.current} controls style={s.audio} />
-          <span style={s.timer}>{formatTime(durationRef.current)}</span>
-          <button style={{ ...s.iconBtn, background: '#7C6FF7' }} onClick={sendVoiceNote} title="Send">
-            <SendIcon />
-          </button>
-        </div>
-      )}
-
-      {phase === 'sending' && (
-        <div style={s.row}>
-          <div style={s.spinner} />
-          <span style={s.timer}>Sending…</span>
-        </div>
-      )}
+  // ── PREVIEW ──
+  return (
+    <div className="voice-recorder" style={{ borderColor: 'rgba(108,99,255,0.3)' }}>
+      <audio src={audioUrl} controls style={{ flex: 1, height: 32, borderRadius: 8 }} />
+      <span className="rec-time" style={{ color: '#a78bfa' }}>{fmt(seconds)}</span>
+      <button
+        className="attach-btn"
+        onClick={discard}
+        title="Discard"
+        style={{ fontSize: 18, color: '#f87171' }}
+      >
+        🗑
+      </button>
+      <button
+        className="send-btn"
+        onClick={send}
+        disabled={sending}
+        style={{ fontSize: 16 }}
+      >
+        {sending ? '…' : '➤'}
+      </button>
     </div>
   )
-}
-
-const MicIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/>
-    <line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/>
-  </svg>
-)
-const StopIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
-    <rect x="4" y="4" width="16" height="16" rx="2"/>
-  </svg>
-)
-const SendIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-  </svg>
-)
-const TrashIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-    <path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-  </svg>
-)
-
-const s = {
-  wrap: { display: 'flex', alignItems: 'center', gap: 8, width: '100%' },
-  row: { display: 'flex', alignItems: 'center', gap: 8, width: '100%' },
-  micBtn: {
-    width: 40, height: 40, borderRadius: '50%', border: 'none',
-    background: '#7C6FF7', cursor: 'pointer',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
-  iconBtn: {
-    width: 34, height: 34, borderRadius: '50%', border: 'none',
-    background: 'rgba(255,255,255,0.1)', cursor: 'pointer',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
-  waveWrap: {
-    flex: 1, display: 'flex', alignItems: 'center', gap: 2, height: 36, overflow: 'hidden',
-  },
-  bar: {
-    flex: 1, background: '#7C6FF7', borderRadius: 2, minWidth: 2,
-    transition: 'height 0.05s ease',
-  },
-  timer: { fontSize: 12, color: '#999', minWidth: 36, textAlign: 'right', flexShrink: 0 },
-  audio: { flex: 1, height: 30, minWidth: 0 },
-  error: { color: '#ef4444', fontSize: 12, margin: '0 0 4px' },
-  spinner: {
-    width: 20, height: 20, border: '2px solid rgba(124,111,247,0.2)',
-    borderTop: '2px solid #7C6FF7', borderRadius: '50%',
-    animation: 'spin 0.8s linear infinite', flexShrink: 0,
-  },
 }
