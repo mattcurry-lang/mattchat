@@ -21,14 +21,16 @@ export default function EmailFormPage() {
 
     try {
       const res = await fetch(
-        'https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/email-form',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, senderName, senderEmail, message }),
-        }
-      )
-
+  'https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/email-form',
+  {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer sb_publishable_xnW_tXlnKxxsv0cei2vc0Q_MYDFjiao',
+    },
+    body: JSON.stringify({ username, senderName, senderEmail, message }),
+  }
+)
       const data = await res.json()
 
       if (!res.ok || !data.ok) {
