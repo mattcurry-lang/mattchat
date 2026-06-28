@@ -308,7 +308,7 @@ export default function ChatPage({ session }) {
 
   // Ring audibly while a call is going out ('calling') or coming in
   // ('incoming'). Stops automatically on any other status.
-  useRingtone(callStatus === 'calling' || callStatus === 'incoming')
+  useRingtone(['calling', 'ringing', 'incoming'].includes(callStatus))
 
   const { conversations, loading: convLoading, reload } = useConversations(userId)
   const { messages, loading: msgLoading, typing, sendMessage, broadcastTyping } = useChat(
@@ -474,6 +474,7 @@ export default function ChatPage({ session }) {
 
   const headerStatus = () => {
     if (callStatus === 'calling')    return '📞 Calling…'
+    if (callStatus === 'ringing')    return '📞 Ringing…'
     if (callStatus === 'connecting') return '📞 Connecting…'
     if (callStatus === 'in-call')    return '🟢 On a call'
     if (typing.length > 0)           return `${getConvoName(activeConvo)} is typing…`
@@ -481,7 +482,7 @@ export default function ChatPage({ session }) {
     return ''
   }
 
-  const callActive = ['calling', 'connecting', 'in-call'].includes(callStatus)
+  const callActive = ['calling', 'ringing', 'connecting', 'in-call'].includes(callStatus)
 
   return (
     <div className={`app ${activeConvo ? 'chat-open' : ''}`}>
@@ -669,7 +670,7 @@ export default function ChatPage({ session }) {
               </div>
             )}
 
-            {callStatus === 'calling' && (
+            {(callStatus === 'calling' || callStatus === 'ringing') && (
               <div style={{ padding: '10px 16px',
                 background: 'linear-gradient(135deg, rgba(14,165,233,0.08), rgba(99,102,241,0.08))',
                 borderBottom: '1px solid var(--border)',
