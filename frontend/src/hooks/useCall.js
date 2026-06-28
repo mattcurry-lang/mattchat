@@ -3,46 +3,62 @@ import { supabase } from '../lib/supabase'
 
 export function useCall(userId, conversationId) {
   const [callStatus, setCallStatus] = useState('idle')
-  const [activeCall, setActiveCall] = useState(null)
-  const [callToken, setCallToken]   = useState(null)
-  const [callError, setCallError]   = useState(null)
+  const [activeCall, setActiveCall]   = useState(null)
+  const [callToken, setCallToken]     = useState(null)
+  const [callError, setCallError]     = useState(null)
   const callRef = useRef(null)
 
+  // ── GLOBAL listener — catches incoming calls on ANY conversation ──
+  // This runs regardless of which chat is open
   useEffect(() => {
-    if (!conversationId || !userId) return
+    if (!userId) return
 
     const channel = supabase
-      .channel(`calls:${conversationId}`)
+      .channel(`incoming-calls:${userId}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'active_calls',
-        filter: `conversation_id=eq.${conversationId}`,
       }, (payload) => {
         const call = payload.new
+        // Ignore calls we initiated
         if (call.initiated_by === userId) return
         if (call.status !== 'ringing') return
 
-        const incoming = {
-          id: call.id,
-          conversationId: call.conversation_id,
-          roomUrl: call.room_url,
-          roomName: call.room_name,
-          callType: call.call_type,
-          initiatedBy: call.initiated_by,
-          status: call.status,
-        }
-        callRef.current = incoming
-        setActiveCall(incoming)
-        setCallStatus('incoming')
+        // Only ring if this call is in a conversation we're a member of
+        supabase
+          .from('conversation_members')
+          .select('id')
+          .eq('conversation_id', call.conversation_id)
+          .eq('user_id', userId)
+          .single()
+          .then(({ data }) => {
+            if (!data) return // not our conversation
+
+            const incoming = {
+              id: call.id,
+              conversationId: call.conversation_id,
+              roomUrl: call.room_url,
+              roomName: call.room_name,
+              callType: call.call_type,
+              initiatedBy: call.initiated_by,
+              status: call.status,
+            }
+            callRef.current = incoming
+            setActiveCall(incoming)
+            setCallStatus('incoming')
+          })
       })
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'active_calls',
-        filter: `conversation_id=eq.${conversationId}`,
       }, (payload) => {
         const call = payload.new
+        // Only handle updates for our current active call
+        if (!callRef.current) return
+        if (call.id !== callRef.current.id) return
+
         if (call.status === 'ended' || call.status === 'declined') {
           setCallStatus('ended')
           setTimeout(() => {
@@ -53,11 +69,14 @@ export function useCall(userId, conversationId) {
           }, 2000)
         }
       })
-      .subscribe()
+      .subscribe((status) => {
+        console.log('useCall global subscription:', status)
+      })
 
     return () => { supabase.removeChannel(channel) }
-  }, [conversationId, userId])
+  }, [userId])
 
+  // ── Start a call ──────────────────────────────────────────────────
   const startCall = useCallback(async (callType) => {
     if (!conversationId) return
     setCallStatus('calling')
@@ -80,7 +99,7 @@ export function useCall(userId, conversationId) {
       if (!data.ok) throw new Error(data.error || 'Failed to start call')
 
       const call = {
-        id: '',
+        id: data.callId || '',
         conversationId,
         roomUrl: data.roomUrl,
         roomName: data.roomName,
@@ -98,17 +117,19 @@ export function useCall(userId, conversationId) {
     }
   }, [conversationId, userId])
 
+  // ── Answer an incoming call ───────────────────────────────────────
   const answerCall = useCallback(async () => {
     const call = callRef.current
     if (!call) return
     setCallStatus('connecting')
 
     try {
-      await supabase
-        .from('active_calls')
-        .update({ status: 'answered' })
-        .eq('id', call.id)
-
+      if (call.id) {
+        await supabase
+          .from('active_calls')
+          .update({ status: 'answered' })
+          .eq('id', call.id)
+      }
       setCallToken(null)
       setCallStatus('in-call')
     } catch (err) {
@@ -117,6 +138,7 @@ export function useCall(userId, conversationId) {
     }
   }, [])
 
+  // ── Decline an incoming call ──────────────────────────────────────
   const declineCall = useCallback(async () => {
     const call = callRef.current
     if (call?.id) {
@@ -131,6 +153,7 @@ export function useCall(userId, conversationId) {
     callRef.current = null
   }, [])
 
+  // ── End an active call ────────────────────────────────────────────
   const endCall = useCallback(async () => {
     const call = callRef.current
     if (call?.id) {
@@ -148,5 +171,14 @@ export function useCall(userId, conversationId) {
     }, 2000)
   }, [])
 
-  return { callStatus, activeCall, callToken, callError, startCall, answerCall, declineCall, endCall }
+  return {
+    callStatus,
+    activeCall,
+    callToken,
+    callError,
+    startCall,
+    answerCall,
+    declineCall,
+    endCall,
+  }
 }
