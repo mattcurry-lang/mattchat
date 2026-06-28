@@ -178,9 +178,8 @@ const STICKER_PACKS = [
   },
 ]
 
-// ── GIF search via Tenor (free API) ──────────────────────────
-const TENOR_KEY = 'AIzaSyDummyKeyReplaceThis' // replace with real key from tenor.com
-const TENOR_BASE = 'https://tenor.googleapis.com/v2'
+const TENOR_KEY = 'y4WBZCY6Y4LjpD7tPGpYtyVR2vuYdiDW'
+const TENOR_BASE = 'https://api.giphy.com/v2'
 
 // Curated GIF categories using Tenor search
 const GIF_CATEGORIES = [
