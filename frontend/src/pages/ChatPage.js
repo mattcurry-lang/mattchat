@@ -15,6 +15,7 @@ import ScheduledMessagesList from '../components/ScheduledMessagesList'
 import MessageSearch from '../components/MessageSearch'
 import CurryAIChat, { CurryAssistant } from '../components/CurryAI'
 import { useHeyCurry } from '../components/HeyCurryListener'
+import { usePresence } from '../hooks/usePresence'
 
 function formatMsgTime(ts) {
   const d = new Date(ts)
@@ -140,6 +141,12 @@ function ThreeDotMenu({ onPoll, onTask, onSchedule, onSearch, onShare, onClose }
 
 const CURRY_AI_CONTACT = { id: 'curry-ai', isCurryAI: true }
 
+// Helper: get the OTHER member's user_id from a conversation
+function getOtherUserId(convo, myUserId) {
+  const other = convo?.conversation_members?.find(m => m.user_id !== myUserId)
+  return other?.user_id || null
+}
+
 export default function ChatPage({ session }) {
   const [activeConvo, setActiveConvo] = useState(null)
   const [newEmail, setNewEmail] = useState('')
@@ -163,11 +170,20 @@ export default function ChatPage({ session }) {
   const typingTimer = useRef(null)
 
   const userId = session.user.id
+
+  // ── Presence: broadcast my status & check others ──────────
+  const isOnline = usePresence(userId)
+
   const { conversations, loading: convLoading, reload } = useConversations(userId)
   const { messages, loading: msgLoading, typing, sendMessage, broadcastTyping } = useChat(
     activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
     userId
   )
+
+  // The other person's user_id in the active conversation
+  const otherUserId = activeConvo && !activeConvo.isCurryAI
+    ? getOtherUserId(activeConvo, userId)
+    : null
 
   const onHeyCurryActivated = useCallback(() => {
     setActiveConvo(CURRY_AI_CONTACT)
@@ -220,7 +236,6 @@ export default function ChatPage({ session }) {
     }
     checkScheduled()
 
-    // Subscribe to changes
     const sub = supabase
       .channel(`sched-check:${activeConvo.id}`)
       .on('postgres_changes', {
@@ -306,6 +321,13 @@ export default function ChatPage({ session }) {
     getConvoName(c).toLowerCase().includes(search.toLowerCase())
   )
 
+  // Status line shown under the contact name in the chat header
+  const headerStatus = () => {
+    if (typing.length > 0) return `${getConvoName(activeConvo)} is typing…`
+    if (otherUserId && isOnline(otherUserId)) return 'Online'
+    return ''   // blank when offline — no "Offline" text shown
+  }
+
   return (
     <div className={`app ${activeConvo ? 'chat-open' : ''}`}>
       {/* ── SIDEBAR ── */}
@@ -336,8 +358,17 @@ export default function ChatPage({ session }) {
         )}
 
         <div className="contact-list">
-          <div className={`contact ${activeConvo?.isCurryAI ? 'active' : ''}`} onClick={() => setActiveConvo(CURRY_AI_CONTACT)}>
-            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>✨</div>
+          {/* Curry AI entry — never shows online dot */}
+          <div
+            className={`contact ${activeConvo?.isCurryAI ? 'active' : ''}`}
+            onClick={() => setActiveConvo(CURRY_AI_CONTACT)}
+          >
+            <div style={{
+              width: 40, height: 40, borderRadius: '50%',
+              background: 'linear-gradient(135deg,#667eea,#764ba2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 20, flexShrink: 0,
+            }}>✨</div>
             <div className="contact-info">
               <div className="contact-name" style={{ color: '#6366f1' }}>✨ Curry AI</div>
               <div className="contact-preview">Your personal AI assistant</div>
@@ -345,19 +376,34 @@ export default function ChatPage({ session }) {
           </div>
 
           {convLoading && <div className="loading-state">Loading…</div>}
-          {filtered.map(c => (
-            <div key={c.id} className={`contact ${activeConvo?.id === c.id ? 'active' : ''}`} onClick={() => setActiveConvo(c)}>
-              <Avatar name={getConvoName(c)} online />
-              <div className="contact-info">
-                <div className="contact-name">{getConvoName(c)}</div>
-                <div className="contact-preview">{c.last_message || 'No messages yet'}</div>
+
+          {filtered.map(c => {
+            // Get the other member's user_id for this conversation
+            const otherId = getOtherUserId(c, userId)
+            const online = otherId ? isOnline(otherId) : false
+            return (
+              <div
+                key={c.id}
+                className={`contact ${activeConvo?.id === c.id ? 'active' : ''}`}
+                onClick={() => setActiveConvo(c)}
+              >
+                {/* Pass online only when actually online */}
+                <Avatar name={getConvoName(c)} online={online} />
+                <div className="contact-info">
+                  <div className="contact-name">{getConvoName(c)}</div>
+                  <div className="contact-preview">{c.last_message || 'No messages yet'}</div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                  <div className="contact-time">{c.updated_at ? formatMsgTime(c.updated_at) : ''}</div>
+                  <button
+                    className="delete-chat-btn"
+                    onClick={e => { e.stopPropagation(); deleteConversation(c.id) }}
+                  >🗑️</button>
+                </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                <div className="contact-time">{c.updated_at ? formatMsgTime(c.updated_at) : ''}</div>
-                <button className="delete-chat-btn" onClick={e => { e.stopPropagation(); deleteConversation(c.id) }}>🗑️</button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
+
           {!convLoading && filtered.length === 0 && (
             <div className="empty-state">
               <p>No conversations yet.</p>
@@ -373,7 +419,11 @@ export default function ChatPage({ session }) {
           <div className="chat-area" style={{ background: 'linear-gradient(180deg,#0f0f1a 0%,#1a1a2e 100%)' }}>
             <div className="chat-header" style={{ background: '#1e1e2e', borderBottom: '1px solid #2a2a3e' }}>
               <button className="back-btn" onClick={() => setActiveConvo(null)}>←</button>
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>✨</div>
+              <div style={{
+                width: 36, height: 36, borderRadius: '50%',
+                background: 'linear-gradient(135deg,#667eea,#764ba2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+              }}>✨</div>
               <div style={{ flex: 1 }}>
                 <div className="chat-header-name" style={{ color: '#fff' }}>✨ Curry AI</div>
                 <div className="chat-header-sub" style={{ color: '#667eea' }}>Always learning, always here</div>
@@ -386,19 +436,33 @@ export default function ChatPage({ session }) {
             {/* Header */}
             <div className="chat-header">
               <button className="back-btn" onClick={() => setActiveConvo(null)}>←</button>
-              <Avatar name={getConvoName(activeConvo)} size={36} online />
+
+              {/* Avatar: green dot only when the other user is actually online */}
+              <Avatar
+                name={getConvoName(activeConvo)}
+                size={36}
+                online={otherUserId ? isOnline(otherUserId) : false}
+              />
+
               <div style={{ flex: 1 }}>
                 <div className="chat-header-name">{getConvoName(activeConvo)}</div>
-                <div className="chat-header-sub">
-                  {typing.length > 0 ? `${getConvoName(activeConvo)} is typing…` : 'Online'}
+                {/* Only renders text when typing or online; blank = no status shown */}
+                <div className="chat-header-sub" style={{
+                  color: typing.length > 0 ? 'var(--text-muted)' : '#10b981',
+                  minHeight: 16,   // keeps the header height stable when blank
+                }}>
+                  {headerStatus()}
                 </div>
               </div>
 
-              {/* Header right: Curry AI + scheduled badge (only when active) + vertical 3-dot */}
+              {/* Header right actions */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <button className="icon-btn" onClick={() => setShowCurryAssistant(v => !v)} title="Curry AI assistant">✨</button>
+                <button
+                  className="icon-btn"
+                  onClick={() => setShowCurryAssistant(v => !v)}
+                  title="Curry AI assistant"
+                >✨</button>
 
-                {/* Scheduled badge — only shows when there are pending scheduled messages */}
                 {hasScheduled && (
                   <button
                     onClick={() => setShowScheduledList(true)}
@@ -419,7 +483,6 @@ export default function ChatPage({ session }) {
                   </button>
                 )}
 
-                {/* Vertical 3-dot menu */}
                 <div className="threedot-wrapper" style={{ position: 'relative' }}>
                   <button
                     className="icon-btn"
@@ -456,13 +519,22 @@ export default function ChatPage({ session }) {
                 return (
                   <React.Fragment key={msg.id}>
                     {showDate && <DateDivider date={msg.created_at} />}
-                    <div ref={el => msgRefs.current[msg.id] = el} onContextMenu={e => { e.preventDefault(); pinMessage(msg.id) }} title="Right-click to pin">
-                      <MessageBubble msg={{ ...msg, _currentUserId: userId }} isMe={msg.sender_id === userId} />
+                    <div
+                      ref={el => msgRefs.current[msg.id] = el}
+                      onContextMenu={e => { e.preventDefault(); pinMessage(msg.id) }}
+                      title="Right-click to pin"
+                    >
+                      <MessageBubble
+                        msg={{ ...msg, _currentUserId: userId }}
+                        isMe={msg.sender_id === userId}
+                      />
                     </div>
                   </React.Fragment>
                 )
               })}
-              {typing.length > 0 && <div className="typing-indicator"><span /><span /><span /></div>}
+              {typing.length > 0 && (
+                <div className="typing-indicator"><span /><span /><span /></div>
+              )}
               <div ref={messagesEndRef} />
             </div>
 
@@ -479,36 +551,83 @@ export default function ChatPage({ session }) {
               )}
               {showPoll && (
                 <div style={{ padding: '0 16px' }}>
-                  <PollCreator conversationId={activeConvo.id} senderId={userId} onSent={() => setShowPoll(false)} onCancel={() => setShowPoll(false)} />
+                  <PollCreator
+                    conversationId={activeConvo.id}
+                    senderId={userId}
+                    onSent={() => setShowPoll(false)}
+                    onCancel={() => setShowPoll(false)}
+                  />
                 </div>
               )}
               {showTask && (
                 <div style={{ padding: '0 16px' }}>
-                  <TaskCreator conversationId={activeConvo.id} senderId={userId} onSent={() => setShowTask(false)} onCancel={() => setShowTask(false)} />
+                  <TaskCreator
+                    conversationId={activeConvo.id}
+                    senderId={userId}
+                    onSent={() => setShowTask(false)}
+                    onCancel={() => setShowTask(false)}
+                  />
                 </div>
               )}
 
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, padding: '12px 16px' }}>
                 {showVoice ? (
-                  <VoiceRecorder conversationId={activeConvo.id} senderId={userId} onSent={() => setShowVoice(false)} onCancel={() => setShowVoice(false)} />
+                  <VoiceRecorder
+                    conversationId={activeConvo.id}
+                    senderId={userId}
+                    onSent={() => setShowVoice(false)}
+                    onCancel={() => setShowVoice(false)}
+                  />
                 ) : (
                   <>
-                    <button className="attach-btn" onClick={() => setShowVoice(true)} title="Voice note" style={{ fontSize: 20 }}>🎙️</button>
-                    <textarea value={inputText} onChange={handleTyping} onKeyDown={handleKeyDown} placeholder="Type a message…" rows={1} />
-                    <button className="send-btn" onClick={handleSend} disabled={!inputText.trim()}>➤</button>
+                    <button
+                      className="attach-btn"
+                      onClick={() => setShowVoice(true)}
+                      title="Voice note"
+                      style={{ fontSize: 20 }}
+                    >🎙️</button>
+                    <textarea
+                      value={inputText}
+                      onChange={handleTyping}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Type a message…"
+                      rows={1}
+                    />
+                    <button
+                      className="send-btn"
+                      onClick={handleSend}
+                      disabled={!inputText.trim()}
+                    >➤</button>
                   </>
                 )}
               </div>
             </div>
 
             {showScheduler && (
-              <ScheduleMessageModal conversationId={activeConvo.id} senderId={userId} onClose={(success) => { setShowScheduler(false); if (success) { alert('Message scheduled ✓'); setHasScheduled(true) } }} />
+              <ScheduleMessageModal
+                conversationId={activeConvo.id}
+                senderId={userId}
+                onClose={(success) => {
+                  setShowScheduler(false)
+                  if (success) { alert('Message scheduled ✓'); setHasScheduled(true) }
+                }}
+              />
             )}
             {showScheduledList && (
-              <ScheduledMessagesList conversationId={activeConvo.id} currentUserId={userId} onClose={() => setShowScheduledList(false)} />
+              <ScheduledMessagesList
+                conversationId={activeConvo.id}
+                currentUserId={userId}
+                onClose={() => setShowScheduledList(false)}
+              />
             )}
             {showSearch && (
-              <MessageSearch conversationId={activeConvo.id} currentUserId={userId} otherUserName={getConvoName(activeConvo)} onScrollTo={scrollToMessage} onClose={() => setShowSearch(false)} />
+              <MessageSearch
+                conversationId={activeConvo.id}
+                currentUserId={userId}
+                otherUserName={getConvoName(activeConvo)}
+                onScrollTo={scrollToMessage}
+                onClose={() => setShowSearch(false)}
+              />
             )}
           </div>
         )
