@@ -649,3 +649,9 @@ button.email-badge:hover {
   from { opacity: 0; transform: translateY(8px) scale(0.95); }
   to   { opacity: 1; transform: none; }
 }
+
+/* ── Scheduled badge pulse ───────────────────────────────── */
+@keyframes scheduledPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.2); }
+  50% { box-shadow: 0 0 0 4px rgba(99,102,241,0.08); }
+}
