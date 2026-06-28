@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
+const FUNCTIONS_BASE = 'https://bqerkvywgxoioocbkxif.supabase.co/functions/v1'
+
 export function useCall(userId, conversationId) {
   const [callStatus, setCallStatus] = useState('idle')
   const [activeCall, setActiveCall]   = useState(null)
@@ -85,7 +87,7 @@ export function useCall(userId, conversationId) {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch(
-        'https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/create-call-room-ts',
+        `${FUNCTIONS_BASE}/create-call-room-ts`,
         {
           method: 'POST',
           headers: {
@@ -118,23 +120,53 @@ export function useCall(userId, conversationId) {
   }, [conversationId, userId])
 
   // ── Answer an incoming call ───────────────────────────────────────
+  // FIX: this previously did setCallToken(null) and joined with no
+  // token at all. Daily rooms created by create-call-room-ts have
+  // enable_knocking: false, so a tokenless join is rejected outright —
+  // the receiver's CallOverlay would silently fail to connect.
+  // Now it fetches a real (non-owner) meeting token first.
   const answerCall = useCallback(async () => {
     const call = callRef.current
     if (!call) return
     setCallStatus('connecting')
+    setCallError(null)
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`${FUNCTIONS_BASE}/get-call-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ callId: call.id, roomName: call.roomName }),
+      })
+      const data = await res.json()
+      if (!data.ok) throw new Error(data.error || 'Failed to get call token')
+
       if (call.id) {
         await supabase
           .from('active_calls')
           .update({ status: 'answered' })
           .eq('id', call.id)
       }
-      setCallToken(null)
+
+      setCallToken(data.token)
       setCallStatus('in-call')
     } catch (err) {
       setCallError(err.message)
+      // Don't strand the caller waiting forever if we fail to join —
+      // mark the call declined so their UI clears too.
+      if (call?.id) {
+        await supabase
+          .from('active_calls')
+          .update({ status: 'declined', ended_at: new Date().toISOString() })
+          .eq('id', call.id)
+      }
       setCallStatus('idle')
+      setActiveCall(null)
+      setCallToken(null)
+      callRef.current = null
     }
   }, [])
 
