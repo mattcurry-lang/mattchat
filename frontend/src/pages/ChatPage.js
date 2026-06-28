@@ -81,44 +81,48 @@ function MessageBubble({ msg, isMe }) {
   )
 }
 
-// Three-dot attachment menu
-function AttachMenu({ onPoll, onTask, onSchedule, onClose }) {
+// Vertical three-dot menu
+function ThreeDotMenu({ onPoll, onTask, onSchedule, onSearch, onShare, onClose }) {
   useEffect(() => {
     const handler = (e) => {
-      if (!e.target.closest('.attach-menu-wrapper')) onClose()
+      if (!e.target.closest('.threedot-wrapper')) onClose()
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [onClose])
 
+  const items = [
+    { icon: '📊', label: 'Create Poll', action: onPoll },
+    { icon: '✅', label: 'Task List', action: onTask },
+    { icon: '🕐', label: 'Schedule Message', action: onSchedule },
+    { icon: '🔍', label: 'Search Messages', action: onSearch },
+    { icon: '📧', label: 'Share Contact Link', action: onShare },
+  ]
+
   return (
     <div style={{
-      position: 'absolute', bottom: '100%', left: 0,
-      marginBottom: 10, zIndex: 100,
+      position: 'absolute', top: '100%', right: 0,
+      marginTop: 6, zIndex: 200,
       background: 'rgba(255,255,255,0.98)',
       backdropFilter: 'blur(16px)',
       WebkitBackdropFilter: 'blur(16px)',
       border: '1px solid var(--border)',
-      borderRadius: 16,
+      borderRadius: 14,
       boxShadow: 'var(--shadow-lg)',
       overflow: 'hidden',
       animation: 'menuPop 0.18s cubic-bezier(0.34,1.56,0.64,1)',
-      minWidth: 180,
+      minWidth: 200,
     }}>
-      {[
-        { icon: '📊', label: 'Create Poll', action: onPoll },
-        { icon: '✅', label: 'Task List', action: onTask },
-        { icon: '🕐', label: 'Schedule Message', action: onSchedule },
-      ].map(({ icon, label, action }) => (
+      {items.map(({ icon, label, action }) => (
         <button
           key={label}
           onClick={() => { action(); onClose() }}
           style={{
             display: 'flex', alignItems: 'center', gap: 12,
-            width: '100%', padding: '12px 16px',
+            width: '100%', padding: '11px 16px',
             background: 'none', border: 'none',
             cursor: 'pointer', fontFamily: 'inherit',
-            fontSize: 14, fontWeight: 500,
+            fontSize: 13.5, fontWeight: 500,
             color: 'var(--text-primary)',
             transition: 'background 0.12s',
             textAlign: 'left',
@@ -126,7 +130,7 @@ function AttachMenu({ onPoll, onTask, onSchedule, onClose }) {
           onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-surface-2)'}
           onMouseLeave={e => e.currentTarget.style.background = 'none'}
         >
-          <span style={{ fontSize: 20 }}>{icon}</span>
+          <span style={{ fontSize: 18, width: 24, textAlign: 'center' }}>{icon}</span>
           {label}
         </button>
       ))}
@@ -151,7 +155,8 @@ export default function ChatPage({ session }) {
   const [showScheduledList, setShowScheduledList] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
   const [showCurryAssistant, setShowCurryAssistant] = useState(false)
-  const [showAttachMenu, setShowAttachMenu] = useState(false)
+  const [showThreeDot, setShowThreeDot] = useState(false)
+  const [hasScheduled, setHasScheduled] = useState(false)
 
   const msgRefs = useRef({})
   const messagesEndRef = useRef(null)
@@ -196,8 +201,35 @@ export default function ChatPage({ session }) {
     setShowScheduledList(false)
     setShowSearch(false)
     setShowCurryAssistant(false)
-    setShowAttachMenu(false)
+    setShowThreeDot(false)
+    setHasScheduled(false)
   }, [activeConvo])
+
+  // Check for pending scheduled messages
+  useEffect(() => {
+    if (!activeConvo?.id || activeConvo.isCurryAI) return
+    async function checkScheduled() {
+      const { data } = await supabase
+        .from('scheduled_messages')
+        .select('id')
+        .eq('conversation_id', activeConvo.id)
+        .eq('sender_id', userId)
+        .eq('status', 'pending')
+        .limit(1)
+      setHasScheduled((data || []).length > 0)
+    }
+    checkScheduled()
+
+    // Subscribe to changes
+    const sub = supabase
+      .channel(`sched-check:${activeConvo.id}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'scheduled_messages',
+        filter: `conversation_id=eq.${activeConvo.id}`,
+      }, checkScheduled)
+      .subscribe()
+    return () => supabase.removeChannel(sub)
+  }, [activeConvo, userId])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -257,6 +289,12 @@ export default function ChatPage({ session }) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
   }
 
+  const handleShare = () => {
+    const link = `https://mattchat-nine.vercel.app/email/${profile?.username || ''}`
+    navigator.clipboard.writeText(link)
+    alert('Contact link copied!')
+  }
+
   const getConvoName = (c) => {
     if (c.isCurryAI) return 'Curry AI'
     if (c.is_group) return c.name
@@ -298,17 +336,8 @@ export default function ChatPage({ session }) {
         )}
 
         <div className="contact-list">
-          {/* Curry AI pinned at top */}
-          <div
-            className={`contact ${activeConvo?.isCurryAI ? 'active' : ''}`}
-            onClick={() => setActiveConvo(CURRY_AI_CONTACT)}
-          >
-            <div style={{
-              width: 40, height: 40, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #667eea, #764ba2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 20, flexShrink: 0,
-            }}>✨</div>
+          <div className={`contact ${activeConvo?.isCurryAI ? 'active' : ''}`} onClick={() => setActiveConvo(CURRY_AI_CONTACT)}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>✨</div>
             <div className="contact-info">
               <div className="contact-name" style={{ color: '#6366f1' }}>✨ Curry AI</div>
               <div className="contact-preview">Your personal AI assistant</div>
@@ -325,7 +354,7 @@ export default function ChatPage({ session }) {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                 <div className="contact-time">{c.updated_at ? formatMsgTime(c.updated_at) : ''}</div>
-                <button className="delete-chat-btn" onClick={e => { e.stopPropagation(); deleteConversation(c.id) }} title="Delete">🗑️</button>
+                <button className="delete-chat-btn" onClick={e => { e.stopPropagation(); deleteConversation(c.id) }}>🗑️</button>
               </div>
             </div>
           ))}
@@ -341,7 +370,7 @@ export default function ChatPage({ session }) {
       {/* ── CHAT AREA ── */}
       {activeConvo ? (
         activeConvo.isCurryAI ? (
-          <div className="chat-area" style={{ background: 'linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 100%)' }}>
+          <div className="chat-area" style={{ background: 'linear-gradient(180deg,#0f0f1a 0%,#1a1a2e 100%)' }}>
             <div className="chat-header" style={{ background: '#1e1e2e', borderBottom: '1px solid #2a2a3e' }}>
               <button className="back-btn" onClick={() => setActiveConvo(null)}>←</button>
               <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>✨</div>
@@ -364,20 +393,55 @@ export default function ChatPage({ session }) {
                   {typing.length > 0 ? `${getConvoName(activeConvo)} is typing…` : 'Online'}
                 </div>
               </div>
-              {/* Right side header actions */}
+
+              {/* Header right: Curry AI + scheduled badge (only when active) + vertical 3-dot */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <button className="icon-btn" onClick={() => setShowCurryAssistant(v => !v)} title="Curry AI">✨</button>
-                <button className="icon-btn" onClick={() => setShowSearch(true)} title="Search">🔍</button>
-                <button className="icon-btn" onClick={() => setShowScheduledList(true)} title="Scheduled messages" style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent-2)' }}>🕐</button>
-                <button
-                  className="email-badge"
-                  onClick={() => {
-                    const link = `https://mattchat-nine.vercel.app/email/${profile?.username || ''}`
-                    navigator.clipboard.writeText(link)
-                    alert('Contact link copied!')
-                  }}
-                  style={{ cursor: 'pointer', border: 'none' }}
-                >📧 Share</button>
+                <button className="icon-btn" onClick={() => setShowCurryAssistant(v => !v)} title="Curry AI assistant">✨</button>
+
+                {/* Scheduled badge — only shows when there are pending scheduled messages */}
+                {hasScheduled && (
+                  <button
+                    onClick={() => setShowScheduledList(true)}
+                    title="View scheduled messages"
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      background: 'rgba(99,102,241,0.08)',
+                      border: '1px solid rgba(99,102,241,0.2)',
+                      borderRadius: 'var(--r-full)',
+                      padding: '5px 10px', cursor: 'pointer',
+                      fontFamily: 'inherit', fontSize: 12,
+                      fontWeight: 700, color: 'var(--accent-2)',
+                      transition: 'all var(--transition)',
+                      animation: 'scheduledPulse 2s ease infinite',
+                    }}
+                  >
+                    🕐 <span style={{ fontSize: 11 }}>Scheduled</span>
+                  </button>
+                )}
+
+                {/* Vertical 3-dot menu */}
+                <div className="threedot-wrapper" style={{ position: 'relative' }}>
+                  <button
+                    className="icon-btn"
+                    onClick={() => setShowThreeDot(v => !v)}
+                    title="More options"
+                    style={{
+                      fontSize: 18, fontWeight: 700, letterSpacing: 1,
+                      color: showThreeDot ? 'var(--accent-2)' : undefined,
+                      background: showThreeDot ? 'rgba(99,102,241,0.08)' : undefined,
+                    }}
+                  >⋮</button>
+                  {showThreeDot && (
+                    <ThreeDotMenu
+                      onPoll={() => { setShowPoll(v => !v); setShowTask(false) }}
+                      onTask={() => { setShowTask(v => !v); setShowPoll(false) }}
+                      onSchedule={() => setShowScheduler(true)}
+                      onSearch={() => setShowSearch(true)}
+                      onShare={handleShare}
+                      onClose={() => setShowThreeDot(false)}
+                    />
+                  )}
+                </div>
               </div>
             </div>
 
@@ -404,7 +468,6 @@ export default function ChatPage({ session }) {
 
             {/* Input area */}
             <div className="input-area" style={{ flexDirection: 'column', alignItems: 'stretch', padding: 0 }}>
-              {/* Curry assistant panel */}
               {showCurryAssistant && (
                 <CurryAssistant
                   session={session}
@@ -414,8 +477,6 @@ export default function ChatPage({ session }) {
                   onClose={() => setShowCurryAssistant(false)}
                 />
               )}
-
-              {/* Poll/Task creators */}
               {showPoll && (
                 <div style={{ padding: '0 16px' }}>
                   <PollCreator conversationId={activeConvo.id} senderId={userId} onSent={() => setShowPoll(false)} onCancel={() => setShowPoll(false)} />
@@ -427,53 +488,21 @@ export default function ChatPage({ session }) {
                 </div>
               )}
 
-              {/* Main input row */}
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, padding: '12px 16px', position: 'relative' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, padding: '12px 16px' }}>
                 {showVoice ? (
                   <VoiceRecorder conversationId={activeConvo.id} senderId={userId} onSent={() => setShowVoice(false)} onCancel={() => setShowVoice(false)} />
                 ) : (
                   <>
-                    {/* Voice button */}
                     <button className="attach-btn" onClick={() => setShowVoice(true)} title="Voice note" style={{ fontSize: 20 }}>🎙️</button>
-
-                    {/* Three dot menu */}
-                    <div className="attach-menu-wrapper" style={{ position: 'relative', flexShrink: 0 }}>
-                      <button
-                        className="attach-btn"
-                        onClick={() => setShowAttachMenu(v => !v)}
-                        title="More options"
-                        style={{
-                          fontSize: 20, fontWeight: 700,
-                          color: showAttachMenu ? 'var(--accent-2)' : undefined,
-                          background: showAttachMenu ? 'rgba(99,102,241,0.08)' : undefined,
-                        }}
-                      >⋯</button>
-                      {showAttachMenu && (
-                        <AttachMenu
-                          onPoll={() => { setShowPoll(v => !v); setShowTask(false) }}
-                          onTask={() => { setShowTask(v => !v); setShowPoll(false) }}
-                          onSchedule={() => setShowScheduler(true)}
-                          onClose={() => setShowAttachMenu(false)}
-                        />
-                      )}
-                    </div>
-
-                    <textarea
-                      value={inputText}
-                      onChange={handleTyping}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Type a message…"
-                      rows={1}
-                    />
+                    <textarea value={inputText} onChange={handleTyping} onKeyDown={handleKeyDown} placeholder="Type a message…" rows={1} />
                     <button className="send-btn" onClick={handleSend} disabled={!inputText.trim()}>➤</button>
                   </>
                 )}
               </div>
             </div>
 
-            {/* Modals */}
             {showScheduler && (
-              <ScheduleMessageModal conversationId={activeConvo.id} senderId={userId} onClose={(success) => { setShowScheduler(false); if (success) alert('Message scheduled ✓') }} />
+              <ScheduleMessageModal conversationId={activeConvo.id} senderId={userId} onClose={(success) => { setShowScheduler(false); if (success) { alert('Message scheduled ✓'); setHasScheduled(true) } }} />
             )}
             {showScheduledList && (
               <ScheduledMessagesList conversationId={activeConvo.id} currentUserId={userId} onClose={() => setShowScheduledList(false)} />
