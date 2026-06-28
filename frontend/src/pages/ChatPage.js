@@ -16,6 +16,9 @@ import MessageSearch from '../components/MessageSearch'
 import CurryAIChat, { CurryAssistant } from '../components/CurryAI'
 import { useHeyCurry } from '../components/HeyCurryListener'
 import { usePresence } from '../hooks/usePresence'
+import { useCall } from '../hooks/useCall'
+import CallOverlay from '../components/CallOverlay'
+import IncomingCallModal from '../components/IncomingCallModal'
 
 function formatMsgTime(ts) {
   const d = new Date(ts)
@@ -82,7 +85,6 @@ function MessageBubble({ msg, isMe }) {
   )
 }
 
-// Vertical three-dot menu
 function ThreeDotMenu({ onPoll, onTask, onSchedule, onSearch, onShare, onClose }) {
   useEffect(() => {
     const handler = (e) => {
@@ -139,9 +141,42 @@ function ThreeDotMenu({ onPoll, onTask, onSchedule, onSearch, onShare, onClose }
   )
 }
 
+// ── Call buttons in header ────────────────────────────────────
+function CallButtons({ onVoiceCall, onVideoCall, disabled }) {
+  return (
+    <>
+      <button
+        className="icon-btn"
+        onClick={onVoiceCall}
+        disabled={disabled}
+        title="Voice call"
+        style={{
+          fontSize: 17,
+          opacity: disabled ? 0.4 : 1,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+        }}
+      >
+        📞
+      </button>
+      <button
+        className="icon-btn"
+        onClick={onVideoCall}
+        disabled={disabled}
+        title="Video call"
+        style={{
+          fontSize: 17,
+          opacity: disabled ? 0.4 : 1,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+        }}
+      >
+        📹
+      </button>
+    </>
+  )
+}
+
 const CURRY_AI_CONTACT = { id: 'curry-ai', isCurryAI: true }
 
-// Helper: get the OTHER member's user_id from a conversation
 function getOtherUserId(convo, myUserId) {
   const other = convo?.conversation_members?.find(m => m.user_id !== myUserId)
   return other?.user_id || null
@@ -149,30 +184,42 @@ function getOtherUserId(convo, myUserId) {
 
 export default function ChatPage({ session }) {
   const [activeConvo, setActiveConvo] = useState(null)
-  const [newEmail, setNewEmail] = useState('')
+  const [newEmail, setNewEmail]       = useState('')
   const [showNewChat, setShowNewChat] = useState(false)
-  const [inputText, setInputText] = useState('')
-  const [search, setSearch] = useState('')
-  const [profile, setProfile] = useState(null)
-  const [showVoice, setShowVoice] = useState(false)
-  const [showPoll, setShowPoll] = useState(false)
-  const [showTask, setShowTask] = useState(false)
+  const [inputText, setInputText]     = useState('')
+  const [search, setSearch]           = useState('')
+  const [profile, setProfile]         = useState(null)
+  const [showVoice, setShowVoice]     = useState(false)
+  const [showPoll, setShowPoll]       = useState(false)
+  const [showTask, setShowTask]       = useState(false)
   const [pinnedRefresh, setPinnedRefresh] = useState(0)
-  const [showScheduler, setShowScheduler] = useState(false)
+  const [showScheduler, setShowScheduler]         = useState(false)
   const [showScheduledList, setShowScheduledList] = useState(false)
-  const [showSearch, setShowSearch] = useState(false)
+  const [showSearch, setShowSearch]               = useState(false)
   const [showCurryAssistant, setShowCurryAssistant] = useState(false)
   const [showThreeDot, setShowThreeDot] = useState(false)
   const [hasScheduled, setHasScheduled] = useState(false)
 
-  const msgRefs = useRef({})
+  const msgRefs        = useRef({})
   const messagesEndRef = useRef(null)
-  const typingTimer = useRef(null)
+  const typingTimer    = useRef(null)
 
   const userId = session.user.id
 
-  // ── Presence: broadcast my status & check others ──────────
+  // ── Presence ──────────────────────────────────────────────
   const isOnline = usePresence(userId)
+
+  // ── Call state ────────────────────────────────────────────
+  const {
+    callStatus,
+    activeCall,
+    callToken,
+    callError,
+    startCall,
+    answerCall,
+    declineCall,
+    endCall,
+  } = useCall(userId, activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null)
 
   const { conversations, loading: convLoading, reload } = useConversations(userId)
   const { messages, loading: msgLoading, typing, sendMessage, broadcastTyping } = useChat(
@@ -180,7 +227,6 @@ export default function ChatPage({ session }) {
     userId
   )
 
-  // The other person's user_id in the active conversation
   const otherUserId = activeConvo && !activeConvo.isCurryAI
     ? getOtherUserId(activeConvo, userId)
     : null
@@ -221,7 +267,6 @@ export default function ChatPage({ session }) {
     setHasScheduled(false)
   }, [activeConvo])
 
-  // Check for pending scheduled messages
   useEffect(() => {
     if (!activeConvo?.id || activeConvo.isCurryAI) return
     async function checkScheduled() {
@@ -235,7 +280,6 @@ export default function ChatPage({ session }) {
       setHasScheduled((data || []).length > 0)
     }
     checkScheduled()
-
     const sub = supabase
       .channel(`sched-check:${activeConvo.id}`)
       .on('postgres_changes', {
@@ -321,15 +365,42 @@ export default function ChatPage({ session }) {
     getConvoName(c).toLowerCase().includes(search.toLowerCase())
   )
 
-  // Status line shown under the contact name in the chat header
   const headerStatus = () => {
-    if (typing.length > 0) return `${getConvoName(activeConvo)} is typing…`
+    if (callStatus === 'calling')    return '📞 Calling…'
+    if (callStatus === 'connecting') return '📞 Connecting…'
+    if (callStatus === 'in-call')    return '🟢 On a call'
+    if (typing.length > 0)           return `${getConvoName(activeConvo)} is typing…`
     if (otherUserId && isOnline(otherUserId)) return 'Online'
-    return ''   // blank when offline — no "Offline" text shown
+    return ''
   }
+
+  // Are we in any active call state
+  const callActive = ['calling', 'connecting', 'in-call'].includes(callStatus)
 
   return (
     <div className={`app ${activeConvo ? 'chat-open' : ''}`}>
+
+      {/* ── INCOMING CALL MODAL ── */}
+      {callStatus === 'incoming' && activeCall && (
+        <IncomingCallModal
+          callerName={getConvoName(activeConvo || { conversation_members: [] })}
+          callType={activeCall.callType}
+          onAnswer={answerCall}
+          onDecline={declineCall}
+        />
+      )}
+
+      {/* ── IN-CALL OVERLAY ── */}
+      {(callStatus === 'connecting' || callStatus === 'in-call') && activeCall && (
+        <CallOverlay
+          roomUrl={activeCall.roomUrl}
+          token={callToken}
+          callType={activeCall.callType}
+          callerName={activeConvo ? getConvoName(activeConvo) : ''}
+          onEnd={endCall}
+        />
+      )}
+
       {/* ── SIDEBAR ── */}
       <div className="sidebar">
         <div className="sidebar-header">
@@ -358,7 +429,7 @@ export default function ChatPage({ session }) {
         )}
 
         <div className="contact-list">
-          {/* Curry AI entry — never shows online dot */}
+          {/* Curry AI */}
           <div
             className={`contact ${activeConvo?.isCurryAI ? 'active' : ''}`}
             onClick={() => setActiveConvo(CURRY_AI_CONTACT)}
@@ -378,16 +449,14 @@ export default function ChatPage({ session }) {
           {convLoading && <div className="loading-state">Loading…</div>}
 
           {filtered.map(c => {
-            // Get the other member's user_id for this conversation
             const otherId = getOtherUserId(c, userId)
-            const online = otherId ? isOnline(otherId) : false
+            const online  = otherId ? isOnline(otherId) : false
             return (
               <div
                 key={c.id}
                 className={`contact ${activeConvo?.id === c.id ? 'active' : ''}`}
                 onClick={() => setActiveConvo(c)}
               >
-                {/* Pass online only when actually online */}
                 <Avatar name={getConvoName(c)} online={online} />
                 <div className="contact-info">
                   <div className="contact-name">{getConvoName(c)}</div>
@@ -436,27 +505,53 @@ export default function ChatPage({ session }) {
             {/* Header */}
             <div className="chat-header">
               <button className="back-btn" onClick={() => setActiveConvo(null)}>←</button>
-
-              {/* Avatar: green dot only when the other user is actually online */}
               <Avatar
                 name={getConvoName(activeConvo)}
                 size={36}
                 online={otherUserId ? isOnline(otherUserId) : false}
               />
-
               <div style={{ flex: 1 }}>
                 <div className="chat-header-name">{getConvoName(activeConvo)}</div>
-                {/* Only renders text when typing or online; blank = no status shown */}
                 <div className="chat-header-sub" style={{
-                  color: typing.length > 0 ? 'var(--text-muted)' : '#10b981',
-                  minHeight: 16,   // keeps the header height stable when blank
+                  color: callActive ? '#10b981'
+                    : typing.length > 0 ? 'var(--text-muted)'
+                    : '#10b981',
+                  minHeight: 16,
                 }}>
                   {headerStatus()}
                 </div>
               </div>
 
-              {/* Header right actions */}
+              {/* Right side actions */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+
+                {/* ── CALL BUTTONS ── */}
+                {callStatus === 'idle' && (
+                  <CallButtons
+                    onVoiceCall={() => startCall('audio')}
+                    onVideoCall={() => startCall('video')}
+                    disabled={false}
+                  />
+                )}
+
+                {/* Show "end call" in header when calling/in-call */}
+                {callActive && (
+                  <button
+                    onClick={endCall}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      background: 'rgba(239,68,68,0.12)',
+                      border: '1px solid rgba(239,68,68,0.3)',
+                      borderRadius: 'var(--r-full)',
+                      padding: '5px 12px', cursor: 'pointer',
+                      fontFamily: 'inherit', fontSize: 12,
+                      fontWeight: 700, color: '#ef4444',
+                    }}
+                  >
+                    📵 End call
+                  </button>
+                )}
+
                 <button
                   className="icon-btn"
                   onClick={() => setShowCurryAssistant(v => !v)}
@@ -507,6 +602,45 @@ export default function ChatPage({ session }) {
                 </div>
               </div>
             </div>
+
+            {/* Call error banner */}
+            {callError && (
+              <div style={{
+                padding: '8px 16px', background: 'rgba(239,68,68,0.08)',
+                borderBottom: '1px solid rgba(239,68,68,0.2)',
+                fontSize: 13, color: '#ef4444', fontWeight: 500,
+              }}>
+                ⚠️ {callError}
+                <button
+                  onClick={() => {}}
+                  style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 12 }}
+                >✕</button>
+              </div>
+            )}
+
+            {/* Calling banner — shown when we initiated and waiting */}
+            {callStatus === 'calling' && (
+              <div style={{
+                padding: '10px 16px',
+                background: 'linear-gradient(135deg, rgba(14,165,233,0.08), rgba(99,102,241,0.08))',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex', alignItems: 'center', gap: 10,
+                fontSize: 13, fontWeight: 600, color: 'var(--accent-2)',
+              }}>
+                <span style={{ animation: 'pulse 1s infinite' }}>📞</span>
+                Calling {getConvoName(activeConvo)}…
+                <button
+                  onClick={endCall}
+                  style={{
+                    marginLeft: 'auto', background: 'rgba(239,68,68,0.1)',
+                    border: '1px solid rgba(239,68,68,0.3)',
+                    borderRadius: 20, padding: '4px 12px',
+                    fontSize: 12, fontWeight: 700, color: '#ef4444',
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >Cancel</button>
+              </div>
+            )}
 
             <PinnedBar key={pinnedRefresh} conversationId={activeConvo?.id} onScrollTo={scrollToMessage} />
 
