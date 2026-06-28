@@ -66,7 +66,7 @@ export function useCall(userId, conversationId) {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch(
-        'https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/create-call-room',
+        'https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/create-call-room-ts',
         {
           method: 'POST',
           headers: {
