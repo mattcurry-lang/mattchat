@@ -80,6 +80,15 @@ export function useCall(userId, conversationId) {
         if (!callRef.current) return
         if (call.id !== callRef.current.id) return
 
+        // Receiver just answered — caller's side moves from
+        // 'ringing' into 'connecting' (briefly, while Daily joins),
+        // then CallOverlay flips it to 'in-call' once media connects.
+        if (call.status === 'answered') {
+          clearMissedTimer()
+          setCallStatus('connecting')
+          return
+        }
+
         if (call.status === 'ended' || call.status === 'declined' || call.status === 'missed') {
           clearMissedTimer()
           setCallStatus(call.status === 'missed' ? 'missed' : 'ended')
@@ -99,6 +108,10 @@ export function useCall(userId, conversationId) {
   }, [userId])
 
   // ── Start a call ──────────────────────────────────────────────────
+  // Status flow for the caller: 'calling' (setting up the room, brief)
+  // → 'ringing' (room exists, waiting for the other person to answer)
+  // → 'connecting' (they answered, joining the Daily room)
+  // → 'in-call'.
   const startCall = useCallback(async (callType) => {
     if (!conversationId) return
     setCallStatus('calling')
@@ -132,7 +145,13 @@ export function useCall(userId, conversationId) {
       callRef.current = call
       setActiveCall(call)
       setCallToken(data.token)
-      setCallStatus('connecting')
+      // FIX: this used to jump straight to 'connecting', which made
+      // the caller's UI (and the ringtone, which only plays during
+      // 'calling'/'incoming') skip past the "phone is ringing on
+      // their end" period entirely. 'ringing' now persists until the
+      // receiver actually answers (handled in the UPDATE listener
+      // below) or the missed-call timeout fires.
+      setCallStatus('ringing')
 
       // ── Missed-call timeout ──────────────────────────────────────
       // If nobody answers within MISSED_CALL_TIMEOUT_MS, mark the call
