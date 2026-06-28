@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 
 /**
  * Broadcasts YOUR presence and lets you check if any user ID is online.
- * @param {string} myUserId  - the logged-in user's ID
+ * @param {string} myUserId - the logged-in user's ID
  * @returns {(userId: string) => boolean} isOnline
  */
 export function usePresence(myUserId) {
@@ -33,7 +33,6 @@ export function usePresence(myUserId) {
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          // Broadcast that you're online
           await channel.track({ online_at: new Date().toISOString() })
         }
       })
