@@ -109,6 +109,23 @@ function GifBubble({ content, isMe }) {
 }
 
 function MessageBubble({ msg, isMe }) {
+  // Missed call message
+  if (msg.content?.startsWith('missed_call:')) {
+    const callType = msg.content.replace('missed_call:', '')
+    return (
+      <div className="msg-row" style={{ justifyContent: 'center' }}>
+        <div style={{
+          fontSize: 12, color: 'var(--text-muted)', background: 'rgba(239,68,68,0.08)',
+          border: '1px solid rgba(239,68,68,0.2)', borderRadius: 20, padding: '6px 14px',
+          display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600,
+        }}>
+          {callType === 'video' ? '📹' : '📞'} Missed {callType} call
+          <span style={{ opacity: 0.6, fontWeight: 500 }}>· {formatMsgTime(msg.created_at)}</span>
+        </div>
+      </div>
+    )
+  }
+
   // Sticker message
   if (msg.content?.startsWith('sticker:')) {
     return (
@@ -288,6 +305,10 @@ export default function ChatPage({ session }) {
     callStatus, activeCall, callToken, callError,
     startCall, answerCall, declineCall, endCall,
   } = useCall(userId, activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null)
+
+  // Ring audibly while a call is going out ('calling') or coming in
+  // ('incoming'). Stops automatically on any other status.
+  useRingtone(callStatus === 'calling' || callStatus === 'incoming')
 
   const { conversations, loading: convLoading, reload } = useConversations(userId)
   const { messages, loading: msgLoading, typing, sendMessage, broadcastTyping } = useChat(
