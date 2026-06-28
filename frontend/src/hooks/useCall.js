@@ -139,13 +139,10 @@ export function useCall(userId, conversationId) {
       // 'missed' and log it in the conversation, same as a real phone.
       clearMissedTimer()
       missedTimerRef.current = setTimeout(async () => {
-        // Only fire if this exact call is still the active one and
-        // still ringing/connecting (i.e. nobody answered or declined).
+        // Only fire if this exact call is still the active one
+        // (i.e. nobody answered or declined in the meantime — the
+        // DB check below is the actual source of truth for that).
         if (callRef.current?.id !== call.id) return
-        if (!['calling', 'connecting'].includes(callStatus) &&
-            !['calling', 'connecting'].includes('connecting')) {
-          // status may have already moved on; double-check via DB below
-        }
 
         if (call.id) {
           const { data: current } = await supabase
@@ -176,7 +173,7 @@ export function useCall(userId, conversationId) {
       setCallError(err.message)
       setCallStatus('idle')
     }
-  }, [conversationId, userId, logMissedCallMessage]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [conversationId, userId, logMissedCallMessage])
 
   // ── Answer an incoming call ───────────────────────────────────────
   const answerCall = useCallback(async () => {
