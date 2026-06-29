@@ -664,3 +664,13 @@ button.email-badge:hover {
   0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.2); }
   50% { box-shadow: 0 0 0 4px rgba(99,102,241,0.08); }
 }
+
+
+@media (max-width: 768px) {
+  .chat-header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 20 !important;
+    background: rgba(255,255,255,0.97) !important;
+  }
+}
