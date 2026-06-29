@@ -599,7 +599,7 @@ export default function ChatPage({ session }) {
         ) : (
           <div className="chat-area">
             {/* Header */}
-            <div className="chat-header">
+            <div className="chat-header" style={{ position: 'sticky', top: 0, zIndex: 20 }}>
               <button className="back-btn" onClick={() => setActiveConvo(null)}>←</button>
               <Avatar name={getConvoName(activeConvo)} size={36}
                 online={otherUserId ? isOnline(otherUserId) : false} />
