@@ -1,167 +1,63 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
+const SUPABASE_URL = 'https://bqerkvywgxoioocbkxif.supabase.co'
+
 async function callCurryAI(type, payload, session) {
-  const res = await fetch(
-    'https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/curry-ai',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ type, ...payload }),
-    }
-  )
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/curry-ai`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ type, ...payload }),
+  })
   return res.json()
 }
 
-// ── Voice Engine ─────────────────────────────────────────────
-function useVoiceEngine() {
-  const [voices, setVoices] = useState([])
-  const [selectedVoice, setSelectedVoice] = useState(null)
-  const [speaking, setSpeaking] = useState(false)
-  const [voiceEnabled, setVoiceEnabled] = useState(true)
-  const utteranceRef = useRef(null)
+// ── ElevenLabs TTS ────────────────────────────────────────────
+async function speakWithElevenLabs(text, session) {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/curry-tts`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ text }),
+  })
 
-  useEffect(() => {
-    function loadVoices() {
-      const available = window.speechSynthesis.getVoices()
-      if (available.length === 0) return
-      setVoices(available)
-      // Pick best default: prefer Google/Microsoft natural voices in English
-      const preferred = available.find(v =>
-        v.name.includes('Google') && v.lang.startsWith('en')
-      ) || available.find(v =>
-        (v.name.includes('Microsoft') || v.name.includes('Samantha') || v.name.includes('Daniel')) && v.lang.startsWith('en')
-      ) || available.find(v => v.lang.startsWith('en'))
-      || available[0]
-      setSelectedVoice(preferred)
-    }
+  if (!res.ok) throw new Error('TTS failed')
 
-    loadVoices()
-    window.speechSynthesis.onvoiceschanged = loadVoices
-    return () => { window.speechSynthesis.onvoiceschanged = null }
-  }, [])
-
-  const speak = useCallback((text) => {
-    if (!voiceEnabled || !text) return
-    window.speechSynthesis.cancel()
-
-    // Clean text for speech (remove markdown, emojis, etc.)
-    const clean = text
-      .replace(/[*_~`#]/g, '')
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      .replace(/[\u{1F300}-\u{1FFFF}]/gu, '')
-      .trim()
-
-    const utterance = new SpeechSynthesisUtterance(clean)
-    if (selectedVoice) utterance.voice = selectedVoice
-    utterance.rate = 1.0
-    utterance.pitch = 1.0
-    utterance.volume = 1.0
-    utterance.onstart = () => setSpeaking(true)
-    utterance.onend = () => setSpeaking(false)
-    utterance.onerror = () => setSpeaking(false)
-
-    utteranceRef.current = utterance
-    window.speechSynthesis.speak(utterance)
-  }, [voiceEnabled, selectedVoice])
-
-  const stop = useCallback(() => {
-    window.speechSynthesis.cancel()
-    setSpeaking(false)
-  }, [])
-
-  return { voices, selectedVoice, setSelectedVoice, speaking, voiceEnabled, setVoiceEnabled, speak, stop }
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const audio = new Audio(url)
+  return new Promise((resolve, reject) => {
+    audio.onended = () => { URL.revokeObjectURL(url); resolve() }
+    audio.onerror = reject
+    audio.play()
+  })
 }
 
-// ── Voice Settings Panel ──────────────────────────────────────
-function VoiceSettings({ voices, selectedVoice, setSelectedVoice, voiceEnabled, setVoiceEnabled, onClose }) {
-  const grouped = {
-    'English': voices.filter(v => v.lang.startsWith('en')),
-    'Other Languages': voices.filter(v => !v.lang.startsWith('en')),
-  }
-
-  return (
-    <div style={styles.settingsOverlay} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={styles.settingsPanel}>
-        <div style={styles.settingsHeader}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>🔊 Voice Settings</span>
-          <button style={styles.closeBtn} onClick={onClose}>✕</button>
-        </div>
-
-        {/* Voice on/off toggle */}
-        <div style={styles.toggleRow}>
-          <span style={styles.toggleLabel}>Auto-speak responses</span>
-          <button
-            onClick={() => setVoiceEnabled(v => !v)}
-            style={{
-              ...styles.toggle,
-              background: voiceEnabled ? 'linear-gradient(135deg,#667eea,#764ba2)' : '#3a3a4e',
-            }}
-          >
-            <div style={{
-              ...styles.toggleThumb,
-              transform: voiceEnabled ? 'translateX(20px)' : 'translateX(0)',
-            }} />
-          </button>
-        </div>
-
-        {voiceEnabled && (
-          <>
-            <div style={styles.sectionLabel}>Choose voice</div>
-            <div style={styles.voiceList}>
-              {Object.entries(grouped).map(([group, groupVoices]) =>
-                groupVoices.length === 0 ? null : (
-                  <div key={group}>
-                    <div style={styles.voiceGroup}>{group}</div>
-                    {groupVoices.map(voice => (
-                      <button
-                        key={voice.name}
-                        style={{
-                          ...styles.voiceOption,
-                          ...(selectedVoice?.name === voice.name ? styles.voiceOptionActive : {}),
-                        }}
-                        onClick={() => setSelectedVoice(voice)}
-                      >
-                        <div style={styles.voiceName}>{voice.name}</div>
-                        <div style={styles.voiceLang}>{voice.lang}</div>
-                      </button>
-                    ))}
-                  </div>
-                )
-              )}
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── Main CurryAI Chat ─────────────────────────────────────────
+// ── Main Curry AI Chat ────────────────────────────────────────
 export default function CurryAIChat({ session }) {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: `Hey! I'm Curry AI ✨ — your personal assistant inside Mattchat.\n\nI can send messages, schedule them, summarize chats, translate, create polls & tasks, draft emails, and answer anything you ask.\n\nJust tell me what you need, or say "Hey Curry" anytime to activate me by voice!`
+      content: `Hey! I'm Curry AI ✨ — your personal assistant inside Mattchat.\n\nI can send messages, schedule them, summarize chats, translate, create polls & tasks, draft emails, and answer anything you ask.\n\nJust tell me what you need!`
     }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [listening, setListening] = useState(false)
-  const [showVoiceSettings, setShowVoiceSettings] = useState(false)
+  const [voiceOn, setVoiceOn] = useState(true)
+  const [speaking, setSpeaking] = useState(false)
   const messagesEndRef = useRef(null)
-  const recognitionRef = useRef(null)
-
-  const { voices, selectedVoice, setSelectedVoice, speaking, voiceEnabled, setVoiceEnabled, speak, stop } = useVoiceEngine()
+  const audioRef = useRef(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Load history
+  // Load history on mount
   useEffect(() => {
     async function loadHistory() {
       const { data } = await supabase
@@ -173,7 +69,7 @@ export default function CurryAIChat({ session }) {
 
       if (data && data.length > 0) {
         setMessages([
-          { role: 'assistant', content: `Welcome back! I remember our previous conversations. What can I help you with?` },
+          { role: 'assistant', content: `Welcome back! What can I help you with?` },
           ...data.map(m => ({ role: m.role, content: m.content }))
         ])
       }
@@ -181,8 +77,26 @@ export default function CurryAIChat({ session }) {
     loadHistory()
   }, [])
 
-  async function sendMessage(text) {
-    const userMsg = text || input.trim()
+  const speak = useCallback(async (text) => {
+    if (!voiceOn) return
+    setSpeaking(true)
+    try {
+      await speakWithElevenLabs(text, session)
+    } catch (e) {
+      console.error('TTS error:', e)
+    }
+    setSpeaking(false)
+  }, [voiceOn, session])
+
+  const stopSpeaking = useCallback(() => {
+    // Stop any playing audio
+    const audios = document.querySelectorAll('audio')
+    audios.forEach(a => { a.pause(); a.currentTime = 0 })
+    setSpeaking(false)
+  }, [])
+
+  async function sendMessage() {
+    const userMsg = input.trim()
     if (!userMsg || loading) return
 
     setInput('')
@@ -192,11 +106,9 @@ export default function CurryAIChat({ session }) {
     try {
       const data = await callCurryAI('chat', { message: userMsg }, session)
       if (data.ok) {
-        const cleanResponse = data.response.replace(/<action>[\s\S]*?<\/action>/g, '').trim()
-        const newMsg = { role: 'assistant', content: cleanResponse || data.response }
-        setMessages(prev => [...prev, newMsg])
-        // Auto-speak the response
-        speak(cleanResponse || data.response)
+        const response = data.response.replace(/<action>[\s\S]*?<\/action>/g, '').trim()
+        setMessages(prev => [...prev, { role: 'assistant', content: response }])
+        speak(response)
       } else {
         setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
       }
@@ -207,94 +119,65 @@ export default function CurryAIChat({ session }) {
     setLoading(false)
   }
 
-  function startVoice() {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SR) { alert('Voice input not supported in this browser. Try Chrome.'); return }
-
-    stop() // Stop any current speech before listening
-
-    const recognition = new SR()
-    recognition.continuous = false
-    recognition.interimResults = false
-    recognition.lang = selectedVoice?.lang || 'en-US'
-    recognition.onstart = () => setListening(true)
-    recognition.onend = () => setListening(false)
-    recognition.onresult = (e) => { sendMessage(e.results[0][0].transcript) }
-    recognition.onerror = () => setListening(false)
-    recognition.start()
-    recognitionRef.current = recognition
-  }
-
   async function clearHistory() {
+    stopSpeaking()
     await callCurryAI('clear_history', {}, session)
-    stop()
-    setMessages([{ role: 'assistant', content: `Chat cleared! Fresh start — what can I help you with?` }])
+    setMessages([{ role: 'assistant', content: `Fresh start — what can I help you with?` }])
   }
 
   return (
-    <div style={styles.container}>
+    <div style={s.container}>
       {/* Header */}
-      <div style={styles.header}>
-        <div style={styles.headerLeft}>
-          <div style={styles.avatar}>✨</div>
+      <div style={s.header}>
+        <div style={s.headerLeft}>
+          <div style={s.avatar}>✨</div>
           <div>
-            <div style={styles.headerName}>Curry AI</div>
-            <div style={styles.headerSub}>
-              {speaking ? '🔊 Speaking...' : listening ? '🎙️ Listening...' : 'Always learning, always here'}
+            <div style={s.headerName}>Curry AI</div>
+            <div style={s.headerSub}>
+              {speaking ? 'Speaking...' : 'Always learning, always here'}
             </div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {/* Voice toggle */}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Speaker toggle — clean like Claude */}
           <button
-            style={{ ...styles.iconBtn, color: voiceEnabled ? '#667eea' : '#555' }}
-            onClick={() => setVoiceEnabled(v => !v)}
-            title={voiceEnabled ? 'Voice on — click to mute' : 'Voice off — click to unmute'}
+            onClick={() => { if (speaking) stopSpeaking(); setVoiceOn(v => !v) }}
+            style={s.speakerBtn}
+            title={voiceOn ? 'Voice on — click to mute' : 'Voice off — click to unmute'}
           >
-            {voiceEnabled ? '🔊' : '🔇'}
+            <SpeakerIcon on={voiceOn} speaking={speaking} />
           </button>
-          {/* Voice settings */}
-          <button
-            style={styles.iconBtn}
-            onClick={() => setShowVoiceSettings(true)}
-            title="Voice settings"
-          >
-            ⚙️
+
+          <button style={s.iconBtn} onClick={clearHistory} title="Clear history">
+            <TrashIcon />
           </button>
-          <button style={styles.iconBtn} onClick={clearHistory} title="Clear history">🗑️</button>
         </div>
       </div>
 
       {/* Messages */}
-      <div style={styles.messages}>
+      <div style={s.messages}>
         {messages.map((msg, i) => (
-          <div key={i} style={{ ...styles.msgRow, ...(msg.role === 'user' ? styles.msgRowUser : {}) }}>
-            {msg.role === 'assistant' && <div style={styles.aiAvatar}>✨</div>}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start', gap: 4 }}>
-              <div style={{ ...styles.bubble, ...(msg.role === 'user' ? styles.bubbleUser : styles.bubbleAI) }}>
-                {msg.content.split('\n').map((line, j) => (
-                  <span key={j}>{line}{j < msg.content.split('\n').length - 1 && <br />}</span>
-                ))}
-              </div>
-              {/* Replay button on AI messages */}
-              {msg.role === 'assistant' && (
-                <button
-                  style={styles.replayBtn}
-                  onClick={() => speak(msg.content)}
-                  title="Replay voice"
-                >
-                  🔊 Replay
-                </button>
-              )}
+          <div key={i} style={{ ...s.row, ...(msg.role === 'user' ? s.rowUser : {}) }}>
+            {msg.role === 'assistant' && (
+              <div style={s.aiAvatar}>✨</div>
+            )}
+            <div style={{
+              ...s.bubble,
+              ...(msg.role === 'user' ? s.bubbleUser : s.bubbleAI),
+            }}>
+              {msg.content.split('\n').map((line, j, arr) => (
+                <span key={j}>{line}{j < arr.length - 1 && <br />}</span>
+              ))}
             </div>
           </div>
         ))}
 
         {loading && (
-          <div style={styles.msgRow}>
-            <div style={styles.aiAvatar}>✨</div>
-            <div style={{ ...styles.bubble, ...styles.bubbleAI }}>
-              <div style={styles.typing}><span /><span /><span /></div>
+          <div style={s.row}>
+            <div style={s.aiAvatar}>✨</div>
+            <div style={{ ...s.bubble, ...s.bubbleAI, padding: '12px 16px' }}>
+              <TypingDots />
             </div>
           </div>
         )}
@@ -302,43 +185,23 @@ export default function CurryAIChat({ session }) {
       </div>
 
       {/* Input */}
-      <div style={styles.inputArea}>
-        <button
-          style={{ ...styles.voiceBtn, ...(listening ? styles.voiceBtnActive : {}) }}
-          onClick={startVoice}
-          title={listening ? 'Listening...' : 'Speak to Curry'}
-        >
-          {listening ? '🔴' : '🎙️'}
-        </button>
+      <div style={s.inputArea}>
         <textarea
-          style={styles.input}
+          style={s.textarea}
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
-          placeholder="Ask Curry anything..."
+          placeholder="Message Curry AI..."
           rows={1}
         />
-        {speaking && (
-          <button style={styles.stopBtn} onClick={stop} title="Stop speaking">⏹</button>
-        )}
         <button
-          style={{ ...styles.sendBtn, opacity: (!input.trim() || loading) ? 0.4 : 1 }}
-          onClick={() => sendMessage()}
+          style={{ ...s.sendBtn, opacity: (!input.trim() || loading) ? 0.35 : 1 }}
+          onClick={sendMessage}
           disabled={!input.trim() || loading}
-        >➤</button>
+        >
+          <SendIcon />
+        </button>
       </div>
-
-      {/* Voice settings modal */}
-      {showVoiceSettings && (
-        <VoiceSettings
-          voices={voices}
-          selectedVoice={selectedVoice}
-          setSelectedVoice={setSelectedVoice}
-          voiceEnabled={voiceEnabled}
-          setVoiceEnabled={setVoiceEnabled}
-          onClose={() => setShowVoiceSettings(false)}
-        />
-      )}
     </div>
   )
 }
@@ -351,8 +214,6 @@ export function CurryAssistant({ session, conversationId, messages: chatMessages
   const [translateLang, setTranslateLang] = useState('English')
   const [askText, setAskText] = useState('')
   const [suggestions, setSuggestions] = useState([])
-
-  const { speak } = useVoiceEngine()
 
   async function handleSmartReply() {
     setMode('smartreply'); setLoading(true)
@@ -370,7 +231,7 @@ export function CurryAssistant({ session, conversationId, messages: chatMessages
   async function handleSummarize() {
     setMode('summarize'); setLoading(true)
     const data = await callCurryAI('summarize', { conversationId }, session)
-    if (data.ok) { setResult(data.response); speak(data.response) }
+    if (data.ok) setResult(data.response)
     setLoading(false)
   }
 
@@ -379,7 +240,7 @@ export function CurryAssistant({ session, conversationId, messages: chatMessages
     const lastMsg = chatMessages.filter(m => m.message_type === 'text').slice(-1)[0]
     if (!lastMsg) { setResult('No text message to translate.'); setLoading(false); return }
     const data = await callCurryAI('translate', { message: lastMsg.content, targetLanguage: translateLang }, session)
-    if (data.ok) { setResult(data.response); speak(data.response) }
+    if (data.ok) setResult(data.response)
     setLoading(false)
   }
 
@@ -387,113 +248,275 @@ export function CurryAssistant({ session, conversationId, messages: chatMessages
     if (!askText.trim()) return
     setLoading(true)
     const data = await callCurryAI('chat', { message: `About this conversation: ${askText}` }, session)
-    if (data.ok) { setResult(data.response); speak(data.response) }
+    if (data.ok) setResult(data.response)
     setLoading(false)
   }
 
   return (
-    <div style={styles.assistantPanel}>
-      <div style={styles.assistantHeader}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>✨ Curry AI</span>
-        <button style={styles.iconBtn} onClick={onClose}>✕</button>
+    <div style={s.panel}>
+      <div style={s.panelHeader}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>✨ Curry AI</span>
+        <button style={s.iconBtn} onClick={onClose}>✕</button>
       </div>
-      <div style={styles.actionGrid}>
+      <div style={s.actionRow}>
         {[
-          { id: 'smartreply', icon: '💬', label: 'Smart Reply', action: handleSmartReply },
-          { id: 'summarize', icon: '📝', label: 'Summarize', action: handleSummarize },
-          { id: 'translate', icon: '🌍', label: 'Translate', action: () => setMode('translate') },
-          { id: 'ask', icon: '🤔', label: 'Ask AI', action: () => setMode('ask') },
-        ].map(({ id, icon, label, action }) => (
-          <button key={id} style={{ ...styles.actionBtn, ...(mode === id ? styles.actionBtnActive : {}) }} onClick={action}>
-            {icon} {label}
-          </button>
+          { id: 'smartreply', label: '💬 Smart Reply', action: handleSmartReply },
+          { id: 'summarize', label: '📝 Summarize', action: handleSummarize },
+          { id: 'translate', label: '🌍 Translate', action: () => setMode('translate') },
+          { id: 'ask', label: '🤔 Ask AI', action: () => setMode('ask') },
+        ].map(({ id, label, action }) => (
+          <button key={id}
+            style={{ ...s.chip, ...(mode === id ? s.chipActive : {}) }}
+            onClick={action}
+          >{label}</button>
         ))}
       </div>
-      <div style={styles.resultArea}>
-        {loading && <div style={styles.statusText}>Curry AI is thinking...</div>}
-        {mode === 'smartreply' && !loading && suggestions.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={styles.statusText}>Tap a suggestion to send:</div>
-            {suggestions.map((s, i) => (
-              <button key={i} style={styles.suggestionBtn} onClick={() => { onSuggestReply(s); onClose() }}>{s}</button>
-            ))}
+
+      {loading && <div style={s.hint}>Curry AI is thinking...</div>}
+
+      {mode === 'smartreply' && !loading && suggestions.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={s.hint}>Tap to send:</div>
+          {suggestions.map((sg, i) => (
+            <button key={i} style={s.suggestion}
+              onClick={() => { onSuggestReply(sg); onClose() }}>{sg}</button>
+          ))}
+        </div>
+      )}
+
+      {(mode === 'summarize') && !loading && result && (
+        <div style={s.result}>{result}</div>
+      )}
+
+      {mode === 'translate' && !loading && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input style={s.miniInput} value={translateLang}
+              onChange={e => setTranslateLang(e.target.value)} placeholder="Language..." />
+            <button style={s.goBtn} onClick={handleTranslate}>Go</button>
           </div>
-        )}
-        {mode === 'summarize' && !loading && result && <div style={styles.resultText}>{result}</div>}
-        {mode === 'translate' && !loading && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input style={styles.miniInput} value={translateLang} onChange={e => setTranslateLang(e.target.value)} placeholder="Target language..." />
-              <button style={styles.goBtn} onClick={handleTranslate}>Go</button>
-            </div>
-            {result && <div style={styles.resultText}>{result}</div>}
+          {result && <div style={s.result}>{result}</div>}
+        </div>
+      )}
+
+      {mode === 'ask' && !loading && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input style={s.miniInput} value={askText}
+              onChange={e => setAskText(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAsk()}
+              placeholder="Ask about this chat..." />
+            <button style={s.goBtn} onClick={handleAsk}>Ask</button>
           </div>
-        )}
-        {mode === 'ask' && !loading && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input style={styles.miniInput} value={askText} onChange={e => setAskText(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAsk()} placeholder="Ask about this chat..." />
-              <button style={styles.goBtn} onClick={handleAsk}>Ask</button>
-            </div>
-            {result && <div style={styles.resultText}>{result}</div>}
-          </div>
-        )}
-      </div>
+          {result && <div style={s.result}>{result}</div>}
+        </div>
+      )}
     </div>
   )
 }
 
-const styles = {
-  container: { display: 'flex', flexDirection: 'column', height: '100%', background: 'linear-gradient(180deg,#0f0f1a 0%,#1a1a2e 100%)' },
-  header: { padding: '14px 16px', borderBottom: '1px solid #2a2a3e', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#1e1e2e' },
-  headerLeft: { display: 'flex', alignItems: 'center', gap: 12 },
-  avatar: { width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 },
-  headerName: { fontSize: 15, fontWeight: 700, color: '#fff' },
-  headerSub: { fontSize: 11, color: '#667eea', marginTop: 1 },
-  iconBtn: { background: 'none', border: 'none', color: '#888', fontSize: 16, cursor: 'pointer', padding: '4px 6px', borderRadius: 6, transition: 'color 0.15s' },
-  messages: { flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 },
-  msgRow: { display: 'flex', gap: 8, alignItems: 'flex-end' },
-  msgRowUser: { flexDirection: 'row-reverse' },
-  aiAvatar: { width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 },
-  bubble: { maxWidth: '75%', padding: '10px 14px', borderRadius: 16, fontSize: 14, lineHeight: 1.5 },
-  bubbleAI: { background: '#2a2a3e', color: '#e2e8f0', borderRadius: '4px 16px 16px 16px' },
-  bubbleUser: { background: 'linear-gradient(135deg,#667eea,#764ba2)', color: '#fff', borderRadius: '16px 4px 16px 16px' },
-  replayBtn: { background: 'none', border: 'none', color: '#555', fontSize: 11, cursor: 'pointer', padding: '2px 6px', borderRadius: 6, fontFamily: 'inherit', transition: 'color 0.15s' },
-  typing: { display: 'flex', gap: 4, padding: '2px 0' },
-  inputArea: { padding: '12px 16px', borderTop: '1px solid #2a2a3e', display: 'flex', alignItems: 'flex-end', gap: 8, background: '#1e1e2e' },
-  voiceBtn: { background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', padding: 6, borderRadius: '50%', flexShrink: 0, transition: 'background 0.15s' },
-  voiceBtnActive: { background: 'rgba(252,129,129,0.2)' },
-  stopBtn: { background: 'rgba(99,102,241,0.15)', border: 'none', borderRadius: 8, color: '#667eea', fontSize: 16, cursor: 'pointer', padding: '6px 10px', flexShrink: 0 },
-  input: { flex: 1, resize: 'none', border: '1px solid #3a3a4e', borderRadius: 20, padding: '10px 16px', fontSize: 14, fontFamily: 'inherit', background: '#2a2a3e', color: '#fff', outline: 'none', maxHeight: 120 },
-  sendBtn: { width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+// ── Icons ─────────────────────────────────────────────────────
+function SpeakerIcon({ on, speaking }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      {on ? (
+        <>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14" opacity={speaking ? 1 : 0.5} />
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+        </>
+      ) : (
+        <>
+          <line x1="23" y1="9" x2="17" y2="15" />
+          <line x1="17" y1="9" x2="23" y2="15" />
+        </>
+      )}
+    </svg>
+  )
+}
 
-  // Voice settings
-  settingsOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000, padding: '0 0 20px' },
-  settingsPanel: { background: '#1e1e2e', borderRadius: 20, padding: 20, width: '100%', maxWidth: 420, maxHeight: '70vh', display: 'flex', flexDirection: 'column', gap: 14, boxShadow: '0 -8px 40px rgba(0,0,0,0.4)' },
-  settingsHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  closeBtn: { background: 'none', border: 'none', color: '#888', fontSize: 18, cursor: 'pointer' },
-  toggleRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' },
-  toggleLabel: { fontSize: 14, color: '#e2e8f0', fontWeight: 500 },
-  toggle: { width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 },
-  toggleThumb: { position: 'absolute', top: 3, left: 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'transform 0.2s' },
-  sectionLabel: { fontSize: 11, fontWeight: 700, color: '#666', textTransform: 'uppercase', letterSpacing: '0.06em' },
-  voiceList: { overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4, flex: 1 },
-  voiceGroup: { fontSize: 11, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '8px 0 4px' },
-  voiceOption: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 12px', background: 'none', border: '1px solid #2a2a3e', borderRadius: 8, cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' },
-  voiceOptionActive: { background: 'rgba(102,126,234,0.15)', borderColor: '#667eea' },
-  voiceName: { fontSize: 13, color: '#e2e8f0', fontWeight: 500 },
-  voiceLang: { fontSize: 11, color: '#555' },
+function SendIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="22" y1="2" x2="11" y2="13" />
+      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    </svg>
+  )
+}
+
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14H6L5 6" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M9 6V4h6v2" />
+    </svg>
+  )
+}
+
+function TypingDots() {
+  return (
+    <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+      {[0, 1, 2].map(i => (
+        <div key={i} style={{
+          width: 7, height: 7, borderRadius: '50%',
+          background: '#667eea', opacity: 0.7,
+          animation: `typingDot 1.2s ${i * 0.2}s infinite ease-in-out`,
+        }} />
+      ))}
+    </div>
+  )
+}
+
+// ── Styles ────────────────────────────────────────────────────
+const s = {
+  container: {
+    display: 'flex', flexDirection: 'column', height: '100%',
+    background: 'linear-gradient(180deg, #0d0d1a 0%, #111827 100%)',
+    fontFamily: "'Inter', sans-serif",
+  },
+  header: {
+    padding: '14px 18px',
+    borderBottom: '1px solid rgba(255,255,255,0.06)',
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    background: 'rgba(255,255,255,0.03)',
+  },
+  headerLeft: { display: 'flex', alignItems: 'center', gap: 12 },
+  avatar: {
+    width: 36, height: 36, borderRadius: '50%',
+    background: 'linear-gradient(135deg,#667eea,#764ba2)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17,
+    boxShadow: '0 0 16px rgba(102,126,234,0.4)',
+  },
+  headerName: { fontSize: 15, fontWeight: 700, color: '#f0f0f0', letterSpacing: '-0.02em' },
+  headerSub: { fontSize: 11, color: '#667eea', marginTop: 1, fontWeight: 500 },
+  speakerBtn: {
+    background: 'none', border: 'none', cursor: 'pointer',
+    color: '#888', padding: '6px', borderRadius: 8,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    transition: 'color 0.15s, background 0.15s',
+  },
+  iconBtn: {
+    background: 'none', border: 'none', cursor: 'pointer',
+    color: '#666', padding: '6px', borderRadius: 8,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    transition: 'color 0.15s',
+  },
+  messages: {
+    flex: 1, overflowY: 'auto', padding: '20px 18px',
+    display: 'flex', flexDirection: 'column', gap: 16,
+  },
+  row: { display: 'flex', gap: 10, alignItems: 'flex-end' },
+  rowUser: { flexDirection: 'row-reverse' },
+  aiAvatar: {
+    width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+    background: 'linear-gradient(135deg,#667eea,#764ba2)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13,
+    boxShadow: '0 0 8px rgba(102,126,234,0.3)',
+  },
+  bubble: {
+    maxWidth: '78%', padding: '11px 15px',
+    fontSize: 14, lineHeight: 1.6, fontWeight: 400,
+    letterSpacing: '-0.01em',
+  },
+  bubbleAI: {
+    background: 'rgba(255,255,255,0.06)',
+    color: '#e8e8f0',
+    borderRadius: '4px 18px 18px 18px',
+    border: '1px solid rgba(255,255,255,0.06)',
+  },
+  bubbleUser: {
+    background: 'linear-gradient(135deg,#667eea,#764ba2)',
+    color: '#fff',
+    borderRadius: '18px 4px 18px 18px',
+    boxShadow: '0 4px 14px rgba(102,126,234,0.3)',
+  },
+  inputArea: {
+    padding: '12px 16px 14px',
+    borderTop: '1px solid rgba(255,255,255,0.06)',
+    display: 'flex', alignItems: 'flex-end', gap: 10,
+    background: 'rgba(255,255,255,0.02)',
+  },
+  textarea: {
+    flex: 1, resize: 'none',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: 22, padding: '11px 16px',
+    fontSize: 14, fontFamily: 'inherit',
+    background: 'rgba(255,255,255,0.05)',
+    color: '#f0f0f0', outline: 'none',
+    maxHeight: 120, lineHeight: 1.5,
+    transition: 'border-color 0.2s',
+    letterSpacing: '-0.01em',
+  },
+  sendBtn: {
+    width: 38, height: 38, borderRadius: '50%',
+    background: 'linear-gradient(135deg,#667eea,#764ba2)',
+    border: 'none', cursor: 'pointer', color: '#fff',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0, transition: 'all 0.15s',
+    boxShadow: '0 4px 12px rgba(102,126,234,0.4)',
+  },
 
   // Assistant panel
-  assistantPanel: { background: '#1e1e2e', borderRadius: '16px 16px 0 0', padding: 16, display: 'flex', flexDirection: 'column', gap: 12, borderTop: '2px solid #667eea' },
-  assistantHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  actionGrid: { display: 'flex', gap: 8, flexWrap: 'wrap' },
-  actionBtn: { background: '#2a2a3e', border: '1px solid #3a3a4e', borderRadius: 20, color: '#a0aec0', fontSize: 12, padding: '6px 12px', cursor: 'pointer', transition: 'all 0.15s' },
-  actionBtnActive: { background: 'linear-gradient(135deg,#667eea,#764ba2)', border: '1px solid #667eea', color: '#fff' },
-  resultArea: { minHeight: 60 },
-  statusText: { fontSize: 13, color: '#888', marginBottom: 8 },
-  resultText: { fontSize: 14, color: '#e2e8f0', lineHeight: 1.5, background: '#2a2a3e', borderRadius: 10, padding: '10px 14px' },
-  suggestionBtn: { background: '#2a2a3e', border: '1px solid #667eea', borderRadius: 10, color: '#e2e8f0', fontSize: 13, padding: '8px 12px', cursor: 'pointer', textAlign: 'left', width: '100%', transition: 'background 0.15s' },
-  miniInput: { flex: 1, background: '#2a2a3e', border: '1px solid #3a3a4e', borderRadius: 8, color: '#fff', fontSize: 13, padding: '7px 10px', outline: 'none', fontFamily: 'inherit' },
-  goBtn: { background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 700, padding: '7px 14px', cursor: 'pointer' },
+  panel: {
+    background: 'rgba(30,30,46,0.98)',
+    borderTop: '1px solid rgba(102,126,234,0.3)',
+    padding: '14px 16px',
+    display: 'flex', flexDirection: 'column', gap: 10,
+    backdropFilter: 'blur(12px)',
+  },
+  panelHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  actionRow: { display: 'flex', gap: 6, flexWrap: 'wrap' },
+  chip: {
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: 20, color: '#a0aec0',
+    fontSize: 12, fontWeight: 600, padding: '5px 12px',
+    cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit',
+  },
+  chipActive: {
+    background: 'linear-gradient(135deg,#667eea,#764ba2)',
+    border: '1px solid #667eea', color: '#fff',
+  },
+  hint: { fontSize: 12, color: '#666', fontWeight: 500 },
+  result: {
+    fontSize: 14, color: '#e2e8f0', lineHeight: 1.55,
+    background: 'rgba(255,255,255,0.04)',
+    borderRadius: 10, padding: '10px 14px',
+    border: '1px solid rgba(255,255,255,0.06)',
+  },
+  suggestion: {
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(102,126,234,0.3)',
+    borderRadius: 10, color: '#e2e8f0',
+    fontSize: 13, padding: '8px 12px',
+    cursor: 'pointer', textAlign: 'left',
+    width: '100%', fontFamily: 'inherit',
+    transition: 'background 0.15s',
+  },
+  miniInput: {
+    flex: 1, background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: 8, color: '#fff',
+    fontSize: 13, padding: '7px 10px',
+    outline: 'none', fontFamily: 'inherit',
+  },
+  goBtn: {
+    background: 'linear-gradient(135deg,#667eea,#764ba2)',
+    border: 'none', borderRadius: 8, color: '#fff',
+    fontSize: 13, fontWeight: 700, padding: '7px 14px',
+    cursor: 'pointer', fontFamily: 'inherit',
+  },
 }
+
+// Inject typing dot animation
+const style = document.createElement('style')
+style.textContent = `
+  @keyframes typingDot {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-5px); opacity: 1; }
+  }
+  .curry-textarea:focus { border-color: rgba(102,126,234,0.5) !important; }
+`
+document.head.appendChild(style)
