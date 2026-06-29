@@ -268,8 +268,13 @@ body {
 .delete-chat-btn:hover { opacity: 1 !important; background: rgba(239,68,68,0.08); }
 
 /* ── Chat Area ───────────────────────────────────────────── */
-.chat-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-chat); }
-
+.chat-area { 
+  flex: 1; 
+  display: flex; 
+  flex-direction: column; 
+  overflow: hidden;  /* NOT overflow-y: auto */
+  background: var(--bg-chat); 
+}
 .chat-header {
   padding: 13px 18px;
   border-bottom: 1px solid var(--border);
@@ -325,9 +330,13 @@ button.email-badge:hover {
 .scheduled-link-btn:hover { background: rgba(99,102,241,0.12); }
 
 /* ── Messages ────────────────────────────────────────────── */
-.messages {
-  flex: 1; overflow-y: auto; padding: 20px 18px;
-  display: flex; flex-direction: column; gap: 6px;
+.messages { 
+  flex: 1; 
+  overflow-y: auto;   /* scroll happens HERE only */
+  padding: 20px 18px; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 6px; 
 }
 .date-divider {
   text-align: center; font-size: 11px; font-weight: 700;
