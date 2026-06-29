@@ -50,7 +50,7 @@ export function useCall(userId, conversationId) {
 
         supabase
           .from('conversation_members')
-          .select('id')
+          .select('user_id')
           .eq('conversation_id', call.conversation_id)
           .eq('user_id', userId)
           .single()
