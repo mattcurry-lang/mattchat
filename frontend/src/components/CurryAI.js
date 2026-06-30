@@ -37,10 +37,13 @@ async function speakWithElevenLabs(text, session) {
 
 // ── Voice Mode Overlay ──────────────────────────────────────
 function VoiceModeOverlay({ session, onEnd, onNewMessages }) {
-  const [status, setStatus] = useState('listening') // listening | thinking | speaking
+  const [status, setStatus] = useState('listening')
   const [transcript, setTranscript] = useState('')
   const recognitionRef = useRef(null)
   const stoppedRef = useRef(false)
+  const silenceTimerRef = useRef(null)
+  const lastTranscriptRef = useRef('')
+  const processingRef = useRef(false)
 
   const startListening = useCallback(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
@@ -50,8 +53,12 @@ function VoiceModeOverlay({ session, onEnd, onNewMessages }) {
       return
     }
 
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort() } catch (e) {}
+    }
+
     const recognition = new SR()
-    recognition.continuous = false
+    recognition.continuous = true
     recognition.interimResults = true
     recognition.lang = 'en-US'
 
@@ -59,48 +66,74 @@ function VoiceModeOverlay({ session, onEnd, onNewMessages }) {
       let text = ''
       for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript
       setTranscript(text)
-    }
+      lastTranscriptRef.current = text
 
-    recognition.onend = async () => {
-      if (stoppedRef.current) return
-      const finalText = transcript.trim()
-      if (!finalText) {
-        // No speech detected, restart listening
-        startListening()
-        return
-      }
-      await handleUserSpeech(finalText)
+      // Reset silence timer every time we get new speech
+      clearTimeout(silenceTimerRef.current)
+      silenceTimerRef.current = setTimeout(() => {
+        // 1.4s of silence after speech = user is done talking
+        if (lastTranscriptRef.current.trim() && !processingRef.current) {
+          finishListening()
+        }
+      }, 1400)
     }
 
     recognition.onerror = (e) => {
-      if (e.error === 'no-speech' && !stoppedRef.current) {
-        startListening()
+      if (e.error === 'no-speech') return // ignore, keep waiting
+      if (e.error === 'aborted') return // we caused this intentionally
+      console.error('Speech recognition error:', e.error)
+    }
+
+    recognition.onend = () => {
+      // If recognition stops unexpectedly (not from our own abort) and we're
+      // still in listening mode with no pending result, restart it
+      if (!stoppedRef.current && !processingRef.current && status !== 'speaking') {
+        try { recognition.start() } catch (e) {}
       }
     }
 
-    recognition.start()
-    recognitionRef.current = recognition
-    setStatus('listening')
-  }, [transcript])
+    try {
+      recognition.start()
+      recognitionRef.current = recognition
+      setStatus('listening')
+      setTranscript('')
+      lastTranscriptRef.current = ''
+    } catch (e) {
+      console.error('Failed to start recognition:', e)
+    }
+  }, [])
 
-  async function handleUserSpeech(text) {
+  async function finishListening() {
+    if (processingRef.current) return
+    processingRef.current = true
+    clearTimeout(silenceTimerRef.current)
+
+    const finalText = lastTranscriptRef.current.trim()
+    try { recognitionRef.current?.stop() } catch (e) {}
+
+    if (!finalText) {
+      processingRef.current = false
+      if (!stoppedRef.current) startListening()
+      return
+    }
+
     setStatus('thinking')
-    setTranscript('')
 
     try {
-      const data = await callCurryAI('chat', { message: text }, session)
-      if (stoppedRef.current) return
+      const data = await callCurryAI('chat', { message: finalText }, session)
+      if (stoppedRef.current) { processingRef.current = false; return }
 
       if (data.ok) {
         const response = data.response.replace(/<action>[\s\S]*?<\/action>/g, '').trim()
-        onNewMessages(text, response)
+        onNewMessages(finalText, response)
         setStatus('speaking')
         await speakWithElevenLabs(response, session)
       }
     } catch (e) {
-      console.error(e)
+      console.error('Curry AI error:', e)
     }
 
+    processingRef.current = false
     if (!stoppedRef.current) startListening()
   }
 
@@ -109,7 +142,8 @@ function VoiceModeOverlay({ session, onEnd, onNewMessages }) {
     startListening()
     return () => {
       stoppedRef.current = true
-      recognitionRef.current?.stop()
+      clearTimeout(silenceTimerRef.current)
+      try { recognitionRef.current?.abort() } catch (e) {}
       window.speechSynthesis?.cancel()
     }
   }, [])
@@ -222,7 +256,6 @@ export default function CurryAIChat({ session }) {
 
   return (
     <div style={s.container}>
-      {/* Header */}
       <div style={s.header}>
         <div style={s.headerLeft}>
           <div style={s.avatar}>✨</div>
@@ -253,7 +286,6 @@ export default function CurryAIChat({ session }) {
         </div>
       </div>
 
-      {/* Voice mode overlay OR chat */}
       {voiceMode ? (
         <VoiceModeOverlay
           session={session}
@@ -307,7 +339,7 @@ export default function CurryAIChat({ session }) {
   )
 }
 
-// ── In-chat Assistant Panel (unchanged) ────────────────────────
+// ── In-chat Assistant Panel ────────────────────────────────────
 export function CurryAssistant({ session, conversationId, messages: chatMessages, onSuggestReply, onClose }) {
   const [mode, setMode] = useState(null)
   const [result, setResult] = useState('')
@@ -457,13 +489,8 @@ function TypingDots() {
   )
 }
 
-// ── Voice mode styles ───────────────────────────────────────
 const vs = {
-  overlay: {
-    flex: 1, display: 'flex', flexDirection: 'column',
-    alignItems: 'center', justifyContent: 'center',
-    padding: '32px 24px', gap: 24,
-  },
+  overlay: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', gap: 24 },
   ring: { position: 'absolute', inset: -8, borderRadius: '50%', border: '2px solid rgba(102,126,234,0.3)' },
   ring2: { position: 'absolute', inset: -16, borderRadius: '50%', border: '1px solid rgba(102,126,234,0.15)' },
   orb: { width: 120, height: 120, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, boxShadow: '0 0 40px rgba(102,126,234,0.4)' },
