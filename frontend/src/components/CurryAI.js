@@ -35,102 +35,142 @@ async function speakWithElevenLabs(text, session) {
   })
 }
 
-// ── Voice Mode Overlay ──────────────────────────────────────
+async function transcribeAudio(blob, session) {
+  const formData = new FormData()
+  formData.append('audio', blob, 'recording.webm')
+
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/voice-transcribe`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${session.access_token}` },
+    body: formData,
+  })
+  const data = await res.json()
+  if (!data.ok) throw new Error(data.error || 'Transcription failed')
+  return data.text
+}
+
+// ── Voice Mode Overlay (record + Whisper based) ──────────────
 function VoiceModeOverlay({ session, onEnd, onNewMessages }) {
-  const [status, setStatus] = useState('listening')
-  const [transcript, setTranscript] = useState('')
-  const recognitionRef = useRef(null)
+  const [status, setStatus] = useState('listening') // listening | thinking | speaking
+  const [volume, setVolume] = useState(0)
   const stoppedRef = useRef(false)
-  const silenceTimerRef = useRef(null)
-  const lastTranscriptRef = useRef('')
   const processingRef = useRef(false)
 
-  const startListening = useCallback(() => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SR) {
-      alert('Voice mode needs Chrome or Edge browser.')
-      onEnd()
-      return
-    }
+  const streamRef = useRef(null)
+  const audioCtxRef = useRef(null)
+  const analyserRef = useRef(null)
+  const recorderRef = useRef(null)
+  const chunksRef = useRef([])
+  const silenceTimerRef = useRef(null)
+  const hasSpokenRef = useRef(false)
+  const animFrameRef = useRef(null)
 
-    if (recognitionRef.current) {
-      try { recognitionRef.current.abort() } catch (e) {}
-    }
+  const SILENCE_THRESHOLD = 8 // volume level below which we consider it silence
+  const SILENCE_DURATION = 1300 // ms of silence before we stop and process
 
-    const recognition = new SR()
-    recognition.continuous = true
-    recognition.interimResults = true
-    recognition.lang = 'en-US'
-
-    recognition.onresult = (e) => {
-      let text = ''
-      for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript
-      setTranscript(text)
-      lastTranscriptRef.current = text
-
-      // Reset silence timer every time we get new speech
-      clearTimeout(silenceTimerRef.current)
-      silenceTimerRef.current = setTimeout(() => {
-        // 1.4s of silence after speech = user is done talking
-        if (lastTranscriptRef.current.trim() && !processingRef.current) {
-          finishListening()
-        }
-      }, 1400)
-    }
-
-    recognition.onerror = (e) => {
-      if (e.error === 'no-speech') return // ignore, keep waiting
-      if (e.error === 'aborted') return // we caused this intentionally
-      console.error('Speech recognition error:', e.error)
-    }
-
-    recognition.onend = () => {
-      // If recognition stops unexpectedly (not from our own abort) and we're
-      // still in listening mode with no pending result, restart it
-      if (!stoppedRef.current && !processingRef.current && status !== 'speaking') {
-        try { recognition.start() } catch (e) {}
-      }
-    }
-
-    try {
-      recognition.start()
-      recognitionRef.current = recognition
-      setStatus('listening')
-      setTranscript('')
-      lastTranscriptRef.current = ''
-    } catch (e) {
-      console.error('Failed to start recognition:', e)
-    }
+  const cleanup = useCallback(() => {
+    cancelAnimationFrame(animFrameRef.current)
+    clearTimeout(silenceTimerRef.current)
+    try { recorderRef.current?.stop() } catch (e) {}
+    streamRef.current?.getTracks().forEach(t => t.stop())
+    try { audioCtxRef.current?.close() } catch (e) {}
   }, [])
 
-  async function finishListening() {
+  const monitorVolume = useCallback(() => {
+    if (!analyserRef.current || stoppedRef.current) return
+    const data = new Uint8Array(analyserRef.current.frequencyBinCount)
+    analyserRef.current.getByteFrequencyData(data)
+    const avg = data.reduce((a, b) => a + b, 0) / data.length
+    setVolume(avg)
+
+    if (avg > SILENCE_THRESHOLD) {
+      hasSpokenRef.current = true
+      clearTimeout(silenceTimerRef.current)
+      silenceTimerRef.current = setTimeout(() => {
+        if (hasSpokenRef.current && !processingRef.current) {
+          finishRecording()
+        }
+      }, SILENCE_DURATION)
+    }
+
+    animFrameRef.current = requestAnimationFrame(monitorVolume)
+  }, [])
+
+  const startListening = useCallback(async () => {
+    if (stoppedRef.current) return
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+
+      const audioCtx = new AudioContext()
+      const source = audioCtx.createMediaStreamSource(stream)
+      const analyser = audioCtx.createAnalyser()
+      analyser.fftSize = 256
+      source.connect(analyser)
+      audioCtxRef.current = audioCtx
+      analyserRef.current = analyser
+
+      chunksRef.current = []
+      hasSpokenRef.current = false
+
+      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+      recorder.start(100)
+      recorderRef.current = recorder
+
+      setStatus('listening')
+      monitorVolume()
+    } catch (e) {
+      console.error('Mic error:', e)
+      alert('Could not access microphone.')
+      onEnd()
+    }
+  }, [monitorVolume, onEnd])
+
+  async function finishRecording() {
     if (processingRef.current) return
     processingRef.current = true
+    cancelAnimationFrame(animFrameRef.current)
     clearTimeout(silenceTimerRef.current)
 
-    const finalText = lastTranscriptRef.current.trim()
-    try { recognitionRef.current?.stop() } catch (e) {}
+    recorderRef.current?.stop()
+    streamRef.current?.getTracks().forEach(t => t.stop())
+    try { audioCtxRef.current?.close() } catch (e) {}
 
-    if (!finalText) {
+    // Wait a tick for the last chunk
+    await new Promise(r => setTimeout(r, 200))
+
+    if (chunksRef.current.length === 0) {
       processingRef.current = false
       if (!stoppedRef.current) startListening()
       return
     }
 
     setStatus('thinking')
+    const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
 
     try {
-      const data = await callCurryAI('chat', { message: finalText }, session)
+      const transcript = await transcribeAudio(blob, session)
+
+      if (stoppedRef.current) { processingRef.current = false; return }
+
+      if (!transcript || !transcript.trim()) {
+        processingRef.current = false
+        if (!stoppedRef.current) startListening()
+        return
+      }
+
+      const data = await callCurryAI('chat', { message: transcript }, session)
       if (stoppedRef.current) { processingRef.current = false; return }
 
       if (data.ok) {
         const response = data.response.replace(/<action>[\s\S]*?<\/action>/g, '').trim()
-        onNewMessages(finalText, response)
+        onNewMessages(transcript, response)
         setStatus('speaking')
         await speakWithElevenLabs(response, session)
       }
     } catch (e) {
-      console.error('Curry AI error:', e)
+      console.error('Voice mode error:', e)
     }
 
     processingRef.current = false
@@ -142,8 +182,7 @@ function VoiceModeOverlay({ session, onEnd, onNewMessages }) {
     startListening()
     return () => {
       stoppedRef.current = true
-      clearTimeout(silenceTimerRef.current)
-      try { recognitionRef.current?.abort() } catch (e) {}
+      cleanup()
       window.speechSynthesis?.cancel()
     }
   }, [])
@@ -160,6 +199,9 @@ function VoiceModeOverlay({ session, onEnd, onNewMessages }) {
     speaking: 'Speaking...',
   }[status]
 
+  // Scale the orb slightly based on live volume while listening
+  const orbScale = status === 'listening' ? 1 + Math.min(volume / 200, 0.15) : 1
+
   return (
     <div style={vs.overlay}>
       <div style={{ position: 'relative', width: 140, height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -168,12 +210,13 @@ function VoiceModeOverlay({ session, onEnd, onNewMessages }) {
         <div style={{
           ...vs.orb,
           background: orbColor,
-          animation: status === 'thinking' ? 'orbSpin 1.2s linear infinite' : 'orbPulse 1.6s ease-in-out infinite',
+          transform: `scale(${orbScale})`,
+          transition: 'transform 0.1s ease-out',
+          animation: status === 'thinking' ? 'orbSpin 1.2s linear infinite' : status === 'speaking' ? 'orbPulse 1s ease-in-out infinite' : 'none',
         }}>✨</div>
       </div>
 
       <div style={vs.status}>{statusText}</div>
-      <div style={vs.transcript}>{transcript ? `"${transcript}"` : ''}</div>
 
       <button onClick={() => { onEnd() }} style={vs.endBtn}>
         End voice mode
@@ -339,7 +382,7 @@ export default function CurryAIChat({ session }) {
   )
 }
 
-// ── In-chat Assistant Panel ────────────────────────────────────
+// ── In-chat Assistant Panel (unchanged) ────────────────────────
 export function CurryAssistant({ session, conversationId, messages: chatMessages, onSuggestReply, onClose }) {
   const [mode, setMode] = useState(null)
   const [result, setResult] = useState('')
@@ -495,7 +538,6 @@ const vs = {
   ring2: { position: 'absolute', inset: -16, borderRadius: '50%', border: '1px solid rgba(102,126,234,0.15)' },
   orb: { width: 120, height: 120, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, boxShadow: '0 0 40px rgba(102,126,234,0.4)' },
   status: { fontSize: 15, color: '#a0a0c0', fontWeight: 500, textAlign: 'center' },
-  transcript: { fontSize: 13, color: '#667eea', minHeight: 20, textAlign: 'center', fontStyle: 'italic', maxWidth: 280 },
   endBtn: { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, color: '#888', fontSize: 12, padding: '8px 18px', cursor: 'pointer', fontFamily: 'inherit', marginTop: 8 },
 }
 
