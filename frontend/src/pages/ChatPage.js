@@ -22,6 +22,7 @@ import IncomingCallModal from '../components/IncomingCallModal'
 import EmojiPicker from '../components/EmojiPicker'
 import { useRingtone } from '../hooks/useRingtone'
 import IconRail from '../components/IconRail'
+import { ReactableMessage } from '../components/MessageReactions'
 
 function formatMsgTime(ts) {
   const d = new Date(ts)
@@ -582,9 +583,22 @@ export default function ChatPage({ session }) {
                 return (
                   <React.Fragment key={msg.id}>
                     {showDate && <DateDivider date={msg.created_at} />}
-                    <div ref={el => msgRefs.current[msg.id] = el} onContextMenu={e => { e.preventDefault(); pinMessage(msg.id) }} title="Right-click to pin">
-                      <MessageBubble msg={{ ...msg, _currentUserId: userId }} isMe={msg.sender_id === userId} />
-                    </div>
+                    <div ref={el => msgRefs.current[msg.id] = el}
+  onContextMenu={e => { e.preventDefault(); pinMessage(msg.id) }}
+  title="Right-click to pin">
+
+  <ReactableMessage
+    messageId={msg.id}
+    currentUserId={userId}
+    isMe={msg.sender_id === userId}
+  >
+    <MessageBubble
+      msg={{ ...msg, _currentUserId: userId }}
+      isMe={msg.sender_id === userId}
+    />
+  </ReactableMessage>
+
+</div>
                   </React.Fragment>
                 )
               })}
