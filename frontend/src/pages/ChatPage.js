@@ -21,7 +21,7 @@ import CallOverlay from '../components/CallOverlay'
 import IncomingCallModal from '../components/IncomingCallModal'
 import EmojiPicker from '../components/EmojiPicker'
 import { useRingtone } from '../hooks/useRingtone'
-
+import IconRail from '../components/IconRail'
 
 function formatMsgTime(ts) {
   const d = new Date(ts)
@@ -292,7 +292,8 @@ export default function ChatPage({ session }) {
   const [showThreeDot, setShowThreeDot] = useState(false)
   const [hasScheduled, setHasScheduled] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)  // ← NEW
-
+  const [activeTab, setActiveTab] = useState('chats')
+  
   const msgRefs        = useRef({})
   const messagesEndRef = useRef(null)
   const typingTimer    = useRef(null)
@@ -508,19 +509,27 @@ export default function ChatPage({ session }) {
         />
       )}
 
-      {/* ── SIDEBAR ── */}
-      <div className="sidebar">
-        <div className="sidebar-header">
-          <div>
-            <img src="/logo.png" alt="Mattchat" className="sidebar-logo-img" />
-            <div className="user-email">{profile?.username || session.user.email}</div>
-          </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button className="icon-btn" onClick={() => setShowNewChat(true)} title="New chat">＋</button>
-            <button className="icon-btn" onClick={signOut} title="Sign out">⏏</button>
-          </div>
-        </div>
+     {/* ── ICON RAIL ── */}
+<IconRail
+  activeTab={activeTab}
+  onTabChange={setActiveTab}
+  profile={profile}
+  onSignOut={signOut}
+/>
 
+{/* ── SIDEBAR ── */}
+<div className="sidebar">
+       <div className="sidebar-header">
+  <div>
+    <div className="sidebar-title">
+      {activeTab === 'chats' ? 'Chats' : activeTab === 'status' ? 'Status' : 'Calls'}
+    </div>
+    <div className="user-email">{profile?.username || session.user.email}</div>
+  </div>
+  <div style={{ display: 'flex', gap: 6 }}>
+    <button className="icon-btn" onClick={() => setShowNewChat(true)} title="New chat">＋</button>
+  </div>
+</div>
         <div className="search-box">
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search conversations…" />
         </div>
@@ -536,7 +545,68 @@ export default function ChatPage({ session }) {
           </form>
         )}
 
-        <div className="contact-list">
+       <div className="contact-list">
+
+          {activeTab === 'status' && (
+            <div style={{ padding: '32px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>⭕</div>
+              <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>Status coming soon</div>
+              <div style={{ fontSize: 13 }}>Share updates with your contacts</div>
+            </div>
+          )}
+
+          {activeTab === 'calls' && (
+            <div style={{ padding: '32px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>📞</div>
+              <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>Recent calls</div>
+              <div style={{ fontSize: 13 }}>Your call history will appear here</div>
+            </div>
+          )}
+
+          {activeTab === 'chats' && <>
+            <div className={`contact ${activeConvo?.isCurryAI ? 'active' : ''}`}
+              onClick={() => setActiveConvo(CURRY_AI_CONTACT)}>
+              <div style={{ width: 40, height: 40, borderRadius: '50%',
+                background: 'linear-gradient(135deg,#667eea,#764ba2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 20, flexShrink: 0 }}>✨</div>
+              <div className="contact-info">
+                <div className="contact-name" style={{ color: '#6366f1' }}>✨ Curry AI</div>
+                <div className="contact-preview">Your personal AI assistant</div>
+              </div>
+            </div>
+
+            {convLoading && <div className="loading-state">Loading…</div>}
+
+            {filtered.map(c => {
+              const otherId = getOtherUserId(c, userId)
+              const online  = otherId ? isOnline(otherId) : false
+              return (
+                <div key={c.id} className={`contact ${activeConvo?.id === c.id ? 'active' : ''}`}
+                  onClick={() => setActiveConvo(c)}>
+                  <Avatar name={getConvoName(c)} online={online} />
+                  <div className="contact-info">
+                    <div className="contact-name">{getConvoName(c)}</div>
+                    <div className="contact-preview">{c.last_message || 'No messages yet'}</div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                    <div className="contact-time">{c.updated_at ? formatMsgTime(c.updated_at) : ''}</div>
+                    <button className="delete-chat-btn"
+                      onClick={e => { e.stopPropagation(); deleteConversation(c.id) }}>🗑️</button>
+                  </div>
+                </div>
+              )
+            })}
+
+            {!convLoading && filtered.length === 0 && (
+              <div className="empty-state">
+                <p>No conversations yet.</p>
+                <button className="btn-primary" onClick={() => setShowNewChat(true)}>Start one →</button>
+              </div>
+            )}
+          </>}
+
+        </div>
           <div className={`contact ${activeConvo?.isCurryAI ? 'active' : ''}`}
             onClick={() => setActiveConvo(CURRY_AI_CONTACT)}>
             <div style={{ width: 40, height: 40, borderRadius: '50%',
