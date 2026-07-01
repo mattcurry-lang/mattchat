@@ -72,7 +72,7 @@ function MessageBubble({ msg, isMe }) {
   if (msg.content?.startsWith('missed_call:')) {
     const callType = msg.content.replace('missed_call:', '')
     return (
-      <div className="msg-row" style={{ justifyContent: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 20, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
           {callType === 'video' ? '📹' : '📞'} Missed {callType} call
           <span style={{ opacity: 0.6, fontWeight: 500 }}>· {formatMsgTime(msg.created_at)}</span>
@@ -417,14 +417,22 @@ export default function ChatPage({ session }) {
       {/* ── SIDEBAR ── */}
       <div className="sidebar">
         <div className="sidebar-header">
-          <div>
-            <div className="sidebar-title">
-              {activeTab === 'chats' ? 'Chats' : activeTab === 'status' ? 'Status' : 'Calls'}
-            </div>
-            <div className="user-email">{profile?.username || session.user.email}</div>
+          {/* Brand row — replaces the generic "What's App" bar with Mattchat's own identity */}
+          <div className="sidebar-brand-row">
+            <img src="/logo.png" alt="Mattchat" className="sidebar-brand-logo" />
+            <span className="sidebar-brand-name">Mattchat</span>
           </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button className="icon-btn" onClick={() => setShowNewChat(true)} title="New chat">＋</button>
+
+          <div className="sidebar-header-row">
+            <div>
+              <div className="sidebar-title">
+                {activeTab === 'chats' ? 'Chats' : activeTab === 'status' ? 'Status' : 'Calls'}
+              </div>
+              <div className="user-email">{profile?.username || session.user.email}</div>
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button className="icon-btn" onClick={() => setShowNewChat(true)} title="New chat">＋</button>
+            </div>
           </div>
         </div>
 
@@ -465,7 +473,7 @@ export default function ChatPage({ session }) {
           {/* ── CHATS TAB ── */}
           {activeTab === 'chats' && <>
             <div className={`contact ${activeConvo?.isCurryAI ? 'active' : ''}`} onClick={() => setActiveConvo(CURRY_AI_CONTACT)}>
-              <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>✨</div>
+              <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 21, flexShrink: 0 }}>✨</div>
               <div className="contact-info">
                 <div className="contact-name" style={{ color: '#6366f1' }}>✨ Curry AI</div>
                 <div className="contact-preview">Your personal AI assistant</div>
@@ -479,7 +487,7 @@ export default function ChatPage({ session }) {
               const online  = otherId ? isOnline(otherId) : false
               return (
                 <div key={c.id} className={`contact ${activeConvo?.id === c.id ? 'active' : ''}`} onClick={() => setActiveConvo(c)}>
-                  <Avatar name={getConvoName(c)} online={online} />
+                  <Avatar name={getConvoName(c)} online={online} size={46} />
                   <div className="contact-info">
                     <div className="contact-name">{getConvoName(c)}</div>
                     <div className="contact-preview">{c.last_message || 'No messages yet'}</div>
@@ -580,25 +588,34 @@ export default function ChatPage({ session }) {
               {messages.map((msg, i) => {
                 const prev = messages[i - 1]
                 const showDate = !prev || new Date(msg.created_at).toDateString() !== new Date(prev.created_at).toDateString()
+                const isMissedCall = msg.content?.startsWith('missed_call:')
+                const isMine = msg.sender_id === userId
+                const wrapClass = isMissedCall ? 'system' : (isMine ? 'mine' : 'theirs')
                 return (
                   <React.Fragment key={msg.id}>
                     {showDate && <DateDivider date={msg.created_at} />}
-                    <div ref={el => msgRefs.current[msg.id] = el}
-  onContextMenu={e => { e.preventDefault(); pinMessage(msg.id) }}
-  title="Right-click to pin">
-
-  <ReactableMessage
-    messageId={msg.id}
-    currentUserId={userId}
-    isMe={msg.sender_id === userId}
-  >
-    <MessageBubble
-      msg={{ ...msg, _currentUserId: userId }}
-      isMe={msg.sender_id === userId}
-    />
-  </ReactableMessage>
-
-</div>
+                    {/*
+                      msg-wrap is the actual flex child of .messages, so alignment
+                      (green/mine → right, white/theirs → left) is guaranteed here
+                      regardless of how ReactableMessage lays out its own children.
+                    */}
+                    <div
+                      ref={el => msgRefs.current[msg.id] = el}
+                      className={`msg-wrap ${wrapClass}`}
+                      onContextMenu={e => { e.preventDefault(); pinMessage(msg.id) }}
+                      title="Right-click to pin"
+                    >
+                      <ReactableMessage
+                        messageId={msg.id}
+                        currentUserId={userId}
+                        isMe={isMine}
+                      >
+                        <MessageBubble
+                          msg={{ ...msg, _currentUserId: userId }}
+                          isMe={isMine}
+                        />
+                      </ReactableMessage>
+                    </div>
                   </React.Fragment>
                 )
               })}
