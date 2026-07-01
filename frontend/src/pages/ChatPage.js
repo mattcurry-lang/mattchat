@@ -21,7 +21,7 @@ import CallOverlay from '../components/CallOverlay'
 import IncomingCallModal from '../components/IncomingCallModal'
 import EmojiPicker from '../components/EmojiPicker'
 import { useRingtone } from '../hooks/useRingtone'
-import IconRail from '../components/IconRail'
+import BottomNav from '../components/BottomNav'
 import { ReactableMessage } from '../components/MessageReactions'
 
 function formatMsgTime(ts) {
@@ -189,8 +189,8 @@ function ThreeDotMenu({ onPoll, onTask, onSchedule, onSearch, onShare, onClose }
 function CallButtons({ onVoiceCall, onVideoCall, disabled }) {
   return (
     <>
-      <button className="icon-btn" onClick={onVoiceCall} disabled={disabled} title="Voice call" style={{ fontSize: 17, opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}>📞</button>
-      <button className="icon-btn" onClick={onVideoCall} disabled={disabled} title="Video call" style={{ fontSize: 17, opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}>📹</button>
+      <button className="icon-btn dark" onClick={onVoiceCall} disabled={disabled} title="Voice call" style={{ fontSize: 17, opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}>📞</button>
+      <button className="icon-btn dark" onClick={onVideoCall} disabled={disabled} title="Video call" style={{ fontSize: 17, opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}>📹</button>
     </>
   )
 }
@@ -208,6 +208,9 @@ export default function ChatPage({ session }) {
   const [showNewChat, setShowNewChat]   = useState(false)
   const [inputText, setInputText]       = useState('')
   const [search, setSearch]             = useState('')
+  const [showSearchBar, setShowSearchBar] = useState(false)
+  const [listFilter, setListFilter]     = useState('all') // 'all' | 'group'
+  const [showProfileMenu, setShowProfileMenu] = useState(false)
   const [profile, setProfile]           = useState(null)
   const [showVoice, setShowVoice]       = useState(false)
   const [showPoll, setShowPoll]         = useState(false)
@@ -368,7 +371,12 @@ export default function ChatPage({ session }) {
     return other?.profiles?.username || other?.profiles?.email || 'Unknown'
   }
 
-  const filtered = conversations.filter(c => getConvoName(c).toLowerCase().includes(search.toLowerCase()))
+  const searchFiltered = conversations.filter(c => getConvoName(c).toLowerCase().includes(search.toLowerCase()))
+  const filtered = searchFiltered.filter(c => listFilter === 'all' ? true : !!c.is_group)
+
+  // Story rail — your real contacts, since there's no stories/status
+  // backend yet. Capped at a reasonable number for a horizontal scroller.
+  const storyContacts = conversations.filter(c => !c.is_group).slice(0, 12)
 
   const headerStatus = () => {
     if (callStatus === 'calling')    return '📞 Calling…'
@@ -406,121 +414,169 @@ export default function ChatPage({ session }) {
         />
       )}
 
-      {/* ── ICON RAIL ── */}
-      <IconRail
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        profile={profile}
-        onSignOut={signOut}
-      />
-
-      {/* ── SIDEBAR ── */}
+      {/* ── LIST / BROWSE SCREEN (hidden once a conversation is open) ── */}
       <div className="sidebar">
-        <div className="sidebar-header">
-          {/* Brand row — replaces the generic "What's App" bar with Mattchat's own identity */}
-          <div className="sidebar-brand-row">
-            <img src="/logo.png" alt="Mattchat" className="sidebar-brand-logo" />
-            <span className="sidebar-brand-name">Mattchat</span>
+        <div className="top-header">
+          <div className="top-header-brand">
+            <img src="/logo.png" alt="Mattchat" className="top-header-logo" />
+            <span className="top-header-name">Mattchat</span>
+            <button
+              className="top-header-search-btn"
+              onClick={() => setShowSearchBar(v => !v)}
+              title="Search"
+            >
+              🔍
+            </button>
           </div>
 
-          <div className="sidebar-header-row">
-            <div>
-              <div className="sidebar-title">
-                {activeTab === 'chats' ? 'Chats' : activeTab === 'status' ? 'Status' : 'Calls'}
+          {/* ── STORY / QUICK-CONTACT RAIL ── */}
+          {activeTab === 'chats' && (
+            <div className="story-rail">
+              <button className="story-item story-add" onClick={() => setShowNewChat(true)} title="New chat">
+                <div className="story-add-circle">＋</div>
+                <span className="story-label">New</span>
+              </button>
+              {storyContacts.map(c => {
+                const otherId = getOtherUserId(c, userId)
+                const online = otherId ? isOnline(otherId) : false
+                return (
+                  <button
+                    key={c.id}
+                    className="story-item"
+                    onClick={() => setActiveConvo(c)}
+                    title={getConvoName(c)}
+                  >
+                    <div className={`story-ring ${online ? 'online' : ''}`}>
+                      <Avatar name={getConvoName(c)} size={52} />
+                    </div>
+                    <span className="story-label">{getConvoName(c).split(' ')[0]}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ── LIST CARD ── */}
+        <div className="list-card">
+          {activeTab === 'chats' && (
+            <>
+              <div className="list-tabs">
+                <button className={listFilter === 'all' ? 'active' : ''} onClick={() => setListFilter('all')}>Chats</button>
+                <button className={listFilter === 'group' ? 'active' : ''} onClick={() => setListFilter('group')}>Group</button>
               </div>
-              <div className="user-email">{profile?.username || session.user.email}</div>
-            </div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button className="icon-btn" onClick={() => setShowNewChat(true)} title="New chat">＋</button>
-            </div>
-          </div>
-        </div>
 
-        <div className="search-box">
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search conversations…" />
-        </div>
+              {showSearchBar && (
+                <div className="search-box">
+                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search conversations…" autoFocus />
+                </div>
+              )}
 
-        {showNewChat && (
-          <form className="new-chat-form" onSubmit={startNewChat}>
-            <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="Friend's email address" required autoFocus />
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button type="submit" className="btn-primary" style={{ flex: 1 }}>Start chat</button>
-              <button type="button" className="btn-ghost" onClick={() => setShowNewChat(false)}>Cancel</button>
-            </div>
-          </form>
-        )}
+              {showNewChat && (
+                <form className="new-chat-form" onSubmit={startNewChat}>
+                  <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="Friend's email address" required autoFocus />
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button type="submit" className="btn-primary" style={{ flex: 1 }}>Start chat</button>
+                    <button type="button" className="btn-ghost" onClick={() => setShowNewChat(false)}>Cancel</button>
+                  </div>
+                </form>
+              )}
 
-        <div className="contact-list">
+              <div className="contact-list">
+                {listFilter === 'all' && (
+                  <div className={`contact ${activeConvo?.isCurryAI ? 'active' : ''}`} onClick={() => setActiveConvo(CURRY_AI_CONTACT)}>
+                    <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 21, flexShrink: 0 }}>✨</div>
+                    <div className="contact-info">
+                      <div className="contact-name" style={{ color: '#a78bfa' }}>✨ Curry AI</div>
+                      <div className="contact-preview">Your personal AI assistant</div>
+                    </div>
+                  </div>
+                )}
 
-          {/* ── STATUS TAB ── */}
+                {convLoading && <div className="loading-state">Loading…</div>}
+
+                {filtered.map(c => {
+                  const otherId = getOtherUserId(c, userId)
+                  const online  = otherId ? isOnline(otherId) : false
+                  return (
+                    <div key={c.id} className={`contact ${activeConvo?.id === c.id ? 'active' : ''}`} onClick={() => setActiveConvo(c)}>
+                      <Avatar name={getConvoName(c)} online={online} size={46} />
+                      <div className="contact-info">
+                        <div className="contact-name">{getConvoName(c)}</div>
+                        <div className="contact-preview">{c.last_message || 'No messages yet'}</div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                        <div className="contact-time">{c.updated_at ? formatMsgTime(c.updated_at) : ''}</div>
+                        <button className="delete-chat-btn" onClick={e => { e.stopPropagation(); deleteConversation(c.id) }}>🗑️</button>
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {!convLoading && filtered.length === 0 && (
+                  <div className="empty-state">
+                    <p>{listFilter === 'group' ? 'No group chats yet.' : 'No conversations yet.'}</p>
+                    <button className="btn-primary" onClick={() => setShowNewChat(true)}>Start one →</button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
           {activeTab === 'status' && (
-            <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <div style={{ fontSize: 48, marginBottom: 14 }}>⭕</div>
-              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8, color: 'var(--text-secondary)' }}>Status coming soon</div>
+            <div style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: 48, marginBottom: 14 }}>📷</div>
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8, color: '#fff' }}>Status coming soon</div>
               <div style={{ fontSize: 13 }}>Share updates with your contacts</div>
             </div>
           )}
 
-          {/* ── CALLS TAB ── */}
           {activeTab === 'calls' && (
-            <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <div style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
               <div style={{ fontSize: 48, marginBottom: 14 }}>📞</div>
-              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8, color: 'var(--text-secondary)' }}>Recent calls</div>
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8, color: '#fff' }}>Recent calls</div>
               <div style={{ fontSize: 13 }}>Your call history will appear here</div>
             </div>
           )}
-
-          {/* ── CHATS TAB ── */}
-          {activeTab === 'chats' && <>
-            <div className={`contact ${activeConvo?.isCurryAI ? 'active' : ''}`} onClick={() => setActiveConvo(CURRY_AI_CONTACT)}>
-              <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 21, flexShrink: 0 }}>✨</div>
-              <div className="contact-info">
-                <div className="contact-name" style={{ color: '#6366f1' }}>✨ Curry AI</div>
-                <div className="contact-preview">Your personal AI assistant</div>
-              </div>
-            </div>
-
-            {convLoading && <div className="loading-state">Loading…</div>}
-
-            {filtered.map(c => {
-              const otherId = getOtherUserId(c, userId)
-              const online  = otherId ? isOnline(otherId) : false
-              return (
-                <div key={c.id} className={`contact ${activeConvo?.id === c.id ? 'active' : ''}`} onClick={() => setActiveConvo(c)}>
-                  <Avatar name={getConvoName(c)} online={online} size={46} />
-                  <div className="contact-info">
-                    <div className="contact-name">{getConvoName(c)}</div>
-                    <div className="contact-preview">{c.last_message || 'No messages yet'}</div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                    <div className="contact-time">{c.updated_at ? formatMsgTime(c.updated_at) : ''}</div>
-                    <button className="delete-chat-btn" onClick={e => { e.stopPropagation(); deleteConversation(c.id) }}>🗑️</button>
-                  </div>
-                </div>
-              )
-            })}
-
-            {!convLoading && filtered.length === 0 && (
-              <div className="empty-state">
-                <p>No conversations yet.</p>
-                <button className="btn-primary" onClick={() => setShowNewChat(true)}>Start one →</button>
-              </div>
-            )}
-          </>}
-
         </div>
+
+        {showProfileMenu && (
+          <div className="profile-menu-overlay" onClick={() => setShowProfileMenu(false)}>
+            <div className="profile-menu" onClick={e => e.stopPropagation()}>
+              <Avatar name={profile?.username || session.user.email} size={48} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, color: '#fff', fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {profile?.username || 'You'}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {session.user.email}
+                </div>
+              </div>
+              <button className="profile-menu-signout" onClick={signOut}>⏏ Sign out</button>
+            </div>
+          </div>
+        )}
+
+        {!activeConvo && (
+          <BottomNav
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            onNewChat={() => setShowNewChat(true)}
+            onProfileClick={() => setShowProfileMenu(v => !v)}
+          />
+        )}
       </div>
 
       {/* ── CHAT AREA ── */}
-      {activeConvo ? (
+      {activeConvo && (
         activeConvo.isCurryAI ? (
           <div className="chat-area" style={{ background: 'linear-gradient(180deg,#0f0f1a 0%,#1a1a2e 100%)' }}>
-            <div className="chat-header" style={{ background: '#1e1e2e', borderBottom: '1px solid #2a2a3e' }}>
+            <div className="chat-header">
               <button className="back-btn" onClick={() => setActiveConvo(null)}>←</button>
               <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>✨</div>
               <div style={{ flex: 1 }}>
-                <div className="chat-header-name" style={{ color: '#fff' }}>✨ Curry AI</div>
-                <div className="chat-header-sub" style={{ color: '#667eea' }}>Always learning, always here</div>
+                <div className="chat-header-name">✨ Curry AI</div>
+                <div className="chat-header-sub" style={{ color: '#a78bfa' }}>Always learning, always here</div>
               </div>
             </div>
             <CurryAIChat session={session} />
@@ -528,30 +584,30 @@ export default function ChatPage({ session }) {
         ) : (
           <div className="chat-area">
             {/* Header */}
-            <div className="chat-header" style={{ position: 'sticky', top: 0, zIndex: 20, background: '#f0f2f5', borderBottom: '1px solid var(--border)' }}>
+            <div className="chat-header">
               <button className="back-btn" onClick={() => setActiveConvo(null)}>←</button>
               <Avatar name={getConvoName(activeConvo)} size={36} online={otherUserId ? isOnline(otherUserId) : false} />
               <div style={{ flex: 1 }}>
                 <div className="chat-header-name">{getConvoName(activeConvo)}</div>
-                <div className="chat-header-sub" style={{ color: callActive ? '#10b981' : typing.length > 0 ? 'var(--text-muted)' : '#10b981', minHeight: 16 }}>{headerStatus()}</div>
+                <div className="chat-header-sub" style={{ minHeight: 16 }}>{headerStatus()}</div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 {callStatus === 'idle' && (
                   <CallButtons onVoiceCall={() => startCall('audio')} onVideoCall={() => startCall('video')} disabled={false} />
                 )}
                 {callActive && (
-                  <button onClick={endCall} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 'var(--r-full)', padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: '#ef4444' }}>📵 End call</button>
+                  <button onClick={endCall} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 'var(--r-full)', padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: '#f87171' }}>📵 End call</button>
                 )}
-                <button className="icon-btn" onClick={() => setShowCurryAssistant(v => !v)} title="Curry AI assistant">✨</button>
+                <button className="icon-btn dark" onClick={() => setShowCurryAssistant(v => !v)} title="Curry AI assistant">✨</button>
                 {hasScheduled && (
                   <button onClick={() => setShowScheduledList(true)} title="View scheduled messages"
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 'var(--r-full)', padding: '5px 10px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: 'var(--accent-2)', transition: 'all var(--transition)', animation: 'scheduledPulse 2s ease infinite' }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 'var(--r-full)', padding: '5px 10px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: '#c4b5fd', animation: 'scheduledPulse 2s ease infinite' }}>
                     🕐 <span style={{ fontSize: 11 }}>Scheduled</span>
                   </button>
                 )}
                 <div className="threedot-wrapper" style={{ position: 'relative' }}>
-                  <button className="icon-btn" onClick={() => setShowThreeDot(v => !v)} title="More options"
-                    style={{ fontSize: 18, fontWeight: 700, letterSpacing: 1, color: showThreeDot ? 'var(--accent-2)' : undefined, background: showThreeDot ? 'rgba(99,102,241,0.08)' : undefined }}>⋮</button>
+                  <button className="icon-btn dark" onClick={() => setShowThreeDot(v => !v)} title="More options"
+                    style={{ fontSize: 18, fontWeight: 700, letterSpacing: 1, color: showThreeDot ? '#a78bfa' : undefined, background: showThreeDot ? 'rgba(167,139,250,0.15)' : undefined }}>⋮</button>
                   {showThreeDot && (
                     <ThreeDotMenu
                       onPoll={() => { setShowPoll(v => !v); setShowTask(false) }}
@@ -594,11 +650,6 @@ export default function ChatPage({ session }) {
                 return (
                   <React.Fragment key={msg.id}>
                     {showDate && <DateDivider date={msg.created_at} />}
-                    {/*
-                      msg-wrap is the actual flex child of .messages, so alignment
-                      (green/mine → right, white/theirs → left) is guaranteed here
-                      regardless of how ReactableMessage lays out its own children.
-                    */}
                     <div
                       ref={el => msgRefs.current[msg.id] = el}
                       className={`msg-wrap ${wrapClass}`}
@@ -676,15 +727,6 @@ export default function ChatPage({ session }) {
             )}
           </div>
         )
-      ) : (
-        <div className="chat-area empty-chat">
-          <img src="/logo.png" alt="" className="empty-chat-watermark" />
-          <div className="empty-chat-content">
-            <h2>Welcome to Mattchat</h2>
-            <p>Select a conversation or start a new one.<br />Say <strong>"Hey Curry"</strong> to activate your AI assistant!</p>
-            <button className="btn-primary" onClick={() => setShowNewChat(true)}>Start a conversation →</button>
-          </div>
-        </div>
       )}
     </div>
   )
