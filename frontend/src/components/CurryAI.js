@@ -25,16 +25,17 @@ async function speakWithElevenLabs(text, session) {
     body: JSON.stringify({ text }),
   })
   if (!res.ok) throw new Error('TTS failed')
-  const blob = await res.blob()
-  const url = URL.createObjectURL(blob)
-  const audio = new Audio(url)
-  return new Promise((resolve, reject) => {
-    audio.onended = () => { URL.revokeObjectURL(url); resolve() }
-    audio.onerror = reject
-    audio.play().catch(reject)
+  const arrayBuffer = await res.arrayBuffer()
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
+  const source = audioCtx.createBufferSource()
+  source.buffer = audioBuffer
+  source.connect(audioCtx.destination)
+  return new Promise((resolve) => {
+    source.onended = resolve
+    source.start(0)
   })
 }
-
 async function transcribeAudio(blob, session) {
   const formData = new FormData()
   formData.append('audio', blob, 'recording.webm')
