@@ -36,10 +36,10 @@ async function speakWithElevenLabs(text, session) {
     source.start(0)
   })
 }
+
 async function transcribeAudio(blob, session) {
   const formData = new FormData()
   formData.append('audio', blob, 'recording.webm')
-
   const res = await fetch(`${SUPABASE_URL}/functions/v1/voice-transcribe`, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${session.access_token}` },
@@ -50,13 +50,15 @@ async function transcribeAudio(blob, session) {
   return data.text
 }
 
-// ── Voice Mode Overlay (record + Whisper based) ──────────────
-function VoiceModeOverlay({ session, onEnd, onNewMessages }) {
-  const [status, setStatus] = useState('listening') // listening | thinking | speaking
+// ── Voice Mode (full screen, like the reference) ─────────────
+function VoiceMode({ session, voiceOn, onEnd, onNewMessages }) {
+  const [status, setStatus] = useState('listening')
+  const [transcript, setTranscript] = useState('')
+  const [response, setResponse] = useState('')
   const [volume, setVolume] = useState(0)
+
   const stoppedRef = useRef(false)
   const processingRef = useRef(false)
-
   const streamRef = useRef(null)
   const audioCtxRef = useRef(null)
   const analyserRef = useRef(null)
@@ -66,8 +68,8 @@ function VoiceModeOverlay({ session, onEnd, onNewMessages }) {
   const hasSpokenRef = useRef(false)
   const animFrameRef = useRef(null)
 
-  const SILENCE_THRESHOLD = 8 // volume level below which we consider it silence
-  const SILENCE_DURATION = 1300 // ms of silence before we stop and process
+  const SILENCE_THRESHOLD = 8
+  const SILENCE_DURATION = 1400
 
   const cleanup = useCallback(() => {
     cancelAnimationFrame(animFrameRef.current)
@@ -88,12 +90,9 @@ function VoiceModeOverlay({ session, onEnd, onNewMessages }) {
       hasSpokenRef.current = true
       clearTimeout(silenceTimerRef.current)
       silenceTimerRef.current = setTimeout(() => {
-        if (hasSpokenRef.current && !processingRef.current) {
-          finishRecording()
-        }
+        if (hasSpokenRef.current && !processingRef.current) finishRecording()
       }, SILENCE_DURATION)
     }
-
     animFrameRef.current = requestAnimationFrame(monitorVolume)
   }, [])
 
@@ -102,7 +101,6 @@ function VoiceModeOverlay({ session, onEnd, onNewMessages }) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
-
       const audioCtx = new AudioContext()
       const source = audioCtx.createMediaStreamSource(stream)
       const analyser = audioCtx.createAnalyser()
@@ -110,20 +108,18 @@ function VoiceModeOverlay({ session, onEnd, onNewMessages }) {
       source.connect(analyser)
       audioCtxRef.current = audioCtx
       analyserRef.current = analyser
-
       chunksRef.current = []
       hasSpokenRef.current = false
-
       const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
       recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data) }
       recorder.start(100)
       recorderRef.current = recorder
-
       setStatus('listening')
+      setTranscript('')
+      setResponse('')
       monitorVolume()
     } catch (e) {
       console.error('Mic error:', e)
-      alert('Could not access microphone.')
       onEnd()
     }
   }, [monitorVolume, onEnd])
@@ -133,12 +129,9 @@ function VoiceModeOverlay({ session, onEnd, onNewMessages }) {
     processingRef.current = true
     cancelAnimationFrame(animFrameRef.current)
     clearTimeout(silenceTimerRef.current)
-
     recorderRef.current?.stop()
     streamRef.current?.getTracks().forEach(t => t.stop())
     try { audioCtxRef.current?.close() } catch (e) {}
-
-    // Wait a tick for the last chunk
     await new Promise(r => setTimeout(r, 200))
 
     if (chunksRef.current.length === 0) {
@@ -151,27 +144,25 @@ function VoiceModeOverlay({ session, onEnd, onNewMessages }) {
     const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
 
     try {
-      const transcript = await transcribeAudio(blob, session)
-
+      const text = await transcribeAudio(blob, session)
       if (stoppedRef.current) { processingRef.current = false; return }
+      if (!text?.trim()) { processingRef.current = false; if (!stoppedRef.current) startListening(); return }
 
-      if (!transcript || !transcript.trim()) {
-        processingRef.current = false
-        if (!stoppedRef.current) startListening()
-        return
-      }
-
-      const data = await callCurryAI('chat', { message: transcript }, session)
+      setTranscript(text)
+      const data = await callCurryAI('chat', { message: text }, session)
       if (stoppedRef.current) { processingRef.current = false; return }
 
       if (data.ok) {
-        const response = data.response.replace(/<action>[\s\S]*?<\/action>/g, '').trim()
-        onNewMessages(transcript, response)
-        setStatus('speaking')
-        await speakWithElevenLabs(response, session)
+        const reply = data.response.replace(/<action>[\s\S]*?<\/action>/g, '').trim()
+        setResponse(reply)
+        onNewMessages(text, reply)
+        if (voiceOn) {
+          setStatus('speaking')
+          await speakWithElevenLabs(reply, session)
+        }
       }
     } catch (e) {
-      console.error('Voice mode error:', e)
+      console.error('Voice error:', e)
     }
 
     processingRef.current = false
@@ -181,47 +172,89 @@ function VoiceModeOverlay({ session, onEnd, onNewMessages }) {
   useEffect(() => {
     stoppedRef.current = false
     startListening()
-    return () => {
-      stoppedRef.current = true
-      cleanup()
-      window.speechSynthesis?.cancel()
-    }
+    return () => { stoppedRef.current = true; cleanup() }
   }, [])
 
-  const orbColor = {
-    listening: 'linear-gradient(135deg,#667eea,#764ba2)',
-    thinking: 'linear-gradient(135deg,#764ba2,#f093fb)',
-    speaking: 'linear-gradient(135deg,#667eea,#764ba2)',
-  }[status]
+  // Orb scale based on volume
+  const orbScale = status === 'listening' ? 1 + Math.min(volume / 180, 0.18) : 1
 
-  const statusText = {
-    listening: 'Listening...',
-    thinking: 'Thinking...',
-    speaking: 'Speaking...',
-  }[status]
-
-  // Scale the orb slightly based on live volume while listening
-  const orbScale = status === 'listening' ? 1 + Math.min(volume / 200, 0.15) : 1
+  const statusLabel = { listening: 'Listening...', thinking: 'Thinking...', speaking: 'Speaking...' }[status]
 
   return (
-    <div style={vs.overlay}>
-      <div style={{ position: 'relative', width: 140, height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ ...vs.ring, animation: status !== 'thinking' ? 'ringExpand 1.6s ease-out infinite' : 'none' }} />
-        <div style={{ ...vs.ring2, animation: status !== 'thinking' ? 'ringExpand 1.6s 0.4s ease-out infinite' : 'none' }} />
-        <div style={{
-          ...vs.orb,
-          background: orbColor,
-          transform: `scale(${orbScale})`,
-          transition: 'transform 0.1s ease-out',
-          animation: status === 'thinking' ? 'orbSpin 1.2s linear infinite' : status === 'speaking' ? 'orbPulse 1s ease-in-out infinite' : 'none',
-        }}>✨</div>
+    <div style={vm.container}>
+      {/* Top: response text (like reference shows AI text above orb) */}
+      <div style={vm.topText}>
+        {response && status !== 'listening' && (
+          <p style={vm.responseText}>{response}</p>
+        )}
       </div>
 
-      <div style={vs.status}>{statusText}</div>
+      {/* Glowing orb */}
+      <div style={vm.orbWrapper}>
+        {/* Outer glow rings */}
+        <div style={{ ...vm.glowRing, animation: status !== 'thinking' ? 'glowPulse 2s ease-in-out infinite' : 'none' }} />
+        <div style={{ ...vm.glowRing2, animation: status !== 'thinking' ? 'glowPulse 2s 0.5s ease-in-out infinite' : 'none' }} />
 
-      <button onClick={() => { onEnd() }} style={vs.endBtn}>
-        End voice mode
-      </button>
+        {/* Main orb */}
+        <div style={{
+          ...vm.orb,
+          transform: `scale(${orbScale})`,
+          animation: status === 'thinking'
+            ? 'orbMorph 1.5s ease-in-out infinite'
+            : status === 'speaking'
+            ? 'orbSpeak 0.8s ease-in-out infinite alternate'
+            : 'orbIdle 3s ease-in-out infinite',
+        }}>
+          <div style={vm.orbInner} />
+          <div style={vm.orbShine} />
+        </div>
+      </div>
+
+      {/* Transcript (what user said) */}
+      <div style={vm.transcriptArea}>
+        {transcript && <p style={vm.transcriptText}>"{transcript}"</p>}
+      </div>
+
+      {/* Status label */}
+      <div style={vm.statusRow}>
+        <div style={{ ...vm.statusDot, background: status === 'listening' ? '#a78bfa' : status === 'thinking' ? '#f093fb' : '#667eea', animation: 'dotPulse 1s ease-in-out infinite' }} />
+        <span style={vm.statusLabel}>{statusLabel}</span>
+      </div>
+
+      {/* Bottom mic button */}
+      <div style={vm.bottomBar}>
+        <button style={vm.endBtn} onClick={onEnd}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+
+        <div style={{
+          ...vm.micBtn,
+          background: status === 'listening'
+            ? 'linear-gradient(135deg,#667eea,#764ba2)'
+            : status === 'speaking'
+            ? 'linear-gradient(135deg,#764ba2,#f093fb)'
+            : 'rgba(102,126,234,0.3)',
+          boxShadow: status === 'listening' ? '0 0 30px rgba(102,126,234,0.6)' : '0 0 15px rgba(102,126,234,0.3)',
+        }}>
+          {status === 'listening' ? (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="22"/>
+            </svg>
+          ) : status === 'thinking' ? (
+            <TypingDots />
+          ) : (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            </svg>
+          )}
+        </div>
+
+        <div style={{ width: 40 }} />
+      </div>
     </div>
   )
 }
@@ -229,12 +262,11 @@ function VoiceModeOverlay({ session, onEnd, onNewMessages }) {
 // ── Main Curry AI Chat ────────────────────────────────────────
 export default function CurryAIChat({ session }) {
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: `Hey! I'm Curry AI ✨ — your personal assistant inside Mattchat.\n\nI can send messages, schedule them, summarize chats, translate, create polls & tasks, draft emails, and answer anything you ask.\n\nTap "Voice mode" to talk to me hands-free!` }
+    { role: 'assistant', content: `Hey! I'm Curry AI ✨ — your personal assistant inside Mattchat.\n\nI can send messages, schedule them, summarize chats, translate, create polls & tasks, draft emails, and answer anything.\n\nTap the mic button to talk to me hands-free!` }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [voiceOn, setVoiceOn] = useState(true)
-  const [speaking, setSpeaking] = useState(false)
   const [voiceMode, setVoiceMode] = useState(false)
   const messagesEndRef = useRef(null)
 
@@ -260,13 +292,6 @@ export default function CurryAIChat({ session }) {
     loadHistory()
   }, [])
 
-  const speak = useCallback(async (text) => {
-    if (!voiceOn) return
-    setSpeaking(true)
-    try { await speakWithElevenLabs(text, session) } catch (e) { console.error(e) }
-    setSpeaking(false)
-  }, [voiceOn, session])
-
   async function sendMessage() {
     const userMsg = input.trim()
     if (!userMsg || loading) return
@@ -278,12 +303,14 @@ export default function CurryAIChat({ session }) {
       if (data.ok) {
         const response = data.response.replace(/<action>[\s\S]*?<\/action>/g, '').trim()
         setMessages(prev => [...prev, { role: 'assistant', content: response }])
-        speak(response)
+        if (voiceOn) {
+          try { await speakWithElevenLabs(response, session) } catch (e) { console.error(e) }
+        }
       } else {
         setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
       }
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Network error. Please check your connection.' }])
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Network error.' }])
     }
     setLoading(false)
   }
@@ -293,97 +320,88 @@ export default function CurryAIChat({ session }) {
   }
 
   async function clearHistory() {
-    window.speechSynthesis?.cancel()
     await callCurryAI('clear_history', {}, session)
     setMessages([{ role: 'assistant', content: `Fresh start — what can I help you with?` }])
   }
 
+  if (voiceMode) {
+    return (
+      <VoiceMode
+        session={session}
+        voiceOn={voiceOn}
+        onEnd={() => setVoiceMode(false)}
+        onNewMessages={handleVoiceModeMessages}
+      />
+    )
+  }
+
   return (
     <div style={s.container}>
+      {/* Header */}
       <div style={s.header}>
         <div style={s.headerLeft}>
           <div style={s.avatar}>✨</div>
           <div>
             <div style={s.headerName}>Curry AI</div>
-            <div style={s.headerSub}>{speaking ? 'Speaking...' : 'Always learning, always here'}</div>
+            <div style={s.headerSub}>Always learning, always here</div>
           </div>
         </div>
-
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button
-            onClick={() => { if (speaking) window.speechSynthesis?.cancel(); setVoiceOn(v => !v) }}
-            style={s.speakerBtn}
-            title={voiceOn ? 'Voice on — click to mute' : 'Voice off — click to unmute'}
-          >
+          <button onClick={() => setVoiceOn(v => !v)} style={s.speakerBtn} title={voiceOn ? 'Mute' : 'Unmute'}>
             <SpeakerIcon on={voiceOn} />
           </button>
-
-          {!voiceMode && (
-            <button style={s.voiceModeBtn} onClick={() => setVoiceMode(true)}>
-              <MicIcon /> Voice mode
-            </button>
-          )}
-
-          <button style={s.iconBtn} onClick={clearHistory} title="Clear history">
-            <TrashIcon />
-          </button>
+          <button style={s.iconBtn} onClick={clearHistory} title="Clear history"><TrashIcon /></button>
         </div>
       </div>
 
-      {voiceMode ? (
-        <VoiceModeOverlay
-          session={session}
-          onEnd={() => setVoiceMode(false)}
-          onNewMessages={handleVoiceModeMessages}
-        />
-      ) : (
-        <>
-          <div style={s.messages}>
-            {messages.map((msg, i) => (
-              <div key={i} style={{ ...s.row, ...(msg.role === 'user' ? s.rowUser : {}) }}>
-                {msg.role === 'assistant' && <div style={s.aiAvatar}>✨</div>}
-                <div style={{ ...s.bubble, ...(msg.role === 'user' ? s.bubbleUser : s.bubbleAI) }}>
-                  {msg.content.split('\n').map((line, j, arr) => (
-                    <span key={j}>{line}{j < arr.length - 1 && <br />}</span>
-                  ))}
-                </div>
-              </div>
-            ))}
-            {loading && (
-              <div style={s.row}>
-                <div style={s.aiAvatar}>✨</div>
-                <div style={{ ...s.bubble, ...s.bubbleAI, padding: '12px 16px' }}>
-                  <TypingDots />
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
+      {/* Messages */}
+      <div style={s.messages}>
+        {messages.map((msg, i) => (
+          <div key={i} style={{ ...s.row, ...(msg.role === 'user' ? s.rowUser : {}) }}>
+            {msg.role === 'assistant' && <div style={s.aiAvatar}>✨</div>}
+            <div style={{ ...s.bubble, ...(msg.role === 'user' ? s.bubbleUser : s.bubbleAI) }}>
+              {msg.content.split('\n').map((line, j, arr) => (
+                <span key={j}>{line}{j < arr.length - 1 && <br />}</span>
+              ))}
+            </div>
           </div>
+        ))}
+        {loading && (
+          <div style={s.row}>
+            <div style={s.aiAvatar}>✨</div>
+            <div style={{ ...s.bubble, ...s.bubbleAI, padding: '12px 16px' }}><TypingDots /></div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
 
-          <div style={s.inputArea}>
-            <textarea
-              style={s.textarea}
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
-              placeholder="Message Curry AI..."
-              rows={1}
-            />
-            <button
-              style={{ ...s.sendBtn, opacity: (!input.trim() || loading) ? 0.35 : 1 }}
-              onClick={sendMessage}
-              disabled={!input.trim() || loading}
-            >
-              <SendIcon />
-            </button>
-          </div>
-        </>
-      )}
+      {/* Input */}
+      <div style={s.inputArea}>
+        <textarea
+          style={s.textarea}
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
+          placeholder="Message Curry AI..."
+          rows={1}
+        />
+        {/* Mic button to enter voice mode */}
+        <button style={s.micBtn} onClick={() => setVoiceMode(true)} title="Voice mode">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="22"/>
+          </svg>
+        </button>
+        <button style={{ ...s.sendBtn, opacity: (!input.trim() || loading) ? 0.35 : 1 }} onClick={sendMessage} disabled={!input.trim() || loading}>
+          <SendIcon />
+        </button>
+      </div>
     </div>
   )
 }
 
-// ── In-chat Assistant Panel (unchanged) ────────────────────────
+// ── In-chat Assistant Panel ────────────────────────────────────
 export function CurryAssistant({ session, conversationId, messages: chatMessages, onSuggestReply, onClose }) {
   const [mode, setMode] = useState(null)
   const [result, setResult] = useState('')
@@ -395,32 +413,25 @@ export function CurryAssistant({ session, conversationId, messages: chatMessages
   async function handleSmartReply() {
     setMode('smartreply'); setLoading(true)
     const data = await callCurryAI('smart_reply', {
-      messages: chatMessages.slice(-10).map(m => ({
-        isMe: m.sender_id === session.user.id,
-        sender: m.profiles?.username || 'Them',
-        content: m.content,
-      }))
+      messages: chatMessages.slice(-10).map(m => ({ isMe: m.sender_id === session.user.id, sender: m.profiles?.username || 'Them', content: m.content }))
     }, session)
     if (data.ok) setSuggestions(data.suggestions || [])
     setLoading(false)
   }
-
   async function handleSummarize() {
     setMode('summarize'); setLoading(true)
     const data = await callCurryAI('summarize', { conversationId }, session)
     if (data.ok) setResult(data.response)
     setLoading(false)
   }
-
   async function handleTranslate() {
     setMode('translate'); setLoading(true)
     const lastMsg = chatMessages.filter(m => m.message_type === 'text').slice(-1)[0]
-    if (!lastMsg) { setResult('No text message to translate.'); setLoading(false); return }
+    if (!lastMsg) { setResult('No text message.'); setLoading(false); return }
     const data = await callCurryAI('translate', { message: lastMsg.content, targetLanguage: translateLang }, session)
     if (data.ok) setResult(data.response)
     setLoading(false)
   }
-
   async function handleAsk() {
     if (!askText.trim()) return
     setLoading(true)
@@ -445,13 +456,11 @@ export function CurryAssistant({ session, conversationId, messages: chatMessages
           <button key={id} style={{ ...s.chip, ...(mode === id ? s.chipActive : {}) }} onClick={action}>{label}</button>
         ))}
       </div>
-      {loading && <div style={s.hint}>Curry AI is thinking...</div>}
+      {loading && <div style={s.hint}>Thinking...</div>}
       {mode === 'smartreply' && !loading && suggestions.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={s.hint}>Tap to send:</div>
-          {suggestions.map((sg, i) => (
-            <button key={i} style={s.suggestion} onClick={() => { onSuggestReply(sg); onClose() }}>{sg}</button>
-          ))}
+          {suggestions.map((sg, i) => <button key={i} style={s.suggestion} onClick={() => { onSuggestReply(sg); onClose() }}>{sg}</button>)}
         </div>
       )}
       {mode === 'summarize' && !loading && result && <div style={s.result}>{result}</div>}
@@ -477,92 +486,143 @@ export function CurryAssistant({ session, conversationId, messages: chatMessages
   )
 }
 
-// ── Icons ─────────────────────────────────────────────────────
+// ── Icons ──────────────────────────────────────────────────────
 function SpeakerIcon({ on }) {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-      {on ? (
-        <>
-          <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-          <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-        </>
-      ) : (
-        <>
-          <line x1="23" y1="9" x2="17" y2="15" />
-          <line x1="17" y1="9" x2="23" y2="15" />
-        </>
-      )}
-    </svg>
-  )
-}
-function MicIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
-      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-      <line x1="12" y1="19" x2="12" y2="22" />
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+      {on ? (<><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></>) : (<><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></>)}
     </svg>
   )
 }
 function SendIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="22" y1="2" x2="11" y2="13" />
-      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+      <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
     </svg>
   )
 }
 function TrashIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6l-1 14H6L5 6" />
-      <path d="M10 11v6M14 11v6" />
-      <path d="M9 6V4h6v2" />
+      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
     </svg>
   )
 }
 function TypingDots() {
   return (
     <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-      {[0, 1, 2].map(i => (
-        <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: '#667eea', opacity: 0.7, animation: `typingDot 1.2s ${i * 0.2}s infinite ease-in-out` }} />
-      ))}
+      {[0,1,2].map(i => <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: '#a78bfa', opacity: 0.8, animation: `typingDot 1.2s ${i*0.2}s infinite ease-in-out` }}/>)}
     </div>
   )
 }
 
-const vs = {
-  overlay: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', gap: 24 },
-  ring: { position: 'absolute', inset: -8, borderRadius: '50%', border: '2px solid rgba(102,126,234,0.3)' },
-  ring2: { position: 'absolute', inset: -16, borderRadius: '50%', border: '1px solid rgba(102,126,234,0.15)' },
-  orb: { width: 120, height: 120, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, boxShadow: '0 0 40px rgba(102,126,234,0.4)' },
-  status: { fontSize: 15, color: '#a0a0c0', fontWeight: 500, textAlign: 'center' },
-  endBtn: { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, color: '#888', fontSize: 12, padding: '8px 18px', cursor: 'pointer', fontFamily: 'inherit', marginTop: 8 },
+// ── Voice mode styles ──────────────────────────────────────────
+const vm = {
+  container: {
+    flex: 1, display: 'flex', flexDirection: 'column',
+    alignItems: 'center', justifyContent: 'space-between',
+    padding: '40px 24px 32px',
+    background: 'linear-gradient(180deg, #0a0a18 0%, #120b24 50%, #0a0a18 100%)',
+    position: 'relative', overflow: 'hidden',
+  },
+  topText: {
+    width: '100%', maxWidth: 320, textAlign: 'center',
+    minHeight: 80, display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+  responseText: {
+    fontSize: 16, color: 'rgba(255,255,255,0.85)', lineHeight: 1.6,
+    fontWeight: 400, letterSpacing: '-0.01em',
+    animation: 'fadeIn 0.4s ease',
+  },
+  orbWrapper: {
+    position: 'relative', width: 200, height: 200,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+  glowRing: {
+    position: 'absolute', inset: -20, borderRadius: '50%',
+    background: 'radial-gradient(circle, rgba(102,126,234,0.15) 0%, transparent 70%)',
+  },
+  glowRing2: {
+    position: 'absolute', inset: -40, borderRadius: '50%',
+    background: 'radial-gradient(circle, rgba(118,75,162,0.1) 0%, transparent 70%)',
+  },
+  orb: {
+    width: 180, height: 180, borderRadius: '50%',
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 40%, #f093fb 80%, #667eea 100%)',
+    backgroundSize: '200% 200%',
+    position: 'relative', overflow: 'hidden',
+    boxShadow: '0 0 60px rgba(102,126,234,0.5), 0 0 120px rgba(118,75,162,0.3), inset 0 0 60px rgba(255,255,255,0.05)',
+    transition: 'transform 0.1s ease-out',
+  },
+  orbInner: {
+    position: 'absolute', inset: 0, borderRadius: '50%',
+    background: 'radial-gradient(circle at 35% 35%, rgba(255,255,255,0.25) 0%, transparent 60%)',
+  },
+  orbShine: {
+    position: 'absolute', top: '15%', left: '20%',
+    width: '35%', height: '25%', borderRadius: '50%',
+    background: 'rgba(255,255,255,0.15)',
+    filter: 'blur(8px)',
+  },
+  transcriptArea: {
+    width: '100%', maxWidth: 280, textAlign: 'center', minHeight: 48,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+  transcriptText: {
+    fontSize: 14, color: 'rgba(167,139,250,0.9)',
+    fontStyle: 'italic', lineHeight: 1.5,
+  },
+  statusRow: {
+    display: 'flex', alignItems: 'center', gap: 8,
+  },
+  statusDot: {
+    width: 8, height: 8, borderRadius: '50%',
+  },
+  statusLabel: {
+    fontSize: 14, color: 'rgba(255,255,255,0.5)',
+    fontWeight: 500, letterSpacing: '0.02em',
+  },
+  bottomBar: {
+    width: '100%', display: 'flex', alignItems: 'center',
+    justifyContent: 'space-between', paddingTop: 8,
+  },
+  endBtn: {
+    width: 40, height: 40, borderRadius: '50%',
+    background: 'rgba(255,255,255,0.08)',
+    border: '1px solid rgba(255,255,255,0.12)',
+    cursor: 'pointer', color: 'rgba(255,255,255,0.6)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+  micBtn: {
+    width: 72, height: 72, borderRadius: '50%',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    transition: 'all 0.3s ease', cursor: 'default',
+  },
 }
 
+// ── Chat styles ────────────────────────────────────────────────
 const s = {
-  container: { display: 'flex', flexDirection: 'column', height: '100%', background: 'linear-gradient(180deg, #0d0d1a 0%, #111827 100%)', fontFamily: "'Inter', sans-serif" },
+  container: { display: 'flex', flexDirection: 'column', height: '100%', background: 'linear-gradient(180deg,#0d0d1a 0%,#111827 100%)', fontFamily: "'Inter',sans-serif" },
   header: { padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.03)' },
   headerLeft: { display: 'flex', alignItems: 'center', gap: 12 },
   avatar: { width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, boxShadow: '0 0 16px rgba(102,126,234,0.4)' },
   headerName: { fontSize: 15, fontWeight: 700, color: '#f0f0f0', letterSpacing: '-0.02em' },
   headerSub: { fontSize: 11, color: '#667eea', marginTop: 1, fontWeight: 500 },
   speakerBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#667eea', padding: 6, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  voiceModeBtn: { background: 'rgba(102,126,234,0.12)', border: '1px solid rgba(102,126,234,0.25)', borderRadius: 20, color: '#667eea', fontSize: 12, fontWeight: 600, padding: '5px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'inherit' },
   iconBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#666', padding: 6, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' },
   messages: { flex: 1, overflowY: 'auto', padding: '20px 18px', display: 'flex', flexDirection: 'column', gap: 16 },
   row: { display: 'flex', gap: 10, alignItems: 'flex-end' },
   rowUser: { flexDirection: 'row-reverse' },
-  aiAvatar: { width: 26, height: 26, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, boxShadow: '0 0 8px rgba(102,126,234,0.3)' },
-  bubble: { maxWidth: '78%', padding: '11px 15px', fontSize: 14, lineHeight: 1.6, fontWeight: 400, letterSpacing: '-0.01em' },
+  aiAvatar: { width: 26, height: 26, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 },
+  bubble: { maxWidth: '78%', padding: '11px 15px', fontSize: 14, lineHeight: 1.6, fontWeight: 400 },
   bubbleAI: { background: 'rgba(255,255,255,0.06)', color: '#e8e8f0', borderRadius: '4px 18px 18px 18px', border: '1px solid rgba(255,255,255,0.06)' },
   bubbleUser: { background: 'linear-gradient(135deg,#667eea,#764ba2)', color: '#fff', borderRadius: '18px 4px 18px 18px', boxShadow: '0 4px 14px rgba(102,126,234,0.3)' },
-  inputArea: { padding: '12px 16px 14px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'flex-end', gap: 10, background: 'rgba(255,255,255,0.02)' },
-  textarea: { flex: 1, resize: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 22, padding: '11px 16px', fontSize: 14, fontFamily: 'inherit', background: 'rgba(255,255,255,0.05)', color: '#f0f0f0', outline: 'none', maxHeight: 120, lineHeight: 1.5, letterSpacing: '-0.01em' },
-  sendBtn: { width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none', cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(102,126,234,0.4)' },
-  panel: { background: 'rgba(30,30,46,0.98)', borderTop: '1px solid rgba(102,126,234,0.3)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10, backdropFilter: 'blur(12px)' },
+  inputArea: { padding: '12px 16px 14px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'flex-end', gap: 8, background: 'rgba(255,255,255,0.02)' },
+  textarea: { flex: 1, resize: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 22, padding: '11px 16px', fontSize: 14, fontFamily: 'inherit', background: 'rgba(255,255,255,0.05)', color: '#f0f0f0', outline: 'none', maxHeight: 120, lineHeight: 1.5 },
+  micBtn: { width: 40, height: 40, borderRadius: '50%', background: 'rgba(102,126,234,0.15)', border: '1px solid rgba(102,126,234,0.3)', cursor: 'pointer', color: '#a78bfa', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  sendBtn: { width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none', cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(102,126,234,0.4)' },
+  panel: { background: 'rgba(30,30,46,0.98)', borderTop: '1px solid rgba(102,126,234,0.3)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 },
   panelHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   actionRow: { display: 'flex', gap: 6, flexWrap: 'wrap' },
   chip: { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, color: '#a0aec0', fontSize: 12, fontWeight: 600, padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit' },
@@ -574,14 +634,16 @@ const s = {
   goBtn: { background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 700, padding: '7px 14px', cursor: 'pointer', fontFamily: 'inherit' },
 }
 
+// Inject animations
 const styleEl = document.createElement('style')
 styleEl.textContent = `
-  @keyframes typingDot { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-5px); opacity: 1; } }
-  @keyframes orbPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.08); opacity: 0.9; } }
-  @keyframes orbSpin { from { transform: rotate(0deg) scale(1); } to { transform: rotate(360deg) scale(1); } }
-  @keyframes ringExpand { 0% { transform: scale(1); opacity: 0.4; } 100% { transform: scale(1.5); opacity: 0; } }
+  @keyframes typingDot { 0%,60%,100% { transform:translateY(0);opacity:0.4; } 30% { transform:translateY(-5px);opacity:1; } }
+  @keyframes orbIdle { 0%,100% { background-position:0% 50%; box-shadow:0 0 60px rgba(102,126,234,0.5),0 0 120px rgba(118,75,162,0.3); } 50% { background-position:100% 50%; box-shadow:0 0 80px rgba(102,126,234,0.7),0 0 160px rgba(118,75,162,0.4); } }
+  @keyframes orbMorph { 0%,100% { border-radius:50%; transform:scale(1); } 33% { border-radius:45% 55% 60% 40%/50% 45% 55% 50%; transform:scale(1.05); } 66% { border-radius:55% 45% 40% 60%/45% 55% 50% 55%; transform:scale(0.97); } }
+  @keyframes orbSpeak { from { transform:scale(1); box-shadow:0 0 60px rgba(102,126,234,0.5); } to { transform:scale(1.08); box-shadow:0 0 90px rgba(240,147,251,0.6); } }
+  @keyframes glowPulse { 0%,100% { opacity:0.6; transform:scale(1); } 50% { opacity:1; transform:scale(1.05); } }
+  @keyframes dotPulse { 0%,100% { opacity:0.5; transform:scale(1); } 50% { opacity:1; transform:scale(1.3); } }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
 `
-if (!document.getElementById('curry-voice-styles')) {
-  styleEl.id = 'curry-voice-styles'
-  document.head.appendChild(styleEl)
-}
+if (!document.getElementById('curry-styles')) { styleEl.id='curry-styles'; document.head.appendChild(styleEl) }
+ 
