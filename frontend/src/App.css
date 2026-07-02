@@ -482,6 +482,46 @@ html, body, #root {
 }
 .app.chat-open .chat-area { display: flex; }
 
+/* ── Welcome pane — desktop-only filler next to the sidebar ── */
+.welcome-pane {
+  display: none;
+  flex: 1;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  background: var(--dark-bg);
+  padding: 40px;
+}
+.welcome-pane-content {
+  text-align: center;
+  max-width: 320px;
+}
+.welcome-pane-logo {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  margin: 0 auto 20px;
+  filter: drop-shadow(0 0 20px rgba(108,99,255,0.5));
+}
+.welcome-pane-content h2 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 10px;
+}
+.welcome-pane-content p {
+  font-size: 13.5px;
+  color: var(--dark-text-2);
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+/* Only show it on wide viewports, and never once a conversation is open */
+@media (min-width: 640px) {
+  .app:not(.chat-open) .welcome-pane { display: flex; }
+}
+
 /* Chat header — dark, matches the app chrome */
 .chat-header {
   display: flex; align-items: center; gap: 12px;
