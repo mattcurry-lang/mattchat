@@ -567,6 +567,19 @@ export default function ChatPage({ session }) {
         )}
       </div>
 
+      {/* ── WELCOME PANE — desktop only. Fills the space next to the
+           sidebar when no conversation is open. Hidden on narrow
+           screens (no room for it) and hidden entirely once a
+           conversation is open, at any screen size. ── */}
+      <div className="welcome-pane">
+        <div className="welcome-pane-content">
+          <img src="/logo.png" alt="" className="welcome-pane-logo" />
+          <h2>Welcome to Mattchat</h2>
+          <p>Select a conversation or start a new one.<br />Say <strong>"Hey Curry"</strong> to activate your AI assistant!</p>
+          <button className="btn-primary" onClick={() => setShowNewChat(true)}>Start a conversation →</button>
+        </div>
+      </div>
+
       {/* ── CHAT AREA ── */}
       {activeConvo && (
         activeConvo.isCurryAI ? (
