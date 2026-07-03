@@ -1,8 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    MATTCHAT — APP.CSS
-   Mobile: single full-screen pane (list OR chat).
-   Desktop (≥900px): two-pane layout (sidebar + chat/welcome),
-   filling the screen instead of staying phone-width.
+   Single-layout dark mobile-app design (story rail + bottom nav)
    ═══════════════════════════════════════════════════════════ */
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
@@ -58,8 +56,7 @@
   --dark-text-2:   rgba(255,255,255,0.55);
   --dark-text-3:   rgba(255,255,255,0.35);
 
-  --sidebar-w:  460px; /* mobile: max width of the single-column app shell.
-                          desktop: fixed width of the sidebar column. */
+  --sidebar-w:  460px; /* max width of the single-column app shell */
 }
 
 /* ── Reset ─────────────────────────────────────────────── */
@@ -138,55 +135,42 @@ html, body, #root {
 .auth-logo-img, .auth-tagline, .auth-logo { display: none; }
 
 /* ═══════════════════════════════════════════════════════════
-   APP SHELL
+   APP SHELL — single layout at every screen size
    ═══════════════════════════════════════════════════════════
-   Mobile (<900px): single full-screen pane. The list screen
-   (.sidebar) and the open conversation (.chat-area) are never
-   shown at the same time.
-
-   Desktop (≥900px): real two-pane layout. The app fills the
-   screen (up to a max width), with a fixed-width sidebar on the
-   left and the chat / welcome pane filling the rest — both
-   visible at once, sidebar never disappears. */
+   The list screen (.sidebar) and the open conversation (.chat-area)
+   are never shown at the same time, on any screen width. On wide
+   viewports the whole thing sits centered as a contained "app card"
+   (echoing the phone-shaped reference); on narrow viewports it's
+   simply full-bleed. There's no literal phone bezel — that would
+   hurt usability on a real desktop browser. */
 .app {
   position: relative;
   display: flex;
   height: 100vh;
   width: 100%;
-  max-width: var(--sidebar-w); /* mobile default: app = one full-screen pane */
+  max-width: var(--sidebar-w);
   margin: 0 auto;
   background: var(--dark-bg);
   overflow: hidden;
   box-shadow: var(--shadow-lg);
 }
 
-@media (min-width: 900px) {
+/* Tablet: still a single-pane "app card" floating with margin */
+@media (min-width: 640px) and (max-width: 899px) {
   html, body { background: #d8dae6; }
+  .app { margin: 18px auto; height: calc(100vh - 36px); border-radius: 28px; }
+}
 
-  .app {
-    max-width: 1400px;         /* fill the desktop screen instead of staying phone-width */
-    width: calc(100% - 36px);
-    height: calc(100vh - 36px);
-    margin: 18px auto;
-    border-radius: 28px;
-  }
-
-  /* Sidebar becomes a fixed-width column, not the whole app,
-     and stays visible even when a chat is open. */
-  .sidebar {
-    width: var(--sidebar-w);
-    flex-shrink: 0;
-    display: flex;
-    border-right: 1px solid var(--dark-border);
-  }
-  .app.chat-open .sidebar { display: flex; }
-
-  /* Chat area and welcome pane share the remaining width. */
-  .chat-area,
-  .welcome-pane {
-    flex: 1;
-    display: flex;
-  }
+/* Desktop: full-bleed, split into the list (left half) and a welcome
+   pane (right half). Opening a conversation takes over the *entire*
+   screen — both halves hide and .chat-area (already flex:1) expands
+   to fill the whole viewport on its own. */
+@media (min-width: 900px) {
+  html, body { background: var(--dark-bg); }
+  .app { max-width: none; width: 100vw; height: 100vh; margin: 0; border-radius: 0; box-shadow: none; }
+  .sidebar { width: 50%; max-width: 50%; flex-shrink: 0; border-right: 1px solid var(--dark-border); }
+  .welcome-pane { display: flex; }
+  .app.chat-open .welcome-pane { display: none; }
 }
 
 /* ── List / browse screen ── */
@@ -199,7 +183,7 @@ html, body, #root {
   position: relative;
   background: var(--dark-bg);
 }
-.app.chat-open .sidebar { display: none; } /* mobile: hide list once a chat is open */
+.app.chat-open .sidebar { display: none; }
 
 /* ── Top header: brand + story rail ── */
 .top-header {
@@ -495,6 +479,49 @@ html, body, #root {
 .bnav-plus:hover { transform: scale(1.08) translateY(-2px); }
 .bnav-plus:active { transform: scale(0.95); }
 
+/* ── Welcome pane — desktop-only right half, shown when no chat is open ── */
+.welcome-pane {
+  display: none; /* shown via the 900px media query above */
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(108,99,255,0.14) 0%, transparent 55%),
+    radial-gradient(circle at 85% 90%, rgba(167,139,250,0.12) 0%, transparent 50%),
+    var(--dark-header);
+}
+.welcome-pane-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  max-width: 360px;
+  padding: 32px;
+}
+.welcome-pane-logo {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 20px;
+  display: block;
+  border-radius: 16px;
+  filter: drop-shadow(0 0 24px rgba(108,99,255,0.4));
+}
+.welcome-pane-content h2 {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 10px;
+}
+.welcome-pane-content p {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--dark-text-2);
+  margin-bottom: 22px;
+}
+.welcome-pane-content strong { color: #c4b5fd; }
+
 /* ═══════════════════════════════════════════════════════════
    CHAT AREA (open conversation)
    ═══════════════════════════════════════════════════════════ */
@@ -509,7 +536,7 @@ html, body, #root {
   background-color: #efeae2;
   background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.018'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
-.app.chat-open .chat-area { display: flex; } /* mobile: only show once a chat is open */
+.app.chat-open .chat-area { display: flex; }
 
 /* Chat header — dark, matches the app chrome */
 .chat-header {
@@ -526,54 +553,6 @@ html, body, #root {
 .back-btn { display: flex; align-items: center; background: none; border: none; font-size: 22px; cursor: pointer; color: #fff; padding: 4px 6px 4px 0; }
 .icon-btn.dark { color: rgba(255,255,255,0.7); }
 .icon-btn.dark:hover { background: rgba(255,255,255,0.08); color: #fff; }
-
-/* Hide the back button on desktop — sidebar is always visible there,
-   so "back" has nothing meaningful to do. */
-@media (min-width: 900px) {
-  .back-btn { display: none; }
-}
-
-/* ═══════════════════════════════════════════════════════════
-   WELCOME PANE — desktop-only filler shown next to the sidebar
-   when no conversation is open. Hidden on mobile, where the
-   sidebar itself takes the full screen.
-   ═══════════════════════════════════════════════════════════ */
-.welcome-pane {
-  display: none; /* shown only inside the ≥900px media query above,
-                     and only when .chat-open is not set (see below) */
-  height: 100%;
-  align-items: center;
-  justify-content: center;
-  background: var(--dark-bg);
-  padding: 40px;
-}
-@media (min-width: 900px) {
-  .app.chat-open .welcome-pane { display: none; } /* chat replaces it once opened */
-}
-.welcome-pane-content {
-  text-align: center;
-  max-width: 320px;
-}
-.welcome-pane-logo {
-  width: 72px;
-  height: 72px;
-  object-fit: contain;
-  margin: 0 auto 20px;
-  filter: drop-shadow(0 0 20px rgba(108,99,255,0.5));
-}
-.welcome-pane-content h2 {
-  font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 800;
-  color: #fff;
-  margin-bottom: 10px;
-}
-.welcome-pane-content p {
-  font-size: 13.5px;
-  color: var(--dark-text-2);
-  line-height: 1.6;
-  margin-bottom: 20px;
-}
 
 /* ═══════════════════════════════════════════════════════════
    MESSAGES
@@ -824,7 +803,7 @@ button.email-badge { cursor: pointer; display: inline-flex; align-items: center;
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 /* ═══════════════════════════════════════════════════════════
-   RESPONSIVE (mobile-specific tweaks)
+   RESPONSIVE
    ═══════════════════════════════════════════════════════════ */
 @media (max-width: 639px) {
   html, body { position: fixed; width: 100%; overflow: hidden; }
