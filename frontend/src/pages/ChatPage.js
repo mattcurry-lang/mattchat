@@ -21,6 +21,7 @@ import CallOverlay from '../components/CallOverlay'
 import IncomingCallModal from '../components/IncomingCallModal'
 import EmojiPicker from '../components/EmojiPicker'
 import { useRingtone } from '../hooks/useRingtone'
+import { useMessageStatus } from '../hooks/useMessageStatus'
 import BottomNav from '../components/BottomNav'
 import { IconSearch, IconPhone, IconVideo, IconSparkle, IconMoreVertical, IconSmile, IconMic } from '../components/Icons'
 import { ReactableMessage } from '../components/MessageReactions'
@@ -36,6 +37,17 @@ function DateDivider({ date }) {
   const d = new Date(date)
   const label = isToday(d) ? 'Today' : isYesterday(d) ? 'Yesterday' : format(d, 'MMMM d, yyyy')
   return <div className="date-divider">{label}</div>
+}
+
+// Shows "Delivered" under a sent message. Once the other person has
+// opened the chat and read it (tracked by useMessageStatus/readMap),
+// this stays silent and the bubble itself gets a purple outline
+// instead — see the `.read` class applied to .msg-bubble below.
+function MessageStatus({ isMe, isRead, isDelivered }) {
+  if (!isMe) return null
+  const label = isRead ? 'Read' : isDelivered ? 'Delivered' : 'Sent'
+  const cls = isRead ? 'read' : isDelivered ? 'delivered' : 'sent'
+  return <div className={`msg-status ${cls}`}>{label}</div>
 }
 
 function StickerBubble({ content, isMe }) {
@@ -69,7 +81,7 @@ function GifBubble({ content }) {
   )
 }
 
-function MessageBubble({ msg, isMe }) {
+function MessageBubble({ msg, isMe, isRead, isDelivered }) {
   if (msg.content?.startsWith('missed_call:')) {
     const callType = msg.content.replace('missed_call:', '')
     return (
@@ -89,6 +101,7 @@ function MessageBubble({ msg, isMe }) {
           {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
           <StickerBubble content={msg.content} isMe={isMe} />
           <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+          <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
         </div>
       </div>
     )
@@ -101,6 +114,7 @@ function MessageBubble({ msg, isMe }) {
           {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
           <GifBubble content={msg.content} isMe={isMe} />
           <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+          <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
         </div>
       </div>
     )
@@ -113,6 +127,7 @@ function MessageBubble({ msg, isMe }) {
           {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
           <TaskMessage message={msg} currentUserId={msg._currentUserId} />
           <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+          <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
         </div>
       </div>
     )
@@ -125,6 +140,7 @@ function MessageBubble({ msg, isMe }) {
           {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
           <PollMessage message={msg} currentUserId={msg._currentUserId} />
           <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+          <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
         </div>
       </div>
     )
@@ -137,6 +153,7 @@ function MessageBubble({ msg, isMe }) {
           {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
           <VoiceMessage message={msg} isMe={isMe} />
           <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+          <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
         </div>
       </div>
     )
@@ -146,11 +163,12 @@ function MessageBubble({ msg, isMe }) {
       {!isMe && <Avatar name={msg.profiles?.username} size={28} />}
       <div>
         {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
-        <div className={`msg-bubble ${msg.is_email ? 'email-msg' : ''}`}>
+        <div className={`msg-bubble ${msg.is_email ? 'email-msg' : ''} ${isMe && isRead ? 'read' : ''}`}>
           {msg.is_email && <span className="email-tag">📧 via email</span>}
           {msg.content}
         </div>
         <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+        <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
       </div>
     </div>
   )
@@ -241,6 +259,11 @@ export default function ChatPage({ session }) {
 
   const { conversations, loading: convLoading, reload } = useConversations(userId)
   const { messages, loading: msgLoading, typing, sendMessage, broadcastTyping } = useChat(
+    activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
+    userId
+  )
+  const { readMap, deliveredMap } = useMessageStatus(
+    messages,
     activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
     userId
   )
@@ -679,6 +702,8 @@ export default function ChatPage({ session }) {
                         <MessageBubble
                           msg={{ ...msg, _currentUserId: userId }}
                           isMe={isMine}
+                          isRead={!!readMap[msg.id]}
+                          isDelivered={!!deliveredMap[msg.id]}
                         />
                       </ReactableMessage>
                     </div>
