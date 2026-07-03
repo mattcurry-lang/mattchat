@@ -668,6 +668,14 @@ html, body, #root {
   border-color: transparent transparent transparent #d9fdd3;
 }
 
+/* Once the other person has opened the chat and seen this message
+   (tracked via useMessageStatus), give the bubble a purple outline
+   in the app's brand color instead of the default flat edge. */
+.msg-row.mine .msg-bubble.read {
+  outline: 2px solid var(--brand-light);
+  outline-offset: 1px;
+}
+
 .msg-time {
   font-size: 10.5px;
   color: #8696a0;
@@ -676,6 +684,17 @@ html, body, #root {
   display: block;
   font-variant-numeric: tabular-nums;
 }
+
+/* "Delivered" / "Read" label under sent messages */
+.msg-status {
+  font-size: 10px;
+  font-weight: 600;
+  color: #8696a0;
+  text-align: right;
+  margin-top: 1px;
+}
+.msg-status.sent { opacity: 0.55; }
+.msg-status.read { color: var(--brand-light); }
 
 .email-msg { border-left: 3px solid var(--brand) !important; background: #f0f4ff !important; }
 .email-tag { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: var(--brand); background: rgba(108,99,255,0.1); padding: 2px 7px; border-radius: var(--r-full); margin-bottom: 4px; }
