@@ -22,6 +22,7 @@ import IncomingCallModal from '../components/IncomingCallModal'
 import EmojiPicker from '../components/EmojiPicker'
 import { useRingtone } from '../hooks/useRingtone'
 import BottomNav from '../components/BottomNav'
+import { IconSearch, IconPhone, IconVideo, IconSparkle, IconMoreVertical, IconSmile, IconMic } from '../components/Icons'
 import { ReactableMessage } from '../components/MessageReactions'
 
 function formatMsgTime(ts) {
@@ -189,8 +190,8 @@ function ThreeDotMenu({ onPoll, onTask, onSchedule, onSearch, onShare, onClose }
 function CallButtons({ onVoiceCall, onVideoCall, disabled }) {
   return (
     <>
-      <button className="icon-btn dark" onClick={onVoiceCall} disabled={disabled} title="Voice call" style={{ fontSize: 17, opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}>📞</button>
-      <button className="icon-btn dark" onClick={onVideoCall} disabled={disabled} title="Video call" style={{ fontSize: 17, opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}>📹</button>
+      <button className="icon-btn dark" onClick={onVoiceCall} disabled={disabled} title="Voice call" style={{ opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}><IconPhone size={18} /></button>
+      <button className="icon-btn dark" onClick={onVideoCall} disabled={disabled} title="Video call" style={{ opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}><IconVideo size={18} /></button>
     </>
   )
 }
@@ -425,7 +426,7 @@ export default function ChatPage({ session }) {
               onClick={() => setShowSearchBar(v => !v)}
               title="Search"
             >
-              🔍
+              <IconSearch size={16} />
             </button>
           </div>
 
@@ -612,7 +613,7 @@ export default function ChatPage({ session }) {
                 {callActive && (
                   <button onClick={endCall} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 'var(--r-full)', padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: '#f87171' }}>📵 End call</button>
                 )}
-                <button className="icon-btn dark" onClick={() => setShowCurryAssistant(v => !v)} title="Curry AI assistant">✨</button>
+                <button className="icon-btn dark" onClick={() => setShowCurryAssistant(v => !v)} title="Curry AI assistant"><IconSparkle size={16} /></button>
                 {hasScheduled && (
                   <button onClick={() => setShowScheduledList(true)} title="View scheduled messages"
                     style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 'var(--r-full)', padding: '5px 10px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: '#c4b5fd', animation: 'scheduledPulse 2s ease infinite' }}>
@@ -621,7 +622,7 @@ export default function ChatPage({ session }) {
                 )}
                 <div className="threedot-wrapper" style={{ position: 'relative' }}>
                   <button className="icon-btn dark" onClick={() => setShowThreeDot(v => !v)} title="More options"
-                    style={{ fontSize: 18, fontWeight: 700, letterSpacing: 1, color: showThreeDot ? '#a78bfa' : undefined, background: showThreeDot ? 'rgba(167,139,250,0.15)' : undefined }}>⋮</button>
+                    style={{ color: showThreeDot ? '#a78bfa' : undefined, background: showThreeDot ? 'rgba(167,139,250,0.15)' : undefined }}><IconMoreVertical size={17} /></button>
                   {showThreeDot && (
                     <ThreeDotMenu
                       onPoll={() => { setShowPoll(v => !v); setShowTask(false) }}
@@ -708,8 +709,8 @@ export default function ChatPage({ session }) {
                 {!showVoice && (
                   <div style={{ position: 'relative' }}>
                     <button className="attach-btn" onClick={() => setShowEmojiPicker(v => !v)} title="Emoji, stickers & GIFs"
-                      style={{ fontSize: 20, background: showEmojiPicker ? 'rgba(99,102,241,0.12)' : 'none', borderRadius: '50%', color: showEmojiPicker ? '#a78bfa' : undefined, transition: 'all 0.15s' }}>
-                      😊
+                      style={{ background: showEmojiPicker ? 'rgba(99,102,241,0.12)' : 'none', borderRadius: '50%', color: showEmojiPicker ? '#a78bfa' : undefined, transition: 'all 0.15s' }}>
+                      <IconSmile size={20} />
                     </button>
                     {showEmojiPicker && (
                       <EmojiPicker onEmojiSelect={handleEmojiSelect} onStickerSelect={handleStickerSelect} onGifSelect={handleGifSelect} onClose={() => setShowEmojiPicker(false)} />
@@ -721,7 +722,7 @@ export default function ChatPage({ session }) {
                   <VoiceRecorder conversationId={activeConvo.id} senderId={userId} onSent={() => setShowVoice(false)} onCancel={() => setShowVoice(false)} />
                 ) : (
                   <>
-                    <button className="attach-btn" onClick={() => setShowVoice(true)} title="Voice note" style={{ fontSize: 20 }}>🎙️</button>
+                    <button className="attach-btn" onClick={() => setShowVoice(true)} title="Voice note"><IconMic size={19} /></button>
                     <textarea ref={textareaRef} value={inputText} onChange={handleTyping} onKeyDown={handleKeyDown} placeholder="Type a message…" rows={1} />
                     <button className="send-btn" onClick={handleSend} disabled={!inputText.trim()}>➤</button>
                   </>
