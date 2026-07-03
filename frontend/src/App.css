@@ -138,11 +138,10 @@ html, body, #root {
    APP SHELL — single layout at every screen size
    ═══════════════════════════════════════════════════════════
    The list screen (.sidebar) and the open conversation (.chat-area)
-   are never shown at the same time, on any screen width. On wide
-   viewports the whole thing sits centered as a contained "app card"
-   (echoing the phone-shaped reference); on narrow viewports it's
-   simply full-bleed. There's no literal phone bezel — that would
-   hurt usability on a real desktop browser. */
+   are never shown at the same time on mobile/tablet — narrow screens
+   don't have room to split. On desktop the sidebar stays put (classic
+   WhatsApp Web layout) and only the right-hand pane toggles between
+   the welcome screen and the open conversation. */
 .app {
   position: relative;
   display: flex;
@@ -161,15 +160,21 @@ html, body, #root {
   .app { margin: 18px auto; height: calc(100vh - 36px); border-radius: 28px; }
 }
 
-/* Desktop: full-bleed, split into the list (left half) and a welcome
-   pane (right half). Opening a conversation takes over the *entire*
-   screen — both halves hide and .chat-area (already flex:1) expands
-   to fill the whole viewport on its own. */
+/* Desktop: full-bleed, classic split — narrow list on the left that
+   NEVER hides, and a right-hand pane that shows the welcome screen
+   until a chat is opened, then shows that chat. Just like WhatsApp. */
 @media (min-width: 900px) {
   html, body { background: var(--dark-bg); }
   .app { max-width: none; width: 100vw; height: 100vh; margin: 0; border-radius: 0; box-shadow: none; }
-  .sidebar { width: 50%; max-width: 50%; flex-shrink: 0; border-right: 1px solid var(--dark-border); }
-  .welcome-pane { display: flex; }
+  .app .sidebar,
+  .app.chat-open .sidebar {
+    display: flex;
+    width: 420px;
+    max-width: 420px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--dark-border);
+  }
+  .app .welcome-pane { display: flex; }
   .app.chat-open .welcome-pane { display: none; }
 }
 
@@ -183,6 +188,8 @@ html, body, #root {
   position: relative;
   background: var(--dark-bg);
 }
+/* Mobile/tablet only: opening a chat fully replaces the list.
+   (Desktop overrides this back to visible — see 900px block above.) */
 .app.chat-open .sidebar { display: none; }
 
 /* ── Top header: brand + story rail ── */
