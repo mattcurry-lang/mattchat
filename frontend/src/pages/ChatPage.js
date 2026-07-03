@@ -24,7 +24,6 @@ import { useRingtone } from '../hooks/useRingtone'
 import BottomNav from '../components/BottomNav'
 import { IconSearch, IconPhone, IconVideo, IconSparkle, IconMoreVertical, IconSmile, IconMic } from '../components/Icons'
 import { ReactableMessage } from '../components/MessageReactions'
-import { useMessageStatus } from '../hooks/useMessageStatus'
 
 function formatMsgTime(ts) {
   const d = new Date(ts)
@@ -45,8 +44,7 @@ function StickerBubble({ content, isMe }) {
   const label = parts[1] || ''
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
-      <div
-        style={{ fontSize: 72, lineHeight: 1, filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.3))', padding: '4px 8px', transition: 'transform 0.15s', cursor: 'default', display: 'inline-block' }}
+      <div style={{ fontSize: 72, lineHeight: 1, filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.3))', padding: '4px 8px', transition: 'transform 0.15s', cursor: 'default', display: 'inline-block' }}
         onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1) rotate(-3deg)'}
         onMouseLeave={e => e.currentTarget.style.transform = 'none'}
       >{emoji}</div>
@@ -71,8 +69,7 @@ function GifBubble({ content }) {
   )
 }
 
-function MessageBubble({ msg, isMe, isSeen }) {
-  // Missed call
+function MessageBubble({ msg, isMe }) {
   if (msg.content?.startsWith('missed_call:')) {
     const callType = msg.content.replace('missed_call:', '')
     return (
@@ -84,8 +81,6 @@ function MessageBubble({ msg, isMe, isSeen }) {
       </div>
     )
   }
-
-  // Sticker
   if (msg.content?.startsWith('sticker:')) {
     return (
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
@@ -98,8 +93,6 @@ function MessageBubble({ msg, isMe, isSeen }) {
       </div>
     )
   }
-
-  // GIF
   if (msg.content?.startsWith('gif:')) {
     return (
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
@@ -112,8 +105,6 @@ function MessageBubble({ msg, isMe, isSeen }) {
       </div>
     )
   }
-
-  // Task
   if (msg.message_type === 'task') {
     return (
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
@@ -126,8 +117,6 @@ function MessageBubble({ msg, isMe, isSeen }) {
       </div>
     )
   }
-
-  // Poll
   if (msg.message_type === 'poll') {
     return (
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
@@ -140,8 +129,6 @@ function MessageBubble({ msg, isMe, isSeen }) {
       </div>
     )
   }
-
-  // Voice
   if (msg.message_type === 'voice') {
     return (
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
@@ -154,14 +141,12 @@ function MessageBubble({ msg, isMe, isSeen }) {
       </div>
     )
   }
-
-  // Plain text
   return (
     <div className={`msg-row ${isMe ? 'mine' : ''}`}>
       {!isMe && <Avatar name={msg.profiles?.username} size={28} />}
       <div>
         {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
-        <div className={`msg-bubble ${msg.is_email ? 'email-msg' : ''} ${isMe && isSeen ? 'seen' : ''}`}>
+        <div className={`msg-bubble ${msg.is_email ? 'email-msg' : ''}`}>
           {msg.is_email && <span className="email-tag">📧 via email</span>}
           {msg.content}
         </div>
@@ -205,8 +190,8 @@ function ThreeDotMenu({ onPoll, onTask, onSchedule, onSearch, onShare, onClose }
 function CallButtons({ onVoiceCall, onVideoCall, disabled }) {
   return (
     <>
-      <button className="icon-btn dark" onClick={onVoiceCall} disabled={disabled} title="Voice call" style={{ opacity: disabled ? 0.4 : 1 }}><IconPhone size={18} /></button>
-      <button className="icon-btn dark" onClick={onVideoCall} disabled={disabled} title="Video call" style={{ opacity: disabled ? 0.4 : 1 }}><IconVideo size={18} /></button>
+      <button className="icon-btn dark" onClick={onVoiceCall} disabled={disabled} title="Voice call" style={{ opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}><IconPhone size={18} /></button>
+      <button className="icon-btn dark" onClick={onVideoCall} disabled={disabled} title="Video call" style={{ opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}><IconVideo size={18} /></button>
     </>
   )
 }
@@ -225,7 +210,7 @@ export default function ChatPage({ session }) {
   const [inputText, setInputText]       = useState('')
   const [search, setSearch]             = useState('')
   const [showSearchBar, setShowSearchBar] = useState(false)
-  const [listFilter, setListFilter]     = useState('all')
+  const [listFilter, setListFilter]     = useState('all') // 'all' | 'group'
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const [profile, setProfile]           = useState(null)
   const [showVoice, setShowVoice]       = useState(false)
@@ -256,13 +241,6 @@ export default function ChatPage({ session }) {
 
   const { conversations, loading: convLoading, reload } = useConversations(userId)
   const { messages, loading: msgLoading, typing, sendMessage, broadcastTyping } = useChat(
-    activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
-    userId
-  )
-
-  // ── Message read/delivered status ──────────────────────────
-  const readMap = useMessageStatus(
-    messages,
     activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
     userId
   )
@@ -396,6 +374,9 @@ export default function ChatPage({ session }) {
 
   const searchFiltered = conversations.filter(c => getConvoName(c).toLowerCase().includes(search.toLowerCase()))
   const filtered = searchFiltered.filter(c => listFilter === 'all' ? true : !!c.is_group)
+
+  // Story rail — your real contacts, since there's no stories/status
+  // backend yet. Capped at a reasonable number for a horizontal scroller.
   const storyContacts = conversations.filter(c => !c.is_group).slice(0, 12)
 
   const headerStatus = () => {
@@ -434,17 +415,22 @@ export default function ChatPage({ session }) {
         />
       )}
 
-      {/* ── SIDEBAR / LIST SCREEN ── */}
+      {/* ── LIST / BROWSE SCREEN (hidden once a conversation is open) ── */}
       <div className="sidebar">
         <div className="top-header">
           <div className="top-header-brand">
             <img src="/logo.png" alt="Mattchat" className="top-header-logo" />
             <span className="top-header-name">Mattchat</span>
-            <button className="top-header-search-btn" onClick={() => setShowSearchBar(v => !v)} title="Search">
+            <button
+              className="top-header-search-btn"
+              onClick={() => setShowSearchBar(v => !v)}
+              title="Search"
+            >
               <IconSearch size={16} />
             </button>
           </div>
 
+          {/* ── STORY / QUICK-CONTACT RAIL ── */}
           {activeTab === 'chats' && (
             <div className="story-rail">
               <button className="story-item story-add" onClick={() => setShowNewChat(true)} title="New chat">
@@ -455,7 +441,12 @@ export default function ChatPage({ session }) {
                 const otherId = getOtherUserId(c, userId)
                 const online = otherId ? isOnline(otherId) : false
                 return (
-                  <button key={c.id} className="story-item" onClick={() => setActiveConvo(c)} title={getConvoName(c)}>
+                  <button
+                    key={c.id}
+                    className="story-item"
+                    onClick={() => setActiveConvo(c)}
+                    title={getConvoName(c)}
+                  >
                     <div className={`story-ring ${online ? 'online' : ''}`}>
                       <Avatar name={getConvoName(c)} size={52} />
                     </div>
@@ -534,7 +525,7 @@ export default function ChatPage({ session }) {
           )}
 
           {activeTab === 'status' && (
-            <div style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--dark-text-2)' }}>
+            <div style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
               <div style={{ fontSize: 48, marginBottom: 14 }}>📷</div>
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8, color: '#fff' }}>Status coming soon</div>
               <div style={{ fontSize: 13 }}>Share updates with your contacts</div>
@@ -542,7 +533,7 @@ export default function ChatPage({ session }) {
           )}
 
           {activeTab === 'calls' && (
-            <div style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--dark-text-2)' }}>
+            <div style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
               <div style={{ fontSize: 48, marginBottom: 14 }}>📞</div>
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8, color: '#fff' }}>Recent calls</div>
               <div style={{ fontSize: 13 }}>Your call history will appear here</div>
@@ -558,7 +549,7 @@ export default function ChatPage({ session }) {
                 <div style={{ fontWeight: 700, color: '#fff', fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {profile?.username || 'You'}
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--dark-text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {session.user.email}
                 </div>
               </div>
@@ -567,6 +558,9 @@ export default function ChatPage({ session }) {
           </div>
         )}
 
+        {/* Always rendered — on mobile/tablet this is hidden automatically
+            because the whole .sidebar hides when a chat is open; on desktop
+            the sidebar (and this) stays visible the whole time. */}
         <BottomNav
           activeTab={activeTab}
           onTabChange={setActiveTab}
@@ -575,7 +569,10 @@ export default function ChatPage({ session }) {
         />
       </div>
 
-      {/* ── WELCOME PANE (desktop only, no chat open) ── */}
+      {/* ── WELCOME PANE — desktop only. Fills the space next to the
+           sidebar when no conversation is open. Hidden on narrow
+           screens (no room for it) and hidden entirely once a
+           conversation is open, at any screen size. ── */}
       <div className="welcome-pane">
         <div className="welcome-pane-content">
           <img src="/logo.png" alt="" className="welcome-pane-logo" />
@@ -625,9 +622,7 @@ export default function ChatPage({ session }) {
                 )}
                 <div className="threedot-wrapper" style={{ position: 'relative' }}>
                   <button className="icon-btn dark" onClick={() => setShowThreeDot(v => !v)} title="More options"
-                    style={{ color: showThreeDot ? '#a78bfa' : undefined, background: showThreeDot ? 'rgba(167,139,250,0.15)' : undefined }}>
-                    <IconMoreVertical size={17} />
-                  </button>
+                    style={{ color: showThreeDot ? '#a78bfa' : undefined, background: showThreeDot ? 'rgba(167,139,250,0.15)' : undefined }}><IconMoreVertical size={17} /></button>
                   {showThreeDot && (
                     <ThreeDotMenu
                       onPoll={() => { setShowPoll(v => !v); setShowTask(false) }}
@@ -658,18 +653,15 @@ export default function ChatPage({ session }) {
 
             <PinnedBar key={pinnedRefresh} conversationId={activeConvo?.id} onScrollTo={scrollToMessage} />
 
-            {/* ── MESSAGES ── */}
+            {/* Messages */}
             <div className="messages">
               {msgLoading && <div className="loading-state">Loading messages…</div>}
-
               {messages.map((msg, i) => {
                 const prev = messages[i - 1]
                 const showDate = !prev || new Date(msg.created_at).toDateString() !== new Date(prev.created_at).toDateString()
                 const isMissedCall = msg.content?.startsWith('missed_call:')
                 const isMine = msg.sender_id === userId
-                const isSeen = isMine && !!readMap[msg.id]
                 const wrapClass = isMissedCall ? 'system' : (isMine ? 'mine' : 'theirs')
-
                 return (
                   <React.Fragment key={msg.id}>
                     {showDate && <DateDivider date={msg.created_at} />}
@@ -679,37 +671,25 @@ export default function ChatPage({ session }) {
                       onContextMenu={e => { e.preventDefault(); pinMessage(msg.id) }}
                       title="Right-click to pin"
                     >
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start', maxWidth: '82%' }}>
-                        <ReactableMessage
-                          messageId={msg.id}
-                          currentUserId={userId}
+                      <ReactableMessage
+                        messageId={msg.id}
+                        currentUserId={userId}
+                        isMe={isMine}
+                      >
+                        <MessageBubble
+                          msg={{ ...msg, _currentUserId: userId }}
                           isMe={isMine}
-                        >
-                          <MessageBubble
-                            msg={{ ...msg, _currentUserId: userId }}
-                            isMe={isMine}
-                            isSeen={isSeen}
-                          />
-                        </ReactableMessage>
-
-                        {/* ── Delivered / Seen status — only my messages, not missed calls ── */}
-                        {isMine && !isMissedCall && (
-                          <div className={`msg-status ${isSeen ? 'seen' : ''}`}>
-                            <span className="msg-status-dot" />
-                            {isSeen ? 'Seen' : 'Delivered'}
-                          </div>
-                        )}
-                      </div>
+                        />
+                      </ReactableMessage>
                     </div>
                   </React.Fragment>
                 )
               })}
-
               {typing.length > 0 && <div className="typing-indicator"><span /><span /><span /></div>}
               <div ref={messagesEndRef} />
             </div>
 
-            {/* ── INPUT AREA ── */}
+            {/* Input area */}
             <div className="input-area" style={{ flexDirection: 'column', alignItems: 'stretch', padding: 0 }}>
               {showCurryAssistant && (
                 <CurryAssistant session={session} conversationId={activeConvo.id} messages={messages} onSuggestReply={(text) => setInputText(text)} onClose={() => setShowCurryAssistant(false)} />
@@ -733,12 +713,7 @@ export default function ChatPage({ session }) {
                       <IconSmile size={20} />
                     </button>
                     {showEmojiPicker && (
-                      <EmojiPicker
-                        onEmojiSelect={handleEmojiSelect}
-                        onStickerSelect={handleStickerSelect}
-                        onGifSelect={handleGifSelect}
-                        onClose={() => setShowEmojiPicker(false)}
-                      />
+                      <EmojiPicker onEmojiSelect={handleEmojiSelect} onStickerSelect={handleStickerSelect} onGifSelect={handleGifSelect} onClose={() => setShowEmojiPicker(false)} />
                     )}
                   </div>
                 )}
@@ -748,14 +723,7 @@ export default function ChatPage({ session }) {
                 ) : (
                   <>
                     <button className="attach-btn" onClick={() => setShowVoice(true)} title="Voice note"><IconMic size={19} /></button>
-                    <textarea
-                      ref={textareaRef}
-                      value={inputText}
-                      onChange={handleTyping}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Type a message…"
-                      rows={1}
-                    />
+                    <textarea ref={textareaRef} value={inputText} onChange={handleTyping} onKeyDown={handleKeyDown} placeholder="Type a message…" rows={1} />
                     <button className="send-btn" onClick={handleSend} disabled={!inputText.trim()}>➤</button>
                   </>
                 )}
