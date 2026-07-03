@@ -557,14 +557,15 @@ export default function ChatPage({ session }) {
           </div>
         )}
 
-        {!activeConvo && (
-          <BottomNav
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            onNewChat={() => setShowNewChat(true)}
-            onProfileClick={() => setShowProfileMenu(v => !v)}
-          />
-        )}
+        {/* Always rendered — on mobile/tablet this is hidden automatically
+            because the whole .sidebar hides when a chat is open; on desktop
+            the sidebar (and this) stays visible the whole time. */}
+        <BottomNav
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          onNewChat={() => setShowNewChat(true)}
+          onProfileClick={() => setShowProfileMenu(v => !v)}
+        />
       </div>
 
       {/* ── WELCOME PANE — desktop only. Fills the space next to the
@@ -575,7 +576,7 @@ export default function ChatPage({ session }) {
         <div className="welcome-pane-content">
           <img src="/logo.png" alt="" className="welcome-pane-logo" />
           <h2>Welcome to Mattchat</h2>
-          <p>Select a conversation or start a new one.<br />Say <strong>"Hey Curry"</strong> to activate your AI assistant!</p>
+          <p>The best AI communication platform.<br />Select a conversation or start a new one — say <strong>"Hey Curry"</strong> to activate your AI assistant!</p>
           <button className="btn-primary" onClick={() => setShowNewChat(true)}>Start a conversation →</button>
         </div>
       </div>
