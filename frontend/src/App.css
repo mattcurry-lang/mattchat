@@ -166,8 +166,7 @@ html, body, #root {
 @media (min-width: 900px) {
   html, body { background: var(--dark-bg); }
   .app { max-width: none; width: 100vw; height: 100vh; margin: 0; border-radius: 0; box-shadow: none; }
-  .app .sidebar,
-  .app.chat-open .sidebar {
+  .app .sidebar {
     display: flex;
     width: 420px;
     max-width: 420px;
@@ -826,3 +825,22 @@ button.email-badge { cursor: pointer; display: inline-flex; align-items: center;
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+
+/* ═══════════════════════════════════════════════════════════
+   DESKTOP SIDEBAR FIX — must stay last in the file.
+   ".app.chat-open .sidebar { display: none; }" further up has the
+   exact same specificity as this rule. On a specificity tie, CSS
+   falls back to source order — whichever rule is physically later
+   in the file wins, media query or not. This has to come after
+   that rule (not just be "inside a media query") or it silently
+   loses and the chat takes over the full screen on desktop too.
+   ═══════════════════════════════════════════════════════════ */
+@media (min-width: 900px) {
+  .app.chat-open .sidebar {
+    display: flex;
+    width: 420px;
+    max-width: 420px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--dark-border);
+  }
+}
