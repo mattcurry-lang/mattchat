@@ -117,6 +117,24 @@ export function useConversations(userId) {
       return
     }
 
+    // Conversations this user has "deleted" (hidden for themselves
+    // only) never show up in their own list, but stay fully intact
+    // — messages, membership, Curry settings — for the other member
+    // and for whenever this user texts them again.
+    const { data: hiddenRows } = await supabase
+      .from('hidden_conversations')
+      .select('conversation_id')
+      .eq('user_id', userId)
+
+    const hiddenIds = new Set((hiddenRows || []).map(r => r.conversation_id))
+    const visibleIds = conversationIds.filter(id => !hiddenIds.has(id))
+
+    if (visibleIds.length === 0) {
+      setConversations([])
+      setLoading(false)
+      return
+    }
+
     const { data } = await supabase
       .from('conversations')
       .select(`
@@ -126,7 +144,7 @@ export function useConversations(userId) {
           profiles(id, username, email, avatar_url)
         )
       `)
-      .in('id', conversationIds)
+      .in('id', visibleIds)
       .order('updated_at', { ascending: false })
 
     setConversations(data || [])
@@ -142,6 +160,11 @@ export function useConversations(userId) {
         event: 'UPDATE',
         schema: 'public',
         table: 'conversations'
+      }, load)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'hidden_conversations'
       }, load)
       .subscribe()
 
