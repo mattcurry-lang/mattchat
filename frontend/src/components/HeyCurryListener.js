@@ -90,7 +90,6 @@ export function useHeyCurry(onActivated, { autoStart = false } = {}) {
       clearTimeout(restartTimer.current)
       recognitionRef.current?.stop()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return { active, setActive, listening, startListening, stopListening }
