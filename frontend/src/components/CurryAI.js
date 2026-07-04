@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 
 const SUPABASE_URL = 'https://bqerkvywgxoioocbkxif.supabase.co'
 
-async function callCurryAI(type, payload, session) {
+export async function callCurryAI(type, payload, session) {
   const res = await fetch(`${SUPABASE_URL}/functions/v1/curry-ai`, {
     method: 'POST',
     headers: {
@@ -566,6 +566,12 @@ export function CurryAssistant({ session, conversationId, messages: chatMessages
         </div>
       </button>
 
+      {/* In-chat "hey curry" mutual consent toggle — a separate trust
+          boundary from the share toggle above. Sharing lets *your*
+          personal Curry read this chat; this lets *both* people
+          summon a Curry that lives inside the chat itself. */}
+      <CurryChatToggle session={session} conversationId={conversationId} />
+
       <div style={s.actionRow}>
         {[
           { id: 'smartreply', label: '💬 Smart Reply', action: handleSmartReply },
@@ -602,6 +608,60 @@ export function CurryAssistant({ session, conversationId, messages: chatMessages
           {result && <div style={s.result}>{result}</div>}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── In-chat "Hey Curry" mutual consent toggle ────────────────────
+// Lives inside a conversation. Both members must turn this on before
+// "hey curry" gets routed to Curry instead of to the other person.
+// Either side can revoke it at any time, which kills it instantly
+// for both — enforced server-side (isChatCurryEnabled), this toggle
+// is just the UI for that state.
+export function CurryChatToggle({ session, conversationId }) {
+  const [myConsent, setMyConsent] = useState(false)
+  const [allConsented, setAllConsented] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const data = await callCurryAI('chat_consent_status', { conversationId }, session)
+    if (data.ok) { setMyConsent(data.myConsent); setAllConsented(data.allConsented) }
+    setLoading(false)
+  }, [conversationId, session])
+
+  useEffect(() => { if (conversationId) load() }, [load, conversationId])
+
+  async function toggle() {
+    setLoading(true)
+    await callCurryAI(myConsent ? 'disable_curry_chat' : 'enable_curry_chat', { conversationId }, session)
+    await load()
+  }
+
+  return (
+    <div style={{ ...s.shareRow, cursor: 'default', ...(allConsented ? s.shareRowOn : {}) }}>
+      <span style={{ fontSize: 15 }}>{allConsented ? '✨' : myConsent ? '⏳' : '🗣️'}</span>
+      <div style={{ flex: 1, textAlign: 'left' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: allConsented ? '#c4b5fd' : '#e2e8f0' }}>
+          {allConsented ? 'Curry is active in this chat' : myConsent ? 'Waiting on the other person' : 'Invite Curry into this chat'}
+        </div>
+        <div style={{ fontSize: 11, color: '#8b8fa3' }}>
+          {allConsented ? 'Say "hey curry" to get an opinion or suggestion' : 'Both people must turn this on'}
+        </div>
+      </div>
+      <button
+        onClick={toggle}
+        disabled={loading}
+        style={{
+          background: myConsent ? 'rgba(239,68,68,0.15)' : 'linear-gradient(135deg,#667eea,#764ba2)',
+          border: myConsent ? '1px solid rgba(239,68,68,0.3)' : 'none',
+          borderRadius: 20, color: myConsent ? '#f87171' : '#fff',
+          fontSize: 12, fontWeight: 700, padding: '6px 12px', cursor: 'pointer',
+          fontFamily: 'inherit', flexShrink: 0,
+        }}
+      >
+        {myConsent ? 'Turn off' : 'Turn on'}
+      </button>
     </div>
   )
 }
