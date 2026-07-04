@@ -361,11 +361,45 @@ export default function ChatPage({ session }) {
     return () => clearInterval(interval)
   }, [])
 
+  // Deletes a conversation and its messages/membership rows.
+  //
+  // IMPORTANT: each delete now checks its `error` (and, for the two
+  // rows that matter most, its `count`). Supabase/RLS does NOT throw
+  // an error when a policy silently blocks a delete — it just deletes
+  // 0 rows and reports success as if everything worked. That's exactly
+  // what made this look "broken" before: no error, no crash, the
+  // conversation just... stayed. Now any real failure or 0-row delete
+  // surfaces an alert instead of failing silently.
   const deleteConversation = async (convoId) => {
     if (!window.confirm('Delete this conversation? This cannot be undone.')) return
-    await supabase.from('messages').delete().eq('conversation_id', convoId)
-    await supabase.from('conversation_members').delete().eq('conversation_id', convoId)
-    await supabase.from('conversations').delete().eq('id', convoId)
+
+    const { error: msgErr } = await supabase
+      .from('messages')
+      .delete({ count: 'exact' })
+      .eq('conversation_id', convoId)
+
+    const { error: memErr } = await supabase
+      .from('conversation_members')
+      .delete({ count: 'exact' })
+      .eq('conversation_id', convoId)
+
+    const { error: convErr, count: convCount } = await supabase
+      .from('conversations')
+      .delete({ count: 'exact' })
+      .eq('id', convoId)
+
+    if (msgErr || memErr || convErr) {
+      console.error('deleteConversation failed:', { msgErr, memErr, convErr })
+      alert(`Could not delete this conversation: ${convErr?.message || memErr?.message || msgErr?.message}`)
+      return
+    }
+
+    if (convCount === 0) {
+      console.warn('deleteConversation: 0 rows affected on conversations table — likely blocked by RLS', { convoId })
+      alert("This conversation wasn't deleted — you may not have permission to (check delete policies on the conversations table).")
+      return
+    }
+
     if (activeConvo?.id === convoId) setActiveConvo(null)
     await reload()
   }
