@@ -621,12 +621,13 @@ export function CurryAssistant({ session, conversationId, messages: chatMessages
 export function CurryChatToggle({ session, conversationId }) {
   const [myConsent, setMyConsent] = useState(false)
   const [allConsented, setAllConsented] = useState(false)
+  const [isGroup, setIsGroup] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     setLoading(true)
     const data = await callCurryAI('chat_consent_status', { conversationId }, session)
-    if (data.ok) { setMyConsent(data.myConsent); setAllConsented(data.allConsented) }
+    if (data.ok) { setMyConsent(data.myConsent); setAllConsented(data.allConsented); setIsGroup(!!data.isGroup) }
     setLoading(false)
   }, [conversationId, session])
 
@@ -638,15 +639,32 @@ export function CurryChatToggle({ session, conversationId }) {
     await load()
   }
 
+  // Groups are more public than a 1:1 by nature, so only one member
+  // needs to opt in to activate Curry there — a 1:1 still needs both
+  // people, since that's a private space by default. Either way,
+  // turning this off never erases what Curry has learned about the
+  // chat (curry_chat_memory) — it just goes quiet until re-enabled.
+  const title = allConsented
+    ? 'Curry is active in this chat'
+    : myConsent
+    ? 'Waiting on the other person'
+    : 'Invite Curry into this chat'
+
+  const subtitle = allConsented
+    ? 'Say "hey curry" to get an opinion or suggestion'
+    : isGroup
+    ? 'Any one member can turn this on for the group'
+    : 'Both people must turn this on'
+
   return (
     <div style={{ ...s.shareRow, cursor: 'default', ...(allConsented ? s.shareRowOn : {}) }}>
       <span style={{ fontSize: 15 }}>{allConsented ? '✨' : myConsent ? '⏳' : '🗣️'}</span>
       <div style={{ flex: 1, textAlign: 'left' }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: allConsented ? '#c4b5fd' : '#e2e8f0' }}>
-          {allConsented ? 'Curry is active in this chat' : myConsent ? 'Waiting on the other person' : 'Invite Curry into this chat'}
+          {title}
         </div>
         <div style={{ fontSize: 11, color: '#8b8fa3' }}>
-          {allConsented ? 'Say "hey curry" to get an opinion or suggestion' : 'Both people must turn this on'}
+          {subtitle}
         </div>
       </div>
       <button
