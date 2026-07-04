@@ -57,6 +57,16 @@
   --dark-text-3:   rgba(255,255,255,0.35);
 
   --sidebar-w:  460px; /* max width of the single-column app shell */
+
+  /* App height: 100dvh (dynamic viewport height) is the correct unit
+     for mobile — it recalculates live as the browser's address
+     bar/toolbar shows and hides, unlike 100vh which is fixed to the
+     LARGEST possible viewport and causes content to be taller than
+     what's actually visible, pushing the header off-screen. The
+     100vh fallback only matters for older browsers that don't
+     support dvh at all. */
+  --app-height: 100vh;
+  --app-height: 100dvh;
 }
 
 /* ── Reset ─────────────────────────────────────────────── */
@@ -64,6 +74,7 @@
 
 html, body, #root {
   height: 100%;
+  height: var(--app-height);
   overflow: hidden;
   font-family: var(--font-body);
   background: var(--bg-app);
@@ -81,6 +92,7 @@ html, body, #root {
    ═══════════════════════════════════════════════════════════ */
 .splash {
   height: 100vh;
+  height: var(--app-height);
   display: flex; align-items: center; justify-content: center;
   background: var(--panel-bg);
 }
@@ -97,8 +109,8 @@ html, body, #root {
 /* ═══════════════════════════════════════════════════════════
    AUTH PAGE
    ═══════════════════════════════════════════════════════════ */
-.auth-page { min-height: 100vh; display: flex; overflow: auto; }
-.auth-left { width: 45%; min-height: 100vh; background: var(--panel-bg); display: flex; align-items: center; justify-content: center; padding: 60px 48px; position: relative; overflow: hidden; flex-shrink: 0; }
+.auth-page { min-height: 100vh; min-height: var(--app-height); display: flex; overflow: auto; }
+.auth-left { width: 45%; min-height: 100vh; min-height: var(--app-height); background: var(--panel-bg); display: flex; align-items: center; justify-content: center; padding: 60px 48px; position: relative; overflow: hidden; flex-shrink: 0; }
 .auth-left::before { content: ''; position: absolute; width: 500px; height: 500px; background: radial-gradient(circle, rgba(108,99,255,0.25) 0%, transparent 65%); top: -100px; left: -100px; pointer-events: none; }
 .auth-left::after { content: ''; position: absolute; width: 400px; height: 400px; background: radial-gradient(circle, rgba(167,139,250,0.15) 0%, transparent 65%); bottom: -80px; right: -80px; pointer-events: none; }
 .auth-left-inner { position: relative; z-index: 1; max-width: 380px; width: 100%; }
@@ -146,18 +158,24 @@ html, body, #root {
   position: relative;
   display: flex;
   height: 100vh;
+  height: var(--app-height);
   width: 100%;
   max-width: var(--sidebar-w);
   margin: 0 auto;
   background: var(--dark-bg);
   overflow: hidden;
   box-shadow: var(--shadow-lg);
+  /* Respect notches/status-bar cutouts on phones that have them
+     (safe-area-inset is 0 on phones without a notch, so this is a
+     no-op there). */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Tablet: still a single-pane "app card" floating with margin */
 @media (min-width: 640px) and (max-width: 899px) {
   html, body { background: #d8dae6; }
-  .app { margin: 18px auto; height: calc(100vh - 36px); border-radius: 28px; }
+  .app { margin: 18px auto; height: calc(var(--app-height) - 36px); border-radius: 28px; }
 }
 
 /* Desktop: full-bleed, classic split — narrow list on the left that
@@ -165,7 +183,7 @@ html, body, #root {
    until a chat is opened, then shows that chat. Just like WhatsApp. */
 @media (min-width: 900px) {
   html, body { background: var(--dark-bg); }
-  .app { max-width: none; width: 100vw; height: 100vh; margin: 0; border-radius: 0; box-shadow: none; }
+  .app { max-width: none; width: 100vw; height: 100vh; height: var(--app-height); margin: 0; border-radius: 0; box-shadow: none; }
   .app .sidebar {
     display: flex;
     width: 420px;
@@ -233,6 +251,7 @@ html, body, #root {
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: background var(--t-fast);
+  flex-shrink: 0;
 }
 .top-header-search-btn:hover { background: rgba(255,255,255,0.16); }
 
@@ -497,6 +516,9 @@ html, body, #root {
   border-radius: var(--r-full);
   padding: 8px 6px;
   box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  /* Keep clear of the home-indicator / gesture bar on phones that
+     have one; 0 elsewhere so this is harmless on other devices. */
+  margin-bottom: env(safe-area-inset-bottom, 0px);
 }
 .bnav-btn {
   background: none;
@@ -636,6 +658,12 @@ html, body, #root {
   flex-direction: column;
   gap: 2px;
   position: relative; z-index: 1;
+  /* Without a defined min-height:0 on a flex child that scrolls,
+     some mobile browsers let this grow past its allotted space
+     instead of scrolling internally, which is what shoves the
+     header/input out of view. */
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Date divider */
@@ -797,6 +825,7 @@ html, body, #root {
   border-top: 1px solid var(--dark-border);
   flex-shrink: 0;
   position: relative; z-index: 5;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
 }
 
 .attach-btn { background: none; border: none; cursor: pointer; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; color: rgba(255,255,255,0.7); transition: all var(--t-fast); flex-shrink: 0; }
@@ -812,6 +841,10 @@ html, body, #root {
   outline: none; max-height: 120px; overflow-y: auto;
   line-height: 1.5;
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  /* iOS Safari zooms the page in if a focused input has font-size
+     under 16px — this locks it at 16px on small screens so tapping
+     the message box doesn't yank the whole layout out of place. */
+  font-size: max(14.5px, 16px);
 }
 .input-area textarea::placeholder { color: #adb5bd; }
 
@@ -866,7 +899,7 @@ button.email-badge { cursor: pointer; display: inline-flex; align-items: center;
 .scheduled-link-btn { background: var(--brand-soft); border: none; font-size: 12px; font-weight: 600; color: var(--brand); cursor: pointer; padding: 5px 10px; border-radius: var(--r-full); display: flex; align-items: center; gap: 4px; font-family: var(--font-body); }
 
 /* Email form */
-.email-form-page { min-height: 100vh; background: var(--panel-bg); display: flex; align-items: center; justify-content: center; padding: 20px; font-family: var(--font-body); }
+.email-form-page { min-height: 100vh; min-height: var(--app-height); background: var(--panel-bg); display: flex; align-items: center; justify-content: center; padding: 20px; font-family: var(--font-body); }
 .email-form-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; padding: 36px; width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 24px; }
 .email-form-header { display: flex; align-items: center; gap: 14px; }
 .email-form-logo-img { width: 48px; height: 48px; border-radius: 14px; }
@@ -897,8 +930,17 @@ button.email-badge { cursor: pointer; display: inline-flex; align-items: center;
    RESPONSIVE
    ═══════════════════════════════════════════════════════════ */
 @media (max-width: 639px) {
-  html, body { position: fixed; width: 100%; overflow: hidden; }
-  .app { border-radius: 0; box-shadow: none; margin: 0; height: 100vh; }
+  /* NOTE: `position: fixed` on html/body used to live here as an
+     attempt to stop mobile browsers from scrolling the page when
+     their address bar hid/showed. In practice it backfired: combined
+     with 100vh (taller than the real visible area), the browser
+     would land the page scrolled up with the top content (the
+     header) parked off-screen and unreachable, since fixed
+     positioning blocks the user from ever scrolling back up to it.
+     100dvh (see --app-height above) solves the actual sizing
+     problem, so this hack is no longer needed. */
+  html, body { width: 100%; overflow: hidden; }
+  .app { border-radius: 0; box-shadow: none; margin: 0; height: 100vh; height: var(--app-height); }
 }
 
 @media (max-width: 380px) {
