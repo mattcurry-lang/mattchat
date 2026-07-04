@@ -508,6 +508,9 @@ export function CurryAssistant({ session, conversationId, messages: chatMessages
       const nowShared = !shared
       setShared(nowShared)
       onShareChange?.(conversationId, nowShared)
+    } else {
+      alert(`Couldn't update sharing: ${data.error || 'unknown error'}`)
+      console.error('toggleShare failed:', data)
     }
     setShareLoading(false)
   }
@@ -614,20 +617,42 @@ export function CurryAssistant({ session, conversationId, messages: chatMessages
 
 // ── In-chat "Hey Curry" mutual consent toggle ────────────────────
 // Lives inside a conversation. Both members must turn this on before
-// "hey curry" gets routed to Curry instead of to the other person.
-// Either side can revoke it at any time, which kills it instantly
-// for both — enforced server-side (isChatCurryEnabled), this toggle
-// is just the UI for that state.
+// "hey curry" gets routed to Curry instead of to the other person
+// (groups only need one member). Either side can revoke it at any
+// time, which kills it instantly — enforced server-side
+// (isChatCurryEnabled); this toggle is just the UI for that state.
+//
+// IMPORTANT: `toggle()` used to call the API and reload unconditionally,
+// treating every response as success. If the write actually failed
+// (missing table/column, RLS, edge function not redeployed, etc.) the
+// button would just silently reset to "Turn on" with zero feedback —
+// which is exactly what looked like "the button doesn't work". Now it
+// checks `data.ok` and surfaces the real error so the failure is
+// actually diagnosable instead of invisible.
 export function CurryChatToggle({ session, conversationId }) {
   const [myConsent, setMyConsent] = useState(false)
   const [allConsented, setAllConsented] = useState(false)
   const [isGroup, setIsGroup] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
-    const data = await callCurryAI('chat_consent_status', { conversationId }, session)
-    if (data.ok) { setMyConsent(data.myConsent); setAllConsented(data.allConsented); setIsGroup(!!data.isGroup) }
+    try {
+      const data = await callCurryAI('chat_consent_status', { conversationId }, session)
+      if (data.ok) {
+        setMyConsent(data.myConsent)
+        setAllConsented(data.allConsented)
+        setIsGroup(!!data.isGroup)
+        setError('')
+      } else {
+        setError(data.error || 'Could not load Curry status')
+        console.error('chat_consent_status failed:', data)
+      }
+    } catch (e) {
+      setError('Network error loading Curry status')
+      console.error('chat_consent_status threw:', e)
+    }
     setLoading(false)
   }, [conversationId, session])
 
@@ -635,7 +660,17 @@ export function CurryChatToggle({ session, conversationId }) {
 
   async function toggle() {
     setLoading(true)
-    await callCurryAI(myConsent ? 'disable_curry_chat' : 'enable_curry_chat', { conversationId }, session)
+    setError('')
+    try {
+      const data = await callCurryAI(myConsent ? 'disable_curry_chat' : 'enable_curry_chat', { conversationId }, session)
+      if (!data.ok) {
+        setError(data.error || 'Toggle failed — nothing was saved')
+        console.error('Curry chat toggle failed:', data)
+      }
+    } catch (e) {
+      setError('Network error — toggle did not go through')
+      console.error('Curry chat toggle threw:', e)
+    }
     await load()
   }
 
@@ -657,29 +692,37 @@ export function CurryChatToggle({ session, conversationId }) {
     : 'Both people must turn this on'
 
   return (
-    <div style={{ ...s.shareRow, cursor: 'default', ...(allConsented ? s.shareRowOn : {}) }}>
-      <span style={{ fontSize: 15 }}>{allConsented ? '✨' : myConsent ? '⏳' : '🗣️'}</span>
-      <div style={{ flex: 1, textAlign: 'left' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: allConsented ? '#c4b5fd' : '#e2e8f0' }}>
-          {title}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+      <div style={{ ...s.shareRow, cursor: 'default', ...(allConsented ? s.shareRowOn : {}) }}>
+        <span style={{ fontSize: 15 }}>{allConsented ? '✨' : myConsent ? '⏳' : '🗣️'}</span>
+        <div style={{ flex: 1, textAlign: 'left' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: allConsented ? '#c4b5fd' : '#e2e8f0' }}>
+            {title}
+          </div>
+          <div style={{ fontSize: 11, color: '#8b8fa3' }}>
+            {subtitle}
+          </div>
         </div>
-        <div style={{ fontSize: 11, color: '#8b8fa3' }}>
-          {subtitle}
-        </div>
+        <button
+          onClick={toggle}
+          disabled={loading}
+          style={{
+            background: myConsent ? 'rgba(239,68,68,0.15)' : 'linear-gradient(135deg,#667eea,#764ba2)',
+            border: myConsent ? '1px solid rgba(239,68,68,0.3)' : 'none',
+            borderRadius: 20, color: myConsent ? '#f87171' : '#fff',
+            fontSize: 12, fontWeight: 700, padding: '6px 12px', cursor: loading ? 'default' : 'pointer',
+            opacity: loading ? 0.6 : 1,
+            fontFamily: 'inherit', flexShrink: 0,
+          }}
+        >
+          {loading ? '...' : myConsent ? 'Turn off' : 'Turn on'}
+        </button>
       </div>
-      <button
-        onClick={toggle}
-        disabled={loading}
-        style={{
-          background: myConsent ? 'rgba(239,68,68,0.15)' : 'linear-gradient(135deg,#667eea,#764ba2)',
-          border: myConsent ? '1px solid rgba(239,68,68,0.3)' : 'none',
-          borderRadius: 20, color: myConsent ? '#f87171' : '#fff',
-          fontSize: 12, fontWeight: 700, padding: '6px 12px', cursor: 'pointer',
-          fontFamily: 'inherit', flexShrink: 0,
-        }}
-      >
-        {myConsent ? 'Turn off' : 'Turn on'}
-      </button>
+      {error && (
+        <div style={{ fontSize: 11, color: '#f87171', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8, padding: '6px 10px' }}>
+          ⚠️ {error}
+        </div>
+      )}
     </div>
   )
 }
