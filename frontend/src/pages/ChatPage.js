@@ -305,7 +305,12 @@ export default function ChatPage({ session }) {
   const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
 
   const onHeyCurryActivated = useCallback(() => setActiveConvo(CURRY_AI_CONTACT), [])
-  useHeyCurry(onHeyCurryActivated)
+  // autoStart: false — "hey curry" listening is now an explicit
+  // opt-in (see the mic toggle button in the header) instead of
+  // running in the background from the moment the app loads, which
+  // is what was causing the mic indicator to flicker on/off.
+  const { listening: heyCurryListening, startListening: startHeyCurry, stopListening: stopHeyCurry } =
+    useHeyCurry(onHeyCurryActivated, { autoStart: false })
 
   useEffect(() => {
     supabase.from('profiles').select('*').eq('id', userId).single().then(({ data }) => setProfile(data))
@@ -581,6 +586,14 @@ export default function ChatPage({ session }) {
               title="Search"
             >
               <IconSearch size={16} />
+            </button>
+            <button
+              className="top-header-search-btn"
+              onClick={() => (heyCurryListening ? stopHeyCurry() : startHeyCurry())}
+              title={heyCurryListening ? '"Hey Curry" listening is on — tap to turn off' : 'Turn on "Hey Curry" listening'}
+              style={{ color: heyCurryListening ? '#a78bfa' : undefined, background: heyCurryListening ? 'rgba(167,139,250,0.15)' : undefined }}
+            >
+              <IconMic size={16} />
             </button>
           </div>
 
