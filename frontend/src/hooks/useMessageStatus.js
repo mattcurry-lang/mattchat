@@ -1,27 +1,27 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 /**
  * useMessageStatus
- * - Marks incoming messages "delivered" the moment they land in this
- *   client (i.e. the recipient's device has them), and "read" once
- *   the recipient has the chat open.
- * - Tells the sender whether their message has been delivered / read.
+ * - Reads delivered_at off messages (actually SET by useGlobalDelivery,
+ *   which runs across all conversations — this hook just surfaces it
+ *   for whichever conversation is currently open).
+ * - Marks incoming messages "read" when this specific chat is open.
+ * - Tells you whether YOUR sent messages have been delivered / read.
  *
  * Returns { readMap, deliveredMap } — both are { [messageId]: true }.
  *
- * NOTE: writing delivered_at/read_at/read_by requires the
- * "Members can mark messages delivered or read" UPDATE policy on the
- * messages table (see messages_update_policy.sql). If that policy
- * isn't applied yet, these writes fail — check your browser console
- * for "[useMessageStatus]" errors to confirm.
+ * NOTE: writing read_at/read_by requires the "Members can mark
+ * messages delivered or read" UPDATE policy on the messages table
+ * (see messages_update_policy.sql). Check your browser console for
+ * "[useMessageStatus]" errors if statuses aren't updating.
  */
 export function useMessageStatus(messages, conversationId, currentUserId) {
   const [readMap, setReadMap] = useState({})
   const [deliveredMap, setDeliveredMap] = useState({})
-  const deliveredAttempted = useRef(new Set())
 
   // ── Seed deliveredMap from whatever the messages already carry ──
+  // (delivered_at itself is written by useGlobalDelivery, not here)
   useEffect(() => {
     if (!messages.length) return
     setDeliveredMap(prev => {
@@ -30,37 +30,6 @@ export function useMessageStatus(messages, conversationId, currentUserId) {
       return next
     })
   }, [messages])
-
-  // ── Mark incoming messages "delivered" the moment they reach us ──
-  useEffect(() => {
-    if (!conversationId || !currentUserId || !messages.length) return
-    const undelivered = messages.filter(
-      m => m.sender_id !== currentUserId
-        && m.message_type !== 'system'
-        && !m.delivered_at
-        && !deliveredAttempted.current.has(m.id)
-    )
-    if (!undelivered.length) return
-    undelivered.forEach(m => deliveredAttempted.current.add(m.id))
-    const ids = undelivered.map(m => m.id)
-
-    supabase
-      .from('messages')
-      .update({ delivered_at: new Date().toISOString() })
-      .in('id', ids)
-      .is('delivered_at', null) // don't clobber an existing timestamp
-      .then(({ error }) => {
-        if (error) {
-          console.error('[useMessageStatus] failed to mark delivered — likely missing the messages UPDATE policy:', error)
-          return
-        }
-        setDeliveredMap(prev => {
-          const next = { ...prev }
-          ids.forEach(id => { next[id] = true })
-          return next
-        })
-      })
-  }, [messages, conversationId, currentUserId])
 
   // ── Mark all incoming messages as read when we open the chat ──
   useEffect(() => {
@@ -84,10 +53,7 @@ export function useMessageStatus(messages, conversationId, currentUserId) {
         if (error) console.error('[useMessageStatus] failed to upsert message_reads:', error)
       })
 
-    // Best-effort denormalized copy onto messages.read_at/read_by, so
-    // those columns actually reflect something instead of sitting
-    // unused. Logs on failure (e.g. missing UPDATE policy) instead of
-    // failing silently.
+    // Best-effort denormalized copy onto messages.read_at/read_by.
     const ids = unread.map(m => m.id)
     supabase
       .from('messages')
