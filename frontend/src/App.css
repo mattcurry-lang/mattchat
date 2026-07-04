@@ -425,6 +425,24 @@ html, body, #root {
   line-height: 1;
 }
 
+/* Shared-with-Curry indicator — small sparkle badge, bottom-right of
+   the avatar so it never collides with the unread-count badge which
+   sits top-right. Uses the app's own brand gradient, no new color. */
+.shared-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--brand-grad);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  border: 2px solid var(--dark-bg);
+  box-shadow: 0 0 6px rgba(108,99,255,0.6);
+}
 /* Unread contact rows — bolder / brighter until opened */
 .contact-name.unread { color: #fff; font-weight: 800; }
 .contact-preview.unread { color: rgba(255,255,255,0.85); font-weight: 600; }
