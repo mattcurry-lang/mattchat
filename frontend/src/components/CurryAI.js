@@ -479,7 +479,7 @@ export default function CurryAIChat({ session }) {
 }
 
 // ── In-chat Assistant Panel ────────────────────────────────────
-export function CurryAssistant({ session, conversationId, messages: chatMessages, onSuggestReply, onClose }) {
+export function CurryAssistant({ session, conversationId, messages: chatMessages, onSuggestReply, onClose, onShareChange }) {
   const [mode, setMode] = useState(null)
   const [result, setResult] = useState('')
   const [loading, setLoading] = useState(false)
@@ -504,7 +504,11 @@ export function CurryAssistant({ session, conversationId, messages: chatMessages
     setShareLoading(true)
     const type = shared ? 'unshare_conversation' : 'share_conversation'
     const data = await callCurryAI(type, { conversationId }, session)
-    if (data.ok) setShared(!shared)
+    if (data.ok) {
+      const nowShared = !shared
+      setShared(nowShared)
+      onShareChange?.(conversationId, nowShared)
+    }
     setShareLoading(false)
   }
 
