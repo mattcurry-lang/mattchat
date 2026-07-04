@@ -245,6 +245,7 @@ export default function ChatPage({ session }) {
   const [hasScheduled, setHasScheduled]             = useState(false)
   const [showEmojiPicker, setShowEmojiPicker]       = useState(false)
   const [activeTab, setActiveTab]                   = useState('chats')
+  const [sharedConvoIds, setSharedConvoIds]         = useState(new Set())
 
   const msgRefs        = useRef({})
   const messagesEndRef = useRef(null)
@@ -283,6 +284,20 @@ export default function ChatPage({ session }) {
   useEffect(() => {
     supabase.from('profiles').select('*').eq('id', userId).single().then(({ data }) => setProfile(data))
   }, [userId])
+
+  // Which conversations has this user shared with Curry — powers the
+  // sparkle badge in the list. Read directly off the table (RLS scopes
+  // it to the signed-in user already) rather than round-tripping
+  // through the edge function just to list ids.
+  const loadSharedConvoIds = useCallback(async () => {
+    const { data } = await supabase
+      .from('curry_shared_conversations')
+      .select('conversation_id')
+      .eq('user_id', userId)
+    setSharedConvoIds(new Set((data || []).map(r => r.conversation_id)))
+  }, [userId])
+
+  useEffect(() => { loadSharedConvoIds() }, [loadSharedConvoIds])
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
@@ -519,6 +534,11 @@ export default function ChatPage({ session }) {
                         <Avatar name={getConvoName(c)} size={52} />
                       </div>
                       {unread > 0 && <span className="unread-badge">{unread > 9 ? '9+' : unread}</span>}
+                      {sharedConvoIds.has(c.id) && (
+                        <span className="shared-badge" title="Shared with Curry">
+                          <IconSparkle size={9} />
+                        </span>
+                      )}
                     </div>
                     <span className="story-label">{getConvoName(c).split(' ')[0]}</span>
                   </button>
@@ -575,6 +595,11 @@ export default function ChatPage({ session }) {
                       <div className="contact-avatar-wrap">
                         <Avatar name={getConvoName(c)} online={online} size={46} />
                         {unread > 0 && <span className="unread-badge">{unread > 9 ? '9+' : unread}</span>}
+                        {sharedConvoIds.has(c.id) && (
+                          <span className="shared-badge" title="Shared with Curry">
+                            <IconSparkle size={9} />
+                          </span>
+                        )}
                       </div>
                       <div className="contact-info">
                         <div className={`contact-name ${unread > 0 ? 'unread' : ''}`}>{getConvoName(c)}</div>
@@ -768,7 +793,20 @@ export default function ChatPage({ session }) {
             {/* Input area */}
             <div className="input-area" style={{ flexDirection: 'column', alignItems: 'stretch', padding: 0 }}>
               {showCurryAssistant && (
-                <CurryAssistant session={session} conversationId={activeConvo.id} messages={messages} onSuggestReply={(text) => setInputText(text)} onClose={() => setShowCurryAssistant(false)} />
+                <CurryAssistant
+                  session={session}
+                  conversationId={activeConvo.id}
+                  messages={messages}
+                  onSuggestReply={(text) => setInputText(text)}
+                  onClose={() => setShowCurryAssistant(false)}
+                  onShareChange={(convoId, isShared) => {
+                    setSharedConvoIds(prev => {
+                      const next = new Set(prev)
+                      if (isShared) next.add(convoId); else next.delete(convoId)
+                      return next
+                    })
+                  }}
+                />
               )}
               {showPoll && (
                 <div style={{ padding: '0 16px' }}>
