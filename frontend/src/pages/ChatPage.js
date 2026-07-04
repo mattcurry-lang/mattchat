@@ -23,6 +23,7 @@ import EmojiPicker from '../components/EmojiPicker'
 import { useRingtone } from '../hooks/useRingtone'
 import { useMessageStatus } from '../hooks/useMessageStatus'
 import { useUnreadCounts } from '../hooks/useUnreadCounts'
+import { useGlobalDelivery } from '../hooks/useGlobalDelivery'
 import BottomNav from '../components/BottomNav'
 import { IconSearch, IconPhone, IconVideo, IconSparkle, IconMoreVertical, IconSmile, IconMic } from '../components/Icons'
 import { ReactableMessage } from '../components/MessageReactions'
@@ -263,6 +264,7 @@ export default function ChatPage({ session }) {
     userId,
     conversations.map(c => c.id)
   )
+  useGlobalDelivery(userId, conversations.map(c => c.id))
   const { messages, loading: msgLoading, typing, sendMessage, broadcastTyping } = useChat(
     activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
     userId
