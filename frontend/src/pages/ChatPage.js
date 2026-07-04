@@ -617,7 +617,7 @@ export default function ChatPage({ session }) {
                   >
                     <div className="story-avatar-wrap">
                       <div className={`story-ring ${online ? 'online' : ''}`}>
-                        <Avatar name={getConvoName(c)} size={52} />
+                       <Avatar name={getConvoName(c)} size={52} online={online} />
                       </div>
                       {unread > 0 && <span className="unread-badge">{unread > 9 ? '9+' : unread}</span>}
                       {sharedConvoIds.has(c.id) && (
