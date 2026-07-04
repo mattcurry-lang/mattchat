@@ -357,11 +357,28 @@ export default function ChatPage({ session }) {
     } catch (err) { alert(err.message) }
   }
 
+  // Explicitly bumps a conversation's updated_at/last_message from the
+  // client the moment a message is sent. This is what makes the story
+  // rail (and the chat list) reorder by "who messaged most recently"
+  // reliably — it doesn't depend on a Supabase trigger existing, and
+  // it also nudges useConversations' realtime UPDATE listener so every
+  // connected client re-sorts, not just this one.
+  const bumpConversationActivity = async (previewText) => {
+    if (!activeConvo?.id || activeConvo.isCurryAI) return
+    await supabase
+      .from('conversations')
+      .update({ updated_at: new Date().toISOString(), last_message: previewText })
+      .eq('id', activeConvo.id)
+    reload()
+  }
+
   const handleSend = async () => {
     if (!inputText.trim() || !activeConvo) return
     broadcastTyping(false)
-    await sendMessage(inputText)
+    const text = inputText.trim()
+    await sendMessage(text)
     setInputText('')
+    bumpConversationActivity(text)
   }
 
   const handleTyping = (e) => {
@@ -396,12 +413,14 @@ export default function ChatPage({ session }) {
     if (!activeConvo) return
     setShowEmojiPicker(false)
     await sendMessage(`sticker:${sticker.emoji}:${sticker.label}`)
+    bumpConversationActivity(`${sticker.emoji} Sticker`)
   }
 
   const handleGifSelect = async (gif) => {
     if (!activeConvo) return
     setShowEmojiPicker(false)
     await sendMessage(`gif:${gif.url}::${gif.title}`)
+    bumpConversationActivity('GIF')
   }
 
   const getConvoName = (c) => {
@@ -415,8 +434,16 @@ export default function ChatPage({ session }) {
   const filtered = searchFiltered.filter(c => listFilter === 'all' ? true : !!c.is_group)
 
   // Story rail — your real contacts, since there's no stories/status
-  // backend yet. Capped at a reasonable number for a horizontal scroller.
-  const storyContacts = conversations.filter(c => !c.is_group).slice(0, 12)
+  // backend yet. Explicitly sorted by most recent activity (not just
+  // trusting whatever order `conversations` came back in) so whoever
+  // messaged most recently always shows first, regardless of what
+  // the backend does or doesn't do with updated_at on its own.
+  const storyContacts = conversations
+    .filter(c => !c.is_group)
+    .slice()
+    .sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))
+    .slice(0, 12)
+
 
   const headerStatus = () => {
     if (callStatus === 'calling')    return '📞 Calling…'
