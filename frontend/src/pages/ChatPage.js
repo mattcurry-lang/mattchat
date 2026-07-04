@@ -13,7 +13,7 @@ import PinnedBar from '../components/PinnedBar'
 import ScheduleMessageModal from '../components/ScheduleMessageModal'
 import ScheduledMessagesList from '../components/ScheduledMessagesList'
 import MessageSearch from '../components/MessageSearch'
-import CurryAIChat, { CurryAssistant } from '../components/CurryAI'
+import CurryAIChat, { CurryAssistant, CurryChatToggle, callCurryAI } from '../components/CurryAI'
 import { useHeyCurry } from '../components/HeyCurryListener'
 import { usePresence } from '../hooks/usePresence'
 import { useCall } from '../hooks/useCall'
@@ -27,6 +27,11 @@ import { useGlobalDelivery } from '../hooks/useGlobalDelivery'
 import BottomNav from '../components/BottomNav'
 import { IconSearch, IconPhone, IconVideo, IconSparkle, IconMoreVertical, IconSmile, IconMic } from '../components/Icons'
 import { ReactableMessage } from '../components/MessageReactions'
+
+// Matches "hey curry", "hey curry,", "hey curry:" at the start of a
+// message (case-insensitive) — this is what routes a message to the
+// in-chat Curry instead of delivering it to the other person.
+const CURRY_TRIGGER = /^hey\s+curry[,:]?\s*/i
 
 function formatMsgTime(ts) {
   const d = new Date(ts)
@@ -83,7 +88,27 @@ function GifBubble({ content }) {
   )
 }
 
+// Curry's in-chat message — visually distinct from either person's
+// bubbles (centered, purple-tinted card) so it's unmistakable that
+// this came from the shared Curry, not from either human.
+function CurryChatBubble({ msg }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', width: '100%', padding: '4px 0' }}>
+      <div style={{ maxWidth: '85%', background: 'linear-gradient(135deg, rgba(102,126,234,0.16), rgba(118,75,162,0.16))', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 14, padding: '10px 14px' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#c4b5fd', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
+          ✨ Curry
+        </div>
+        <div style={{ fontSize: 14, color: '#e8e8f0', lineHeight: 1.5 }}>{msg.content}</div>
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>{formatMsgTime(msg.created_at)}</div>
+      </div>
+    </div>
+  )
+}
+
 function MessageBubble({ msg, isMe, isRead, isDelivered }) {
+  if (msg.message_type === 'curry') {
+    return <CurryChatBubble msg={msg} />
+  }
   if (msg.content?.startsWith('missed_call:')) {
     const callType = msg.content.replace('missed_call:', '')
     return (
@@ -246,6 +271,7 @@ export default function ChatPage({ session }) {
   const [showEmojiPicker, setShowEmojiPicker]       = useState(false)
   const [activeTab, setActiveTab]                   = useState('chats')
   const [sharedConvoIds, setSharedConvoIds]         = useState(new Set())
+  const [curryChatBusy, setCurryChatBusy]           = useState(false)
 
   const msgRefs        = useRef({})
   const messagesEndRef = useRef(null)
@@ -387,10 +413,42 @@ export default function ChatPage({ session }) {
     reload()
   }
 
+  // "hey curry ..." inside a normal 1:1/group chat never reaches the
+  // other person — it's routed to the in-chat Curry instead, and
+  // Curry's reply is inserted straight into this conversation's own
+  // message stream (message_type: 'curry') so everyone sees it. This
+  // only works once every member of the chat has opted in via
+  // CurryChatToggle; otherwise we fall back to sending the text
+  // normally so nothing gets silently lost.
   const handleSend = async () => {
     if (!inputText.trim() || !activeConvo) return
     broadcastTyping(false)
     const text = inputText.trim()
+
+    if (!activeConvo.isCurryAI) {
+      const match = text.match(CURRY_TRIGGER)
+      if (match) {
+        setInputText('')
+        setCurryChatBusy(true)
+        const question = text.slice(match[0].length).trim() || text
+        try {
+          const data = await callCurryAI('chat_ask', { conversationId: activeConvo.id, question }, session)
+          if (!data.ok && data.reason === 'no_consent') {
+            alert("Curry isn't turned on for this chat yet — both people need to enable it first (✨ icon → Invite Curry into this chat).")
+            await sendMessage(text)
+            bumpConversationActivity(text)
+          }
+          // On success Curry's reply arrives via the realtime messages
+          // subscription (it was inserted server-side), so nothing
+          // else to do here.
+        } catch (err) {
+          alert('Curry could not respond right now. Please try again.')
+        }
+        setCurryChatBusy(false)
+        return
+      }
+    }
+
     await sendMessage(text)
     setInputText('')
     bumpConversationActivity(text)
@@ -759,34 +817,44 @@ export default function ChatPage({ session }) {
                 const prev = messages[i - 1]
                 const showDate = !prev || new Date(msg.created_at).toDateString() !== new Date(prev.created_at).toDateString()
                 const isMissedCall = msg.content?.startsWith('missed_call:')
+                const isCurryMsg = msg.message_type === 'curry'
                 const isMine = msg.sender_id === userId
-                const wrapClass = isMissedCall ? 'system' : (isMine ? 'mine' : 'theirs')
+                const wrapClass = (isMissedCall || isCurryMsg) ? 'system' : (isMine ? 'mine' : 'theirs')
                 return (
                   <React.Fragment key={msg.id}>
                     {showDate && <DateDivider date={msg.created_at} />}
                     <div
                       ref={el => msgRefs.current[msg.id] = el}
                       className={`msg-wrap ${wrapClass}`}
-                      onContextMenu={e => { e.preventDefault(); pinMessage(msg.id) }}
-                      title="Right-click to pin"
+                      onContextMenu={e => { if (!isCurryMsg) { e.preventDefault(); pinMessage(msg.id) } }}
+                      title={isCurryMsg ? undefined : 'Right-click to pin'}
                     >
-                      <ReactableMessage
-                        messageId={msg.id}
-                        currentUserId={userId}
-                        isMe={isMine}
-                      >
-                        <MessageBubble
-                          msg={{ ...msg, _currentUserId: userId }}
+                      {isCurryMsg ? (
+                        <MessageBubble msg={msg} isMe={false} isRead={false} isDelivered={false} />
+                      ) : (
+                        <ReactableMessage
+                          messageId={msg.id}
+                          currentUserId={userId}
                           isMe={isMine}
-                          isRead={!!readMap[msg.id]}
-                          isDelivered={!!deliveredMap[msg.id]}
-                        />
-                      </ReactableMessage>
+                        >
+                          <MessageBubble
+                            msg={{ ...msg, _currentUserId: userId }}
+                            isMe={isMine}
+                            isRead={!!readMap[msg.id]}
+                            isDelivered={!!deliveredMap[msg.id]}
+                          />
+                        </ReactableMessage>
+                      )}
                     </div>
                   </React.Fragment>
                 )
               })}
               {typing.length > 0 && <div className="typing-indicator"><span /><span /><span /></div>}
+              {curryChatBusy && (
+                <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+                  <div style={{ fontSize: 12, color: '#c4b5fd', fontWeight: 600, padding: '6px 12px' }}>✨ Curry is thinking…</div>
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
 
@@ -837,8 +905,8 @@ export default function ChatPage({ session }) {
                 ) : (
                   <>
                     <button className="attach-btn" onClick={() => setShowVoice(true)} title="Voice note"><IconMic size={19} /></button>
-                    <textarea ref={textareaRef} value={inputText} onChange={handleTyping} onKeyDown={handleKeyDown} placeholder="Type a message…" rows={1} />
-                    <button className="send-btn" onClick={handleSend} disabled={!inputText.trim()}>➤</button>
+                    <textarea ref={textareaRef} value={inputText} onChange={handleTyping} onKeyDown={handleKeyDown} placeholder='Type a message… (try "hey curry ...")' rows={1} />
+                    <button className="send-btn" onClick={handleSend} disabled={!inputText.trim() || curryChatBusy}>➤</button>
                   </>
                 )}
               </div>
