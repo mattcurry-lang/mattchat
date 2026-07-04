@@ -9,6 +9,12 @@ import { supabase } from '../lib/supabase'
  * - Tells the sender whether their message has been delivered / read.
  *
  * Returns { readMap, deliveredMap } — both are { [messageId]: true }.
+ *
+ * NOTE: writing delivered_at/read_at/read_by requires the
+ * "Members can mark messages delivered or read" UPDATE policy on the
+ * messages table (see messages_update_policy.sql). If that policy
+ * isn't applied yet, these writes fail — check your browser console
+ * for "[useMessageStatus]" errors to confirm.
  */
 export function useMessageStatus(messages, conversationId, currentUserId) {
   const [readMap, setReadMap] = useState({})
@@ -44,7 +50,10 @@ export function useMessageStatus(messages, conversationId, currentUserId) {
       .in('id', ids)
       .is('delivered_at', null) // don't clobber an existing timestamp
       .then(({ error }) => {
-        if (error) return // likely missing RLS policy — see setup notes
+        if (error) {
+          console.error('[useMessageStatus] failed to mark delivered — likely missing the messages UPDATE policy:', error)
+          return
+        }
         setDeliveredMap(prev => {
           const next = { ...prev }
           ids.forEach(id => { next[id] = true })
@@ -71,17 +80,22 @@ export function useMessageStatus(messages, conversationId, currentUserId) {
     supabase
       .from('message_reads')
       .upsert(rows, { onConflict: 'message_id,user_id', ignoreDuplicates: true })
+      .then(({ error }) => {
+        if (error) console.error('[useMessageStatus] failed to upsert message_reads:', error)
+      })
 
     // Best-effort denormalized copy onto messages.read_at/read_by, so
     // those columns actually reflect something instead of sitting
-    // unused. Safe to ignore failures here (e.g. group chats, or if
-    // the RLS policy below hasn't been added yet).
+    // unused. Logs on failure (e.g. missing UPDATE policy) instead of
+    // failing silently.
     const ids = unread.map(m => m.id)
     supabase
       .from('messages')
       .update({ read_at: new Date().toISOString(), read_by: currentUserId })
       .in('id', ids)
-      .then(() => {})
+      .then(({ error }) => {
+        if (error) console.error('[useMessageStatus] failed to mark read on messages table:', error)
+      })
   }, [messages, conversationId, currentUserId])
 
   // ── Subscribe to reads so the sender sees when their message is seen ──
@@ -93,11 +107,15 @@ export function useMessageStatus(messages, conversationId, currentUserId) {
         .filter(m => m.sender_id === currentUserId)
         .map(m => m.id)
       if (!myMsgIds.length) return
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('message_reads')
         .select('message_id, user_id')
         .in('message_id', myMsgIds)
         .neq('user_id', currentUserId) // read by someone else
+      if (error) {
+        console.error('[useMessageStatus] failed to load message_reads:', error)
+        return
+      }
       if (!data) return
       const map = {}
       data.forEach(r => { map[r.message_id] = true })
