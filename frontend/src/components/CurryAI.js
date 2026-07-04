@@ -259,10 +259,86 @@ function VoiceMode({ session, voiceOn, onEnd, onNewMessages }) {
   )
 }
 
+// ── Daily Brief card ────────────────────────────────────────
+const MOOD_EMOJI = {
+  positive: '😊', excited: '🤩', neutral: '🙂',
+  stressed: '😮\u200d💨', anxious: '😟', sad: '😔', negative: '😕',
+}
+const SUGGESTION_EMOJI = { music: '🎵', movie: '🎬', book: '📖', encouragement: '💜', none: '' }
+
+function DailyBrief({ session, onAskQuestion }) {
+  const [brief, setBrief] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [dismissed, setDismissed] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const data = await callCurryAI('daily_insight', {}, session)
+        if (!cancelled && data.ok) setBrief(data.insight)
+      } catch (e) { console.error('Daily brief failed:', e) }
+      if (!cancelled) setLoading(false)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
+
+  if (dismissed) return null
+  if (loading) {
+    return (
+      <div style={s.briefCard}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <TypingDots /> <span style={{ fontSize: 12.5, color: '#9ca3af' }}>Curry is thinking about your day...</span>
+        </div>
+      </div>
+    )
+  }
+  if (!brief) return null
+
+  const moodEmoji = MOOD_EMOJI[brief.mood] || '🙂'
+  const suggestion = brief.suggestion
+  const insights = Array.isArray(brief.insights) ? brief.insights : []
+
+  return (
+    <div style={s.briefCard}>
+      <button style={s.briefClose} onClick={() => setDismissed(true)} title="Dismiss">✕</button>
+      <div style={s.briefGreeting}>{moodEmoji} {brief.greeting}</div>
+      {brief.mood_summary && <div style={s.briefMood}>{brief.mood_summary}</div>}
+
+      {insights.length > 0 && (
+        <div style={s.briefInsights}>
+          {insights.map((ins, i) => (
+            <div key={i} style={s.briefInsightRow}>
+              <span style={{ color: '#a78bfa' }}>•</span> {ins.text}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {suggestion && suggestion.type && suggestion.type !== 'none' && suggestion.title && (
+        <div style={s.briefSuggestion}>
+          <span style={{ fontSize: 15 }}>{SUGGESTION_EMOJI[suggestion.type] || '✨'}</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{suggestion.title}</div>
+            <div style={{ fontSize: 12, color: '#a0aec0' }}>{suggestion.reason}</div>
+          </div>
+        </div>
+      )}
+
+      {brief.question && (
+        <button style={s.briefQuestionBtn} onClick={() => onAskQuestion(brief.question)}>
+          {brief.question} →
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ── Main Curry AI Chat ────────────────────────────────────────
 export default function CurryAIChat({ session }) {
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: `Hey! I'm Curry AI ✨ — your personal assistant inside Mattchat.\n\nI can send messages, schedule them, summarize chats, translate, create polls & tasks, draft emails, and answer anything.\n\nTap the mic button to talk to me hands-free!` }
+    { role: 'assistant', content: `Hey! I'm Curry AI ✨ — your personal companion inside Mattchat.\n\nI can send messages, schedule them, summarize chats, translate, create polls & tasks, draft emails, and answer anything.\n\nShare a chat with me from its ⋮ menu and I'll start noticing patterns, moods, and things worth suggesting — like a friend would.` }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -292,8 +368,8 @@ export default function CurryAIChat({ session }) {
     loadHistory()
   }, [])
 
-  async function sendMessage() {
-    const userMsg = input.trim()
+  async function sendMessage(overrideText) {
+    const userMsg = (overrideText ?? input).trim()
     if (!userMsg || loading) return
     setInput('')
     setMessages(prev => [...prev, { role: 'user', content: userMsg }])
@@ -356,6 +432,7 @@ export default function CurryAIChat({ session }) {
 
       {/* Messages */}
       <div style={s.messages}>
+        <DailyBrief session={session} onAskQuestion={(q) => sendMessage(q)} />
         {messages.map((msg, i) => (
           <div key={i} style={{ ...s.row, ...(msg.role === 'user' ? s.rowUser : {}) }}>
             {msg.role === 'assistant' && <div style={s.aiAvatar}>✨</div>}
@@ -393,7 +470,7 @@ export default function CurryAIChat({ session }) {
             <line x1="12" y1="19" x2="12" y2="22"/>
           </svg>
         </button>
-        <button style={{ ...s.sendBtn, opacity: (!input.trim() || loading) ? 0.35 : 1 }} onClick={sendMessage} disabled={!input.trim() || loading}>
+        <button style={{ ...s.sendBtn, opacity: (!input.trim() || loading) ? 0.35 : 1 }} onClick={() => sendMessage()} disabled={!input.trim() || loading}>
           <SendIcon />
         </button>
       </div>
@@ -409,6 +486,27 @@ export function CurryAssistant({ session, conversationId, messages: chatMessages
   const [translateLang, setTranslateLang] = useState('English')
   const [askText, setAskText] = useState('')
   const [suggestions, setSuggestions] = useState([])
+  const [shared, setShared] = useState(false)
+  const [shareLoading, setShareLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    async function checkShared() {
+      setShareLoading(true)
+      const data = await callCurryAI('check_shared', { conversationId }, session)
+      if (!cancelled) { setShared(!!data.shared); setShareLoading(false) }
+    }
+    if (conversationId) checkShared()
+    return () => { cancelled = true }
+  }, [conversationId])
+
+  async function toggleShare() {
+    setShareLoading(true)
+    const type = shared ? 'unshare_conversation' : 'share_conversation'
+    const data = await callCurryAI(type, { conversationId }, session)
+    if (data.ok) setShared(!shared)
+    setShareLoading(false)
+  }
 
   async function handleSmartReply() {
     setMode('smartreply'); setLoading(true)
@@ -446,6 +544,24 @@ export function CurryAssistant({ session, conversationId, messages: chatMessages
         <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>✨ Curry AI</span>
         <button style={s.iconBtn} onClick={onClose}>✕</button>
       </div>
+
+      {/* Share-with-Curry toggle — the trust boundary, front and center */}
+      <button
+        style={{ ...s.shareRow, ...(shared ? s.shareRowOn : {}) }}
+        onClick={toggleShare}
+        disabled={shareLoading}
+      >
+        <span style={{ fontSize: 15 }}>{shared ? '🧠' : '🔒'}</span>
+        <div style={{ flex: 1, textAlign: 'left' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: shared ? '#c4b5fd' : '#e2e8f0' }}>
+            {shared ? 'Shared with Curry' : 'Share this chat with Curry'}
+          </div>
+          <div style={{ fontSize: 11, color: '#8b8fa3' }}>
+            {shared ? 'Curry can learn from this conversation. Tap to stop.' : 'Let Curry notice patterns & moods here.'}
+          </div>
+        </div>
+      </button>
+
       <div style={s.actionRow}>
         {[
           { id: 'smartreply', label: '💬 Smart Reply', action: handleSmartReply },
@@ -632,6 +748,20 @@ const s = {
   suggestion: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(102,126,234,0.3)', borderRadius: 10, color: '#e2e8f0', fontSize: 13, padding: '8px 12px', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit' },
   miniInput: { flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 13, padding: '7px 10px', outline: 'none', fontFamily: 'inherit' },
   goBtn: { background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 700, padding: '7px 14px', cursor: 'pointer', fontFamily: 'inherit' },
+
+  // Share-with-Curry toggle row
+  shareRow: { display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '10px 12px', cursor: 'pointer', fontFamily: 'inherit', width: '100%' },
+  shareRowOn: { background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.35)' },
+
+  // Daily brief card
+  briefCard: { position: 'relative', background: 'linear-gradient(135deg, rgba(102,126,234,0.14), rgba(118,75,162,0.14))', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 16, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 4 },
+  briefClose: { position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 12, cursor: 'pointer', padding: 4 },
+  briefGreeting: { fontSize: 15, fontWeight: 700, color: '#fff', paddingRight: 20, lineHeight: 1.4 },
+  briefMood: { fontSize: 13, color: '#c9cbe0', lineHeight: 1.55 },
+  briefInsights: { display: 'flex', flexDirection: 'column', gap: 4 },
+  briefInsightRow: { fontSize: 13, color: '#d8dae8', lineHeight: 1.5, display: 'flex', gap: 6 },
+  briefSuggestion: { display: 'flex', gap: 10, alignItems: 'flex-start', background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: '9px 12px' },
+  briefQuestionBtn: { textAlign: 'left', background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#e9d5ff', fontSize: 13, fontWeight: 600, padding: '9px 12px', cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.4 },
 }
 
 // Inject animations
@@ -646,4 +776,3 @@ styleEl.textContent = `
   @keyframes fadeIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
 `
 if (!document.getElementById('curry-styles')) { styleEl.id='curry-styles'; document.head.appendChild(styleEl) }
- 
