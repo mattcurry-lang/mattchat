@@ -1,12 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-const OFFLINE_GRACE_MS = 5000   // wait this long before marking someone
-                                 // offline, so a brief network blip doesn't
-                                 // flicker the dot on and off
-const HEARTBEAT_MS = 25000      // re-announce presence periodically so a
-                                 // single dropped track() doesn't silently
-                                 // leave us out of the online set
+const OFFLINE_GRACE_MS = 5000
+const HEARTBEAT_MS = 25000
 
 export function usePresence(myUserId) {
   const [onlineIds, setOnlineIds] = useState(new Set())
@@ -16,6 +12,8 @@ export function usePresence(myUserId) {
     if (!myUserId) return
     let channel, heartbeat, retryTimeout
     let stopped = false
+
+    console.log('[presence] mounting for user', myUserId)
 
     const clearOfflineTimer = (id) => {
       if (offlineTimers.current[id]) {
@@ -27,6 +25,7 @@ export function usePresence(myUserId) {
     const scheduleOffline = (id) => {
       if (offlineTimers.current[id]) return
       offlineTimers.current[id] = setTimeout(() => {
+        console.log('[presence] marking OFFLINE after grace period:', id)
         setOnlineIds(prev => {
           const next = new Set(prev)
           next.delete(id)
@@ -43,28 +42,35 @@ export function usePresence(myUserId) {
 
       channel
         .on('presence', { event: 'sync' }, () => {
-          const nowOnline = new Set(Object.keys(channel.presenceState()))
+          const state = channel.presenceState()
+          const nowOnline = new Set(Object.keys(state))
+          console.log('[presence] SYNC event. Raw state:', state, '-> online keys:', [...nowOnline])
           nowOnline.forEach(clearOfflineTimer)
           setOnlineIds(prev => new Set([...prev, ...nowOnline]))
         })
-        .on('presence', { event: 'join' }, ({ key }) => {
+        .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+          console.log('[presence] JOIN event, key:', key, newPresences)
           clearOfflineTimer(key)
           setOnlineIds(prev => new Set([...prev, key]))
         })
         .on('presence', { event: 'leave' }, ({ key }) => {
-          scheduleOffline(key) // grace window instead of instant flip
+          console.log('[presence] LEAVE event, key:', key)
+          scheduleOffline(key)
         })
-        .subscribe(async (status) => {
+        .subscribe(async (status, err) => {
+          console.log('[presence] subscribe status:', status, err || '')
           if (status === 'SUBSCRIBED') {
-            await channel.track({ online_at: new Date().toISOString() })
+            const trackResult = await channel.track({ online_at: new Date().toISOString() })
+            console.log('[presence] track() result:', trackResult, 'for key', myUserId)
             heartbeat = setInterval(() => {
               channel.track({ online_at: new Date().toISOString() })
             }, HEARTBEAT_MS)
           }
           if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status) && !stopped) {
+            console.log('[presence] connection problem, status:', status, '- reconnecting in 2s')
             clearInterval(heartbeat)
             supabase.removeChannel(channel)
-            retryTimeout = setTimeout(connect, 2000) // auto-reconnect
+            retryTimeout = setTimeout(connect, 2000)
           }
         })
     }
