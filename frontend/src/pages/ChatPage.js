@@ -22,6 +22,7 @@ import IncomingCallModal from '../components/IncomingCallModal'
 import EmojiPicker from '../components/EmojiPicker'
 import { useRingtone } from '../hooks/useRingtone'
 import { useMessageStatus } from '../hooks/useMessageStatus'
+import { useUnreadCounts } from '../hooks/useUnreadCounts'
 import BottomNav from '../components/BottomNav'
 import { IconSearch, IconPhone, IconVideo, IconSparkle, IconMoreVertical, IconSmile, IconMic } from '../components/Icons'
 import { ReactableMessage } from '../components/MessageReactions'
@@ -258,6 +259,10 @@ export default function ChatPage({ session }) {
   useRingtone(['calling', 'ringing', 'incoming'].includes(callStatus))
 
   const { conversations, loading: convLoading, reload } = useConversations(userId)
+  const { unreadCounts, clearUnread, totalUnread } = useUnreadCounts(
+    userId,
+    conversations.map(c => c.id)
+  )
   const { messages, loading: msgLoading, typing, sendMessage, broadcastTyping } = useChat(
     activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
     userId
@@ -329,6 +334,15 @@ export default function ChatPage({ session }) {
   }
 
   const scrollToMessage = (msgId) => { msgRefs.current[msgId]?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
+
+  // Opens a conversation and immediately clears its unread badge —
+  // the actual "mark as read" DB write still happens via
+  // useMessageStatus once messages load, this just makes the badge
+  // disappear instantly instead of waiting on that round trip.
+  const openConvo = (c) => {
+    setActiveConvo(c)
+    clearUnread(c.id)
+  }
 
   const startNewChat = async (e) => {
     e.preventDefault()
@@ -463,15 +477,19 @@ export default function ChatPage({ session }) {
               {storyContacts.map(c => {
                 const otherId = getOtherUserId(c, userId)
                 const online = otherId ? isOnline(otherId) : false
+                const unread = unreadCounts[c.id] || 0
                 return (
                   <button
                     key={c.id}
                     className="story-item"
-                    onClick={() => setActiveConvo(c)}
+                    onClick={() => openConvo(c)}
                     title={getConvoName(c)}
                   >
-                    <div className={`story-ring ${online ? 'online' : ''}`}>
-                      <Avatar name={getConvoName(c)} size={52} />
+                    <div className="story-avatar-wrap">
+                      <div className={`story-ring ${online ? 'online' : ''}`}>
+                        <Avatar name={getConvoName(c)} size={52} />
+                      </div>
+                      {unread > 0 && <span className="unread-badge">{unread > 9 ? '9+' : unread}</span>}
                     </div>
                     <span className="story-label">{getConvoName(c).split(' ')[0]}</span>
                   </button>
@@ -522,12 +540,16 @@ export default function ChatPage({ session }) {
                 {filtered.map(c => {
                   const otherId = getOtherUserId(c, userId)
                   const online  = otherId ? isOnline(otherId) : false
+                  const unread  = unreadCounts[c.id] || 0
                   return (
-                    <div key={c.id} className={`contact ${activeConvo?.id === c.id ? 'active' : ''}`} onClick={() => setActiveConvo(c)}>
-                      <Avatar name={getConvoName(c)} online={online} size={46} />
+                    <div key={c.id} className={`contact ${activeConvo?.id === c.id ? 'active' : ''}`} onClick={() => openConvo(c)}>
+                      <div className="contact-avatar-wrap">
+                        <Avatar name={getConvoName(c)} online={online} size={46} />
+                        {unread > 0 && <span className="unread-badge">{unread > 9 ? '9+' : unread}</span>}
+                      </div>
                       <div className="contact-info">
-                        <div className="contact-name">{getConvoName(c)}</div>
-                        <div className="contact-preview">{c.last_message || 'No messages yet'}</div>
+                        <div className={`contact-name ${unread > 0 ? 'unread' : ''}`}>{getConvoName(c)}</div>
+                        <div className={`contact-preview ${unread > 0 ? 'unread' : ''}`}>{c.last_message || 'No messages yet'}</div>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                         <div className="contact-time">{c.updated_at ? formatMsgTime(c.updated_at) : ''}</div>
