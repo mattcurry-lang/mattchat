@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useChat, useConversations } from '../hooks/useChat'
-import { getOrCreateConversation, signOut, supabase } from '../lib/supabase'
+import { getOrCreateConversation, hideConversationForUser, signOut, supabase } from '../lib/supabase'
 import { format, isToday, isYesterday } from 'date-fns'
 import Avatar from '../components/Avatar'
 import VoiceRecorder from '../components/VoiceRecorder'
@@ -361,29 +361,23 @@ export default function ChatPage({ session }) {
     return () => clearInterval(interval)
   }, [])
 
-  // Deletes a conversation. Thanks to ON DELETE CASCADE on the
-  // messages/conversation_members foreign keys, deleting the single
-  // `conversations` row automatically removes its messages and
-  // membership rows too — no manual ordering, and no risk of the
-  // conversations-delete RLS check losing its membership row before
-  // it runs (which is what silently broke this before).
+  // "Deletes" a conversation for THIS user only. It doesn't touch the
+  // conversations/messages/members rows at all — it just records that
+  // you've hidden this conversation (hidden_conversations table), so:
+  //   - the other person's chat list and messages are completely
+  //     unaffected
+  //   - Curry AI settings, pinned messages, etc. all stay intact
+  //   - if either of you texts again, getOrCreateConversation finds
+  //     the same conversation and un-hides it for you automatically,
+  //     instead of creating a duplicate thread
   const deleteConversation = async (convoId) => {
-    if (!window.confirm('Delete this conversation? This cannot be undone.')) return
+    if (!window.confirm('Delete this conversation? It will be removed from your list, but the other person will still see it, and it\'ll come back if either of you messages again.')) return
 
-    const { error: convErr, count: convCount } = await supabase
-      .from('conversations')
-      .delete({ count: 'exact' })
-      .eq('id', convoId)
-
-    if (convErr) {
-      console.error('deleteConversation failed:', convErr)
-      alert(`Could not delete this conversation: ${convErr.message}`)
-      return
-    }
-
-    if (convCount === 0) {
-      console.warn('deleteConversation: 0 rows affected on conversations table — likely blocked by RLS', { convoId })
-      alert("This conversation wasn't deleted — you may not have permission to (check delete policies on the conversations table).")
+    try {
+      await hideConversationForUser(userId, convoId)
+    } catch (err) {
+      console.error('deleteConversation (hide) failed:', err)
+      alert(`Could not delete this conversation: ${err.message}`)
       return
     }
 
