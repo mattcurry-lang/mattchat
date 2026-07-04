@@ -6,12 +6,40 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Auth helpers
 export const signUp = async (email, password, username) => {
+  const cleanUsername = username.trim()
+
+  // Pre-check availability so people get an immediate, honest answer
+  // instead of Supabase Auth's generic "Database error saving new
+  // user" message. This runs BEFORE auth.signUp() creates anything,
+  // and .ilike() with no wildcards is an exact case-insensitive match
+  // — the same rule enforced by the profiles_username_lower_key index.
+  const { data: existing, error: checkError } = await supabase
+    .from('profiles')
+    .select('id')
+    .ilike('username', cleanUsername)
+    .maybeSingle()
+
+  if (checkError) throw checkError
+  if (existing) throw new Error('That username is already taken. Please choose another.')
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { username, display_name: username } }
+    options: { data: { username: cleanUsername, display_name: cleanUsername } }
   })
-  if (error) throw error
+
+  if (error) {
+    // Race-condition fallback: two people submitted the same username
+    // at nearly the same instant, both passed the check above, and
+    // the handle_new_user trigger hit the unique index. Supabase Auth
+    // wraps that as a generic message — translate it into something
+    // a user can actually understand.
+    if (error.message?.toLowerCase().includes('database error saving new user')) {
+      throw new Error('That username or email is already taken. Please try a different one.')
+    }
+    throw error
+  }
+
   return data
 }
 export const signIn = async (email, password) => {
