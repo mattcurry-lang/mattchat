@@ -8,6 +8,13 @@ export function usePresence(myUserId) {
   const [onlineIds, setOnlineIds] = useState(new Set())
   const offlineTimers = useRef({})
 
+  // Lets you check the live state from the console at any time:
+  //   [...window.__presenceOnline]
+  useEffect(() => {
+    window.__presenceOnline = onlineIds
+  }, [onlineIds])
+
+
   useEffect(() => {
     if (!myUserId) return
     let channel, heartbeat, retryTimeout
