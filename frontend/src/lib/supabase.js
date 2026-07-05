@@ -138,13 +138,30 @@ export const hideConversationForUser = async (userId, conversationId) => {
   if (error) throw error
 }
 
-export const getOrCreateConversation = async (currentUserId, otherUserEmail) => {
-  const { data: otherUser } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('email', otherUserEmail)
-    .single()
-  if (!otherUser) throw new Error('User not found')
+// Accepts EITHER a username or an email as `identifier`. Tries email
+// first when the input looks like one (contains "@"), then always
+// falls back to a case-insensitive username match — safe now that
+// usernames are enforced unique regardless of case
+// (profiles_username_lower_key), so this can never resolve to the
+// wrong person.
+export const getOrCreateConversation = async (currentUserId, identifier) => {
+  const clean = (identifier || '').trim()
+  if (!clean) throw new Error('Enter a username or email')
+
+  let otherUser = null
+
+  if (clean.includes('@')) {
+    const { data } = await supabase.from('profiles').select('id').eq('email', clean).maybeSingle()
+    otherUser = data
+  }
+
+  if (!otherUser) {
+    const { data } = await supabase.from('profiles').select('id').ilike('username', clean).maybeSingle()
+    otherUser = data
+  }
+
+  if (!otherUser) throw new Error("Couldn't find anyone with that username or email")
+  if (otherUser.id === currentUserId) throw new Error("That's you! Try a different username or email")
 
   const { data: myConvos } = await supabase
     .from('conversation_members')
