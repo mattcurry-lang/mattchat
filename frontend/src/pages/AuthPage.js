@@ -15,9 +15,6 @@ export default function AuthPage() {
   const [cooldown, setCooldown]       = useState(0)
   const timerRef = useRef(null)
 
-  // Tick the cooldown down once a second while it's active, and always
-  // clear the interval on unmount so it doesn't leak or fire after the
-  // component's gone.
   useEffect(() => {
     if (cooldown <= 0) return
     timerRef.current = setInterval(() => {
@@ -49,9 +46,33 @@ export default function AuthPage() {
 
   return (
     <div className="auth-page">
-      {/* ── LEFT PANEL (unchanged) ── */}
+      {/* ── LEFT PANEL ── */}
       <div className="auth-left">
-        {/* ...unchanged... */}
+        <div className="auth-left-inner">
+          <div className="auth-brand">
+            <img src="/logo.png" alt="Mattchat" className="auth-brand-logo" />
+            <h1 className="auth-brand-name">Mattchat</h1>
+            <p className="auth-brand-tagline">Your AI communication platform</p>
+          </div>
+
+          <div className="auth-features">
+            {[
+              { icon: '✨', text: 'AI-powered conversations' },
+              { icon: '📞', text: 'Voice & video calls' },
+              { icon: '🎙️', text: 'Voice notes with transcription' },
+              { icon: '🔒', text: 'Private & secure messaging' },
+            ].map(({ icon, text }) => (
+              <div key={text} className="auth-feature-item">
+                <span className="auth-feature-icon">{icon}</span>
+                <span className="auth-feature-text">{text}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="auth-left-footer">
+            Built for students & young professionals in Africa
+          </div>
+        </div>
       </div>
 
       {/* ── RIGHT PANEL ── */}
