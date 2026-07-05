@@ -1,5 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { signIn, signUp, resetPasswordForEmail } from '../lib/supabase'
+
+const RESET_COOLDOWN_SECONDS = 45
 
 export default function AuthPage() {
   const [mode, setMode]               = useState('login') // 'login' | 'signup' | 'reset'
@@ -10,6 +12,19 @@ export default function AuthPage() {
   const [loading, setLoading]         = useState(false)
   const [success, setSuccess]         = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [cooldown, setCooldown]       = useState(0)
+  const timerRef = useRef(null)
+
+  // Tick the cooldown down once a second while it's active, and always
+  // clear the interval on unmount so it doesn't leak or fire after the
+  // component's gone.
+  useEffect(() => {
+    if (cooldown <= 0) return
+    timerRef.current = setInterval(() => {
+      setCooldown(c => (c <= 1 ? 0 : c - 1))
+    }, 1000)
+    return () => clearInterval(timerRef.current)
+  }, [cooldown > 0])
 
   const handle = async (e) => {
     e.preventDefault()
@@ -21,8 +36,10 @@ export default function AuthPage() {
         await signUp(email, password, username)
         setSuccess('Check your email to confirm your account!')
       } else if (mode === 'reset') {
+        if (cooldown > 0) { setLoading(false); return }
         await resetPasswordForEmail(email)
         setSuccess('Check your email for a password reset link.')
+        setCooldown(RESET_COOLDOWN_SECONDS)
       }
     } catch (err) {
       setError(err.message)
@@ -142,12 +159,18 @@ export default function AuthPage() {
             {error   && <div className="auth-error">{error}</div>}
             {success && <div className="auth-success">{success}</div>}
 
-            <button type="submit" className="auth-btn" disabled={loading}>
+            <button
+              type="submit"
+              className="auth-btn"
+              disabled={loading || (mode === 'reset' && cooldown > 0)}
+            >
               {loading
                 ? 'Please wait…'
-                : mode === 'login' ? 'Sign in'
-                : mode === 'signup' ? 'Create account'
-                : 'Send reset link'}
+                : mode === 'reset' && cooldown > 0
+                  ? `Resend in ${cooldown}s`
+                  : mode === 'login' ? 'Sign in'
+                  : mode === 'signup' ? 'Create account'
+                  : 'Send reset link'}
             </button>
           </form>
 
