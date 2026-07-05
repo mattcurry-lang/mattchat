@@ -7,7 +7,18 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 // Auth helpers
 export const signUp = async (email, password, username) => {
   const cleanUsername = username.trim()
+// reset password
+export const resetPasswordForEmail = async (email) => {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/reset-password`,
+  })
+  if (error) throw error
+}
 
+export const updatePassword = async (newPassword) => {
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  if (error) throw error
+}
   // Pre-check availability so people get an immediate, honest answer
   // instead of Supabase Auth's generic "Database error saving new
   // user" message. This runs BEFORE auth.signUp() creates anything,
