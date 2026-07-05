@@ -17,7 +17,10 @@ export default function ResetPasswordPage({ onDone }) {
     try {
       await updatePassword(password)
       setSuccess('Password updated! You can now sign in.')
-      setTimeout(() => onDone?.(), 1800)
+      setTimeout(() => {
+        onDone?.()
+        window.location.href = '/'
+      }, 1800)
     } catch (err) {
       setError(err.message)
     }
