@@ -4,16 +4,28 @@ import { supabase } from './lib/supabase'
 import ChatPage from './pages/ChatPage'
 import AuthPage from './pages/AuthPage'
 import EmailFormPage from './pages/EmailFormPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import './App.css'
 
 export default function App() {
   const [session, setSession] = useState(undefined)
+  const [isRecovery, setIsRecovery] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Supabase fires this specific event when the session came from a
+      // password-reset link — NOT from a normal sign-in. We latch this
+      // in state (not just checking the URL) because the event only
+      // fires once, right when the link is clicked; by the time the
+      // component re-renders on navigation we'd otherwise lose it.
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsRecovery(true)
+      }
       setSession(session)
     })
+
     return () => subscription.unsubscribe()
   }, [])
 
@@ -32,7 +44,27 @@ export default function App() {
         <Route path="/email/:username" element={<EmailFormPage />} />
 
         <Route path="/auth" element={!session ? <AuthPage /> : <Navigate to="/" />} />
-        <Route path="/*" element={session ? <ChatPage session={session} /> : <Navigate to="/auth" />} />
+
+        {/* Recovery session takes priority over the normal session check —
+            otherwise a recovery session (which IS a real session) would
+            fall through to ChatPage instead of letting them set a new password. */}
+        <Route
+          path="/reset-password"
+          element={
+            isRecovery
+              ? <ResetPasswordPage onDone={() => setIsRecovery(false)} />
+              : <Navigate to={session ? '/' : '/auth'} />
+          }
+        />
+
+        <Route
+          path="/*"
+          element={
+            isRecovery
+              ? <Navigate to="/reset-password" />
+              : session ? <ChatPage session={session} /> : <Navigate to="/auth" />
+          }
+        />
       </Routes>
     </BrowserRouter>
   )
