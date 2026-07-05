@@ -250,7 +250,7 @@ function getOtherUserId(convo, myUserId) {
 
 export default function ChatPage({ session }) {
   const [activeConvo, setActiveConvo]   = useState(null)
-  const [newEmail, setNewEmail]         = useState('')
+  const [newContact, setNewContact]     = useState('')
   const [showNewChat, setShowNewChat]   = useState(false)
   const [inputText, setInputText]       = useState('')
   const [search, setSearch]             = useState('')
@@ -410,11 +410,11 @@ export default function ChatPage({ session }) {
   const startNewChat = async (e) => {
     e.preventDefault()
     try {
-      const convoId = await getOrCreateConversation(userId, newEmail)
+      const convoId = await getOrCreateConversation(userId, newContact)
       await reload()
       const found = conversations.find(c => c.id === convoId)
       if (found) setActiveConvo(found)
-      setShowNewChat(false); setNewEmail('')
+      setShowNewChat(false); setNewContact('')
     } catch (err) { alert(err.message) }
   }
 
@@ -651,7 +651,7 @@ export default function ChatPage({ session }) {
 
               {showNewChat && (
                 <form className="new-chat-form" onSubmit={startNewChat}>
-                  <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="Friend's email address" required autoFocus />
+                  <input type="text" value={newContact} onChange={e => setNewContact(e.target.value)} placeholder="Username or email" required autoFocus />
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button type="submit" className="btn-primary" style={{ flex: 1 }}>Start chat</button>
                     <button type="button" className="btn-ghost" onClick={() => setShowNewChat(false)}>Cancel</button>
