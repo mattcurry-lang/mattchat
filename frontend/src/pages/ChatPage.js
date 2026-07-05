@@ -94,7 +94,7 @@ function GifBubble({ content }) {
 function CurryChatBubble({ msg }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'center', width: '100%', padding: '4px 0' }}>
-      <div style={{ maxWidth: '85%', background: 'linear-gradient(135deg, rgba(102,126,234,0.16), rgba(118,75,162,0.16))', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 14, padding: '10px 14px' }}>
+      <div style={{ maxWidth: '74%', background: 'linear-gradient(135deg, rgba(102,126,234,0.16), rgba(118,75,162,0.16))', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 14, padding: '10px 14px' }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: '#c4b5fd', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
           ✨ Curry
         </div>
