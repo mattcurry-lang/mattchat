@@ -601,10 +601,9 @@ html, body, #root {
 }
 .welcome-pane-content strong { color: #c4b5fd; }
 
-/* Chat area — light theme, richer texture than before. Two layers:
-   a very soft brand-colored glow for depth, then a denser geometric
-   pattern on top (opacity raised from the old near-invisible 0.018
-   to something you can actually see without it fighting the bubbles). */
+/* Chat area — dark theme, matching the rest of the app shell.
+   Layered: two soft brand-color glows for depth, then a subtle
+   geometric pattern on top so it doesn't read as flat black. */
 .chat-area {
   flex: 1;
   width: 100%;
@@ -613,14 +612,15 @@ html, body, #root {
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  background-color: #efeae2;
+  background-color: var(--dark-bg);
   background-image:
-    radial-gradient(circle at 15% 0%, rgba(108,99,255,0.05) 0%, transparent 45%),
-    radial-gradient(circle at 90% 100%, rgba(167,139,250,0.05) 0%, transparent 40%),
-    url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236c63ff' fill-opacity='0.055'%3E%3Cpath d='M40 40c0-11 9-20 20-20s20 9 20 20-9 20-20 20-20-9-20-20zm-40 0c0-11 9-20 20-20s20 9 20 20-9 20-20 20-20-9-20-20z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    radial-gradient(circle at 10% 0%, rgba(108,99,255,0.12) 0%, transparent 45%),
+    radial-gradient(circle at 90% 100%, rgba(167,139,250,0.09) 0%, transparent 45%),
+    url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.025'%3E%3Cpath d='M40 40c0-11 9-20 20-20s20 9 20 20-9 20-20 20-20-9-20-20zm-40 0c0-11 9-20 20-20s20 9 20 20-9 20-20 20-20-9-20-20z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
   background-size: auto, auto, 80px 80px;
 }
 .app.chat-open .chat-area { display: flex; }
+
 /* Chat header — dark, matches the app chrome */
 .chat-header {
   display: flex; align-items: center; gap: 12px;
