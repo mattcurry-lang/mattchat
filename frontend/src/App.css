@@ -945,6 +945,90 @@ button.email-badge { cursor: pointer; display: inline-flex; align-items: center;
   .app { border-radius: 0; box-shadow: none; margin: 0; height: 100vh; height: var(--app-height); }
 }
 
+/* ═══════════════════════════════════════════════════════════
+   AUTH PAGE — MOBILE: single centered glowing card
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 639px) {
+  .auth-page {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    min-height: var(--app-height);
+    padding: 24px 16px;
+    background: var(--panel-bg);
+    overflow-y: auto;
+  }
+
+  /* Collapse the left brand panel into a compact header above the card
+     instead of a full-height side panel */
+  .auth-left {
+    width: 100%;
+    min-height: 0;
+    padding: 8px 8px 28px;
+    flex-shrink: 0;
+  }
+  .auth-left::before, .auth-left::after { display: none; }
+  .auth-left-inner { max-width: 320px; text-align: center; }
+  .auth-brand { margin-bottom: 24px; }
+  .auth-brand-logo { margin: 0 auto 14px; }
+  .auth-brand-name { font-size: 30px; }
+  .auth-brand-tagline { font-size: 14px; }
+
+  /* Hide the feature list + footer on mobile — the card is the focus */
+  .auth-features, .auth-left-footer { display: none; }
+
+  /* The card itself: centered, fixed width, glowing border */
+  .auth-right {
+    width: 100%;
+    max-width: 400px;
+    padding: 0;
+    background: transparent;
+    flex: none;
+  }
+  .auth-form-wrap {
+    background: #ffffff;
+    border-radius: 22px;
+    padding: 28px 24px 24px;
+    box-shadow:
+      0 0 0 1px rgba(108,99,255,0.15),
+      0 8px 30px rgba(0,0,0,0.35),
+      0 0 40px rgba(108,99,255,0.12);
+    transition: box-shadow 0.3s var(--ease);
+  }
+
+  /* Glow when the card is being interacted with — tapping into any
+     field, or the whole wrap on :active for a touch-feedback pulse */
+  .auth-form-wrap:focus-within {
+    box-shadow:
+      0 0 0 1.5px rgba(108,99,255,0.5),
+      0 8px 30px rgba(0,0,0,0.35),
+      0 0 50px rgba(108,99,255,0.35),
+      0 0 90px rgba(167,139,250,0.2);
+  }
+}
+
+/* Field-level glow on focus — theme purple, works everywhere,
+   not just mobile */
+.field input:focus {
+  box-shadow:
+    0 0 0 3px rgba(108,99,255,0.18),
+    0 0 16px rgba(108,99,255,0.25);
+}
+
+/* Touch/tap feedback pulse for the whole card, mobile only */
+@media (max-width: 639px) {
+  @keyframes cardTouchGlow {
+    0%   { box-shadow: 0 0 0 1px rgba(108,99,255,0.15), 0 8px 30px rgba(0,0,0,0.35), 0 0 40px rgba(108,99,255,0.12); }
+    50%  { box-shadow: 0 0 0 2px rgba(108,99,255,0.6), 0 8px 30px rgba(0,0,0,0.35), 0 0 60px rgba(108,99,255,0.4); }
+    100% { box-shadow: 0 0 0 1px rgba(108,99,255,0.15), 0 8px 30px rgba(0,0,0,0.35), 0 0 40px rgba(108,99,255,0.12); }
+  }
+  .auth-form-wrap:active {
+    animation: cardTouchGlow 0.6s var(--ease);
+  }
+}
+
+
 @media (max-width: 380px) {
   .top-header { padding: 10px 12px 10px; }
   .top-header-name { font-size: 16px; }
