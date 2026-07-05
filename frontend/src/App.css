@@ -601,9 +601,8 @@ html, body, #root {
 }
 .welcome-pane-content strong { color: #c4b5fd; }
 
-/* Chat area — dark theme, matching the rest of the app shell.
-   Layered: two soft brand-color glows for depth, then a subtle
-   geometric pattern on top so it doesn't read as flat black. */
+/* 3. Chat wallpaper — opacity reduced ~25% across all three layers
+   so it recedes behind messages instead of competing with them */
 .chat-area {
   flex: 1;
   width: 100%;
@@ -614,9 +613,9 @@ html, body, #root {
   position: relative;
   background-color: var(--dark-bg);
   background-image:
-    radial-gradient(circle at 10% 0%, rgba(108,99,255,0.12) 0%, transparent 45%),
-    radial-gradient(circle at 90% 100%, rgba(167,139,250,0.09) 0%, transparent 45%),
-    url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.025'%3E%3Cpath d='M40 40c0-11 9-20 20-20s20 9 20 20-9 20-20 20-20-9-20-20zm-40 0c0-11 9-20 20-20s20 9 20 20-9 20-20 20-20-9-20-20z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    radial-gradient(circle at 10% 0%, rgba(108,99,255,0.09) 0%, transparent 45%),
+    radial-gradient(circle at 90% 100%, rgba(167,139,250,0.065) 0%, transparent 45%),
+    url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.018'%3E%3Cpath d='M40 40c0-11 9-20 20-20s20 9 20 20-9 20-20 20-20-9-20-20zm-40 0c0-11 9-20 20-20s20 9 20 20-9 20-20 20-20-9-20-20z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
   background-size: auto, auto, 80px 80px;
 }
 .app.chat-open .chat-area { display: flex; }
@@ -717,17 +716,20 @@ html, body, #root {
   margin-bottom: 2px;
   padding-left: 4px;
 }
-
+/* 2. Incoming bubbles — softened off-white instead of stark #ffffff,
+   with a faint brand-tinted border so they feel part of the app's
+   palette instead of a plain default white box */
 .msg-bubble {
   display: inline-block;
   padding: 7px 12px 6px;
   font-size: 14.5px;
   line-height: 1.5;
-  background: #ffffff;
+  background: #f7f5ff;
+  border: 1px solid rgba(108,99,255,0.08);
   border-radius: 0 8px 8px 8px;
   word-break: break-word;
-  color: #111;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.13);
+  color: #1f1d2b;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   position: relative;
   max-width: 100%;
 }
@@ -737,10 +739,11 @@ html, body, #root {
   top: 0; left: -7px;
   border-style: solid;
   border-width: 0 7px 7px 0;
-  border-color: transparent #ffffff transparent transparent;
+  border-color: transparent #f7f5ff transparent transparent;
 }
 .msg-row.mine .msg-bubble {
   background: #d9fdd3;
+  border: none;
   border-radius: 8px 0 8px 8px;
   color: #111;
 }
@@ -750,7 +753,6 @@ html, body, #root {
   border-width: 0 0 7px 7px;
   border-color: transparent transparent transparent #d9fdd3;
 }
-
 /* Once the other person has opened the chat and seen this message
    (tracked via useMessageStatus), give the bubble a purple outline
    in the app's brand color instead of the default flat edge. */
@@ -759,15 +761,15 @@ html, body, #root {
   outline-offset: 1px;
 }
 
+/* 5. Timestamp — smaller and lighter */
 .msg-time {
-  font-size: 10.5px;
-  color: #8696a0;
+  font-size: 9.5px;
+  color: rgba(134,150,160,0.75);
   margin-top: 3px;
   text-align: right;
   display: block;
   font-variant-numeric: tabular-nums;
 }
-
 /* "Delivered" / "Read" label under sent messages */
 .msg-status {
   font-size: 10px;
