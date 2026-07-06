@@ -8,6 +8,11 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 export const signUp = async (email, password, username) => {
   const cleanUsername = username.trim()
 
+  // Pre-check availability so people get an immediate, honest answer
+  // instead of Supabase Auth's generic "Database error saving new
+  // user" message. This runs BEFORE auth.signUp() creates anything,
+  // and .ilike() with no wildcards is an exact case-insensitive match
+  // — the same rule enforced by the profiles_username_lower_key index.
   const { data: existing, error: checkError } = await supabase
     .from('profiles')
     .select('id')
@@ -24,6 +29,11 @@ export const signUp = async (email, password, username) => {
   })
 
   if (error) {
+    // Race-condition fallback: two people submitted the same username
+    // at nearly the same instant, both passed the check above, and
+    // the handle_new_user trigger hit the unique index. Supabase Auth
+    // wraps that as a generic message — translate it into something
+    // a user can actually understand.
     if (error.message?.toLowerCase().includes('database error saving new user')) {
       throw new Error('That username or email is already taken. Please try a different one.')
     }
@@ -46,6 +56,12 @@ export const getUser = async () => {
   return user
 }
 
+// Starts the "Connect Gmail" flow — asks the gmail-oauth edge function
+// for Google's consent URL, then navigates the whole page there (this
+// has to be a real top-level redirect, not a fetch, since Google's
+// consent screen can't be shown inside an XHR response). Google will
+// eventually redirect back to this app at "/?email_connect=success"
+// (or denied/expired/error) once the user finishes or cancels.
 export const connectGmail = async (session) => {
   const res = await fetch(`${supabaseUrl}/functions/v1/gmail-oauth?action=start`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
@@ -55,6 +71,8 @@ export const connectGmail = async (session) => {
   window.location.href = data.url
 }
 
+// Lists the current user's connected email accounts — id and address
+// only, never tokens (the edge function enforces that, not this call).
 export const listEmailAccounts = async (session) => {
   const res = await fetch(`${supabaseUrl}/functions/v1/gmail-oauth?action=list`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
@@ -73,6 +91,7 @@ export const disconnectEmailAccount = async (session, accountId) => {
   if (!data.ok) throw new Error(data.error || 'Could not disconnect that account')
 }
 
+// Message helpers
 export const getConversations = async (userId) => {
   const { data, error } = await supabase
     .from('conversations')
@@ -128,6 +147,11 @@ export const sendMessage = async (conversationId, senderId, content, isEmail = f
   return data
 }
 
+// Un-hides a conversation for a single user, if it was previously
+// hidden by them. Safe to call even if no hidden row exists — used
+// any time we're about to hand a conversation back to someone (e.g.
+// getOrCreateConversation finding an existing thread), so a chat you
+// deleted comes back automatically the moment either side texts again.
 const unhideConversationForUser = async (userId, conversationId) => {
   await supabase
     .from('hidden_conversations')
@@ -136,6 +160,12 @@ const unhideConversationForUser = async (userId, conversationId) => {
     .eq('conversation_id', conversationId)
 }
 
+// Hides a conversation for the given user only. This is what "delete
+// conversation" in the UI should call now instead of actually deleting
+// rows — the conversation, its messages, and anything tied to it
+// (Curry AI consent, pinned messages, etc.) all stay exactly as they
+// are for the other member and in the database. It just stops showing
+// up in this user's own conversation list.
 export const hideConversationForUser = async (userId, conversationId) => {
   const { error } = await supabase
     .from('hidden_conversations')
@@ -143,6 +173,12 @@ export const hideConversationForUser = async (userId, conversationId) => {
   if (error) throw error
 }
 
+// Accepts EITHER a username or an email as `identifier`. Tries email
+// first when the input looks like one (contains "@"), then always
+// falls back to a case-insensitive username match — safe now that
+// usernames are enforced unique regardless of case
+// (profiles_username_lower_key), so this can never resolve to the
+// wrong person.
 export const getOrCreateConversation = async (currentUserId, identifier) => {
   const clean = (identifier || '').trim()
   if (!clean) throw new Error('Enter a username or email')
@@ -176,6 +212,9 @@ export const getOrCreateConversation = async (currentUserId, identifier) => {
   const shared = myIds.find(id => theirIds.includes(id))
 
   if (shared) {
+    // A conversation with this person already exists. Whether or not
+    // you'd hidden/deleted it on your side, texting them again should
+    // just reopen that same thread — never create a second one.
     await unhideConversationForUser(currentUserId, shared)
     return shared
   }
