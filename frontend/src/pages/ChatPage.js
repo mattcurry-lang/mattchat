@@ -25,8 +25,12 @@ import { useMessageStatus } from '../hooks/useMessageStatus'
 import { useUnreadCounts } from '../hooks/useUnreadCounts'
 import { useGlobalDelivery } from '../hooks/useGlobalDelivery'
 import BottomNav from '../components/BottomNav'
-import { IconSearch, IconPhone, IconVideo, IconSparkle, IconMoreVertical, IconSmile, IconMic } from '../components/Icons'
+import { IconSearch, IconPhone, IconVideo, IconSparkle, IconMoreVertical, IconSmile, IconMic, IconPlus } from '../components/Icons'
 import { ReactableMessage } from '../components/MessageReactions'
+import { useStatuses } from '../hooks/useStatuses'
+import StatusRing from '../components/StatusRing'
+import AddStatusModal from '../components/AddStatusModal'
+import StatusViewer from '../components/StatusViewer'
 
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
