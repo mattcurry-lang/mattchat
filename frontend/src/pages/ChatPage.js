@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useChat, useConversations } from '../hooks/useChat'
-import { getOrCreateConversation, hideConversationForUser, signOut, supabase } from '../lib/supabase'
+import { getOrCreateConversation, hideConversationForUser, signOut, supabase, connectGmail, listEmailAccounts } from '../lib/supabase'
 import { format, isToday, isYesterday } from 'date-fns'
 import Avatar from '../components/Avatar'
 import VoiceRecorder from '../components/VoiceRecorder'
@@ -94,7 +94,7 @@ function GifBubble({ content }) {
 function CurryChatBubble({ msg }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'center', width: '100%', padding: '4px 0' }}>
-      <div style={{ maxWidth: '74%', background: 'linear-gradient(135deg, rgba(102,126,234,0.16), rgba(118,75,162,0.16))', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 14, padding: '10px 14px' }}>
+      <div style={{ maxWidth: '85%', background: 'linear-gradient(135deg, rgba(102,126,234,0.16), rgba(118,75,162,0.16))', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 14, padding: '10px 14px' }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: '#c4b5fd', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
           ✨ Curry
         </div>
@@ -272,6 +272,8 @@ export default function ChatPage({ session }) {
   const [activeTab, setActiveTab]                   = useState('chats')
   const [sharedConvoIds, setSharedConvoIds]         = useState(new Set())
   const [curryChatBusy, setCurryChatBusy]           = useState(false)
+  const [emailAccounts, setEmailAccounts]           = useState([])
+  const [connectingGmail, setConnectingGmail]       = useState(false)
 
   const msgRefs        = useRef({})
   const messagesEndRef = useRef(null)
@@ -329,6 +331,41 @@ export default function ChatPage({ session }) {
   }, [userId])
 
   useEffect(() => { loadSharedConvoIds() }, [loadSharedConvoIds])
+
+  const loadEmailAccounts = useCallback(async () => {
+    try { setEmailAccounts(await listEmailAccounts(session)) } catch (e) { console.error('listEmailAccounts failed:', e) }
+  }, [session])
+
+  useEffect(() => { loadEmailAccounts() }, [loadEmailAccounts])
+
+  // Google redirects the browser back here (via the gmail-oauth edge
+  // function) with ?email_connect=success|denied|expired|error after
+  // the user finishes the consent screen. This is the ONE place that
+  // reads it, shows a one-time confirmation, refreshes the connected
+  // accounts list, and then strips the params from the URL so a
+  // refresh doesn't re-trigger the alert.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const status = params.get('email_connect')
+    if (!status) return
+
+    if (status === 'success') {
+      const email = params.get('email')
+      alert(`Gmail connected${email ? `: ${email}` : ''} ✓\n\nCurry can now send real emails from this account when you ask it to.`)
+      loadEmailAccounts()
+    } else if (status === 'denied') {
+      alert('Gmail connection was cancelled.')
+    } else if (status === 'expired') {
+      alert('That connection attempt expired — please try "Connect Gmail" again.')
+    } else {
+      alert('Could not connect Gmail. Please try again.')
+    }
+
+    params.delete('email_connect')
+    params.delete('email')
+    const cleanUrl = window.location.pathname + (params.toString() ? `?${params}` : '')
+    window.history.replaceState({}, '', cleanUrl)
+  }, [loadEmailAccounts])
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
@@ -738,6 +775,23 @@ export default function ChatPage({ session }) {
                   {session.user.email}
                 </div>
               </div>
+              <button
+                onClick={async () => {
+                  if (connectingGmail) return
+                  setConnectingGmail(true)
+                  try { await connectGmail(session) } catch (err) { alert(err.message); setConnectingGmail(false) }
+                }}
+                disabled={connectingGmail}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(167,139,250,0.12)',
+                  border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#c4b5fd',
+                  fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: connectingGmail ? 'default' : 'pointer',
+                  fontFamily: 'inherit', opacity: connectingGmail ? 0.6 : 1, whiteSpace: 'nowrap',
+                }}
+                title={emailAccounts.length > 0 ? `Connected: ${emailAccounts.map(a => a.email_address).join(', ')}` : 'Let Curry send real emails on your behalf'}
+              >
+                ✉️ {connectingGmail ? 'Connecting…' : emailAccounts.length > 0 ? `Gmail connected (${emailAccounts.length})` : 'Connect Gmail'}
+              </button>
               <button className="profile-menu-signout" onClick={signOut}>⏏ Sign out</button>
             </div>
           </div>
