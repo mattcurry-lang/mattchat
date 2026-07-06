@@ -307,7 +307,1229 @@ export default function ChatPage({ session }) {
     activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
     userId
   )
+/* ═══════════════════════════════════════════════════════════
+   MATTCHAT — APP.CSS
+   Single-layout dark mobile-app design (story rail + bottom nav)
+   ═══════════════════════════════════════════════════════════ */
 
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+
+/* ── Design Tokens ─────────────────────────────────────── */
+:root {
+  --brand:        #6c63ff;
+  --brand-deep:   #4f46e5;
+  --brand-light:  #a78bfa;
+  --brand-soft:   rgba(108,99,255,0.1);
+  --brand-grad:   linear-gradient(135deg, #6c63ff 0%, #a78bfa 100%);
+  --panel-bg:     #0f0e17;
+  --bg-app:       #f7f8fc;
+  --bg-sidebar:   #ffffff;
+  --bg-chat:      #efeae2;
+  --bg-bubble-in: #ffffff;
+  --bg-bubble-out:#d9fdd3;
+  --bg-header:    #f0f2f5;
+  --bg-surface-2: #f4f7ff;
+  --text-primary:   #111827;
+  --text-secondary: #4b5563;
+  --text-muted:     #9ca3af;
+  --text-on-brand:  #ffffff;
+  --text-accent:    #6c63ff;
+  --accent-1:       #6c63ff;
+  --accent-2:       #6c63ff;
+  --accent-grad:    linear-gradient(135deg, #6c63ff 0%, #a78bfa 100%);
+  --border:       #e5e7eb;
+  --shadow-sm:    0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md:    0 4px 16px rgba(0,0,0,0.1);
+  --shadow-lg:    0 12px 40px rgba(0,0,0,0.14);
+  --online:  #38bdf8;
+  --r-sm:   6px;
+  --r-md:   10px;
+  --r-lg:   16px;
+  --r-xl:   22px;
+  --r-full: 9999px;
+  --ease:    cubic-bezier(0.4, 0, 0.2, 1);
+  --spring:  cubic-bezier(0.34, 1.56, 0.64, 1);
+  --t-fast:  0.15s;
+  --t-base:  0.22s;
+  --transition: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  --font-display: 'Plus Jakarta Sans', sans-serif;
+  --font-body:    'Inter', sans-serif;
+
+  /* Dark app-shell tokens (new) */
+  --dark-bg:       #14121f;
+  --dark-header:   #17152a;
+  --dark-card:     #1b1930;
+  --dark-card-2:   #221f3b;
+  --dark-border:   rgba(255,255,255,0.08);
+  --dark-text:     #ffffff;
+  --dark-text-2:   rgba(255,255,255,0.55);
+  --dark-text-3:   rgba(255,255,255,0.35);
+
+  --sidebar-w:  460px; /* max width of the single-column app shell */
+
+  /* App height: 100dvh (dynamic viewport height) is the correct unit
+     for mobile — it recalculates live as the browser's address
+     bar/toolbar shows and hides, unlike 100vh which is fixed to the
+     LARGEST possible viewport and causes content to be taller than
+     what's actually visible, pushing the header off-screen. The
+     100vh fallback only matters for older browsers that don't
+     support dvh at all. */
+  --app-height: 100vh;
+  --app-height: 100dvh;
+}
+
+/* ── Reset ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  height: var(--app-height);
+  overflow: hidden;
+  font-family: var(--font-body);
+  background: var(--bg-app);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  font-size: 15px;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+
+/* ═══════════════════════════════════════════════════════════
+   SPLASH
+   ═══════════════════════════════════════════════════════════ */
+.splash {
+  height: 100vh;
+  height: var(--app-height);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--panel-bg);
+}
+.splash-logo-img {
+  width: 80px; height: auto;
+  animation: splashPop 0.5s var(--spring);
+  filter: drop-shadow(0 0 24px rgba(108,99,255,0.5));
+}
+@keyframes splashPop {
+  from { opacity: 0; transform: scale(0.8); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AUTH PAGE
+   ═══════════════════════════════════════════════════════════ */
+.auth-page { min-height: 100vh; min-height: var(--app-height); display: flex; overflow: auto; }
+.auth-left { width: 45%; min-height: 100vh; min-height: var(--app-height); background: var(--panel-bg); display: flex; align-items: center; justify-content: center; padding: 60px 48px; position: relative; overflow: hidden; flex-shrink: 0; }
+.auth-left::before { content: ''; position: absolute; width: 500px; height: 500px; background: radial-gradient(circle, rgba(108,99,255,0.25) 0%, transparent 65%); top: -100px; left: -100px; pointer-events: none; }
+.auth-left::after { content: ''; position: absolute; width: 400px; height: 400px; background: radial-gradient(circle, rgba(167,139,250,0.15) 0%, transparent 65%); bottom: -80px; right: -80px; pointer-events: none; }
+.auth-left-inner { position: relative; z-index: 1; max-width: 380px; width: 100%; }
+.auth-brand { margin-bottom: 56px; }
+.auth-brand-logo { width: 56px; height: auto; margin-bottom: 20px; filter: drop-shadow(0 0 20px rgba(108,99,255,0.5)); }
+.auth-brand-name { font-family: var(--font-display); font-size: 42px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; margin-bottom: 12px; background: linear-gradient(135deg, #ffffff 0%, rgba(167,139,250,0.9) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.auth-brand-tagline { font-size: 16px; color: rgba(255,255,255,0.45); line-height: 1.5; }
+.auth-features { display: flex; flex-direction: column; gap: 18px; margin-bottom: 56px; }
+.auth-feature-item { display: flex; align-items: center; gap: 14px; }
+.auth-feature-icon { width: 38px; height: 38px; background: rgba(108,99,255,0.15); border: 1px solid rgba(108,99,255,0.25); border-radius: var(--r-md); display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+.auth-feature-text { font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.65); }
+.auth-left-footer { font-size: 12px; color: rgba(255,255,255,0.22); }
+.auth-right { flex: 1; display: flex; align-items: center; justify-content: center; padding: 48px 40px; background: #ffffff; }
+.auth-form-wrap { width: 100%; max-width: 400px; }
+.auth-form-header { margin-bottom: 32px; }
+.auth-form-title { font-family: var(--font-display); font-size: 28px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.8px; margin-bottom: 6px; }
+.auth-form-sub { font-size: 14px; color: var(--text-muted); }
+.auth-tabs { display: flex; background: var(--bg-app); border-radius: var(--r-md); padding: 4px; gap: 4px; margin-bottom: 28px; }
+.auth-tabs button { flex: 1; padding: 9px 16px; background: none; border: none; border-radius: calc(var(--r-md) - 2px); font-size: 13.5px; font-weight: 600; font-family: var(--font-body); cursor: pointer; color: var(--text-muted); transition: all var(--t-base) var(--ease); }
+.auth-tabs button.active { background: #ffffff; color: var(--brand); box-shadow: var(--shadow-sm); }
+.auth-form { display: flex; flex-direction: column; gap: 0; }
+.field { margin-bottom: 18px; }
+.field label { display: block; font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 7px; }
+.field input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: var(--r-md); font-size: 14.5px; font-family: var(--font-body); color: var(--text-primary); background: #fafafa; outline: none; transition: all var(--t-fast) var(--ease); }
+.field input:focus { border-color: var(--brand); background: #ffffff; box-shadow: 0 0 0 3px rgba(108,99,255,0.12); }
+.field input::placeholder { color: #b8bcc8; }
+.auth-error { background: #fff1f2; color: #be123c; font-size: 13px; font-weight: 500; padding: 10px 14px; border-radius: var(--r-md); margin-bottom: 16px; border: 1px solid #fecdd3; }
+.auth-success { background: #f0fdf4; color: #166534; font-size: 13px; font-weight: 500; padding: 10px 14px; border-radius: var(--r-md); margin-bottom: 16px; border: 1px solid #bbf7d0; }
+.auth-btn { width: 100%; padding: 13px; background: var(--brand-grad); color: #ffffff; border: none; border-radius: var(--r-md); font-size: 15px; font-weight: 700; font-family: var(--font-body); cursor: pointer; transition: all var(--t-base) var(--ease); box-shadow: 0 4px 16px rgba(108,99,255,0.35); margin-top: 4px; margin-bottom: 20px; }
+.auth-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(108,99,255,0.45); }
+.auth-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+.auth-note { font-size: 12.5px; color: var(--text-muted); line-height: 1.6; border-top: 1px solid var(--border); padding-top: 16px; }
+.auth-note strong { color: var(--brand); }
+.auth-logo-img, .auth-tagline, .auth-logo { display: none; }
+
+/* ═══════════════════════════════════════════════════════════
+   APP SHELL — single layout at every screen size
+   ═══════════════════════════════════════════════════════════
+   The list screen (.sidebar) and the open conversation (.chat-area)
+   are never shown at the same time on mobile/tablet — narrow screens
+   don't have room to split. On desktop the sidebar stays put (classic
+   WhatsApp Web layout) and only the right-hand pane toggles between
+   the welcome screen and the open conversation. */
+.app {
+  position: relative;
+  display: flex;
+  height: 100vh;
+  height: var(--app-height);
+  width: 100%;
+  max-width: var(--sidebar-w);
+  margin: 0 auto;
+  background: var(--dark-bg);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  /* Respect notches/status-bar cutouts on phones that have them
+     (safe-area-inset is 0 on phones without a notch, so this is a
+     no-op there). */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Tablet: still a single-pane "app card" floating with margin */
+@media (min-width: 640px) and (max-width: 899px) {
+  html, body { background: #d8dae6; }
+  .app { margin: 18px auto; height: calc(var(--app-height) - 36px); border-radius: 28px; }
+}
+
+/* Desktop: full-bleed, classic split — narrow list on the left that
+   NEVER hides, and a right-hand pane that shows the welcome screen
+   until a chat is opened, then shows that chat. Just like WhatsApp. */
+@media (min-width: 900px) {
+  html, body { background: var(--dark-bg); }
+  .app { max-width: none; width: 100vw; height: 100vh; height: var(--app-height); margin: 0; border-radius: 0; box-shadow: none; }
+  .app .sidebar {
+    display: flex;
+    width: 420px;
+    max-width: 420px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--dark-border);
+  }
+  .app .welcome-pane { display: flex; }
+  .app.chat-open .welcome-pane { display: none; }
+}
+
+/* ── List / browse screen ── */
+.sidebar {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  background: var(--dark-bg);
+}
+/* Mobile/tablet only: opening a chat fully replaces the list.
+   (Desktop overrides this back to visible — see 900px block above.) */
+.app.chat-open .sidebar { display: none; }
+
+/* ── Top header: brand + story rail ── */
+.top-header {
+  flex-shrink: 0;
+  padding: 14px 16px 12px;
+  background:
+    radial-gradient(circle at 15% -20%, rgba(108,99,255,0.35) 0%, transparent 55%),
+    radial-gradient(circle at 90% 0%, rgba(167,139,250,0.22) 0%, transparent 50%),
+    var(--dark-header);
+  position: relative;
+}
+
+.top-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 14px;
+}
+.top-header-logo {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(108,99,255,0.5));
+  flex-shrink: 0;
+}
+.top-header-name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: -0.3px;
+  color: #ffffff;
+  flex: 1;
+}
+.top-header-search-btn {
+  background: rgba(255,255,255,0.08);
+  border: none;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background var(--t-fast);
+  flex-shrink: 0;
+}
+.top-header-search-btn:hover { background: rgba(255,255,255,0.16); }
+
+/* ── Story / quick-contact rail ── */
+.story-rail {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.story-rail::-webkit-scrollbar { display: none; }
+
+.story-item {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  width: 60px;
+}
+.story-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--dark-text-2);
+  max-width: 60px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.story-add-circle {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(255,255,255,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  color: #fff;
+  background: rgba(255,255,255,0.05);
+  transition: all var(--t-fast);
+}
+.story-item:hover .story-add-circle { background: rgba(255,255,255,0.1); transform: scale(1.05); }
+.story-ring {
+  width: 58px; height: 58px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  padding: 3px;
+  background: linear-gradient(135deg, #6c63ff, #a78bfa, #f472b6);
+  transition: transform var(--t-fast);
+}
+.story-ring.online { background: linear-gradient(135deg, #38bdf8, #6c63ff); box-shadow: 0 0 14px 1px rgba(56,189,248,0.55); }
+.story-item:hover .story-ring { transform: scale(1.06); }
+
+/* ── List card ── */
+.list-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--dark-card);
+  border-radius: 22px 22px 0 0;
+  margin-top: -14px;
+  position: relative;
+  z-index: 2;
+}
+
+.list-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 14px 16px 10px;
+  flex-shrink: 0;
+}
+.list-tabs button {
+  flex: 1;
+  padding: 9px 14px;
+  background: var(--dark-card-2);
+  border: none;
+  border-radius: var(--r-full);
+  color: var(--dark-text-2);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+.list-tabs button.active {
+  background: var(--brand-grad);
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(108,99,255,0.35);
+}
+
+/* Search */
+.search-box {
+  padding: 4px 16px 10px;
+  flex-shrink: 0;
+}
+.search-box input {
+  width: 100%;
+  padding: 9px 14px 9px 38px;
+  border: 1px solid var(--dark-border);
+  border-radius: var(--r-full);
+  font-size: 13.5px;
+  font-family: var(--font-body);
+  background: var(--dark-card-2);
+  color: #fff;
+  outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 13px center;
+}
+.search-box input:focus { box-shadow: 0 0 0 2px rgba(108,99,255,0.3); }
+.search-box input::placeholder { color: var(--dark-text-3); }
+
+/* New chat form */
+.new-chat-form { padding: 4px 16px 12px; display: flex; flex-direction: column; gap: 8px; animation: slideDown 0.2s var(--spring); flex-shrink: 0; }
+.new-chat-form input { padding: 9px 13px; border: 1px solid var(--dark-border); border-radius: var(--r-md); font-size: 13.5px; font-family: var(--font-body); color: #fff; background: var(--dark-card-2); outline: none; }
+.new-chat-form input:focus { border-color: var(--brand); }
+.new-chat-form input::placeholder { color: var(--dark-text-3); }
+
+.btn-primary { padding: 9px 16px; background: var(--brand-grad); color: #fff; border: none; border-radius: var(--r-md); font-size: 13px; font-weight: 700; font-family: var(--font-body); cursor: pointer; box-shadow: 0 2px 8px rgba(108,99,255,0.3); }
+.btn-primary:hover { transform: translateY(-1px); }
+.btn-ghost { padding: 9px 16px; background: none; border: 1.5px solid var(--dark-border); border-radius: var(--r-md); font-size: 13px; font-weight: 600; font-family: var(--font-body); cursor: pointer; color: var(--dark-text-2); }
+.btn-ghost:hover { background: rgba(255,255,255,0.05); }
+
+/* Contact list */
+.contact-list { flex: 1; overflow-y: auto; padding: 2px 0 90px; }
+
+.contact {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 12px;
+  margin: 1px 12px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: background var(--t-fast);
+  position: relative;
+}
+.contact:hover { background: rgba(255,255,255,0.05); }
+.contact.active { background: var(--brand-soft); }
+.contact.active .contact-name { color: #c4b5fd; }
+
+.contact-info { flex: 1; min-width: 0; }
+.contact-name { font-size: 15px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.contact-preview { font-size: 13px; color: var(--dark-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.contact-time { font-size: 11px; color: var(--dark-text-3); white-space: nowrap; font-weight: 500; }
+
+.delete-chat-btn { background: none; border: none; cursor: pointer; font-size: 13px; opacity: 0; padding: 3px 5px; border-radius: var(--r-sm); color: #f87171; transition: opacity var(--t-fast); }
+.contact:hover .delete-chat-btn { opacity: 0.6; }
+.delete-chat-btn:hover { opacity: 1 !important; background: rgba(239,68,68,0.12); }
+
+.empty-state { padding: 40px 20px; text-align: center; color: var(--dark-text-2); font-size: 13.5px; }
+.loading-state { padding: 24px; text-align: center; color: var(--dark-text-2); font-size: 13px; }
+
+/* Avatar */
+.avatar { position: relative; flex-shrink: 0; }
+/* Online = a solid light-blue dot on the avatar, bottom-left so it
+   never collides with the unread badge (top-right) or the
+   shared-with-Curry sparkle badge (bottom-right). Single source of
+   truth for the online color: var(--online), set once in :root. */
+.status-dot {
+  position: absolute;
+  bottom: -1px;
+  left: -1px;
+  border-radius: 50%;
+  background: var(--online);
+  border: 2px solid var(--dark-bg);
+  box-shadow: 0 0 6px rgba(56,189,248,0.7);
+}
+
+/* Unread badge — small purple pill, top-right of an avatar */
+.story-avatar-wrap,
+.contact-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.unread-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--r-full);
+  background: var(--brand-grad);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--dark-bg);
+  box-shadow: 0 0 8px rgba(108,99,255,0.6);
+  line-height: 1;
+}
+
+/* Shared-with-Curry indicator — small sparkle badge, bottom-right of
+   the avatar so it never collides with the unread-count badge which
+   sits top-right. Uses the app's own brand gradient, no new color. */
+.shared-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--brand-grad);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  border: 2px solid var(--dark-bg);
+  box-shadow: 0 0 6px rgba(108,99,255,0.6);
+}
+/* Unread contact rows — bolder / brighter until opened */
+.contact-name.unread { color: #fff; font-weight: 800; }
+.contact-preview.unread { color: rgba(255,255,255,0.85); font-weight: 600; }
+
+
+/* ── Profile menu ── */
+.profile-menu-overlay {
+  position: absolute; inset: 0;
+  z-index: 60;
+  display: flex; align-items: flex-end;
+  background: rgba(0,0,0,0.4);
+}
+.profile-menu {
+  width: 100%;
+  background: var(--dark-card-2);
+  border-radius: 20px 20px 0 0;
+  padding: 20px 18px calc(20px + 78px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: panelUp 0.25s var(--spring);
+  border-top: 1px solid var(--dark-border);
+}
+.profile-menu-signout {
+  background: rgba(239,68,68,0.15);
+  border: 1px solid rgba(239,68,68,0.3);
+  color: #f87171;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: var(--r-full);
+  cursor: pointer;
+  font-family: var(--font-body);
+  flex-shrink: 0;
+}
+
+/* ── Bottom nav ── */
+.bottom-nav {
+  position: absolute;
+  left: 12px; right: 12px; bottom: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: rgba(20,18,31,0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--dark-border);
+  border-radius: var(--r-full);
+  padding: 8px 6px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  /* Keep clear of the home-indicator / gesture bar on phones that
+     have one; 0 elsewhere so this is harmless on other devices. */
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+.bnav-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--dark-text-3);
+  padding: 4px 10px;
+  border-radius: 14px;
+  transition: all var(--t-fast);
+  flex: 1;
+}
+.bnav-btn:hover { color: var(--dark-text-2); }
+.bnav-btn.active { color: #fff; background: rgba(255,255,255,0.06); }
+.bnav-icon { display: block; }
+.bnav-label { font-size: 9.5px; font-weight: 600; }
+.bnav-plus {
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  background: var(--brand-grad);
+  border: none;
+  color: #fff;
+  font-size: 22px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  top: -10px;
+  box-shadow: 0 6px 18px rgba(108,99,255,0.5);
+  transition: transform var(--t-fast) var(--spring);
+}
+.bnav-plus:hover { transform: scale(1.08) translateY(-2px); }
+.bnav-plus:active { transform: scale(0.95); }
+
+/* ── Welcome pane — desktop-only right half, shown when no chat is open ── */
+.welcome-pane {
+  display: none; /* shown via the 900px media query above */
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(108,99,255,0.14) 0%, transparent 55%),
+    radial-gradient(circle at 85% 90%, rgba(167,139,250,0.12) 0%, transparent 50%),
+    var(--dark-header);
+}
+.welcome-pane-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  max-width: 360px;
+  padding: 32px;
+}
+.welcome-pane-logo {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 20px;
+  display: block;
+  border-radius: 16px;
+  filter: drop-shadow(0 0 24px rgba(108,99,255,0.4));
+}
+.welcome-pane-content h2 {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 10px;
+}
+.welcome-pane-content p {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--dark-text-2);
+  margin-bottom: 22px;
+}
+.welcome-pane-content strong { color: #c4b5fd; }
+
+/* 3. Chat wallpaper — opacity reduced ~25% across all three layers
+   so it recedes behind messages instead of competing with them */
+.chat-area {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  background-color: var(--dark-bg);
+  background-image:
+    radial-gradient(circle at 10% 0%, rgba(108,99,255,0.09) 0%, transparent 45%),
+    radial-gradient(circle at 90% 100%, rgba(167,139,250,0.065) 0%, transparent 45%),
+    url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.018'%3E%3Cpath d='M40 40c0-11 9-20 20-20s20 9 20 20-9 20-20 20-20-9-20-20zm-40 0c0-11 9-20 20-20s20 9 20 20-9 20-20 20-20-9-20-20z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  background-size: auto, auto, 80px 80px;
+}
+.app.chat-open .chat-area { display: flex; }
+
+/* Chat header — dark, matches the app chrome */
+.chat-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  background: var(--dark-header);
+  border-bottom: 1px solid var(--dark-border);
+  flex-shrink: 0;
+  position: relative; z-index: 5;
+  min-height: 58px;
+}
+.chat-header-name { font-size: 15px; font-weight: 700; color: #fff; }
+.chat-header-sub { font-size: 12px; font-weight: 500; color: var(--online); min-height: 16px; }
+.back-btn { display: flex; align-items: center; background: none; border: none; font-size: 22px; cursor: pointer; color: #fff; padding: 4px 6px 4px 0; }
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: all var(--t-fast) var(--ease);
+  flex-shrink: 0;
+}
+.icon-btn:hover { background: rgba(0,0,0,0.06); }
+.icon-btn svg { display: block; }
+.icon-btn.dark { color: rgba(255,255,255,0.7); }
+.icon-btn.dark:hover { background: rgba(255,255,255,0.08); color: #fff; }
+
+/* ═══════════════════════════════════════════════════════════
+   MESSAGES
+   ═══════════════════════════════════════════════════════════ */
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: relative; z-index: 1;
+  /* Without a defined min-height:0 on a flex child that scrolls,
+     some mobile browsers let this grow past its allotted space
+     instead of scrolling internally, which is what shoves the
+     header/input out of view. */
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Date divider */
+.date-divider {
+  font-size: 11.5px; font-weight: 600;
+  color: #667781;
+  background: rgba(225,230,235,0.92);
+  padding: 4px 14px;
+  border-radius: var(--r-full);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  width: fit-content;
+  align-self: center;
+  margin: 10px auto;
+}
+
+/* msg-wrap: the real alignment layer — direct flex child of .messages,
+   so green/mine → right and white/theirs → left is guaranteed
+   regardless of how ReactableMessage lays out its own children. */
+.msg-wrap {
+  display: flex;
+  width: 100%;
+}
+.msg-wrap.mine    { justify-content: flex-end; }
+.msg-wrap.theirs  { justify-content: flex-start; }
+.msg-wrap.system  { justify-content: center; }
+
+.msg-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  align-self: flex-start;
+  max-width: 82%;
+  width: fit-content;
+}
+.msg-row.mine {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.msg-sender {
+  font-size: 11.5px; font-weight: 700;
+  color: var(--brand);
+  margin-bottom: 2px;
+  padding-left: 4px;
+}
+/* 2. Incoming bubbles — softened off-white instead of stark #ffffff,
+   with a faint brand-tinted border so they feel part of the app's
+   palette instead of a plain default white box */
+.msg-bubble {
+  display: inline-block;
+  padding: 7px 12px 6px;
+  font-size: 14.5px;
+  line-height: 1.5;
+  background: #f7f5ff;
+  border: 1px solid rgba(108,99,255,0.08);
+  border-radius: 0 8px 8px 8px;
+  word-break: break-word;
+  color: #1f1d2b;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  position: relative;
+  max-width: 100%;
+}
+.msg-bubble::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -7px;
+  border-style: solid;
+  border-width: 0 7px 7px 0;
+  border-color: transparent #f7f5ff transparent transparent;
+}
+.msg-row.mine .msg-bubble {
+  background: #d9fdd3;
+  border: none;
+  border-radius: 8px 0 8px 8px;
+  color: #111;
+}
+.msg-row.mine .msg-bubble::before {
+  left: unset;
+  right: -7px;
+  border-width: 0 0 7px 7px;
+  border-color: transparent transparent transparent #d9fdd3;
+}
+/* Once the other person has opened the chat and seen this message
+   (tracked via useMessageStatus), give the bubble a purple outline
+   in the app's brand color instead of the default flat edge. */
+.msg-row.mine .msg-bubble.read {
+  outline: 2px solid var(--brand-light);
+  outline-offset: 1px;
+}
+
+/* 5. Timestamp — smaller and lighter */
+.msg-time {
+  font-size: 9.5px;
+  color: rgba(134,150,160,0.75);
+  margin-top: 3px;
+  text-align: right;
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+/* "Delivered" / "Read" label under sent messages */
+.msg-status {
+  font-size: 10px;
+  font-weight: 600;
+  color: #8696a0;
+  text-align: right;
+  margin-top: 1px;
+}
+.msg-status.sent { opacity: 0.55; }
+.msg-status.read { color: var(--brand-light); }
+
+.email-msg { border-left: 3px solid var(--brand) !important; background: #f0f4ff !important; }
+.email-tag { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: var(--brand); background: rgba(108,99,255,0.1); padding: 2px 7px; border-radius: var(--r-full); margin-bottom: 4px; }
+
+.typing-indicator { display: flex; gap: 4px; padding: 10px 14px; background: white; border-radius: 0 8px 8px 8px; width: fit-content; box-shadow: 0 1px 2px rgba(0,0,0,0.1); align-self: flex-start; }
+.typing-indicator span { width: 7px; height: 7px; background: #adb5bd; border-radius: 50%; animation: typingBounce 1.2s infinite; }
+.typing-indicator span:nth-child(2) { animation-delay: 0.15s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes typingBounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
+
+/* ═══════════════════════════════════════════════════════════
+   REACTIONS
+   ═══════════════════════════════════════════════════════════ */
+.reaction-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 2px;
+}
+.msg-row.mine .reaction-chips-row { justify-content: flex-end; }
+
+.reaction-chip {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: #ffffff;
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 20px;
+  padding: 2px 7px;
+  font-size: 13px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  cursor: pointer;
+  transition: transform 0.12s;
+  animation: chipPop 0.2s var(--spring);
+  font-family: var(--font-body);
+  line-height: 1.4;
+}
+.reaction-chip.mine { background: rgba(108,99,255,0.1); border-color: rgba(108,99,255,0.3); }
+.reaction-chip:hover { transform: scale(1.12); }
+.reaction-chip-count { font-size: 11px; font-weight: 700; color: #54656f; }
+.reaction-chip.mine .reaction-chip-count { color: var(--brand); }
+
+@keyframes chipPop {
+  from { transform: scale(0.5); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+/* ── Input area ── */
+.input-area {
+  display: flex; align-items: flex-end; gap: 8px;
+  padding: 8px 16px 10px;
+  background: var(--dark-header);
+  border-top: 1px solid var(--dark-border);
+  flex-shrink: 0;
+  position: relative; z-index: 5;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
+.attach-btn { background: none; border: none; cursor: pointer; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; color: rgba(255,255,255,0.7); transition: all var(--t-fast); flex-shrink: 0; }
+.attach-btn svg { display: block; }
+.attach-btn:hover { background: rgba(255,255,255,0.08); transform: scale(1.08); }
+
+.input-area textarea {
+  flex: 1; resize: none;
+  border: none; border-radius: 22px;
+  padding: 10px 16px;
+  font-size: 14.5px; font-family: var(--font-body);
+  background: #ffffff; color: var(--text-primary);
+  outline: none; max-height: 120px; overflow-y: auto;
+  line-height: 1.5;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  /* iOS Safari zooms the page in if a focused input has font-size
+     under 16px — this locks it at 16px on small screens so tapping
+     the message box doesn't yank the whole layout out of place. */
+  font-size: max(14.5px, 16px);
+}
+.input-area textarea::placeholder { color: #adb5bd; }
+
+.send-btn { width: 42px; height: 42px; border-radius: 50%; background: var(--brand-grad); border: none; cursor: pointer; color: #fff; font-size: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all var(--t-fast) var(--spring); box-shadow: 0 3px 10px rgba(108,99,255,0.4); }
+.send-btn:hover { transform: scale(1.08); box-shadow: 0 5px 16px rgba(108,99,255,0.5); }
+.send-btn:active { transform: scale(0.95); }
+.send-btn:disabled { opacity: 0.4; cursor: default; transform: none; box-shadow: none; }
+
+/* Pinned bar */
+.pinned-bar { display: flex; align-items: center; gap: 8px; padding: 7px 16px; background: rgba(108,99,255,0.1); border-bottom: 1px solid rgba(108,99,255,0.18); font-size: 12.5px; color: #fff; cursor: pointer; transition: background var(--t-fast); flex-shrink: 0; z-index: 4; }
+.pinned-bar:hover { background: rgba(108,99,255,0.16); }
+
+/* Voice recorder */
+.voice-recorder { display: flex; align-items: center; gap: 10px; background: white; border: 1.5px solid var(--border); border-radius: var(--r-full); padding: 8px 14px; flex: 1; }
+.rec-dot { width: 9px; height: 9px; border-radius: 50%; background: #ef4444; animation: recPulse 1s infinite; flex-shrink: 0; }
+@keyframes recPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
+.rec-time { font-size: 13px; font-weight: 700; color: #ef4444; min-width: 36px; }
+.rec-waves { display: flex; align-items: center; gap: 2px; flex: 1; height: 28px; }
+.rec-wave-bar { width: 3px; border-radius: 2px; background: var(--brand); transition: height 0.06s; min-height: 3px; }
+
+/* Voice message */
+.voice-msg { display: flex; align-items: center; gap: 10px; padding: 8px 12px; min-width: 190px; }
+.voice-play-btn { width: 34px; height: 34px; border-radius: 50%; border: none; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.voice-play-btn:hover { transform: scale(1.1); }
+.waveform { display: flex; align-items: center; gap: 2px; flex: 1; height: 32px; }
+.waveform-bar { width: 3px; border-radius: 2px; }
+.voice-duration { font-size: 11px; font-weight: 600; flex-shrink: 0; }
+.voice-transcript { font-size: 12px; padding: 5px 12px; cursor: pointer; border-top: 1px solid rgba(0,0,0,0.06); opacity: 0.7; }
+.voice-transcript:hover { opacity: 1; }
+
+/* Modals */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); backdrop-filter: blur(6px); display: flex; align-items: flex-end; justify-content: center; z-index: 1000; padding-bottom: 20px; }
+.modal-panel { background: white; border-radius: 24px 24px 16px 16px; padding: 24px; width: 100%; max-width: 480px; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; gap: 14px; animation: panelUp 0.28s var(--spring); }
+@keyframes panelUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+.modal-header { display: flex; justify-content: space-between; align-items: center; }
+.modal-title { font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--text-primary); }
+.modal-close { background: var(--bg-app); border: none; color: var(--text-muted); font-size: 14px; cursor: pointer; padding: 5px 8px; border-radius: var(--r-sm); }
+.modal-close:hover { background: #fee2e2; color: #ef4444; }
+.modal-textarea, .modal-input { background: var(--bg-app); border: 1.5px solid var(--border); border-radius: var(--r-md); color: var(--text-primary); font-size: 14px; padding: 11px 14px; outline: none; font-family: var(--font-body); width: 100%; }
+.modal-textarea { resize: none; }
+.modal-textarea:focus, .modal-input:focus { border-color: var(--brand); background: white; box-shadow: 0 0 0 3px rgba(108,99,255,0.1); }
+.modal-preview { font-size: 13px; color: var(--text-secondary); background: var(--bg-app); border-radius: var(--r-sm); padding: 9px 13px; border-left: 3px solid var(--brand); }
+.modal-error { font-size: 13px; color: #dc2626; background: #fff1f2; border-radius: var(--r-sm); padding: 8px 12px; }
+.scheduled-item { background: var(--bg-app); border-radius: var(--r-md); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; border-left: 3px solid var(--brand); }
+.scheduled-content { color: var(--text-primary); font-size: 14px; line-height: 1.4; }
+.scheduled-meta { display: flex; justify-content: space-between; align-items: center; }
+.scheduled-time { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+.scheduled-countdown { font-size: 11px; color: var(--brand); font-weight: 700; background: var(--brand-soft); border-radius: var(--r-full); padding: 2px 8px; }
+.scheduled-cancel { align-self: flex-start; background: none; border: 1px solid rgba(239,68,68,0.3); color: #ef4444; border-radius: var(--r-sm); padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: var(--font-body); }
+.email-badge { font-size: 11px; font-weight: 600; color: var(--brand); background: var(--brand-soft); padding: 4px 10px; border-radius: var(--r-full); border: 1px solid rgba(108,99,255,0.18); white-space: nowrap; }
+button.email-badge { cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-body); }
+.scheduled-link-btn { background: var(--brand-soft); border: none; font-size: 12px; font-weight: 600; color: var(--brand); cursor: pointer; padding: 5px 10px; border-radius: var(--r-full); display: flex; align-items: center; gap: 4px; font-family: var(--font-body); }
+
+/* Email form */
+.email-form-page { min-height: 100vh; min-height: var(--app-height); background: var(--panel-bg); display: flex; align-items: center; justify-content: center; padding: 20px; font-family: var(--font-body); }
+.email-form-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; padding: 36px; width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 24px; }
+.email-form-header { display: flex; align-items: center; gap: 14px; }
+.email-form-logo-img { width: 48px; height: 48px; border-radius: 14px; }
+.email-form-title { font-family: var(--font-display); font-size: 22px; font-weight: 800; color: #fff; margin: 0; }
+.email-form-sub { font-size: 14px; color: rgba(255,255,255,0.45); margin: 4px 0 0; }
+.email-form-body { display: flex; flex-direction: column; gap: 16px; }
+.email-form-field { display: flex; flex-direction: column; gap: 6px; }
+.email-form-label { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.07em; }
+.email-form-input { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--r-md); color: #fff; font-size: 15px; padding: 11px 14px; outline: none; font-family: var(--font-body); width: 100%; }
+.email-form-input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(108,99,255,0.2); }
+.email-form-input::placeholder { color: rgba(255,255,255,0.2); }
+.email-form-textarea { resize: vertical; min-height: 100px; }
+.email-form-error { font-size: 13px; color: #fca5a5; padding: 10px 13px; background: rgba(252,165,165,0.1); border-radius: var(--r-sm); }
+.email-form-btn { background: var(--brand-grad); color: #fff; border: none; border-radius: var(--r-md); padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: var(--font-body); }
+.email-form-btn:hover:not(:disabled) { transform: translateY(-1px); }
+.email-form-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.email-form-success-icon { font-size: 48px; text-align: center; }
+.email-form-footer { font-size: 12px; color: rgba(255,255,255,0.25); text-align: center; }
+.email-form-footer a { color: var(--brand-light); text-decoration: none; }
+
+/* Animations */
+@keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@keyframes menuPop { from { opacity: 0; transform: translateY(6px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes scheduledPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(108,99,255,0.15); } 50% { box-shadow: 0 0 0 4px rgba(108,99,255,0.06); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 639px) {
+  /* NOTE: `position: fixed` on html/body used to live here as an
+     attempt to stop mobile browsers from scrolling the page when
+     their address bar hid/showed. In practice it backfired: combined
+     with 100vh (taller than the real visible area), the browser
+     would land the page scrolled up with the top content (the
+     header) parked off-screen and unreachable, since fixed
+     positioning blocks the user from ever scrolling back up to it.
+     100dvh (see --app-height above) solves the actual sizing
+     problem, so this hack is no longer needed. */
+  html, body { width: 100%; overflow: hidden; }
+  .app { border-radius: 0; box-shadow: none; margin: 0; height: 100vh; height: var(--app-height); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AUTH PAGE — MOBILE: single centered glowing card
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 639px) {
+  .auth-page {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    min-height: var(--app-height);
+    padding: 24px 16px;
+    background: var(--panel-bg);
+    overflow-y: auto;
+  }
+
+  /* Collapse the left brand panel into a compact header above the card
+     instead of a full-height side panel */
+  .auth-left {
+    width: 100%;
+    min-height: 0;
+    padding: 8px 8px 28px;
+    flex-shrink: 0;
+  }
+  .auth-left::before, .auth-left::after { display: none; }
+  .auth-left-inner { max-width: 320px; text-align: center; }
+  .auth-brand { margin-bottom: 24px; }
+  .auth-brand-logo { margin: 0 auto 14px; }
+  .auth-brand-name { font-size: 30px; }
+  .auth-brand-tagline { font-size: 14px; }
+
+  /* Hide the feature list + footer on mobile — the card is the focus */
+  .auth-features, .auth-left-footer { display: none; }
+
+  /* The card itself: centered, fixed width, glowing border */
+  .auth-right {
+    width: 100%;
+    max-width: 400px;
+    padding: 0;
+    background: transparent;
+    flex: none;
+  }
+  .auth-form-wrap {
+    background: #ffffff;
+    border-radius: 22px;
+    padding: 28px 24px 24px;
+    box-shadow:
+      0 0 0 1px rgba(108,99,255,0.15),
+      0 8px 30px rgba(0,0,0,0.35),
+      0 0 40px rgba(108,99,255,0.12);
+    transition: box-shadow 0.3s var(--ease);
+  }
+
+  /* Glow when the card is being interacted with — tapping into any
+     field, or the whole wrap on :active for a touch-feedback pulse */
+  .auth-form-wrap:focus-within {
+    box-shadow:
+      0 0 0 1.5px rgba(108,99,255,0.5),
+      0 8px 30px rgba(0,0,0,0.35),
+      0 0 50px rgba(108,99,255,0.35),
+      0 0 90px rgba(167,139,250,0.2);
+  }
+}
+
+/* Field-level glow on focus — theme purple, works everywhere,
+   not just mobile */
+.field input:focus {
+  box-shadow:
+    0 0 0 3px rgba(108,99,255,0.18),
+    0 0 16px rgba(108,99,255,0.25);
+}
+
+/* Touch/tap feedback pulse for the whole card, mobile only */
+@media (max-width: 639px) {
+  @keyframes cardTouchGlow {
+    0%   { box-shadow: 0 0 0 1px rgba(108,99,255,0.15), 0 8px 30px rgba(0,0,0,0.35), 0 0 40px rgba(108,99,255,0.12); }
+    50%  { box-shadow: 0 0 0 2px rgba(108,99,255,0.6), 0 8px 30px rgba(0,0,0,0.35), 0 0 60px rgba(108,99,255,0.4); }
+    100% { box-shadow: 0 0 0 1px rgba(108,99,255,0.15), 0 8px 30px rgba(0,0,0,0.35), 0 0 40px rgba(108,99,255,0.12); }
+  }
+  .auth-form-wrap:active {
+    animation: cardTouchGlow 0.6s var(--ease);
+  }
+}
+
+
+@media (max-width: 380px) {
+  .top-header { padding: 10px 12px 10px; }
+  .top-header-name { font-size: 16px; }
+  .story-ring, .story-add-circle { width: 48px; height: 48px; }
+  .list-tabs { padding: 12px 12px 8px; }
+  .messages { padding: 8px 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+/* ═══════════════════════════════════════════════════════════
+   STATUS FEATURE
+   ═══════════════════════════════════════════════════════════ */
+.status-ring-wrap {
+  border-radius: 50%;
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform var(--t-fast);
+}
+.status-ring-none { background: transparent; padding: 0; }
+.status-ring-viewed { background: rgba(255,255,255,0.2); }
+.status-ring-active {
+  background: linear-gradient(135deg, #a855f7, #6c63ff, #ec4899);
+  box-shadow: 0 0 10px 1px rgba(168,85,247,0.5);
+  animation: statusRingGlow 2.2s ease-in-out infinite;
+}
+@keyframes statusRingGlow {
+  0%, 100% { box-shadow: 0 0 8px 0px rgba(168,85,247,0.45); }
+  50%      { box-shadow: 0 0 16px 3px rgba(168,85,247,0.75); }
+}
+.status-ring-inner {
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  background: var(--dark-bg);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.story-item:hover .status-ring-active,
+.story-item:hover .status-ring-viewed { transform: scale(1.05); }
+
+.status-add-badge {
+  position: absolute;
+  bottom: -2px; right: -2px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--brand-grad);
+  border: 2px solid var(--dark-bg);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(108,99,255,0.6);
+}
+
+.status-tab { flex: 1; overflow-y: auto; padding: 6px 0 90px; }
+.status-tab-mine, .status-tab-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+.status-tab-mine:hover, .status-tab-row:hover { background: rgba(255,255,255,0.05); }
+.status-tab-section-label {
+  font-size: 11.5px; font-weight: 700; color: var(--dark-text-3);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 14px 16px 6px;
+}
+
+.status-compose-panel { background: var(--dark-card-2); }
+.status-compose-panel .modal-title { color: #fff; }
+.status-text-preview {
+  border-radius: var(--r-lg);
+  min-height: 220px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.status-text-input {
+  width: 100%;
+  background: none; border: none; outline: none; resize: none;
+  color: #fff; font-size: 20px; font-weight: 700; text-align: center;
+  font-family: var(--font-display);
+  min-height: 120px;
+}
+.status-text-input::placeholder { color: rgba(255,255,255,0.6); }
+.status-bg-swatches { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.status-bg-swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+.status-bg-swatch.active { border-color: #fff; transform: scale(1.1); }
+.status-media-preview {
+  border-radius: var(--r-lg); overflow: hidden;
+  max-height: 320px; display: flex; align-items: center; justify-content: center;
+  background: #000;
+}
+.status-media-preview img, .status-media-preview video { width: 100%; max-height: 320px; object-fit: contain; }
+.status-pick-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 40px 20px;
+  border: 1.5px dashed var(--dark-border);
+  border-radius: var(--r-lg);
+  background: rgba(255,255,255,0.03);
+  color: var(--dark-text-2);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 13.5px; font-weight: 600;
+}
+.status-pick-btn:hover { background: rgba(255,255,255,0.06); }
+
+.status-viewer-overlay {
+  position: fixed; inset: 0; z-index: 2000;
+  background: #000;
+  display: flex; flex-direction: column;
+  color: #fff;
+  user-select: none;
+}
+.status-viewer-bars { display: flex; gap: 4px; padding: 8px 10px 0; }
+.status-viewer-bar { flex: 1; height: 2.5px; background: rgba(255,255,255,0.25); border-radius: 2px; overflow: hidden; }
+.status-viewer-bar-fill { height: 100%; background: #fff; }
+.status-viewer-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; }
+.status-viewer-user { display: flex; align-items: center; gap: 10px; }
+.status-viewer-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--brand-grad);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px;
+}
+.status-viewer-name { font-size: 13.5px; font-weight: 700; }
+.status-viewer-time { font-size: 11px; color: rgba(255,255,255,0.55); }
+.status-viewer-icon-btn {
+  background: rgba(255,255,255,0.1); border: none; color: #fff;
+  width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.status-viewer-body {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  position: relative; padding: 10px 14px;
+}
+.status-viewer-text {
+  width: 100%; height: 100%; border-radius: var(--r-lg);
+  display: flex; align-items: center; justify-content: center;
+  text-align: center; padding: 32px; font-size: 24px; font-weight: 700;
+  font-family: var(--font-display); color: #fff;
+}
+.status-viewer-media { max-width: 100%; max-height: 100%; border-radius: var(--r-md); object-fit: contain; }
+.status-viewer-caption {
+  position: absolute; bottom: 20px; left: 14px; right: 14px;
+  text-align: center; font-size: 13.5px; background: rgba(0,0,0,0.4);
+  padding: 8px 14px; border-radius: var(--r-md);
+}
+.status-viewer-nav { position: absolute; inset: 44px 0 0 0; display: flex; }
+.status-viewer-nav-zone { flex: 1; background: none; border: none; cursor: pointer; }
+.status-viewer-footer {
+  padding: 10px 16px calc(16px + env(safe-area-inset-bottom,0px));
+  font-size: 12.5px; color: rgba(255,255,255,0.6); text-align: center;
+}
+/* ═══════════════════════════════════════════════════════════
+   DESKTOP SIDEBAR FIX — must stay last in the file.
+   ".app.chat-open .sidebar { display: none; }" further up has the
+   exact same specificity as this rule. On a specificity tie, CSS
+   falls back to source order — whichever rule is physically later
+   in the file wins, media query or not. This has to come after
+   that rule (not just be "inside a media query") or it silently
+   loses and the chat takes over the full screen on desktop too.
+   ═══════════════════════════════════════════════════════════ */
+@media (min-width: 900px) {
+  .app.chat-open .sidebar {
+    display: flex;
+    width: 420px;
+    max-width: 420px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--dark-border);
+  }
+}
+.auth-forgot-link {
+  background: none; border: none; cursor: pointer;
+  font-size: 12.5px; font-weight: 600; color: var(--brand);
+  text-align: right; margin: -8px 0 16px; padding: 0;
+  font-family: var(--font-body);
+}
+.auth-forgot-link:hover { text-decoration: underline; }
+
+.auth-back-link {
+  background: none; border: none; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: var(--text-muted);
+  padding: 0; margin-top: 4px; font-family: var(--font-body);
+}
+.auth-back-link:hover { color: var(--brand); }
   const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
 
   const onHeyCurryActivated = useCallback(() => setActiveConvo(CURRY_AI_CONTACT), [])
@@ -1047,20 +2269,4 @@ export default function ChatPage({ session }) {
     </div>
   )
 }
-const [showAddStatus, setShowAddStatus] = useState(false)
-const [viewerIndex, setViewerIndex] = useState(null)
-
-const { statusGroups, myStatuses, markViewed, reload: reloadStatuses } = useStatuses(userId)
-
-const viewableGroups = [
-  ...(myStatuses.length > 0
-    ? [{ userId: 'mine', isMine: true, profile: { username: profile?.username || 'You' }, statuses: myStatuses }]
-    : []),
-  ...statusGroups.map(g => ({ ...g, isMine: false })),
-]
-
-const openViewer = (uid) => {
-  if (uid === 'mine' && myStatuses.length === 0) { setShowAddStatus(true); return }
-  const idx = viewableGroups.findIndex(g => g.userId === uid)
-  if (idx !== -1) setViewerIndex(idx)
-}
+ 
