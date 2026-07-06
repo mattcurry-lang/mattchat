@@ -569,19 +569,8 @@ export default function ChatPage({ session }) {
 
   const searchFiltered = conversations.filter(c => getConvoName(c).toLowerCase().includes(search.toLowerCase()))
   const filtered = searchFiltered.filter(c => listFilter === 'all' ? true : !!c.is_group)
-
-  // Story rail — your real contacts, since there's no stories/status
-  // backend yet. Explicitly sorted by most recent activity (not just
-  // trusting whatever order `conversations` came back in) so whoever
-  // messaged most recently always shows first, regardless of what
-  // the backend does or doesn't do with updated_at on its own.
-  const storyContacts = conversations
-    .filter(c => !c.is_group)
-    .slice()
-    .sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))
-    .slice(0, 12)
-
-
+ 
+  
   const headerStatus = () => {
     if (callStatus === 'calling')    return '📞 Calling…'
     if (callStatus === 'ringing')    return '📞 Ringing…'
@@ -642,40 +631,34 @@ export default function ChatPage({ session }) {
           </div>
 
           {/* ── STORY / QUICK-CONTACT RAIL ── */}
-          {activeTab === 'chats' && (
-            <div className="story-rail">
-              <button className="story-item story-add" onClick={() => setShowNewChat(true)} title="New chat">
-                <div className="story-add-circle">＋</div>
-                <span className="story-label">New</span>
-              </button>
-              {storyContacts.map(c => {
-                const otherId = getOtherUserId(c, userId)
-                const online = otherId ? isOnline(otherId) : false
-                const unread = unreadCounts[c.id] || 0
-                return (
-                  <button
-                    key={c.id}
-                    className="story-item"
-                    onClick={() => openConvo(c)}
-                    title={getConvoName(c)}
-                  >
-                    <div className="story-avatar-wrap">
-                      <div className={`story-ring ${online ? 'online' : ''}`}>
-                       <Avatar name={getConvoName(c)} size={52} online={online} />
-                      </div>
-                      {unread > 0 && <span className="unread-badge">{unread > 9 ? '9+' : unread}</span>}
-                      {sharedConvoIds.has(c.id) && (
-                        <span className="shared-badge" title="Shared with Curry">
-                          <IconSparkle size={9} />
-                        </span>
-                      )}
-                    </div>
-                    <span className="story-label">{getConvoName(c).split(' ')[0]}</span>
-                  </button>
-                )
-              })}
-            </div>
-          )}
+         {activeTab === 'chats' && (
+  <div className="story-rail">
+    <button className="story-item" onClick={() => openViewer('mine')} title="My status">
+      <div className="story-avatar-wrap">
+        <StatusRing size={58} hasStatus={myStatuses.length > 0} viewed>
+          <Avatar name={profile?.username || 'You'} size={52} />
+        </StatusRing>
+        <button
+          className="status-add-badge"
+          onClick={(e) => { e.stopPropagation(); setShowAddStatus(true) }}
+          title="Add status"
+        >
+          <IconPlus size={11} />
+        </button>
+      </div>
+      <span className="story-label">My status</span>
+    </button>
+
+    {statusGroups.map(group => (
+      <button key={group.userId} className="story-item" onClick={() => openViewer(group.userId)} title={group.profile.username}>
+        <StatusRing size={58} hasStatus viewed={group.allViewed}>
+          <Avatar name={group.profile.username} size={52} />
+        </StatusRing>
+        <span className="story-label">{(group.profile.username || 'Unknown').split(' ')[0]}</span>
+      </button>
+    ))}
+  </div>
+)}
         </div>
 
         {/* ── LIST CARD ── */}
@@ -753,13 +736,46 @@ export default function ChatPage({ session }) {
             </>
           )}
 
-          {activeTab === 'status' && (
-            <div style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <div style={{ fontSize: 48, marginBottom: 14 }}>📷</div>
-              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8, color: '#fff' }}>Status coming soon</div>
-              <div style={{ fontSize: 13 }}>Share updates with your contacts</div>
-            </div>
-          )}
+   {activeTab === 'status' && (
+  <div className="status-tab">
+    <div className="status-tab-mine" onClick={() => openViewer('mine')}>
+      <div className="story-avatar-wrap">
+        <StatusRing size={54} hasStatus={myStatuses.length > 0} viewed>
+          <Avatar name={profile?.username || 'You'} size={48} />
+        </StatusRing>
+        <button className="status-add-badge" onClick={(e) => { e.stopPropagation(); setShowAddStatus(true) }}>
+          <IconPlus size={11} />
+        </button>
+      </div>
+      <div className="contact-info">
+        <div className="contact-name">My status</div>
+        <div className="contact-preview">
+          {myStatuses.length > 0
+            ? `${myStatuses.length} update${myStatuses.length > 1 ? 's' : ''} · tap to view`
+            : 'Tap to add a status update'}
+        </div>
+      </div>
+    </div>
+
+    {statusGroups.length > 0 && <div className="status-tab-section-label">Recent updates</div>}
+
+    {statusGroups.map(group => (
+      <div key={group.userId} className="status-tab-row" onClick={() => openViewer(group.userId)}>
+        <StatusRing size={54} hasStatus viewed={group.allViewed}>
+          <Avatar name={group.profile.username} size={48} />
+        </StatusRing>
+        <div className="contact-info">
+          <div className="contact-name">{group.profile.username || 'Unknown'}</div>
+          <div className="contact-preview">{formatMsgTime(group.statuses[group.statuses.length - 1].created_at)}</div>
+        </div>
+      </div>
+    ))}
+
+    {statusGroups.length === 0 && myStatuses.length === 0 && (
+      <div className="empty-state">No status updates yet. Be the first to share one!</div>
+    )}
+  </div>
+)}
 
           {activeTab === 'calls' && (
             <div style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -803,7 +819,21 @@ export default function ChatPage({ session }) {
             </div>
           </div>
         )}
+{showAddStatus && (
+  <AddStatusModal userId={userId} onClose={() => setShowAddStatus(false)} onPosted={reloadStatuses} />
+)}
 
+{viewerIndex !== null && viewableGroups[viewerIndex] && (
+  <StatusViewer
+    group={viewableGroups[viewerIndex]}
+    isMine={viewableGroups[viewerIndex].isMine}
+    onClose={() => setViewerIndex(null)}
+    onViewed={markViewed}
+    onDeleted={reloadStatuses}
+    onNextGroup={viewerIndex < viewableGroups.length - 1 ? () => setViewerIndex(i => i + 1) : undefined}
+    onPrevGroup={viewerIndex > 0 ? () => setViewerIndex(i => i - 1) : undefined}
+  />
+)}
         {/* Always rendered — on mobile/tablet this is hidden automatically
             because the whole .sidebar hides when a chat is open; on desktop
             the sidebar (and this) stays visible the whole time. */}
