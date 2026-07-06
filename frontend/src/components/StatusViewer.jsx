@@ -45,7 +45,6 @@ export default function StatusViewer({ group, isMine, onClose, onViewed, onDelet
     }
     rafRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafRef.current)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, paused])
 
   const handleDelete = async () => {
