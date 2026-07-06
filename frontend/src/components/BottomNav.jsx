@@ -1,5 +1,5 @@
 import React from 'react'
-import { IconHome, IconPhone, IconCamera, IconUser } from './Icons'
+import { IconHome, IconPhone, IconStatus, IconUser } from './Icons'
 
 /**
  * Mobile-style bottom navigation bar — replaces the old desktop IconRail
@@ -37,7 +37,7 @@ export default function BottomNav({ activeTab, onTabChange, onNewChat, onProfile
         onClick={() => onTabChange('status')}
         title="Status"
       >
-        <IconCamera size={19} className="bnav-icon" />
+       <IconStatus size={19} className="bnav-icon" />
         <span className="bnav-label">Status</span>
       </button>
 
