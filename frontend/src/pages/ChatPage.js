@@ -402,7 +402,10 @@ export default function ChatPage({ session }) {
     const interval = setInterval(() => { supabase.functions.invoke('send-scheduled-messages') }, 60000)
     return () => clearInterval(interval)
   }, [])
-
+ useEffect(() => {
+  const interval = setInterval(() => { supabase.functions.invoke('cleanup-expired-statuses') }, 5 * 60000)
+  return () => clearInterval(interval)
+}, [])
   // "Deletes" a conversation for THIS user only. It doesn't touch the
   // conversations/messages/members rows at all — it just records that
   // you've hidden this conversation (hidden_conversations table), so:
