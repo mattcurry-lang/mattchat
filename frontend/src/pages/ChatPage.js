@@ -1017,3 +1017,20 @@ export default function ChatPage({ session }) {
     </div>
   )
 }
+const [showAddStatus, setShowAddStatus] = useState(false)
+const [viewerIndex, setViewerIndex] = useState(null)
+
+const { statusGroups, myStatuses, markViewed, reload: reloadStatuses } = useStatuses(userId)
+
+const viewableGroups = [
+  ...(myStatuses.length > 0
+    ? [{ userId: 'mine', isMine: true, profile: { username: profile?.username || 'You' }, statuses: myStatuses }]
+    : []),
+  ...statusGroups.map(g => ({ ...g, isMine: false })),
+]
+
+const openViewer = (uid) => {
+  if (uid === 'mine' && myStatuses.length === 0) { setShowAddStatus(true); return }
+  const idx = viewableGroups.findIndex(g => g.userId === uid)
+  if (idx !== -1) setViewerIndex(idx)
+}
