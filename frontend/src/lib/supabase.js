@@ -254,3 +254,50 @@ export const getOrCreateConversation = async (currentUserId, identifier) => {
   if (memberError) throw memberError
   return newId
 }
+
+export async function uploadStatusMedia(file, userId) {
+  const ext = file.name.split('.').pop()
+  const path = `${userId}/${crypto.randomUUID()}.${ext}`
+  const { error } = await supabase.storage.from('status-media').upload(path, file, {
+    contentType: file.type,
+    upsert: false,
+  })
+  if (error) throw new Error(error.message)
+  return path
+}
+
+export function getStatusMediaUrl(path) {
+  const { data } = supabase.storage.from('status-media').getPublicUrl(path)
+  // bucket is private, so this "public" URL only works because the
+  // storage SELECT policy allows any authenticated request — the
+  // browser's existing Supabase session cookie/header covers it.
+  return data.publicUrl
+}
+
+export async function createStatus({ userId, type, caption, mediaPath, background }) {
+  const { error } = await supabase.from('statuses').insert({
+    user_id: userId, type, caption: caption || null, media_path: mediaPath || null, background: background || null,
+  })
+  if (error) throw new Error(error.message)
+}
+
+export async function markStatusViewed(statusId, viewerId) {
+  await supabase.from('status_views').upsert(
+    { status_id: statusId, viewer_id: viewerId },
+    { onConflict: 'status_id,viewer_id' }
+  )
+}
+
+export async function getStatusViewers(statusId) {
+  const { data } = await supabase
+    .from('status_views')
+    .select('viewer_id, viewed_at, profiles!status_views_viewer_id_fkey(username)')
+    .eq('status_id', statusId)
+    .order('viewed_at', { ascending: false })
+  return data || []
+}
+
+export async function deleteStatus(statusId) {
+  const { error } = await supabase.from('statuses').delete().eq('id', statusId)
+  if (error) throw new Error(error.message)
+}
