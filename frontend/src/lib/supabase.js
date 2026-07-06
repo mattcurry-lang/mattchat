@@ -1,4 +1,4 @@
- import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY
@@ -42,20 +42,6 @@ export const signUp = async (email, password, username) => {
 
   return data
 }
-
-// Reset password
-export const resetPasswordForEmail = async (email) => {
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/reset-password`,
-  })
-  if (error) throw error
-}
-
-export const updatePassword = async (newPassword) => {
-  const { error } = await supabase.auth.updateUser({ password: newPassword })
-  if (error) throw error
-}
-
 export const signIn = async (email, password) => {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) throw error
@@ -68,6 +54,41 @@ export const signOut = async () => {
 export const getUser = async () => {
   const { data: { user } } = await supabase.auth.getUser()
   return user
+}
+
+// Starts the "Connect Gmail" flow — asks the gmail-oauth edge function
+// for Google's consent URL, then navigates the whole page there (this
+// has to be a real top-level redirect, not a fetch, since Google's
+// consent screen can't be shown inside an XHR response). Google will
+// eventually redirect back to this app at "/?email_connect=success"
+// (or denied/expired/error) once the user finishes or cancels.
+export const connectGmail = async (session) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/gmail-oauth?action=start`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  const data = await res.json()
+  if (!data.ok || !data.url) throw new Error(data.error || 'Could not start the Gmail connection')
+  window.location.href = data.url
+}
+
+// Lists the current user's connected email accounts — id and address
+// only, never tokens (the edge function enforces that, not this call).
+export const listEmailAccounts = async (session) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/gmail-oauth?action=list`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  const data = await res.json()
+  return data.accounts || []
+}
+
+export const disconnectEmailAccount = async (session, accountId) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/gmail-oauth?action=disconnect`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accountId }),
+  })
+  const data = await res.json()
+  if (!data.ok) throw new Error(data.error || 'Could not disconnect that account')
 }
 
 // Message helpers
