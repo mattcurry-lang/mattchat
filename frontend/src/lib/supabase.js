@@ -56,6 +56,27 @@ export const getUser = async () => {
   return user
 }
 
+// Sends the "forgot password" reset email. Google/Supabase will send
+// the user a link that lands back on this app at /reset-password with
+// a recovery token in the URL — that page should call updatePassword()
+// below once the user types their new password.
+export const resetPasswordForEmail = async (email) => {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/reset-password`,
+  })
+  if (error) throw error
+}
+
+// Call this from the /reset-password page once the user submits a new
+// password. Supabase's client picks up the recovery token from the
+// URL automatically (via detectSessionInUrl), so this just needs the
+// new password itself — no token handling required here.
+export const updatePassword = async (newPassword) => {
+  const { data, error } = await supabase.auth.updateUser({ password: newPassword })
+  if (error) throw error
+  return data
+}
+
 // Starts the "Connect Gmail" flow — asks the gmail-oauth edge function
 // for Google's consent URL, then navigates the whole page there (this
 // has to be a real top-level redirect, not a fetch, since Google's
