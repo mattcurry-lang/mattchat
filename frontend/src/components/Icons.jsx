@@ -155,3 +155,11 @@ export function IconTrash({ size = 18, ...props }) {
     </svg>
   )
 }
+
+export function IconBluetooth({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M8 7.5 16 15l-4 3.5V5L16 8.5 8 16" />
+    </svg>
+  )
+}
