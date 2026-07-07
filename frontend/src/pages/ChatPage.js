@@ -115,12 +115,13 @@ function MessageBubble({ msg, isMe, isRead, isDelivered }) {
   if (msg.message_type === 'curry') {
     return <CurryChatBubble msg={msg} />
   }
-  if (msg.content?.startsWith('missed_call:')) {
-    const callType = msg.content.replace('missed_call:', '')
+if (msg.content?.startsWith('missed_call:')) {
+    const [, callType, reason] = msg.content.split(':')
+    const label = reason === 'declined' ? 'Declined' : 'Missed'
     return (
       <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 20, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
-          {callType === 'video' ? '📹' : '📞'} Missed {callType} call
+          {callType === 'video' ? '📹' : '📞'} {label} {callType} call
           <span style={{ opacity: 0.6, fontWeight: 500 }}>· {formatMsgTime(msg.created_at)}</span>
         </div>
       </div>
@@ -614,20 +615,21 @@ useRingtone(callStatus === 'incoming', 'ringtone')
         <IncomingCallModal
           callerName={getConvoName(activeConvo || { conversation_members: [] })}
           callType={activeCall.callType}
-          onAnswer={answerCall}
+          onAnswer={(muted) => { setStartMuted(muted); answerCall() }}
           onDecline={declineCall}
         />
       )}
 
       {/* ── IN-CALL OVERLAY ── */}
       {(callStatus === 'connecting' || callStatus === 'in-call') && activeCall && (
-        <CallOverlay
-          roomUrl={activeCall.roomUrl}
-          token={callToken}
-          callType={activeCall.callType}
-          callerName={activeConvo ? getConvoName(activeConvo) : ''}
-          onEnd={endCall}
-        />
+       <CallOverlay
+  roomUrl={activeCall.roomUrl}
+  token={callToken}
+  callType={activeCall.callType}
+  startMuted={startMuted}
+  callerName={activeConvo ? getConvoName(activeConvo) : ''}
+  onEnd={endCall}
+/>
       )}
 
       {/* ── LIST / BROWSE SCREEN (hidden once a conversation is open) ── */}
