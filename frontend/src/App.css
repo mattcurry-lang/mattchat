@@ -617,7 +617,6 @@ html, body, #root {
     url("/mattchat-wallpaper.svg");
   background-size: auto, auto, 480px 480px;
 }
-}
 .app.chat-open .chat-area { display: flex; }
 
 /* Chat header — dark, matches the app chrome */
