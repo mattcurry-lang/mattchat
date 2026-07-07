@@ -266,12 +266,16 @@ export async function uploadStatusMedia(file, userId) {
   return path
 }
 
-export function getStatusMediaUrl(path) {
-  const { data } = supabase.storage.from('status-media').getPublicUrl(path)
-  // bucket is private, so this "public" URL only works because the
-  // storage SELECT policy allows any authenticated request — the
-  // browser's existing Supabase session cookie/header covers it.
-  return data.publicUrl
+export async function getStatusMediaUrl(path) {
+  if (!path) return null
+  const { data, error } = await supabase.storage
+    .from('status-media')
+    .createSignedUrl(path, 60 * 60 * 24) // 24h, matches how long a status lives anyway
+  if (error) {
+    console.error('createSignedUrl failed:', error)
+    return null
+  }
+  return data.signedUrl
 }
 
 export async function createStatus({ userId, type, caption, mediaPath, background }) {
