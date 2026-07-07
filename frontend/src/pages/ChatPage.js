@@ -115,18 +115,43 @@ function MessageBubble({ msg, isMe, isRead, isDelivered }) {
   if (msg.message_type === 'curry') {
     return <CurryChatBubble msg={msg} />
   }
-if (msg.content?.startsWith('missed_call:')) {
-    const [, callType, reason] = msg.content.split(':')
-    const label = reason === 'declined' ? 'Declined' : 'Missed'
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 20, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
-          {callType === 'video' ? '📹' : '📞'} {label} {callType} call
-          <span style={{ opacity: 0.6, fontWeight: 500 }}>· {formatMsgTime(msg.created_at)}</span>
-        </div>
-      </div>
-    )
+if (msg.content?.startsWith('call_log:') || msg.content?.startsWith('missed_call:')) {
+  let callType, status, duration = 0
+  if (msg.content.startsWith('call_log:')) {
+    [, callType, status, duration] = msg.content.split(':')
+    duration = parseInt(duration, 10) || 0
+  } else {
+    const [, ct, reason] = msg.content.split(':')
+    callType = ct
+    status = reason === 'declined' ? 'declined' : 'missed'
   }
+
+  const isMe = msg.sender_id === msg._currentUserId
+  const icon = callType === 'video' ? '📹' : '📞'
+  const label =
+    status === 'completed' ? (isMe ? 'Outgoing call' : 'Incoming call') :
+    status === 'declined'  ? 'Declined' : 'Missed'
+  const durLabel = status === 'completed' && duration > 0
+    ? ` · ${Math.floor(duration / 60)}m ${duration % 60}s`
+    : ''
+  const isBad = status !== 'completed'
+
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+      <div style={{
+        fontSize: 12,
+        color: isBad ? '#f87171' : 'var(--text-muted)',
+        background: isBad ? 'rgba(239,68,68,0.08)' : 'rgba(34,197,94,0.08)',
+        border: `1px solid ${isBad ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)'}`,
+        borderRadius: 20, padding: '6px 14px',
+        display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600,
+      }}>
+        {icon} {label}{durLabel}
+        <span style={{ opacity: 0.6, fontWeight: 500 }}>· {formatMsgTime(msg.created_at)}</span>
+      </div>
+    </div>
+  )
+}
   if (msg.content?.startsWith('sticker:')) {
     return (
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
@@ -965,7 +990,7 @@ useRingtone(callStatus === 'incoming', 'ringtone')
               {messages.map((msg, i) => {
                 const prev = messages[i - 1]
                 const showDate = !prev || new Date(msg.created_at).toDateString() !== new Date(prev.created_at).toDateString()
-                const isMissedCall = msg.content?.startsWith('missed_call:')
+                conconst isMissedCall = msg.content?.startsWith('missed_call:') || msg.content?.startsWith('call_log:')
                 const isCurryMsg = msg.message_type === 'curry'
                 const isMine = msg.sender_id === userId
                 const wrapClass = (isMissedCall || isCurryMsg) ? 'system' : (isMine ? 'mine' : 'theirs')
