@@ -22,15 +22,23 @@ export function useCall(userId, conversationId) {
   // Writes a call-outcome line into the conversation, WhatsApp-style.
   // status: 'completed' | 'missed' | 'declined'
   // durationSeconds: only meaningful for 'completed'
+  //
+  // IMPORTANT: sender_id must be the CURRENTLY LOGGED-IN user (userId),
+  // not call.initiatedBy. RLS on `messages` requires sender_id = auth.uid(),
+  // so when the person who did NOT start the call declines/ends it, an
+  // insert using call.initiatedBy (someone else's id) gets silently
+  // rejected and no bubble ever shows up. Using userId here means the
+  // insert always succeeds, no matter which side of the call runs it.
   const logCallMessage = useCallback(async (call, status, durationSeconds = 0) => {
     if (!call?.conversationId) return
-    await supabase.from('messages').insert({
+    const { error } = await supabase.from('messages').insert({
       conversation_id: call.conversationId,
-      sender_id: call.initiatedBy,
+      sender_id: userId,
       content: `call_log:${call.callType}:${status}:${durationSeconds}`,
       message_type: 'call_log',
     })
-  }, [])
+    if (error) console.error('logCallMessage insert failed:', error)
+  }, [userId])
 
   // ── GLOBAL listener — catches incoming calls on ANY conversation ──
   useEffect(() => {
