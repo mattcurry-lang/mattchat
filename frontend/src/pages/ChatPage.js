@@ -31,6 +31,8 @@ import { useStatuses } from '../hooks/useStatuses'
 import StatusRing from '../components/StatusRing'
 import AddStatusModal from '../components/AddStatusModal'
 import StatusViewer from '../components/StatusViewer'
+import CallsList from '../components/CallsList'
+import { useCallHistory } from '../hooks/useCallHistory'
 
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
@@ -290,9 +292,11 @@ export default function ChatPage({ session }) {
   const { callStatus, activeCall, callToken, callError, startCall, answerCall, declineCall, endCall } =
     useCall(userId, activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null)
 
-  useRingtone(['calling', 'ringing', 'incoming'].includes(callStatus))
-
+useRingtone(['calling', 'ringing'].includes(callStatus), 'ringback')
+useRingtone(callStatus === 'incoming', 'ringtone')
   const { conversations, loading: convLoading, reload } = useConversations(userId)
+  const { calls: callHistory, loading: callHistoryLoading } = useCallHistory(userId, conversations)
+  const [startMuted, setStartMuted] = useState(false)
   const { unreadCounts, clearUnread, totalUnread } = useUnreadCounts(
     userId,
     conversations.map(c => c.id)
@@ -796,13 +800,16 @@ export default function ChatPage({ session }) {
             </div>
           )}
 
-          {activeTab === 'calls' && (
-            <div style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <div style={{ fontSize: 48, marginBottom: 14 }}>📞</div>
-              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8, color: '#fff' }}>Recent calls</div>
-              <div style={{ fontSize: 13 }}>Your call history will appear here</div>
-            </div>
-          )}
+         {activeTab === 'calls' && (
+  <CallsList
+    calls={callHistory}
+    loading={callHistoryLoading}
+    onOpenConversation={(convoId) => {
+      const found = conversations.find(c => c.id === convoId)
+      if (found) { openConvo(found); setActiveTab('chats') }
+    }}
+  />
+)}
         </div>
 
         {showProfileMenu && (
