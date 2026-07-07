@@ -33,7 +33,7 @@ import AddStatusModal from '../components/AddStatusModal'
 import StatusViewer from '../components/StatusViewer'
 import CallsList from '../components/CallsList'
 import { useCallHistory } from '../hooks/useCallHistory'
-
+import NewCallModal from '../components/NewCallModal'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -306,6 +306,7 @@ export default function ChatPage({ session }) {
   const [curryChatBusy, setCurryChatBusy]           = useState(false)
   const [emailAccounts, setEmailAccounts]           = useState([])
   const [connectingGmail, setConnectingGmail]       = useState(false)
+  const [showNewCall, setShowNewCall] = useState(false)
 
   const msgRefs        = useRef({})
   const messagesEndRef = useRef(null)
@@ -827,17 +828,31 @@ useRingtone(callStatus === 'incoming', 'ringtone')
             </div>
           )}
 
-         {activeTab === 'calls' && (
-  <CallsList
-    calls={callHistory}
-    loading={callHistoryLoading}
-    onOpenConversation={(convoId) => {
-      const found = conversations.find(c => c.id === convoId)
-      if (found) { openConvo(found); setActiveTab('chats') }
-    }}
-  />
-)}
-        </div>
+{activeTab === 'calls' && (
+  <div style={{ position: 'relative', height: '100%' }}>
+    <CallsList
+      calls={callHistory}
+      loading={callHistoryLoading}
+      onOpenConversation={(convoId) => {
+        const found = conversations.find(c => c.id === convoId)
+        if (found) { openConvo(found); setActiveTab('chats') }
+      }}
+    />
+    <button
+      onClick={() => setShowNewCall(true)}
+      title="New call"
+      style={{
+        position: 'absolute', bottom: 20, right: 20,
+        width: 52, height: 52, borderRadius: '50%',
+        background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none',
+        color: '#fff', fontSize: 22, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: '0 6px 20px rgba(102,126,234,0.4)',
+      }}
+    >📞</button>
+  </div>
+)}     
+  </div>
 
         {showProfileMenu && (
           <div className="profile-menu-overlay" onClick={() => setShowProfileMenu(false)}>
@@ -876,6 +891,22 @@ useRingtone(callStatus === 'incoming', 'ringtone')
         {showAddStatus && (
           <AddStatusModal userId={userId} onClose={() => setShowAddStatus(false)} onPosted={reloadStatuses} />
         )}
+          {showNewCall && (
+  <NewCallModal
+    conversations={conversations}
+    userId={userId}
+    onClose={() => setShowNewCall(false)}
+    onCall={(convo, type) => {
+      setShowNewCall(false)
+      openConvo(convo)
+      setActiveTab('chats')
+      // startCall reads activeConvo.id via the useCall hook's
+      // conversationId argument, which is derived from activeConvo —
+      // give React one tick to commit that state update first.
+      setTimeout(() => startCall(type), 50)
+    }}
+  />
+)}
 
         {viewerIndex !== null && viewableGroups[viewerIndex] && (
           <StatusViewer
