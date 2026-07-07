@@ -9,11 +9,18 @@ export default function StatusViewer({ group, isMine, onClose, onViewed, onDelet
   const [progress, setProgress] = useState(0)
   const [paused, setPaused] = useState(false)
   const [viewers, setViewers] = useState([])
+  const [mediaUrl, setMediaUrl] = useState(null)
   const rafRef = useRef(null)
   const startRef = useRef(null)
 
   const statuses = group.statuses
   const current = statuses[index]
+  // For text statuses there's nothing to fetch, so treat "ready" as
+  // true immediately. For image/video, don't start/advance the timer
+  // until the signed URL actually comes back — otherwise the 5s clock
+  // can expire before the media has even loaded, which looked exactly
+  // like this black-screen bug from the outside.
+  const mediaReady = current.type === 'text' || !!mediaUrl
 
   const advance = useCallback(() => {
     if (index < statuses.length - 1) setIndex(i => i + 1)
@@ -33,8 +40,20 @@ export default function StatusViewer({ group, isMine, onClose, onViewed, onDelet
     if (isMine) getStatusViewers(current.id).then(setViewers)
   }, [current, isMine, onViewed])
 
+  // Fetch a fresh signed URL whenever the current status changes.
   useEffect(() => {
-    if (paused) { cancelAnimationFrame(rafRef.current); return }
+    let cancelled = false
+    setMediaUrl(null)
+    if (current.type !== 'text' && current.media_path) {
+      getStatusMediaUrl(current.media_path).then(url => {
+        if (!cancelled) setMediaUrl(url)
+      })
+    }
+    return () => { cancelled = true }
+  }, [current])
+
+  useEffect(() => {
+    if (paused || !mediaReady) { cancelAnimationFrame(rafRef.current); return }
     const tick = (ts) => {
       if (!startRef.current) startRef.current = ts - progress * DURATION_MS
       const elapsed = ts - startRef.current
@@ -45,7 +64,7 @@ export default function StatusViewer({ group, isMine, onClose, onViewed, onDelet
     }
     rafRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafRef.current)
-  }, [current, paused])
+  }, [current, paused, mediaReady])
 
   const handleDelete = async () => {
     if (!window.confirm('Delete this status?')) return
@@ -100,10 +119,14 @@ export default function StatusViewer({ group, isMine, onClose, onViewed, onDelet
           </div>
         )}
         {current.type === 'image' && (
-          <img className="status-viewer-media" src={getStatusMediaUrl(current.media_path)} alt="" />
+          mediaUrl
+            ? <img className="status-viewer-media" src={mediaUrl} alt="" />
+            : <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13.5 }}>Loading…</div>
         )}
         {current.type === 'video' && (
-          <video className="status-viewer-media" src={getStatusMediaUrl(current.media_path)} autoPlay onEnded={advance} />
+          mediaUrl
+            ? <video className="status-viewer-media" src={mediaUrl} autoPlay onEnded={advance} />
+            : <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13.5 }}>Loading…</div>
         )}
         {current.type !== 'text' && current.caption && (
           <div className="status-viewer-caption">{current.caption}</div>
