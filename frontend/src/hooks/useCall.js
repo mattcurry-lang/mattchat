@@ -2,8 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
 const FUNCTIONS_BASE = 'https://bqerkvywgxoioocbkxif.supabase.co/functions/v1'
-
-// How long a call rings before being marked missed if nobody answers.
 const MISSED_CALL_TIMEOUT_MS = 30000
 
 export function useCall(userId, conversationId) {
@@ -21,14 +19,14 @@ export function useCall(userId, conversationId) {
     }
   }
 
-  // Writes a "missed call" line into the conversation, the same way
-  // WhatsApp shows a system-style message in the thread.
-  const logMissedCallMessage = useCallback(async (call) => {
+  // Writes a system-style line into the conversation. reason is
+  // 'timeout' (nobody picked up) or 'declined' (explicitly hung up on).
+  const logMissedCallMessage = useCallback(async (call, reason = 'timeout') => {
     if (!call?.conversationId) return
     await supabase.from('messages').insert({
       conversation_id: call.conversationId,
       sender_id: call.initiatedBy,
-      content: `missed_call:${call.callType}`,
+      content: `missed_call:${call.callType}:${reason}`,
       message_type: 'missed_call',
     })
   }, [])
@@ -55,7 +53,7 @@ export function useCall(userId, conversationId) {
           .eq('user_id', userId)
           .single()
           .then(({ data, error }) => {
-            if (error || !data) return // not our conversation (or query failed)
+            if (error || !data) return
 
             const incoming = {
               id: call.id,
@@ -80,9 +78,6 @@ export function useCall(userId, conversationId) {
         if (!callRef.current) return
         if (call.id !== callRef.current.id) return
 
-        // Receiver just answered — caller's side moves from
-        // 'ringing' into 'connecting' (briefly, while Daily joins),
-        // then CallOverlay flips it to 'in-call' once media connects.
         if (call.status === 'answered') {
           clearMissedTimer()
           setCallStatus('connecting')
@@ -100,18 +95,12 @@ export function useCall(userId, conversationId) {
           }, 2000)
         }
       })
-      .subscribe((status) => {
-        console.log('useCall global subscription:', status)
-      })
+      .subscribe()
 
     return () => { supabase.removeChannel(channel) }
   }, [userId])
 
   // ── Start a call ──────────────────────────────────────────────────
-  // Status flow for the caller: 'calling' (setting up the room, brief)
-  // → 'ringing' (room exists, waiting for the other person to answer)
-  // → 'connecting' (they answered, joining the Daily room)
-  // → 'in-call'.
   const startCall = useCallback(async (callType) => {
     if (!conversationId) return
     setCallStatus('calling')
@@ -119,17 +108,11 @@ export function useCall(userId, conversationId) {
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch(
-        `${FUNCTIONS_BASE}/create-call-room-ts`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({ conversationId, callType }),
-        }
-      )
+      const res = await fetch(`${FUNCTIONS_BASE}/create-call-room-ts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ conversationId, callType }),
+      })
       const data = await res.json()
       if (!data.ok) throw new Error(data.error || 'Failed to start call')
 
@@ -145,22 +128,10 @@ export function useCall(userId, conversationId) {
       callRef.current = call
       setActiveCall(call)
       setCallToken(data.token)
-      // FIX: this used to jump straight to 'connecting', which made
-      // the caller's UI (and the ringtone, which only plays during
-      // 'calling'/'incoming') skip past the "phone is ringing on
-      // their end" period entirely. 'ringing' now persists until the
-      // receiver actually answers (handled in the UPDATE listener
-      // below) or the missed-call timeout fires.
       setCallStatus('ringing')
 
-      // ── Missed-call timeout ──────────────────────────────────────
-      // If nobody answers within MISSED_CALL_TIMEOUT_MS, mark the call
-      // 'missed' and log it in the conversation, same as a real phone.
       clearMissedTimer()
       missedTimerRef.current = setTimeout(async () => {
-        // Only fire if this exact call is still the active one
-        // (i.e. nobody answered or declined in the meantime — the
-        // DB check below is the actual source of truth for that).
         if (callRef.current?.id !== call.id) return
 
         if (call.id) {
@@ -175,8 +146,7 @@ export function useCall(userId, conversationId) {
               .from('active_calls')
               .update({ status: 'missed', ended_at: new Date().toISOString() })
               .eq('id', call.id)
-
-            await logMissedCallMessage(call)
+            await logMissedCallMessage(call, 'timeout')
           }
         }
 
@@ -206,10 +176,7 @@ export function useCall(userId, conversationId) {
       const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch(`${FUNCTIONS_BASE}/get-call-token`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
         body: JSON.stringify({ callId: call.id, roomName: call.roomName }),
       })
       const data = await res.json()
@@ -218,7 +185,7 @@ export function useCall(userId, conversationId) {
       if (call.id) {
         await supabase
           .from('active_calls')
-          .update({ status: 'answered' })
+          .update({ status: 'answered', answered_at: new Date().toISOString() })
           .eq('id', call.id)
       }
 
@@ -248,21 +215,30 @@ export function useCall(userId, conversationId) {
         .from('active_calls')
         .update({ status: 'declined', ended_at: new Date().toISOString() })
         .eq('id', call.id)
+      await logMissedCallMessage(call, 'declined')
     }
     setCallStatus('idle')
     setActiveCall(null)
     setCallToken(null)
     callRef.current = null
-  }, [])
+  }, [logMissedCallMessage])
 
   // ── End an active call ────────────────────────────────────────────
   const endCall = useCallback(async () => {
     clearMissedTimer()
     const call = callRef.current
     if (call?.id) {
+      const { data: current } = await supabase
+        .from('active_calls')
+        .select('answered_at')
+        .eq('id', call.id)
+        .single()
+      const duration = current?.answered_at
+        ? Math.max(0, Math.round((Date.now() - new Date(current.answered_at).getTime()) / 1000))
+        : 0
       await supabase
         .from('active_calls')
-        .update({ status: 'ended', ended_at: new Date().toISOString() })
+        .update({ status: 'ended', ended_at: new Date().toISOString(), duration_seconds: duration })
         .eq('id', call.id)
     }
     setCallStatus('ended')
@@ -276,14 +252,5 @@ export function useCall(userId, conversationId) {
 
   useEffect(() => clearMissedTimer, [])
 
-  return {
-    callStatus,
-    activeCall,
-    callToken,
-    callError,
-    startCall,
-    answerCall,
-    declineCall,
-    endCall,
-  }
+  return { callStatus, activeCall, callToken, callError, startCall, answerCall, declineCall, endCall }
 }
