@@ -5,7 +5,7 @@
       <stop offset="50%" stop-color="#3b82f6"/>
       <stop offset="100%" stop-color="#a855f7"/>
     </linearGradient>
-    <pattern id="mattchatDoodles" patternUnits="userSpaceOnUse" width="480" height="480">
+    <pattern id="mattchatDoodles" patternUnits="userSpaceOnUse" width="260" height="260" viewBox="0 0 480 480">
       <rect width="480" height="480" fill="#060608"/>
 
       <!-- ===== Tile group A (top-left) ===== -->
