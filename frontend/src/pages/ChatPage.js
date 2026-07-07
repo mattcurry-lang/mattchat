@@ -1021,7 +1021,7 @@ useRingtone(callStatus === 'incoming', 'ringtone')
               {messages.map((msg, i) => {
                 const prev = messages[i - 1]
                 const showDate = !prev || new Date(msg.created_at).toDateString() !== new Date(prev.created_at).toDateString()
-                conconst isMissedCall = msg.content?.startsWith('missed_call:') || msg.content?.startsWith('call_log:')
+                const isMissedCall = msg.content?.startsWith('missed_call:') || msg.content?.startsWith('call_log:')
                 const isCurryMsg = msg.message_type === 'curry'
                 const isMine = msg.sender_id === userId
                 const wrapClass = (isMissedCall || isCurryMsg) ? 'system' : (isMine ? 'mine' : 'theirs')
