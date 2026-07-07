@@ -828,31 +828,24 @@ useRingtone(callStatus === 'incoming', 'ringtone')
             </div>
           )}
 
-{activeTab === 'calls' && (
-  <div style={{ position: 'relative', height: '100%' }}>
-    <CallsList
-      calls={callHistory}
-      loading={callHistoryLoading}
-      onOpenConversation={(convoId) => {
-        const found = conversations.find(c => c.id === convoId)
-        if (found) { openConvo(found); setActiveTab('chats') }
-      }}
-    />
-    <button
-      onClick={() => setShowNewCall(true)}
-      title="New call"
-      style={{
-        position: 'absolute', bottom: 20, right: 20,
-        width: 52, height: 52, borderRadius: '50%',
-        background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none',
-        color: '#fff', fontSize: 22, cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 6px 20px rgba(102,126,234,0.4)',
-      }}
-    >📞</button>
-  </div>
-)}     
-  </div>
+          {activeTab === 'calls' && (
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
+              {/* flex:1 + minHeight:0 is what makes this scroll — without
+                  minHeight:0 a flex child won't shrink below its content
+                  size, so overflow never actually kicks in. */}
+              <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                <CallsList
+                  calls={callHistory}
+                  loading={callHistoryLoading}
+                  onOpenConversation={(convoId) => {
+                    const found = conversations.find(c => c.id === convoId)
+                    if (found) { openConvo(found); setActiveTab('chats') }
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
 
         {showProfileMenu && (
           <div className="profile-menu-overlay" onClick={() => setShowProfileMenu(false)}>
@@ -891,22 +884,22 @@ useRingtone(callStatus === 'incoming', 'ringtone')
         {showAddStatus && (
           <AddStatusModal userId={userId} onClose={() => setShowAddStatus(false)} onPosted={reloadStatuses} />
         )}
-          {showNewCall && (
-  <NewCallModal
-    conversations={conversations}
-    userId={userId}
-    onClose={() => setShowNewCall(false)}
-    onCall={(convo, type) => {
-      setShowNewCall(false)
-      openConvo(convo)
-      setActiveTab('chats')
-      // startCall reads activeConvo.id via the useCall hook's
-      // conversationId argument, which is derived from activeConvo —
-      // give React one tick to commit that state update first.
-      setTimeout(() => startCall(type), 50)
-    }}
-  />
-)}
+        {showNewCall && (
+          <NewCallModal
+            conversations={conversations}
+            userId={userId}
+            onClose={() => setShowNewCall(false)}
+            onCall={(convo, type) => {
+              setShowNewCall(false)
+              openConvo(convo)
+              setActiveTab('chats')
+              // startCall reads activeConvo.id via the useCall hook's
+              // conversationId argument, which is derived from activeConvo —
+              // give React one tick to commit that state update first.
+              setTimeout(() => startCall(type), 50)
+            }}
+          />
+        )}
 
         {viewerIndex !== null && viewableGroups[viewerIndex] && (
           <StatusViewer
@@ -922,11 +915,14 @@ useRingtone(callStatus === 'incoming', 'ringtone')
 
         {/* Always rendered — on mobile/tablet this is hidden automatically
             because the whole .sidebar hides when a chat is open; on desktop
-            the sidebar (and this) stays visible the whole time. */}
+            the sidebar (and this) stays visible the whole time.
+            The central "+" button is context-aware, just like WhatsApp:
+            on the Calls tab it opens the new-call picker, everywhere else
+            it opens the new-chat form. */}
         <BottomNav
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          onNewChat={() => setShowNewChat(true)}
+          onNewChat={() => (activeTab === 'calls' ? setShowNewCall(true) : setShowNewChat(true))}
           onProfileClick={() => setShowProfileMenu(v => !v)}
         />
       </div>
