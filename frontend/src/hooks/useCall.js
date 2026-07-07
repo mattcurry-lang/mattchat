@@ -19,15 +19,16 @@ export function useCall(userId, conversationId) {
     }
   }
 
-  // Writes a system-style line into the conversation. reason is
-  // 'timeout' (nobody picked up) or 'declined' (explicitly hung up on).
-  const logMissedCallMessage = useCallback(async (call, reason = 'timeout') => {
+  // Writes a call-outcome line into the conversation, WhatsApp-style.
+  // status: 'completed' | 'missed' | 'declined'
+  // durationSeconds: only meaningful for 'completed'
+  const logCallMessage = useCallback(async (call, status, durationSeconds = 0) => {
     if (!call?.conversationId) return
     await supabase.from('messages').insert({
       conversation_id: call.conversationId,
       sender_id: call.initiatedBy,
-      content: `missed_call:${call.callType}:${reason}`,
-      message_type: 'missed_call',
+      content: `call_log:${call.callType}:${status}:${durationSeconds}`,
+      message_type: 'call_log',
     })
   }, [])
 
@@ -146,7 +147,7 @@ export function useCall(userId, conversationId) {
               .from('active_calls')
               .update({ status: 'missed', ended_at: new Date().toISOString() })
               .eq('id', call.id)
-            await logMissedCallMessage(call, 'timeout')
+            await logCallMessage(call, 'missed', 0)
           }
         }
 
@@ -162,7 +163,7 @@ export function useCall(userId, conversationId) {
       setCallError(err.message)
       setCallStatus('idle')
     }
-  }, [conversationId, userId, logMissedCallMessage])
+  }, [conversationId, userId, logCallMessage])
 
   // ── Answer an incoming call ───────────────────────────────────────
   const answerCall = useCallback(async () => {
@@ -215,13 +216,13 @@ export function useCall(userId, conversationId) {
         .from('active_calls')
         .update({ status: 'declined', ended_at: new Date().toISOString() })
         .eq('id', call.id)
-      await logMissedCallMessage(call, 'declined')
+      await logCallMessage(call, 'declined', 0)
     }
     setCallStatus('idle')
     setActiveCall(null)
     setCallToken(null)
     callRef.current = null
-  }, [logMissedCallMessage])
+  }, [logCallMessage])
 
   // ── End an active call ────────────────────────────────────────────
   const endCall = useCallback(async () => {
@@ -233,13 +234,23 @@ export function useCall(userId, conversationId) {
         .select('answered_at')
         .eq('id', call.id)
         .single()
-      const duration = current?.answered_at
+
+      const wasAnswered = !!current?.answered_at
+      const duration = wasAnswered
         ? Math.max(0, Math.round((Date.now() - new Date(current.answered_at).getTime()) / 1000))
         : 0
+
       await supabase
         .from('active_calls')
         .update({ status: 'ended', ended_at: new Date().toISOString(), duration_seconds: duration })
         .eq('id', call.id)
+
+      // Only log a "completed" bubble if the call actually connected;
+      // if nobody answered before endCall fired, the missed-call
+      // timeout path already handles that message instead.
+      if (wasAnswered) {
+        await logCallMessage(call, 'completed', duration)
+      }
     }
     setCallStatus('ended')
     setTimeout(() => {
@@ -248,7 +259,7 @@ export function useCall(userId, conversationId) {
       setCallToken(null)
       callRef.current = null
     }, 2000)
-  }, [])
+  }, [logCallMessage])
 
   useEffect(() => clearMissedTimer, [])
 
