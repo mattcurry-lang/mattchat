@@ -601,8 +601,7 @@ html, body, #root {
 }
 .welcome-pane-content strong { color: #c4b5fd; }
 
-/* 3. Chat wallpaper — opacity reduced ~25% across all three layers
-   so it recedes behind messages instead of competing with them */
+/* 3. Chat wallpaper — Mattchat doodle pattern with brand mark */
 .chat-area {
   flex: 1;
   width: 100%;
@@ -615,8 +614,9 @@ html, body, #root {
   background-image:
     radial-gradient(circle at 10% 0%, rgba(108,99,255,0.09) 0%, transparent 45%),
     radial-gradient(circle at 90% 100%, rgba(167,139,250,0.065) 0%, transparent 45%),
-    url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.018'%3E%3Cpath d='M40 40c0-11 9-20 20-20s20 9 20 20-9 20-20 20-20-9-20-20zm-40 0c0-11 9-20 20-20s20 9 20 20-9 20-20 20-20-9-20-20z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-  background-size: auto, auto, 80px 80px;
+    url("/mattchat-wallpaper.svg");
+  background-size: auto, auto, 480px 480px;
+}
 }
 .app.chat-open .chat-area { display: flex; }
 
