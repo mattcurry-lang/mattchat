@@ -310,13 +310,12 @@ export default function ChatPage({ session }) {
   const [curryChatBusy, setCurryChatBusy]           = useState(false)
   const [emailAccounts, setEmailAccounts]           = useState([])
   const [connectingGmail, setConnectingGmail]       = useState(false)
-  const [showNewCall, setShowNewCall] = useState(false)
-  const [showNewCall, setShowNewCall] = useState(false)
+ const [showNewCall, setShowNewCall] = useState(false)
 const [messageMenu, setMessageMenu] = useState(null) // { message, x, y } | null
 
   const msgRefs        = useRef({})
   const messagesEndRef = useRef(null)
-  const typingTimer    = useRef(null)
+  const typingTimer    = use(null)
   const textareaRef    = useRef(null)
 
   const userId = session.user.id
@@ -1046,12 +1045,18 @@ useRingtone(callStatus === 'incoming', 'ringtone')
                 return (
                   <React.Fragment key={msg.id}>
                     {showDate && <DateDivider date={msg.created_at} />}
-                    <div
-                      ref={el => msgRefs.current[msg.id] = el}
-                      className={`msg-wrap ${wrapClass}`}
-                      onContextMenu={e => { if (!isCurryMsg) { e.preventDefault(); pinMessage(msg.id) } }}
-                      title={isCurryMsg ? undefined : 'Right-click to pin'}
-                    >
+                  <div
+  ref={el => (msgRefs.current[msg.id] = el)}
+  className={`msg-wrap ${wrapClass}`}
+  onContextMenu={e => {
+    if (!isCurryMsg) {
+      e.preventDefault()
+      pinMessage(msg.id)
+    }
+  }}
+  title={isCurryMsg ? undefined : 'Right-click to pin'}
+  {...(!isCurryMsg ? bindLongPress(msg) : {})}
+>
                       {isCurryMsg ? (
                         <MessageBubble msg={msg} isMe={false} isRead={false} isDelivered={false} />
                       ) : (
@@ -1080,7 +1085,20 @@ useRingtone(callStatus === 'incoming', 'ringtone')
               )}
               <div ref={messagesEndRef} />
             </div>
-
+    {messageMenu && (
+  <MessageActionsMenu
+    session={session}
+    message={messageMenu.message}
+    position={{
+      x: messageMenu.x,
+      y: messageMenu.y,
+    }}
+    onClose={() => setMessageMenu(null)}
+    onPin={() => pinMessage(messageMenu.message.id)}
+    onCopy={() => {}}
+    onInsertReply={(text) => setInputText(text)}
+  />
+)}
             {/* Input area */}
             <div className="input-area" style={{ flexDirection: 'column', alignItems: 'stretch', padding: 0 }}>
               {showCurryAssistant && (
