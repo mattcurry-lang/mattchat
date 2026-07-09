@@ -315,7 +315,7 @@ const [messageMenu, setMessageMenu] = useState(null) // { message, x, y } | null
 
   const msgRefs        = useRef({})
   const messagesEndRef = useRef(null)
-  const typingTimer    = use(null)
+  const typingTimer    = useRef(null)
   const textareaRef    = useRef(null)
 
   const userId = session.user.id
