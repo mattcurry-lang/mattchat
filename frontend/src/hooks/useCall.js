@@ -260,11 +260,14 @@ export function useCall(userId, conversationId) {
         .update({ status: 'ended', ended_at: new Date().toISOString(), duration_seconds: duration })
         .eq('id', call.id)
 
-      // Only log a "completed" bubble if the call actually connected;
-      // if nobody answered before endCall fired, the missed-call
-      // timeout path already handles that message instead.
       if (wasAnswered) {
+        // Call connected and was hung up normally.
         await logCallMessage(call, 'completed', duration)
+      } else if (current) {
+        // Caller cancelled before anyone answered (and before the 30s
+        // missed-call timeout fired). Previously this logged nothing —
+        // log it as missed so it's not silently dropped.
+        await logCallMessage(call, 'missed', 0)
       }
     }
     setCallStatus('ended')
