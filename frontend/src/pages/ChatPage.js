@@ -37,6 +37,8 @@ import NewCallModal from '../components/NewCallModal'
 import AICommandBar from '../components/AICommandBar'
 import FloatingCurryOrb from '../components/FloatingCurryOrb'
 import MessageActionsMenu, { useMessageLongPress } from '../components/MessageActionsMenu'
+import PromotedDailyBrief from '../components/PromotedDailyBrief'
+import SmartCollections, { useConvoTags, filterByCollection } from '../components/SmartCollections'
 
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
@@ -312,6 +314,8 @@ export default function ChatPage({ session }) {
   const [connectingGmail, setConnectingGmail]       = useState(false)
  const [showNewCall, setShowNewCall] = useState(false)
 const [messageMenu, setMessageMenu] = useState(null) // { message, x, y } | null
+  const [collection, setCollection] = useState('all')
+const { tags, setTag } = useConvoTags()
 
   const msgRefs        = useRef({})
   const messagesEndRef = useRef(null)
@@ -636,8 +640,9 @@ useRingtone(callStatus === 'incoming', 'ringtone')
     return other?.profiles?.username || other?.profiles?.email || 'Unknown'
   }
 
-  const searchFiltered = conversations.filter(c => getConvoName(c).toLowerCase().includes(search.toLowerCase()))
-  const filtered = searchFiltered.filter(c => listFilter === 'all' ? true : !!c.is_group)
+ const searchFiltered = conversations.filter(c => getConvoName(c).toLowerCase().includes(search.toLowerCase()))
+const collectionFiltered = filterByCollection(searchFiltered, collection, { unreadCounts, sharedConvoIds, tags })
+const filtered = collectionFiltered.filter(c => listFilter === 'all' ? true : !!c.is_group)
 
   const headerStatus = () => {
     if (callStatus === 'calling')    return '📞 Calling…'
@@ -734,6 +739,13 @@ useRingtone(callStatus === 'incoming', 'ringtone')
             </div>
           )}
         </div>
+{activeTab === 'chats' && (
+  <PromotedDailyBrief
+    session={session}
+    onAskQuestion={() => {}}
+    onOpenCurry={() => setActiveConvo(CURRY_AI_CONTACT)}
+  />
+)}
 
         {/* ── LIST CARD ── */}
         <div className="list-card">
@@ -743,7 +755,14 @@ useRingtone(callStatus === 'incoming', 'ringtone')
                 <button className={listFilter === 'all' ? 'active' : ''} onClick={() => setListFilter('all')}>Chats</button>
                 <button className={listFilter === 'group' ? 'active' : ''} onClick={() => setListFilter('group')}>Group</button>
               </div>
- 
+      <SmartCollections
+  active={collection}
+  onChange={setCollection}
+  conversations={searchFiltered}
+  unreadCounts={unreadCounts}
+  sharedConvoIds={sharedConvoIds}
+  tags={tags}
+/>
 
               {showNewChat && (
                 <form className="new-chat-form" onSubmit={startNewChat}>
