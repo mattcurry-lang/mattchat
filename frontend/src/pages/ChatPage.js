@@ -359,6 +359,18 @@ useRingtone(callStatus === 'incoming', 'ringtone')
 
   const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
 
+  // Looks up a conversation by id from the full list — used for call UI
+  // (caller name, avatar) so it works whether or not that conversation
+  // happens to be the one currently open in the chat view. Relying on
+  // activeConvo for this was why incoming/outgoing calls showed
+  // "Unknown" whenever the call started while the user was on a
+  // different tab (e.g. the Calls tab).
+  const getConvoById = useCallback(
+    (id) => conversations.find(c => c.id === id) || null,
+    [conversations]
+  )
+  const callConvo = activeCall ? getConvoById(activeCall.conversationId) : null
+
   const onHeyCurryActivated = useCallback(() => setActiveConvo(CURRY_AI_CONTACT), [])
   // autoStart: false — "hey curry" listening is now an explicit
   // opt-in (see the mic toggle button in the header) instead of
@@ -639,7 +651,7 @@ useRingtone(callStatus === 'incoming', 'ringtone')
       {/* ── INCOMING CALL ── */}
       {callStatus === 'incoming' && activeCall && (
         <IncomingCallModal
-          callerName={getConvoName(activeConvo || { conversation_members: [] })}
+          callerName={callConvo ? getConvoName(callConvo) : 'Unknown'}
           callType={activeCall.callType}
           onAnswer={(muted) => { setStartMuted(muted); answerCall() }}
           onDecline={declineCall}
@@ -653,7 +665,7 @@ useRingtone(callStatus === 'incoming', 'ringtone')
   token={callToken}
   callType={activeCall.callType}
   startMuted={startMuted}
-  callerName={activeConvo ? getConvoName(activeConvo) : ''}
+  callerName={callConvo ? getConvoName(callConvo) : ''}
   onEnd={endCall}
 />
       )}
@@ -891,12 +903,11 @@ useRingtone(callStatus === 'incoming', 'ringtone')
             onClose={() => setShowNewCall(false)}
             onCall={(convo, type) => {
               setShowNewCall(false)
-              openConvo(convo)
-              setActiveTab('chats')
-              // startCall reads activeConvo.id via the useCall hook's
-              // conversationId argument, which is derived from activeConvo —
-              // give React one tick to commit that state update first.
-              setTimeout(() => startCall(type), 50)
+              // Calls directly, passing the target conversation id straight
+              // to startCall — no need to open the chat or switch tabs
+              // first. The incoming/in-call overlays render globally, so
+              // the call UI shows up right over the Calls tab.
+              startCall(type, convo.id)
             }}
           />
         )}
