@@ -110,8 +110,15 @@ export function useCall(userId, conversationId) {
   }, [userId])
 
   // ── Start a call ──────────────────────────────────────────────────
-  const startCall = useCallback(async (callType) => {
-    if (!conversationId) return
+  // targetConversationId is optional — pass it when starting a call
+  // from somewhere that isn't "inside" a conversation (e.g. the Calls
+  // tab's New Call picker), so the call can begin without first
+  // setting activeConvo and navigating the UI into that chat. When
+  // omitted, falls back to the conversationId this hook was created
+  // with (the normal in-chat call-button behavior).
+  const startCall = useCallback(async (callType, targetConversationId) => {
+    const targetId = targetConversationId || conversationId
+    if (!targetId) return
     setCallStatus('calling')
     setCallError(null)
 
@@ -120,14 +127,14 @@ export function useCall(userId, conversationId) {
       const res = await fetch(`${FUNCTIONS_BASE}/create-call-room-ts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ conversationId, callType }),
+        body: JSON.stringify({ conversationId: targetId, callType }),
       })
       const data = await res.json()
       if (!data.ok) throw new Error(data.error || 'Failed to start call')
 
       const call = {
         id: data.callId || '',
-        conversationId,
+        conversationId: targetId,
         roomUrl: data.roomUrl,
         roomName: data.roomName,
         callType,
