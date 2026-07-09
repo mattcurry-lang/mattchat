@@ -311,6 +311,8 @@ export default function ChatPage({ session }) {
   const [emailAccounts, setEmailAccounts]           = useState([])
   const [connectingGmail, setConnectingGmail]       = useState(false)
   const [showNewCall, setShowNewCall] = useState(false)
+  const [showNewCall, setShowNewCall] = useState(false)
+const [messageMenu, setMessageMenu] = useState(null) // { message, x, y } | null
 
   const msgRefs        = useRef({})
   const messagesEndRef = useRef(null)
@@ -382,6 +384,7 @@ useRingtone(callStatus === 'incoming', 'ringtone')
   // is what was causing the mic indicator to flicker on/off.
   const { listening: heyCurryListening, startListening: startHeyCurry, stopListening: stopHeyCurry } =
     useHeyCurry(onHeyCurryActivated, { autoStart: false })
+  const bindLongPress = useMessageLongPress((message, x, y) => setMessageMenu({ message, x, y }))
 
   useEffect(() => {
     supabase.from('profiles').select('*').eq('id', userId).single().then(({ data }) => setProfile(data))
@@ -677,25 +680,30 @@ useRingtone(callStatus === 'incoming', 'ringtone')
       {/* ── LIST / BROWSE SCREEN (hidden once a conversation is open) ── */}
       <div className="sidebar">
         <div className="top-header">
-          <div className="top-header-brand">
-            <img src="/logo.png" alt="Mattchat" className="top-header-logo" />
-            <span className="top-header-name">Mattchat</span>
-            <button
-              className="top-header-search-btn"
-              onClick={() => setShowSearchBar(v => !v)}
-              title="Search"
-            >
-              <IconSearch size={16} />
-            </button>
-            <button
-              className="top-header-search-btn"
-              onClick={() => (heyCurryListening ? stopHeyCurry() : startHeyCurry())}
-              title={heyCurryListening ? '"Hey Curry" listening is on — tap to turn off' : 'Turn on "Hey Curry" listening'}
-              style={{ color: heyCurryListening ? '#a78bfa' : undefined, background: heyCurryListening ? 'rgba(167,139,250,0.15)' : undefined }}
-            >
-              <IconMic size={16} />
-            </button>
-          </div>
+        <div className="top-header-brand">
+  <img src="/logo.png" alt="Mattchat" className="top-header-logo" />
+  <span className="top-header-name">Mattchat</span>
+  <button
+    className="top-header-search-btn"
+    onClick={() => (heyCurryListening ? stopHeyCurry() : startHeyCurry())}
+    title={heyCurryListening ? '"Hey Curry" listening is on — tap to turn off' : 'Turn on "Hey Curry" listening'}
+    style={{ color: heyCurryListening ? '#a78bfa' : undefined, background: heyCurryListening ? 'rgba(167,139,250,0.15)' : undefined }}
+  >
+    <IconMic size={16} />
+  </button>
+</div>
+
+{activeTab === 'chats' && (
+  <div style={{ padding: '8px 16px 0' }}>
+    <AICommandBar
+      session={session}
+      value={search}
+      onSearchChange={setSearch}
+      onOpenCurry={() => setActiveConvo(CURRY_AI_CONTACT)}
+      hasLocalMatches={filtered.length > 0}
+    />
+  </div>
+)}
 
           {/* ── STORY / QUICK-CONTACT RAIL ── */}
           {activeTab === 'chats' && (
@@ -736,12 +744,7 @@ useRingtone(callStatus === 'incoming', 'ringtone')
                 <button className={listFilter === 'all' ? 'active' : ''} onClick={() => setListFilter('all')}>Chats</button>
                 <button className={listFilter === 'group' ? 'active' : ''} onClick={() => setListFilter('group')}>Group</button>
               </div>
-
-              {showSearchBar && (
-                <div className="search-box">
-                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search conversations…" autoFocus />
-                </div>
-              )}
+ 
 
               {showNewChat && (
                 <form className="new-chat-form" onSubmit={startNewChat}>
@@ -941,6 +944,10 @@ useRingtone(callStatus === 'incoming', 'ringtone')
           onProfileClick={() => setShowProfileMenu(v => !v)}
         />
       </div>
+     <FloatingCurryOrb
+        hidden={!!activeConvo}
+        onActivate={() => setActiveConvo(CURRY_AI_CONTACT)}
+      />
 
       {/* ── WELCOME PANE — desktop only. Fills the space next to the
            sidebar when no conversation is open. Hidden on narrow
