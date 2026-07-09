@@ -34,6 +34,10 @@ import StatusViewer from '../components/StatusViewer'
 import CallsList from '../components/CallsList'
 import { useCallHistory } from '../hooks/useCallHistory'
 import NewCallModal from '../components/NewCallModal'
+import AICommandBar from '../components/AICommandBar'
+import FloatingCurryOrb from '../components/FloatingCurryOrb'
+import MessageActionsMenu, { useMessageLongPress } from '../components/MessageActionsMenu'
+
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
