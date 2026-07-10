@@ -102,14 +102,16 @@ export default function PromotedDailyBrief({ session, onAskQuestion, onOpenCurry
 }
 
 const s = {
-  card: {
-    position: 'relative',
-    background: 'linear-gradient(135deg, rgba(102,126,234,0.16), rgba(118,75,162,0.16), rgba(240,147,251,0.08))',
-    border: '1px solid rgba(167,139,250,0.3)', borderRadius: 18,
-    padding: '16px 18px', margin: '10px 16px 4px',
-    display: 'flex', flexDirection: 'column', gap: 10,
-    boxShadow: '0 4px 20px rgba(102,126,234,0.12)',
-  },
+card: {
+  position: 'relative',
+  background: 'linear-gradient(135deg, rgba(102,126,234,0.16), rgba(118,75,162,0.16), rgba(240,147,251,0.08))',
+  border: '1px solid rgba(167,139,250,0.3)', borderRadius: 18,
+  padding: '16px 18px', margin: '10px 16px 4px',
+  display: 'flex', flexDirection: 'column', gap: 10,
+  boxShadow: '0 4px 20px rgba(102,126,234,0.12)',
+  maxHeight: '38vh',
+  overflowY: 'auto',
+},
   collapseBtn: {
     position: 'absolute', top: 10, right: 12, background: 'none', border: 'none',
     color: 'rgba(255,255,255,0.35)', fontSize: 13, cursor: 'pointer', padding: 4,
