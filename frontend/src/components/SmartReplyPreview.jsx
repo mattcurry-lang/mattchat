@@ -45,9 +45,22 @@ export function useSmartReplyCache() {
 }
 
 export default function SmartReplyPreview({ session, convo, entry, onFetch, onSend, fallbackText }) {
+  const [armed, setArmed] = useState(false)
+  const disarmTimer = useRef(null)
+
   useEffect(() => {
     if (!entry) onFetch(session, convo)
   }, [convo.id])
+
+  // Auto-disarm after a few seconds if the person taps once but never
+  // confirms — so an old row doesn't sit "primed to send" forever if
+  // they get distracted and come back to the list later.
+  useEffect(() => {
+    if (armed) {
+      disarmTimer.current = setTimeout(() => setArmed(false), 4000)
+      return () => clearTimeout(disarmTimer.current)
+    }
+  }, [armed])
 
   if (!entry || entry.loading) {
     return <div className="contact-preview unread">{fallbackText || 'New message'}</div>
@@ -57,11 +70,22 @@ export default function SmartReplyPreview({ session, convo, entry, onFetch, onSe
     return <div className="contact-preview unread">{fallbackText || convo.last_message || 'New message'}</div>
   }
 
+  // Tap 1: arms the row and swaps the button to a confirm state.
+  // Tap 2 (on the checkmark): actually sends. Tapping the ✕, tapping
+  // elsewhere, or waiting 4s all cancel back to the normal state —
+  // nothing goes out on a single accidental tap.
   return (
     <div style={s.row} onClick={e => e.stopPropagation()}>
       <span style={s.icon}>💡</span>
       <span style={s.replyText}>"{entry.text}"</span>
-      <button style={s.sendBtn} onClick={() => onSend(entry.text)} title="Send this reply">➤</button>
+      {!armed ? (
+        <button style={s.sendBtn} onClick={() => setArmed(true)} title="Preview & send">➤</button>
+      ) : (
+        <>
+          <button style={s.confirmBtn} onClick={() => { setArmed(false); onSend(entry.text) }} title="Confirm send">✓</button>
+          <button style={s.cancelBtn} onClick={() => setArmed(false)} title="Cancel">✕</button>
+        </>
+      )}
     </div>
   )
 }
@@ -80,6 +104,16 @@ const s = {
   sendBtn: {
     background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none', borderRadius: '50%',
     width: 20, height: 20, color: '#fff', fontSize: 10, cursor: 'pointer', flexShrink: 0,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+  confirmBtn: {
+    background: 'linear-gradient(135deg,#22c55e,#16a34a)', border: 'none', borderRadius: '50%',
+    width: 20, height: 20, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+  cancelBtn: {
+    background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '50%',
+    width: 20, height: 20, color: '#f87171', fontSize: 10, cursor: 'pointer', flexShrink: 0,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
 }
