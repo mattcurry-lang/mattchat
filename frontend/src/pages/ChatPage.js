@@ -40,6 +40,7 @@ import MessageActionsMenu, { useMessageLongPress } from '../components/MessageAc
 import PromotedDailyBrief from '../components/PromotedDailyBrief'
 import SmartCollections, { useConvoTags, filterByCollection } from '../components/SmartCollections'
 import SmartReplyPreview, { useSmartReplyCache } from '../components/SmartReplyPreview'
+import RelationshipInsights from '../components/RelationshipInsights'
 
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
@@ -316,6 +317,7 @@ export default function ChatPage({ session }) {
  const [showNewCall, setShowNewCall] = useState(false)
 const [messageMenu, setMessageMenu] = useState(null) // { message, x, y } | null
   const [collection, setCollection] = useState('all')
+  const [showInsights, setShowInsights] = useState(false)
 const { tags, setTag } = useConvoTags()
   const { cache: smartReplyCache, fetchSuggestion, clear: clearSmartReply } = useSmartReplyCache()
  
@@ -1043,6 +1045,10 @@ const filtered = filterByCollection(searchFiltered, collection, { unreadCounts, 
                 <div className="threedot-wrapper" style={{ position: 'relative' }}>
                   <button className="icon-btn dark" onClick={() => setShowThreeDot(v => !v)} title="More options"
                     style={{ color: showThreeDot ? '#a78bfa' : undefined, background: showThreeDot ? 'rgba(167,139,250,0.15)' : undefined }}><IconMoreVertical size={17} /></button>
+                  <button className="icon-btn dark" onClick={() => setShowInsights(v => !v)} title="Relationship insights"
+  style={{ color: showInsights ? '#a78bfa' : undefined, background: showInsights ? 'rgba(167,139,250,0.15)' : undefined }}>
+  📊
+</button>
                   {showThreeDot && (
                     <ThreeDotMenu
                       onPoll={() => { setShowPoll(v => !v); setShowTask(false) }}
@@ -1210,3 +1216,11 @@ const filtered = filterByCollection(searchFiltered, collection, { unreadCounts, 
     </div>
   )
 }
+{showInsights && (
+  <RelationshipInsights
+    messages={messages}
+    currentUserId={userId}
+    contactName={getConvoName(activeConvo)}
+    onClose={() => setShowInsights(false)}
+  />
+)}
