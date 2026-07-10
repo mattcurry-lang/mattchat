@@ -744,6 +744,10 @@ const filtered = filterByCollection(searchFiltered, collection, { unreadCounts, 
     onOpenCurry={() => setActiveConvo(CURRY_AI_CONTACT)}
   />
 )}
+  {/* ── LIST CARD ── */}
+<div className="list-card">
+  {activeTab === 'chats' && (
+    <>
 
         
       <SmartCollections
