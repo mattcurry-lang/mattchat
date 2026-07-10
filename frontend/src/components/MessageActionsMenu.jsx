@@ -75,12 +75,15 @@ export default function MessageActionsMenu({ session, message, position, onClose
     setBusyAction(null)
   }
 
-  // Keep menu on-screen
+  // Keep menu on-screen — both axes
+  const menuHeight = 320 // approx max height of the full menu w/ actions
   const maxLeft = typeof window !== 'undefined' ? window.innerWidth - 240 : position.x
+  const maxTop = typeof window !== 'undefined' ? window.innerHeight - menuHeight - 12 : position.y
   const left = Math.min(position.x, maxLeft)
+  const top = Math.min(position.y, Math.max(maxTop, 12))
 
   return (
-    <div ref={menuRef} style={{ ...m.menu, left, top: position.y }}>
+    <div ref={menuRef} style={{ ...m.menu, left, top }}>
       {!result && (
         <>
           <div style={m.section}>
@@ -120,9 +123,11 @@ export default function MessageActionsMenu({ session, message, position, onClose
 const m = {
   menu: {
     position: 'fixed', zIndex: 500, minWidth: 210, maxWidth: 260,
+    maxHeight: '70vh',
+    overflowY: 'auto',
     background: 'rgba(24,24,38,0.98)', backdropFilter: 'blur(16px)',
     border: '1px solid rgba(167,139,250,0.25)', borderRadius: 14,
-    boxShadow: '0 12px 32px rgba(0,0,0,0.45)', overflow: 'hidden',
+    boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
     animation: 'menuPop 0.15s cubic-bezier(0.34,1.56,0.64,1)',
   },
   section: { padding: '6px 0' },
