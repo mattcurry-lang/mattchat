@@ -102,11 +102,14 @@ const c = {
     borderRadius: 24, padding: '9px 14px',
     transition: 'all 0.2s ease',
   },
-  barFocused: {
-    border: '1px solid rgba(167,139,250,0.6)',
-    background: 'rgba(167,139,250,0.08)',
-    boxShadow: '0 0 0 3px rgba(167,139,250,0.12), 0 0 20px rgba(102,126,234,0.15)',
-  },
+bar: {
+  display: 'flex', alignItems: 'center', gap: 8,
+  background: 'rgba(255,255,255,0.05)',
+  border: '1px solid rgba(167,139,250,0.35)',
+  borderRadius: 24, padding: '9px 14px',
+  transition: 'all 0.2s ease',
+  animation: 'commandBarGlow 2.8s ease-in-out infinite',
+},
   sparkle: { fontSize: 14, flexShrink: 0 },
   input: { flex: 1, background: 'none', border: 'none', outline: 'none', color: '#f0f0f0', fontSize: 13.5, fontFamily: 'inherit' },
   goBtn: { width: 24, height: 24, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none', color: '#fff', fontSize: 13, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' },
@@ -130,6 +133,14 @@ if (typeof document !== 'undefined' && !document.getElementById('curry-cmdbar-st
   el.textContent = `
     @keyframes currySpin { to { transform: rotate(360deg); } }
     @keyframes curryFadeIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:none; } }
+    @keyframes commandBarGlow {
+  0%, 100% {
+    box-shadow: 0 0 0px rgba(167,139,250,0);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(102,126,234,0.35), 0 0 4px rgba(240,147,251,0.25);
+  }
+}
   `
   document.head.appendChild(el)
 }
