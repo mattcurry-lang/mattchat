@@ -76,7 +76,7 @@ export default function IncomingCallModal({ callerName, callType, onAnswer, onDe
 const styles = {
   overlay: {
     position: 'fixed', inset: 0,
-    background: 'linear-gradient(160deg, #1b0f2e 0%, #05060f 100%)',
+    background: 'linear-gradient(160deg, var(--panel-bg, #0f0e17) 0%, #05060a 100%)',
     zIndex: 9998, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
   },
   modal: {
@@ -88,11 +88,11 @@ const styles = {
   rippleWrap: { position: 'relative', width: 110, height: 110, marginBottom: 8 },
   ripple: {
     position: 'absolute', inset: 0, borderRadius: '50%',
-    border: '2px solid rgba(129,90,220,0.5)', animation: 'ripple-out 2s ease-out infinite',
+    border: '2px solid rgba(108,99,255,0.5)', animation: 'ripple-out 2s ease-out infinite',
   },
   avatarCircle: {
     position: 'absolute', inset: 0, borderRadius: '50%',
-    background: 'linear-gradient(135deg, #7c3aed, #db2777)',
+    background: 'var(--brand-grad, linear-gradient(135deg, #6c63ff, #a78bfa))',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 40, fontWeight: 700, color: '#fff', zIndex: 1,
   },
