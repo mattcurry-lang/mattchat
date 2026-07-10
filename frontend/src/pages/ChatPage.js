@@ -41,6 +41,7 @@ import PromotedDailyBrief from '../components/PromotedDailyBrief'
 import SmartCollections, { useConvoTags, filterByCollection } from '../components/SmartCollections'
 import SmartReplyPreview, { useSmartReplyCache } from '../components/SmartReplyPreview'
 import RelationshipInsights from '../components/RelationshipInsights'
+import TodaysTimeline from '../components/TodaysTimeline'
 
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
@@ -765,6 +766,15 @@ export default function ChatPage({ session }) {
             onAskQuestion={() => {}}
             onOpenCurry={() => setActiveConvo(CURRY_AI_CONTACT)}
           />
+{activeTab === 'chats' && (
+  <TodaysTimeline
+    session={session}
+    userId={userId}
+    totalUnread={totalUnread}
+    conversations={conversations}
+    sharedConvoIds={sharedConvoIds}
+  />
+)}
         )}
 
         {/* ── LIST CARD ── */}
