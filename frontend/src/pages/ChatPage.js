@@ -44,7 +44,7 @@ import SmartReplyPreview, { useSmartReplyCache } from '../components/SmartReplyP
 import RelationshipInsights from '../components/RelationshipInsights'
 import TodaysTimeline from '../components/TodaysTimeline'
 
-// Matches "hey curry", "hey curry,", "hey curry:" at the start of a
+// Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
 const CURRY_TRIGGER = /^hey\s+curry[,:]?\s*/i
