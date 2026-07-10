@@ -42,7 +42,7 @@ import SmartCollections, { useConvoTags, filterByCollection } from '../component
 
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
-// in-chat Curry instead of delivering it to the other person
+// in-chat Curry instead of delivering it to the other person.
 const CURRY_TRIGGER = /^hey\s+curry[,:]?\s*/i
 
 function formatMsgTime(ts) {
