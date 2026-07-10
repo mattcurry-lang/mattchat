@@ -773,7 +773,6 @@ export default function ChatPage({ session }) {
     conversations={conversations}
     sharedConvoIds={sharedConvoIds}
   />
-)}
         )}
 
         {/* ── LIST CARD ── */}
