@@ -314,21 +314,12 @@ export default function ChatPage({ session }) {
   const [curryChatBusy, setCurryChatBusy]           = useState(false)
   const [emailAccounts, setEmailAccounts]           = useState([])
   const [connectingGmail, setConnectingGmail]       = useState(false)
- const [showNewCall, setShowNewCall] = useState(false)
-const [messageMenu, setMessageMenu] = useState(null) // { message, x, y } | null
+  const [showNewCall, setShowNewCall] = useState(false)
+  const [messageMenu, setMessageMenu] = useState(null) // { message, x, y } | null
   const [collection, setCollection] = useState('all')
   const [showInsights, setShowInsights] = useState(false)
-const { tags, setTag } = useConvoTags()
+  const { tags, setTag } = useConvoTags()
   const { cache: smartReplyCache, fetchSuggestion, clear: clearSmartReply } = useSmartReplyCache()
- 
-  const quickSendReply = async (convo, text) => {
-  const convoId = convo.id
-  await supabase.from('messages').insert({ conversation_id: convoId, sender_id: userId, content: text, message_type: 'text' })
-  await supabase.from('conversations').update({ updated_at: new Date().toISOString(), last_message: text }).eq('id', convoId)
-  clearSmartReply(convoId)
-  clearUnread(convoId)
-  reload()
-}
 
   const msgRefs        = useRef({})
   const messagesEndRef = useRef(null)
@@ -341,8 +332,8 @@ const { tags, setTag } = useConvoTags()
   const { callStatus, activeCall, callToken, callError, startCall, answerCall, declineCall, endCall } =
     useCall(userId, activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null)
 
-useRingtone(['calling', 'ringing'].includes(callStatus), 'ringback')
-useRingtone(callStatus === 'incoming', 'ringtone')
+  useRingtone(['calling', 'ringing'].includes(callStatus), 'ringback')
+  useRingtone(callStatus === 'incoming', 'ringtone')
   const { conversations, loading: convLoading, reload } = useConversations(userId)
   const { calls: callHistory, loading: callHistoryLoading } = useCallHistory(userId, conversations)
   const [startMuted, setStartMuted] = useState(false)
@@ -360,6 +351,18 @@ useRingtone(callStatus === 'incoming', 'ringtone')
     activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
     userId
   )
+
+  // Sends a smart-reply suggestion straight to a conversation from the
+  // list, without opening the chat. Clears that row's cached suggestion
+  // and unread badge afterward, same as replying normally would.
+  const quickSendReply = async (convo, text) => {
+    const convoId = convo.id
+    await supabase.from('messages').insert({ conversation_id: convoId, sender_id: userId, content: text, message_type: 'text' })
+    await supabase.from('conversations').update({ updated_at: new Date().toISOString(), last_message: text }).eq('id', convoId)
+    clearSmartReply(convoId)
+    clearUnread(convoId)
+    reload()
+  }
 
   const [showAddStatus, setShowAddStatus] = useState(false)
   const [viewerIndex, setViewerIndex] = useState(null)
@@ -469,7 +472,7 @@ useRingtone(callStatus === 'incoming', 'ringtone')
     setShowVoice(false); setShowPoll(false); setShowTask(false)
     setShowScheduler(false); setShowScheduledList(false); setShowSearch(false)
     setShowCurryAssistant(false); setShowThreeDot(false)
-    setHasScheduled(false); setShowEmojiPicker(false)
+    setHasScheduled(false); setShowEmojiPicker(false); setShowInsights(false)
   }, [activeConvo])
 
   useEffect(() => {
@@ -652,8 +655,9 @@ useRingtone(callStatus === 'incoming', 'ringtone')
     const other = c.conversation_members?.find(m => m.user_id !== userId)
     return other?.profiles?.username || other?.profiles?.email || 'Unknown'
   }
-const searchFiltered = conversations.filter(c => getConvoName(c).toLowerCase().includes(search.toLowerCase()))
-const filtered = filterByCollection(searchFiltered, collection, { unreadCounts, sharedConvoIds, tags })
+
+  const searchFiltered = conversations.filter(c => getConvoName(c).toLowerCase().includes(search.toLowerCase()))
+  const filtered = filterByCollection(searchFiltered, collection, { unreadCounts, sharedConvoIds, tags })
 
   const headerStatus = () => {
     if (callStatus === 'calling')    return '📞 Calling…'
@@ -682,48 +686,47 @@ const filtered = filterByCollection(searchFiltered, collection, { unreadCounts, 
 
       {/* ── IN-CALL OVERLAY ── */}
       {(callStatus === 'connecting' || callStatus === 'in-call') && activeCall && (
-       <CallOverlay
-  roomUrl={activeCall.roomUrl}
-  token={callToken}
-  callType={activeCall.callType}
-  startMuted={startMuted}
-  callerName={callConvo ? getConvoName(callConvo) : ''}
-  onEnd={endCall}
-/>
+        <CallOverlay
+          roomUrl={activeCall.roomUrl}
+          token={callToken}
+          callType={activeCall.callType}
+          startMuted={startMuted}
+          callerName={callConvo ? getConvoName(callConvo) : ''}
+          onEnd={endCall}
+        />
       )}
 
       {/* ── LIST / BROWSE SCREEN (hidden once a conversation is open) ── */}
       <div className="sidebar">
         <div className="top-header">
-        <div className="top-header-brand">
-  <img src="/logo.png" alt="Mattchat" className="top-header-logo" />
-  <span className="top-header-name">Mattchat</span>
-  <button
-    className="top-header-search-btn"
-    onClick={() => (heyCurryListening ? stopHeyCurry() : startHeyCurry())}
-    title={heyCurryListening ? '"Hey Curry" listening is on — tap to turn off' : 'Turn on "Hey Curry" listening'}
-    style={{ color: heyCurryListening ? '#a78bfa' : undefined, background: heyCurryListening ? 'rgba(167,139,250,0.15)' : undefined }}
-  >
-<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
-  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-  <line x1="12" y1="19" x2="12" y2="22"/>
- 
-</svg>
-  </button>
-</div>
+          <div className="top-header-brand">
+            <img src="/logo.png" alt="Mattchat" className="top-header-logo" />
+            <span className="top-header-name">Mattchat</span>
+            <button
+              className="top-header-search-btn"
+              onClick={() => (heyCurryListening ? stopHeyCurry() : startHeyCurry())}
+              title={heyCurryListening ? '"Hey Curry" listening is on — tap to turn off' : 'Turn on "Hey Curry" listening'}
+              style={{ color: heyCurryListening ? '#a78bfa' : undefined, background: heyCurryListening ? 'rgba(167,139,250,0.15)' : undefined }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+              </svg>
+            </button>
+          </div>
 
-{activeTab === 'chats' && (
-  <div style={{ padding: '8px 16px 0' }}>
-    <AICommandBar
-      session={session}
-      value={search}
-      onSearchChange={setSearch}
-      onOpenCurry={() => setActiveConvo(CURRY_AI_CONTACT)}
-      hasLocalMatches={filtered.length > 0}
-    />
-  </div>
-)}
+          {activeTab === 'chats' && (
+            <div style={{ padding: '8px 16px 0' }}>
+              <AICommandBar
+                session={session}
+                value={search}
+                onSearchChange={setSearch}
+                onOpenCurry={() => setActiveConvo(CURRY_AI_CONTACT)}
+                hasLocalMatches={filtered.length > 0}
+              />
+            </div>
+          )}
 
           {/* ── STORY / QUICK-CONTACT RAIL ── */}
           {activeTab === 'chats' && (
@@ -755,27 +758,27 @@ const filtered = filterByCollection(searchFiltered, collection, { unreadCounts, 
             </div>
           )}
         </div>
-{activeTab === 'chats' && (
-  <PromotedDailyBrief
-    session={session}
-    onAskQuestion={() => {}}
-    onOpenCurry={() => setActiveConvo(CURRY_AI_CONTACT)}
-  />
-)}
-  {/* ── LIST CARD ── */}
-<div className="list-card">
-  {activeTab === 'chats' && (
-    <>
 
-        
-      <SmartCollections
-  active={collection}
-  onChange={setCollection}
-  conversations={searchFiltered}
-  unreadCounts={unreadCounts}
-  sharedConvoIds={sharedConvoIds}
-  tags={tags}
-/>
+        {activeTab === 'chats' && (
+          <PromotedDailyBrief
+            session={session}
+            onAskQuestion={() => {}}
+            onOpenCurry={() => setActiveConvo(CURRY_AI_CONTACT)}
+          />
+        )}
+
+        {/* ── LIST CARD ── */}
+        <div className="list-card">
+          {activeTab === 'chats' && (
+            <>
+              <SmartCollections
+                active={collection}
+                onChange={setCollection}
+                conversations={searchFiltered}
+                unreadCounts={unreadCounts}
+                sharedConvoIds={sharedConvoIds}
+                tags={tags}
+              />
 
               {showNewChat && (
                 <form className="new-chat-form" onSubmit={startNewChat}>
@@ -817,18 +820,18 @@ const filtered = filterByCollection(searchFiltered, collection, { unreadCounts, 
                       </div>
                       <div className="contact-info">
                         <div className={`contact-name ${unread > 0 ? 'unread' : ''}`}>{getConvoName(c)}</div>
-                       {unread > 0 ? (
-  <SmartReplyPreview
-    session={session}
-    convo={c}
-    entry={smartReplyCache[c.id]}
-    onFetch={fetchSuggestion}
-    onSend={(text) => quickSendReply(c, text)}
-    fallbackText={c.last_message}
-  />
-) : (
-  <div className="contact-preview">{c.last_message || 'No messages yet'}</div>
-)}
+                        {unread > 0 ? (
+                          <SmartReplyPreview
+                            session={session}
+                            convo={c}
+                            entry={smartReplyCache[c.id]}
+                            onFetch={fetchSuggestion}
+                            onSend={(text) => quickSendReply(c, text)}
+                            fallbackText={c.last_message}
+                          />
+                        ) : (
+                          <div className="contact-preview">{c.last_message || 'No messages yet'}</div>
+                        )}
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                         <div className="contact-time">{c.updated_at ? formatMsgTime(c.updated_at) : ''}</div>
@@ -840,7 +843,7 @@ const filtered = filterByCollection(searchFiltered, collection, { unreadCounts, 
 
                 {!convLoading && filtered.length === 0 && (
                   <div className="empty-state">
-                    <p>{listFilter === 'group' ? 'No group chats yet.' : 'No conversations yet.'}</p>
+                    <p>No conversations yet.</p>
                     <button className="btn-primary" onClick={() => setShowNewChat(true)}>Start one →</button>
                   </div>
                 )}
@@ -986,7 +989,8 @@ const filtered = filterByCollection(searchFiltered, collection, { unreadCounts, 
           onProfileClick={() => setShowProfileMenu(v => !v)}
         />
       </div>
-     <FloatingCurryOrb
+
+      <FloatingCurryOrb
         hidden={!!activeConvo}
         onActivate={() => setActiveConvo(CURRY_AI_CONTACT)}
       />
@@ -1036,6 +1040,10 @@ const filtered = filterByCollection(searchFiltered, collection, { unreadCounts, 
                   <button onClick={endCall} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 'var(--r-full)', padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: '#f87171' }}>📵 End call</button>
                 )}
                 <button className="icon-btn dark" onClick={() => setShowCurryAssistant(v => !v)} title="Curry AI assistant"><IconSparkle size={16} /></button>
+                <button className="icon-btn dark" onClick={() => setShowInsights(v => !v)} title="Relationship insights"
+                  style={{ color: showInsights ? '#a78bfa' : undefined, background: showInsights ? 'rgba(167,139,250,0.15)' : undefined }}>
+                  📊
+                </button>
                 {hasScheduled && (
                   <button onClick={() => setShowScheduledList(true)} title="View scheduled messages"
                     style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 'var(--r-full)', padding: '5px 10px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: '#c4b5fd', animation: 'scheduledPulse 2s ease infinite' }}>
@@ -1045,10 +1053,6 @@ const filtered = filterByCollection(searchFiltered, collection, { unreadCounts, 
                 <div className="threedot-wrapper" style={{ position: 'relative' }}>
                   <button className="icon-btn dark" onClick={() => setShowThreeDot(v => !v)} title="More options"
                     style={{ color: showThreeDot ? '#a78bfa' : undefined, background: showThreeDot ? 'rgba(167,139,250,0.15)' : undefined }}><IconMoreVertical size={17} /></button>
-                  <button className="icon-btn dark" onClick={() => setShowInsights(v => !v)} title="Relationship insights"
-  style={{ color: showInsights ? '#a78bfa' : undefined, background: showInsights ? 'rgba(167,139,250,0.15)' : undefined }}>
-  📊
-</button>
                   {showThreeDot && (
                     <ThreeDotMenu
                       onPoll={() => { setShowPoll(v => !v); setShowTask(false) }}
@@ -1092,18 +1096,18 @@ const filtered = filterByCollection(searchFiltered, collection, { unreadCounts, 
                 return (
                   <React.Fragment key={msg.id}>
                     {showDate && <DateDivider date={msg.created_at} />}
-                  <div
-  ref={el => (msgRefs.current[msg.id] = el)}
-  className={`msg-wrap ${wrapClass}`}
-  onContextMenu={e => {
-    if (!isCurryMsg) {
-      e.preventDefault()
-      pinMessage(msg.id)
-    }
-  }}
-  title={isCurryMsg ? undefined : 'Right-click to pin'}
-  {...(!isCurryMsg ? bindLongPress(msg) : {})}
->
+                    <div
+                      ref={el => (msgRefs.current[msg.id] = el)}
+                      className={`msg-wrap ${wrapClass}`}
+                      onContextMenu={e => {
+                        if (!isCurryMsg) {
+                          e.preventDefault()
+                          pinMessage(msg.id)
+                        }
+                      }}
+                      title={isCurryMsg ? undefined : 'Right-click to pin'}
+                      {...(!isCurryMsg ? bindLongPress(msg) : {})}
+                    >
                       {isCurryMsg ? (
                         <MessageBubble msg={msg} isMe={false} isRead={false} isDelivered={false} />
                       ) : (
@@ -1132,20 +1136,31 @@ const filtered = filterByCollection(searchFiltered, collection, { unreadCounts, 
               )}
               <div ref={messagesEndRef} />
             </div>
-    {messageMenu && (
-  <MessageActionsMenu
-    session={session}
-    message={messageMenu.message}
-    position={{
-      x: messageMenu.x,
-      y: messageMenu.y,
-    }}
-    onClose={() => setMessageMenu(null)}
-    onPin={() => pinMessage(messageMenu.message.id)}
-    onCopy={() => {}}
-    onInsertReply={(text) => setInputText(text)}
-  />
-)}
+
+            {messageMenu && (
+              <MessageActionsMenu
+                session={session}
+                message={messageMenu.message}
+                position={{
+                  x: messageMenu.x,
+                  y: messageMenu.y,
+                }}
+                onClose={() => setMessageMenu(null)}
+                onPin={() => pinMessage(messageMenu.message.id)}
+                onCopy={() => {}}
+                onInsertReply={(text) => setInputText(text)}
+              />
+            )}
+
+            {showInsights && (
+              <RelationshipInsights
+                messages={messages}
+                currentUserId={userId}
+                contactName={getConvoName(activeConvo)}
+                onClose={() => setShowInsights(false)}
+              />
+            )}
+
             {/* Input area */}
             <div className="input-area" style={{ flexDirection: 'column', alignItems: 'stretch', padding: 0 }}>
               {showCurryAssistant && (
@@ -1216,11 +1231,3 @@ const filtered = filterByCollection(searchFiltered, collection, { unreadCounts, 
     </div>
   )
 }
-{showInsights && (
-  <RelationshipInsights
-    messages={messages}
-    currentUserId={userId}
-    contactName={getConvoName(activeConvo)}
-    onClose={() => setShowInsights(false)}
-  />
-)}
