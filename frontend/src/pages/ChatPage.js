@@ -39,6 +39,7 @@ import FloatingCurryOrb from '../components/FloatingCurryOrb'
 import MessageActionsMenu, { useMessageLongPress } from '../components/MessageActionsMenu'
 import PromotedDailyBrief from '../components/PromotedDailyBrief'
 import SmartCollections, { useConvoTags, filterByCollection } from '../components/SmartCollections'
+import SmartReplyPreview, { useSmartReplyCache } from '../components/SmartReplyPreview'
 
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
@@ -316,6 +317,16 @@ export default function ChatPage({ session }) {
 const [messageMenu, setMessageMenu] = useState(null) // { message, x, y } | null
   const [collection, setCollection] = useState('all')
 const { tags, setTag } = useConvoTags()
+  const { cache: smartReplyCache, fetchSuggestion, clear: clearSmartReply } = useSmartReplyCache()
+ 
+  const quickSendReply = async (convo, text) => {
+  const convoId = convo.id
+  await supabase.from('messages').insert({ conversation_id: convoId, sender_id: userId, content: text, message_type: 'text' })
+  await supabase.from('conversations').update({ updated_at: new Date().toISOString(), last_message: text }).eq('id', convoId)
+  clearSmartReply(convoId)
+  clearUnread(convoId)
+  reload()
+}
 
   const msgRefs        = useRef({})
   const messagesEndRef = useRef(null)
@@ -804,7 +815,18 @@ const filtered = filterByCollection(searchFiltered, collection, { unreadCounts, 
                       </div>
                       <div className="contact-info">
                         <div className={`contact-name ${unread > 0 ? 'unread' : ''}`}>{getConvoName(c)}</div>
-                        <div className={`contact-preview ${unread > 0 ? 'unread' : ''}`}>{c.last_message || 'No messages yet'}</div>
+                       {unread > 0 ? (
+  <SmartReplyPreview
+    session={session}
+    convo={c}
+    entry={smartReplyCache[c.id]}
+    onFetch={fetchSuggestion}
+    onSend={(text) => quickSendReply(c, text)}
+    fallbackText={c.last_message}
+  />
+) : (
+  <div className="contact-preview">{c.last_message || 'No messages yet'}</div>
+)}
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                         <div className="contact-time">{c.updated_at ? formatMsgTime(c.updated_at) : ''}</div>
