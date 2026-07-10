@@ -639,10 +639,8 @@ useRingtone(callStatus === 'incoming', 'ringtone')
     const other = c.conversation_members?.find(m => m.user_id !== userId)
     return other?.profiles?.username || other?.profiles?.email || 'Unknown'
   }
-
- const searchFiltered = conversations.filter(c => getConvoName(c).toLowerCase().includes(search.toLowerCase()))
-const collectionFiltered = filterByCollection(searchFiltered, collection, { unreadCounts, sharedConvoIds, tags })
-const filtered = collectionFiltered.filter(c => listFilter === 'all' ? true : !!c.is_group)
+const searchFiltered = conversations.filter(c => getConvoName(c).toLowerCase().includes(search.toLowerCase()))
+const filtered = filterByCollection(searchFiltered, collection, { unreadCounts, sharedConvoIds, tags })
 
   const headerStatus = () => {
     if (callStatus === 'calling')    return '📞 Calling…'
@@ -747,14 +745,7 @@ const filtered = collectionFiltered.filter(c => listFilter === 'all' ? true : !!
   />
 )}
 
-        {/* ── LIST CARD ── */}
-        <div className="list-card">
-          {activeTab === 'chats' && (
-            <>
-              <div className="list-tabs">
-                <button className={listFilter === 'all' ? 'active' : ''} onClick={() => setListFilter('all')}>Chats</button>
-                <button className={listFilter === 'group' ? 'active' : ''} onClick={() => setListFilter('group')}>Group</button>
-              </div>
+        
       <SmartCollections
   active={collection}
   onChange={setCollection}
