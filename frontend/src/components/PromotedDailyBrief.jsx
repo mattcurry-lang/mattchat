@@ -3,7 +3,7 @@ import { callCurryAI } from './CurryAI'
 
 // Promoted version of the Daily Brief — meant to sit at the TOP of the
 // home screen (above the story rail), not buried inside the Curry
-// chat panel. Same data source (daily_insight), bigger presence.
+// chat panel. Same data source (daily_insight), bigger presence
 //
 // Collapses to a slim one-liner once dismissed for the session so it
 // doesn't nag every time the user reopens the app tab.
