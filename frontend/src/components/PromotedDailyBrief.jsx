@@ -13,10 +13,26 @@ const MOOD_EMOJI = {
 }
 const SUGGESTION_EMOJI = { music: '🎵', movie: '🎬', book: '📖', encouragement: '💜', none: '' }
 
+// Weather is intentionally kept separate from the cached daily insight —
+// weather changes hour to hour, but the brief itself is cached once per
+// day server-side. This is its own lightweight, always-fresh call.
+function weatherEmoji(description = '') {
+  const d = description.toLowerCase()
+  if (d.includes('thunder')) return '⛈️'
+  if (d.includes('snow')) return '❄️'
+  if (d.includes('drizzle') || d.includes('rain') || d.includes('shower')) return '🌧️'
+  if (d.includes('fog')) return '🌫️'
+  if (d.includes('overcast')) return '☁️'
+  if (d.includes('partly') || d.includes('mainly clear')) return '⛅'
+  if (d.includes('clear')) return '☀️'
+  return '🌡️'
+}
+
 export default function PromotedDailyBrief({ session, onAskQuestion, onOpenCurry }) {
   const [brief, setBrief] = useState(null)
   const [loading, setLoading] = useState(true)
   const [collapsed, setCollapsed] = useState(false)
+  const [weather, setWeather] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -28,6 +44,27 @@ export default function PromotedDailyBrief({ session, onAskQuestion, onOpenCurry
       if (!cancelled) setLoading(false)
     }
     load()
+    return () => { cancelled = true }
+  }, [])
+
+  // Fires once per mount. If the user denies/has no geolocation, the
+  // whole thing just no-ops and the badge never appears — no error UI.
+  useEffect(() => {
+    if (!navigator.geolocation) return
+    let cancelled = false
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords
+          const data = await callCurryAI('weather', { lat: latitude, lon: longitude }, session)
+          if (!cancelled && data.ok) setWeather(data.weather)
+        } catch (e) { console.error('Weather fetch failed:', e) }
+      },
+      (err) => { console.warn('Geolocation unavailable/denied:', err.message) },
+      { timeout: 8000, maximumAge: 10 * 60000 }
+    )
+
     return () => { cancelled = true }
   }, [])
 
@@ -52,6 +89,9 @@ export default function PromotedDailyBrief({ session, onAskQuestion, onOpenCurry
       <button style={s.collapsedBar} onClick={() => setCollapsed(false)}>
         <span>{moodEmoji}</span>
         <span style={s.collapsedText}>{brief.greeting}</span>
+        {weather && (
+          <span style={s.collapsedWeather}>{weatherEmoji(weather.description)} {weather.tempC}°C</span>
+        )}
         <span style={s.collapsedExpand}>▾</span>
       </button>
     )
@@ -64,8 +104,18 @@ export default function PromotedDailyBrief({ session, onAskQuestion, onOpenCurry
       <div style={s.headerRow}>
         <div style={s.avatar}>✨</div>
         <div style={{ flex: 1 }}>
-          <div style={s.greeting}>{moodEmoji} {brief.greeting}</div>
+          <div style={s.greetingRow}>
+            <div style={s.greeting}>{moodEmoji} {brief.greeting}</div>
+            {weather && (
+              <div style={s.weatherBadge} title={weather.description}>
+                {weatherEmoji(weather.description)} {weather.tempC}°C
+              </div>
+            )}
+          </div>
           {brief.mood_summary && <div style={s.moodSummary}>{brief.mood_summary}</div>}
+          {weather?.rainAlert && (
+            <div style={s.rainAlert}>🌂 {weather.rainAlert}</div>
+          )}
         </div>
       </div>
 
@@ -123,7 +173,14 @@ card: {
     display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
     boxShadow: '0 0 14px rgba(102,126,234,0.4)',
   },
+  greetingRow: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   greeting: { fontSize: 15.5, fontWeight: 700, color: '#fff', lineHeight: 1.35 },
+  weatherBadge: {
+    display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700,
+    color: '#e9d5ff', background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)',
+    borderRadius: 999, padding: '2px 9px', whiteSpace: 'nowrap',
+  },
+  rainAlert: { fontSize: 12, color: '#93c5fd', marginTop: 4, fontWeight: 600 },
   moodSummary: { fontSize: 13, color: '#c9cbe0', lineHeight: 1.5, marginTop: 3 },
   insights: { display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 46 },
   insightRow: { fontSize: 13, color: '#d8dae8', lineHeight: 1.5, display: 'flex', gap: 6 },
@@ -144,5 +201,6 @@ card: {
     padding: '8px 14px', cursor: 'pointer', fontFamily: 'inherit',
   },
   collapsedText: { flex: 1, textAlign: 'left', fontSize: 12.5, color: '#c9cbe0', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  collapsedWeather: { fontSize: 11.5, color: '#a78bfa', fontWeight: 700, whiteSpace: 'nowrap' },
   collapsedExpand: { color: 'rgba(255,255,255,0.3)', fontSize: 11 },
 }
