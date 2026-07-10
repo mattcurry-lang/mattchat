@@ -4,6 +4,29 @@ import { supabase } from '../lib/supabase'
 const FUNCTIONS_BASE = 'https://bqerkvywgxoioocbkxif.supabase.co/functions/v1'
 const MISSED_CALL_TIMEOUT_MS = 30000
 
+// Calls to verify_jwt=true edge functions occasionally fail with a bare
+// 401 "Unauthorized" from Supabase's own gateway (not our function code) —
+// this happens when the cached access_token is stale, e.g. the tab was
+// backgrounded and the auto-refresh timer got throttled. Retrying once
+// with a forcibly refreshed session clears it up almost every time.
+async function fetchCallFn(path, body) {
+  const { data: { session } } = await supabase.auth.getSession()
+  let res = await fetch(`${FUNCTIONS_BASE}/${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+    body: JSON.stringify(body),
+  })
+  if (res.status === 401) {
+    const { data: refreshed } = await supabase.auth.refreshSession()
+    res = await fetch(`${FUNCTIONS_BASE}/${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${refreshed?.session?.access_token}` },
+      body: JSON.stringify(body),
+    })
+  }
+  return res.json()
+}
+
 export function useCall(userId, conversationId) {
   const [callStatus, setCallStatus] = useState('idle')
   const [activeCall, setActiveCall]   = useState(null)
@@ -123,13 +146,7 @@ export function useCall(userId, conversationId) {
     setCallError(null)
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch(`${FUNCTIONS_BASE}/create-call-room-ts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ conversationId: targetId, callType }),
-      })
-      const data = await res.json()
+      const data = await fetchCallFn('create-call-room-ts', { conversationId: targetId, callType })
       if (!data.ok) throw new Error(data.error || 'Failed to start call')
 
       const call = {
@@ -189,13 +206,7 @@ export function useCall(userId, conversationId) {
     setCallError(null)
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch(`${FUNCTIONS_BASE}/get-call-token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ callId: call.id, roomName: call.roomName }),
-      })
-      const data = await res.json()
+      const data = await fetchCallFn('get-call-token', { callId: call.id, roomName: call.roomName })
       if (!data.ok) throw new Error(data.error || 'Failed to get call token')
 
       if (call.id) {
