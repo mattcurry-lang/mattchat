@@ -147,7 +147,7 @@ export default function CallOverlay({ roomUrl, token, callType, callerName, star
 
 const styles = {
   overlay: { position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', overflow: 'hidden', padding: '56px 0 60px' },
-  bg: { position: 'absolute', inset: 0, background: 'linear-gradient(160deg, #1b0f2e 0%, #05060f 100%)', zIndex: 0 },
+  bg: { position: 'absolute', inset: 0, background: 'linear-gradient(160deg, var(--panel-bg, #0f0e17) 0%, #05060a 100%)', zIndex: 0 },
   iframeWrap: { position: 'absolute', inset: 0, zIndex: 1, transition: 'opacity 0.4s' },
 
   topInfo: { position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, transition: 'opacity 0.4s' },
@@ -158,14 +158,14 @@ const styles = {
   ringGlow: { position: 'relative', width: 180, height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center' },
   ring: {
     position: 'absolute', width: 180, height: 180, borderRadius: '50%',
-    border: '2px solid rgba(124,58,237,0.35)', animation: 'ring-pulse 2s ease-out infinite',
+    border: '2px solid rgba(108,99,255,0.35)', animation: 'ring-pulse 2s ease-out infinite',
   },
   avatar: {
     width: 150, height: 150, borderRadius: '50%',
-    background: 'linear-gradient(135deg, #7c3aed, #db2777)',
+    background: 'var(--brand-grad, linear-gradient(135deg, #6c63ff, #a78bfa))',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 56, fontWeight: 700, color: '#fff', zIndex: 1,
-    boxShadow: '0 0 40px rgba(124,58,237,0.45)',
+    boxShadow: '0 0 40px rgba(108,99,255,0.45)',
   },
 
   controls: { position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 },
