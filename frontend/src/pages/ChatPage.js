@@ -766,6 +766,9 @@ export default function ChatPage({ session }) {
             onAskQuestion={() => {}}
             onOpenCurry={() => setActiveConvo(CURRY_AI_CONTACT)}
           />
+ 
+        )}
+        {activeTab === 'chats' && (
   <TodaysTimeline
     session={session}
     userId={userId}
@@ -773,7 +776,7 @@ export default function ChatPage({ session }) {
     conversations={conversations}
     sharedConvoIds={sharedConvoIds}
   />
-        )}
+)}
 
         {/* ── LIST CARD ── */}
         <div className="list-card">
