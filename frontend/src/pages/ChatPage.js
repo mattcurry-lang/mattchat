@@ -19,6 +19,7 @@ import { usePresence } from '../hooks/usePresence'
 import { useCall } from '../hooks/useCall'
 import CallOverlay from '../components/CallOverlay'
 import IncomingCallModal from '../components/IncomingCallModal'
+import OutgoingCallScreen from '../components/OutgoingCallScreen'
 import EmojiPicker from '../components/EmojiPicker'
 import { useRingtone } from '../hooks/useRingtone'
 import { useMessageStatus } from '../hooks/useMessageStatus'
@@ -682,6 +683,16 @@ export default function ChatPage({ session }) {
           callType={activeCall.callType}
           onAnswer={(muted) => { setStartMuted(muted); answerCall() }}
           onDecline={declineCall}
+        />
+      )}
+
+      {/* ── OUTGOING CALL (caller's own full-screen "Calling…" view) ── */}
+      {(callStatus === 'calling' || callStatus === 'ringing') && activeCall && (
+        <OutgoingCallScreen
+          callerName={callConvo ? getConvoName(callConvo) : ''}
+          callType={activeCall.callType}
+          status={callStatus}
+          onCancel={endCall}
         />
       )}
 
