@@ -20,6 +20,7 @@ import { useCall } from '../hooks/useCall'
 import CallOverlay from '../components/CallOverlay'
 import IncomingCallModal from '../components/IncomingCallModal'
 import OutgoingCallScreen from '../components/OutgoingCallScreen'
+import TwoFactorModal from '../components/TwoFactorModal'
 import EmojiPicker from '../components/EmojiPicker'
 import { useRingtone } from '../hooks/useRingtone'
 import { useMessageStatus } from '../hooks/useMessageStatus'
@@ -299,6 +300,7 @@ export default function ChatPage({ session }) {
   const [showSearchBar, setShowSearchBar] = useState(false)
   const [listFilter, setListFilter]     = useState('all') // 'all' | 'group'
   const [showProfileMenu, setShowProfileMenu] = useState(false)
+  const [show2FA, setShow2FA] = useState(false)
   const [profile, setProfile]           = useState(null)
   const [showVoice, setShowVoice]       = useState(false)
   const [showPoll, setShowPoll]         = useState(false)
@@ -960,10 +962,23 @@ export default function ChatPage({ session }) {
               >
                 ✉️ {connectingGmail ? 'Connecting…' : emailAccounts.length > 0 ? `Gmail connected (${emailAccounts.length})` : 'Connect Gmail'}
               </button>
+              <button
+                onClick={() => { setShow2FA(true); setShowProfileMenu(false) }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(108,99,255,0.12)',
+                  border: '1px solid rgba(108,99,255,0.3)', borderRadius: 10, color: '#c4b8ff',
+                  fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: 'pointer',
+                  fontFamily: 'inherit', whiteSpace: 'nowrap',
+                }}
+              >
+                🔐 Two-factor authentication
+              </button>
               <button className="profile-menu-signout" onClick={signOut}>⏏ Sign out</button>
             </div>
           </div>
         )}
+
+        {show2FA && <TwoFactorModal onClose={() => setShow2FA(false)} />}
 
         {showAddStatus && (
           <AddStatusModal userId={userId} onClose={() => setShowAddStatus(false)} onPosted={reloadStatuses} />
