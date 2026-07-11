@@ -1,62 +1,20 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { callCurryAI } from './CurryAI'
 
-// Today's Timeline — a compact strip above the chat list summarizing
-// what's actually happening right now, all derived from real data:
-//   - unread messages (useUnreadCounts, already tracked in ChatPage)
-//   - conversations active today (updated_at === today)
-//   - pending scheduled messages (scheduled_messages table)
-//   - chats shared with Curry (sharedConvoIds, already tracked)
-//   - live weather + rain alert (same Open-Meteo call as the daily brief)
+// Today's Timeline — now a small circular badge that sits beside Curry's
+// avatar in the PromotedDailyBrief header, instead of its own full-width
+// strip. Tapping it opens a compact dropdown with the same info.
 //
-// Deliberately does NOT show emails, calendar events, or task due-dates —
-// those need a Gmail read scope / calendar table / due-date column that
-// don't exist yet. Nothing here is invented; if a data point is empty,
-// its row just doesn't render.
-//
-// Collapses to a slim bar once the user minimizes it, persisted in
-// sessionStorage so it stays out of the way for the rest of the tab
-// session (mirrors the UI note about the daily brief card being tall
-// on smaller screens).
+// Weather was intentionally REMOVED from here — PromotedDailyBrief
+// already fetches and displays it, and showing it twice (once in each
+// strip) was the main clutter complaint. This component now only
+// covers things the brief card doesn't: unread count, conversations
+// active today, pending scheduled messages, and chats shared with Curry.
 
-const STORAGE_KEY = 'curry_timeline_collapsed'
-
-function weatherEmoji(description = '') {
-  const d = description.toLowerCase()
-  if (d.includes('thunder')) return '⛈️'
-  if (d.includes('snow')) return '❄️'
-  if (d.includes('drizzle') || d.includes('rain') || d.includes('shower')) return '🌧️'
-  if (d.includes('fog')) return '🌫️'
-  if (d.includes('overcast')) return '☁️'
-  if (d.includes('partly') || d.includes('mainly clear')) return '⛅'
-  if (d.includes('clear')) return '☀️'
-  return '🌡️'
-}
-
-export default function TodaysTimeline({ session, userId, totalUnread, conversations, sharedConvoIds }) {
-  const [weather, setWeather] = useState(null)
+export default function TodaysTimeline({ userId, totalUnread, conversations, sharedConvoIds }) {
   const [scheduledCount, setScheduledCount] = useState(0)
-  const [collapsed, setCollapsed] = useState(() => {
-    try { return sessionStorage.getItem(STORAGE_KEY) === '1' } catch { return false }
-  })
-
-  useEffect(() => {
-    if (!navigator.geolocation) return
-    let cancelled = false
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const { latitude, longitude } = pos.coords
-          const data = await callCurryAI('weather', { lat: latitude, lon: longitude }, session)
-          if (!cancelled && data.ok) setWeather(data.weather)
-        } catch (e) { console.error('Timeline weather fetch failed:', e) }
-      },
-      () => {},
-      { timeout: 8000, maximumAge: 10 * 60000 }
-    )
-    return () => { cancelled = true }
-  }, [])
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef(null)
 
   useEffect(() => {
     let cancelled = false
@@ -72,6 +30,15 @@ export default function TodaysTimeline({ session, userId, totalUnread, conversat
     return () => { cancelled = true }
   }, [userId])
 
+  useEffect(() => {
+    if (!open) return
+    const onClickOutside = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [open])
+
   const activeToday = (conversations || []).filter(c => {
     if (!c.updated_at) return false
     return new Date(c.updated_at).toDateString() === new Date().toDateString()
@@ -82,66 +49,61 @@ export default function TodaysTimeline({ session, userId, totalUnread, conversat
   if (activeToday > 0) items.push({ icon: '🗨️', text: `${activeToday} conversation${activeToday === 1 ? '' : 's'} active today` })
   if (scheduledCount > 0) items.push({ icon: '🕐', text: `${scheduledCount} message${scheduledCount === 1 ? '' : 's'} scheduled` })
   if (sharedConvoIds?.size > 0) items.push({ icon: '✨', text: `${sharedConvoIds.size} chat${sharedConvoIds.size === 1 ? '' : 's'} shared with Curry` })
-  if (weather) items.push({ icon: weatherEmoji(weather.description), text: `${weather.tempC}°C, ${weather.description}` })
-  if (weather?.rainAlert) items.push({ icon: '☔', text: weather.rainAlert })
 
   if (items.length === 0) return null
 
-  const toggle = () => {
-    setCollapsed(v => {
-      const next = !v
-      try { sessionStorage.setItem(STORAGE_KEY, next ? '1' : '0') } catch {}
-      return next
-    })
-  }
-
-  if (collapsed) {
-    return (
-      <button style={s.collapsedBar} onClick={toggle}>
-        <span style={s.collapsedLabel}>📋 Today's Brief</span>
-        <span style={s.collapsedCount}>{items.length} update{items.length === 1 ? '' : 's'}</span>
-        <span style={s.expandArrow}>▾</span>
-      </button>
-    )
-  }
-
   return (
-    <div style={s.card}>
-      <div style={s.headerRow}>
-        <span style={s.title}>📋 Today's Brief</span>
-        <button style={s.collapseBtn} onClick={toggle} title="Minimize">︿</button>
-      </div>
-      <div style={s.list}>
-        {items.map((item, i) => (
-          <div key={i} style={s.item}>
-            <span style={s.itemIcon}>{item.icon}</span>
-            <span style={s.itemText}>{item.text}</span>
+    <div ref={wrapRef} style={s.wrap}>
+      <button style={s.badge} onClick={() => setOpen(v => !v)} title="Today's Brief">
+        <span style={s.badgeIcon}>📋</span>
+        <span style={s.badgeCount}>{items.length}</span>
+      </button>
+
+      {open && (
+        <div style={s.panel}>
+          <div style={s.panelTitle}>Today's Brief</div>
+          <div style={s.list}>
+            {items.map((item, i) => (
+              <div key={i} style={s.item}>
+                <span style={s.itemIcon}>{item.icon}</span>
+                <span style={s.itemText}>{item.text}</span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
 
 const s = {
-  card: {
-    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: 16, padding: '12px 16px', margin: '8px 16px 0',
+  // Positioned by the parent (ChatPage renders this inside a
+  // position:relative wrapper around PromotedDailyBrief) so it sits
+  // just to the right of Curry's avatar circle in the brief header.
+  wrap: { position: 'absolute', top: 20, left: 56, zIndex: 5 },
+  badge: {
+    width: 26, height: 26, borderRadius: '50%', position: 'relative',
+    background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: 'pointer', fontFamily: 'inherit', padding: 0,
+  },
+  badgeIcon: { fontSize: 12 },
+  badgeCount: {
+    position: 'absolute', top: -5, right: -5, minWidth: 15, height: 15, borderRadius: 999,
+    background: 'var(--brand-grad, linear-gradient(135deg,#6c63ff,#a78bfa))',
+    color: '#fff', fontSize: 9.5, fontWeight: 800,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px',
+    boxShadow: '0 0 0 2px #171225',
+  },
+  panel: {
+    position: 'absolute', top: 32, left: 0, width: 220, zIndex: 20,
+    background: '#1c1830', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14,
+    padding: '10px 12px', boxShadow: '0 8px 28px rgba(0,0,0,0.4)',
     display: 'flex', flexDirection: 'column', gap: 8,
   },
-  headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: 12.5, fontWeight: 700, color: '#c9cbe0', letterSpacing: '0.02em' },
-  collapseBtn: { background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 12, cursor: 'pointer', padding: 2 },
-  list: { display: 'flex', flexWrap: 'wrap', gap: '6px 14px' },
-  item: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: '#d8dae8', fontWeight: 500 },
+  panelTitle: { fontSize: 11.5, fontWeight: 700, color: '#c9cbe0', letterSpacing: '0.02em', marginBottom: 2 },
+  list: { display: 'flex', flexDirection: 'column', gap: 6 },
+  item: { display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: '#d8dae8', fontWeight: 500 },
   itemIcon: { fontSize: 13 },
   itemText: {},
-  collapsedBar: {
-    display: 'flex', alignItems: 'center', gap: 8, width: 'calc(100% - 32px)', margin: '8px 16px 0',
-    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12,
-    padding: '7px 14px', cursor: 'pointer', fontFamily: 'inherit',
-  },
-  collapsedLabel: { fontSize: 12, color: '#9ca3af', fontWeight: 600 },
-  collapsedCount: { flex: 1, textAlign: 'left', fontSize: 11.5, color: 'rgba(255,255,255,0.35)' },
-  expandArrow: { color: 'rgba(255,255,255,0.3)', fontSize: 11 },
 }
