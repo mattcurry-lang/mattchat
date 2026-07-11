@@ -5,14 +5,34 @@ import ChatPage from './pages/ChatPage'
 import AuthPage from './pages/AuthPage'
 import EmailFormPage from './pages/EmailFormPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import MfaChallengePage from './pages/MfaChallengePage'
 import './App.css'
 
 export default function App() {
   const [session, setSession] = useState(undefined)
   const [isRecovery, setIsRecovery] = useState(false)
+  const [needsMfa, setNeedsMfa] = useState(false)
+  const [aalChecked, setAalChecked] = useState(false)
+
+  // A signed-in session from Supabase can still be "aal1" even when the
+  // account has a verified 2FA factor — Supabase issues the session
+  // right after password auth, then expects the app to separately
+  // enforce the step-up to aal2 via a challenge. This is that check.
+  const checkAal = async () => {
+    const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+    if (!error && data) {
+      setNeedsMfa(data.nextLevel === 'aal2' && data.currentLevel !== data.nextLevel)
+    } else {
+      setNeedsMfa(false)
+    }
+    setAalChecked(true)
+  }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      if (session) checkAal(); else setAalChecked(true)
+    })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       // Supabase fires this specific event when the session came from a
@@ -24,12 +44,14 @@ export default function App() {
         setIsRecovery(true)
       }
       setSession(session)
+      setAalChecked(false)
+      if (session) checkAal(); else setAalChecked(true)
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
-  if (session === undefined) {
+  if (session === undefined || !aalChecked) {
     return (
       <div className="splash">
         <img src="/logo.png" alt="Mattchat" className="splash-logo-img" />
@@ -62,7 +84,11 @@ export default function App() {
           element={
             isRecovery
               ? <Navigate to="/reset-password" />
-              : session ? <ChatPage session={session} /> : <Navigate to="/auth" />
+              : session
+                ? (needsMfa
+                    ? <MfaChallengePage onVerified={() => setNeedsMfa(false)} />
+                    : <ChatPage session={session} />)
+                : <Navigate to="/auth" />
           }
         />
       </Routes>
