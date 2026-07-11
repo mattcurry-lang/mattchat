@@ -44,7 +44,7 @@ import SmartReplyPreview, { useSmartReplyCache } from '../components/SmartReplyP
 import RelationshipInsights from '../components/RelationshipInsights'
 import TodaysTimeline from '../components/TodaysTimeline'
 
-// Matches "hey curry", "hey curry,", "hey curry:" at the start of 
+// Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
 const CURRY_TRIGGER = /^hey\s+curry[,:]?\s*/i
@@ -772,22 +772,20 @@ export default function ChatPage({ session }) {
         </div>
 
         {activeTab === 'chats' && (
-          <PromotedDailyBrief
-            session={session}
-            onAskQuestion={() => {}}
-            onOpenCurry={() => setActiveConvo(CURRY_AI_CONTACT)}
-          />
- 
+          <div style={{ position: 'relative' }}>
+            <PromotedDailyBrief
+              session={session}
+              onAskQuestion={() => {}}
+              onOpenCurry={() => setActiveConvo(CURRY_AI_CONTACT)}
+            />
+            <TodaysTimeline
+              userId={userId}
+              totalUnread={totalUnread}
+              conversations={conversations}
+              sharedConvoIds={sharedConvoIds}
+            />
+          </div>
         )}
-        {activeTab === 'chats' && (
-  <TodaysTimeline
-    session={session}
-    userId={userId}
-    totalUnread={totalUnread}
-    conversations={conversations}
-    sharedConvoIds={sharedConvoIds}
-  />
-)}
 
         {/* ── LIST CARD ── */}
         <div className="list-card">
