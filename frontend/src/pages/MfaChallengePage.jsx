@@ -15,11 +15,18 @@ export default function MfaChallengePage({ onVerified }) {
   useEffect(() => {
     supabase.auth.mfa.listFactors().then(({ data, error }) => {
       const verified = (data?.totp || []).find(f => f.status === 'verified')
-      if (verified) setFactorId(verified.id)
-      else setError('No verified authenticator found for this account.')
-      setLoading(false)
+      if (verified) {
+        setFactorId(verified.id)
+        setLoading(false)
+      } else {
+        // Nothing verified to actually challenge against — this should
+        // no longer happen (orphaned unverified factors are now cleaned
+        // up automatically), but if it ever does, don't trap the user
+        // behind a code screen they can never satisfy.
+        onVerified()
+      }
     })
-  }, [])
+  }, [onVerified])
 
   const submit = async (e) => {
     e.preventDefault()
