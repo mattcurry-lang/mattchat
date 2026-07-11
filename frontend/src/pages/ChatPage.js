@@ -936,44 +936,49 @@ export default function ChatPage({ session }) {
         {showProfileMenu && (
           <div className="profile-menu-overlay" onClick={() => setShowProfileMenu(false)}>
             <div className="profile-menu" onClick={e => e.stopPropagation()}>
-              <Avatar name={profile?.username || session.user.email} size={48} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, color: '#fff', fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {profile?.username || 'You'}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {session.user.email}
+              <div className="profile-menu-header">
+                <Avatar name={profile?.username || session.user.email} size={48} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, color: '#fff', fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {profile?.username || 'You'}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {session.user.email}
+                  </div>
                 </div>
               </div>
-              <button
-                onClick={async () => {
-                  if (connectingGmail) return
-                  setConnectingGmail(true)
-                  try { await connectGmail(session) } catch (err) { alert(err.message); setConnectingGmail(false) }
-                }}
-                disabled={connectingGmail}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(167,139,250,0.12)',
-                  border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#c4b5fd',
-                  fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: connectingGmail ? 'default' : 'pointer',
-                  fontFamily: 'inherit', opacity: connectingGmail ? 0.6 : 1, whiteSpace: 'nowrap',
-                }}
-                title={emailAccounts.length > 0 ? `Connected: ${emailAccounts.map(a => a.email_address).join(', ')}` : 'Let Curry send real emails on your behalf'}
-              >
-                ✉️ {connectingGmail ? 'Connecting…' : emailAccounts.length > 0 ? `Gmail connected (${emailAccounts.length})` : 'Connect Gmail'}
-              </button>
-              <button
-                onClick={() => { setShow2FA(true); setShowProfileMenu(false) }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(108,99,255,0.12)',
-                  border: '1px solid rgba(108,99,255,0.3)', borderRadius: 10, color: '#c4b8ff',
-                  fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: 'pointer',
-                  fontFamily: 'inherit', whiteSpace: 'nowrap',
-                }}
-              >
-                🔐 Two-factor authentication
-              </button>
-              <button className="profile-menu-signout" onClick={signOut}>⏏ Sign out</button>
+
+              <div className="profile-menu-actions">
+                <button
+                  onClick={async () => {
+                    if (connectingGmail) return
+                    setConnectingGmail(true)
+                    try { await connectGmail(session) } catch (err) { alert(err.message); setConnectingGmail(false) }
+                  }}
+                  disabled={connectingGmail}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(167,139,250,0.12)',
+                    border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#c4b5fd',
+                    fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: connectingGmail ? 'default' : 'pointer',
+                    fontFamily: 'inherit', opacity: connectingGmail ? 0.6 : 1, whiteSpace: 'nowrap',
+                  }}
+                  title={emailAccounts.length > 0 ? `Connected: ${emailAccounts.map(a => a.email_address).join(', ')}` : 'Let Curry send real emails on your behalf'}
+                >
+                  ✉️ {connectingGmail ? 'Connecting…' : emailAccounts.length > 0 ? `Gmail connected (${emailAccounts.length})` : 'Connect Gmail'}
+                </button>
+                <button
+                  onClick={() => { setShow2FA(true); setShowProfileMenu(false) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(108,99,255,0.12)',
+                    border: '1px solid rgba(108,99,255,0.3)', borderRadius: 10, color: '#c4b8ff',
+                    fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: 'pointer',
+                    fontFamily: 'inherit', whiteSpace: 'nowrap',
+                  }}
+                >
+                  🔐 Two-factor authentication
+                </button>
+                <button className="profile-menu-signout" onClick={signOut}>⏏ Sign out</button>
+              </div>
             </div>
           </div>
         )}
