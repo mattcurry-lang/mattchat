@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
 // Two-factor authentication setup, built on Supabase Auth's native MFA
@@ -29,6 +29,21 @@ export default function TwoFactorModal({ onClose }) {
   }
 
   useEffect(() => { loadFactors() }, [])
+
+  // Belt-and-suspenders: if the component unmounts entirely while an
+  // enrollment is in progress (browser back, tab close, parent
+  // re-render removing this modal) — not just via the Cancel/X/backdrop
+  // handlers above — clean up the orphaned unverified factor too.
+  const enrollDataRef = useRef(null)
+  useEffect(() => { enrollDataRef.current = enrollData }, [enrollData])
+  useEffect(() => {
+    return () => {
+      const pending = enrollDataRef.current
+      if (pending?.factorId) {
+        supabase.auth.mfa.unenroll({ factorId: pending.factorId }).catch(() => {})
+      }
+    }
+  }, [])
 
   const startEnroll = async () => {
     setError(''); setBusy(true)
@@ -99,11 +114,11 @@ export default function TwoFactorModal({ onClose }) {
   }
 
   return (
-    <div style={s.overlay} onClick={onClose}>
+    <div style={s.overlay} onClick={() => { if (enrolling) cancelEnroll(); onClose() }}>
       <div style={s.modal} onClick={e => e.stopPropagation()}>
         <div style={s.header}>
           <div style={s.title}>🔐 Two-factor authentication</div>
-          <button style={s.closeBtn} onClick={onClose}>✕</button>
+          <button style={s.closeBtn} onClick={() => { if (enrolling) cancelEnroll(); onClose() }}>✕</button>
         </div>
 
         {loading ? (
