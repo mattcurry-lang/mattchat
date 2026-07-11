@@ -17,7 +17,7 @@ export default function App() {
   // A signed-in session from Supabase can still be "aal1" even when the
   // account has a verified 2FA factor — Supabase issues the session
   // right after password auth, then expects the app to separately
-  // enforce the step-up to aal2 via a challenge. This is that check.
+  // enforce the step-up to aal2 via a challenge. This is that check
   const checkAal = async () => {
     const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
     if (!error && data) {
