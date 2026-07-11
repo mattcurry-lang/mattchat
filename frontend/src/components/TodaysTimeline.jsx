@@ -78,9 +78,12 @@ export default function TodaysTimeline({ userId, totalUnread, conversations, sha
 
 const s = {
   // Positioned by the parent (ChatPage renders this inside a
-  // position:relative wrapper around PromotedDailyBrief) so it sits
-  // just to the right of Curry's avatar circle in the brief header.
-  wrap: { position: 'absolute', top: 20, left: 56, zIndex: 5 },
+  // position:relative wrapper around PromotedDailyBrief). Anchored to
+  // the top-right, just left of the card's own minimize chevron
+  // (which sits at top:10/right:12) — this avoids ever colliding with
+  // the avatar or greeting text on the left, regardless of how long
+  // the greeting or username is.
+  wrap: { position: 'absolute', top: 8, right: 40, zIndex: 5 },
   badge: {
     width: 26, height: 26, borderRadius: '50%', position: 'relative',
     background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)',
@@ -96,7 +99,7 @@ const s = {
     boxShadow: '0 0 0 2px #171225',
   },
   panel: {
-    position: 'absolute', top: 32, left: 0, width: 220, zIndex: 20,
+    position: 'absolute', top: 32, right: 0, width: 220, zIndex: 20,
     background: '#1c1830', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14,
     padding: '10px 12px', boxShadow: '0 8px 28px rgba(0,0,0,0.4)',
     display: 'flex', flexDirection: 'column', gap: 8,
