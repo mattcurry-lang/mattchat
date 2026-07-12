@@ -1025,17 +1025,18 @@ export default function ChatPage({ session }) {
           />
         )}
 
-        {viewerIndex !== null && viewableGroups[viewerIndex] && (
-          <StatusViewer
-            group={viewableGroups[viewerIndex]}
-            isMine={viewableGroups[viewerIndex].isMine}
-            onClose={() => setViewerIndex(null)}
-            onViewed={markViewed}
-            onDeleted={reloadStatuses}
-            onNextGroup={viewerIndex < viewableGroups.length - 1 ? () => setViewerIndex(i => i + 1) : undefined}
-            onPrevGroup={viewerIndex > 0 ? () => setViewerIndex(i => i - 1) : undefined}
-          />
-        )}
+       {viewerIndex !== null && viewableGroups[viewerIndex] && (
+  <StatusViewer
+    group={viewableGroups[viewerIndex]}
+    isMine={viewableGroups[viewerIndex].isMine}
+    currentUserId={userId}
+    onClose={() => setViewerIndex(null)}
+    onViewed={markViewed}
+    onDeleted={reloadStatuses}
+    onNextGroup={viewerIndex < viewableGroups.length - 1 ? () => setViewerIndex(i => i + 1) : undefined}
+    onPrevGroup={viewerIndex > 0 ? () => setViewerIndex(i => i - 1) : undefined}
+  />
+)}
 
         {/* Always rendered — on mobile/tablet this is hidden automatically
             because the whole .sidebar hides when a chat is open; on desktop
