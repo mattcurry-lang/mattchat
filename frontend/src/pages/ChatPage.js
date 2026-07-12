@@ -512,7 +512,19 @@ export default function ChatPage({ session }) {
     window.history.replaceState({}, '', cleanUrl)
   }, [loadEmailAccounts])
 
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
+// Only auto-scroll when the message COUNT actually grows (a genuine
+// new message arrived), not on every re-render of the messages array
+// — some realtime updates (typing pings, status changes, re-renders
+// from other hooks) were replacing the array reference without
+// adding anything, which was yanking the view back to the bottom
+// every time, even mid-scroll.
+const prevMsgCountRef = useRef(0)
+useEffect(() => {
+  if (messages.length > prevMsgCountRef.current) {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+  prevMsgCountRef.current = messages.length
+}, [messages])
 
   useEffect(() => { if (activeConvo) window.history.pushState({ chatOpen: true }, '') }, [activeConvo])
 
