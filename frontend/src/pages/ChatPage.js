@@ -45,6 +45,11 @@ import SmartReplyPreview, { useSmartReplyCache } from '../components/SmartReplyP
 import RelationshipInsights from '../components/RelationshipInsights'
 import TodaysTimeline from '../components/TodaysTimeline'
 import { useTheme } from '../hooks/useTheme'
+import {
+  getOrCreateConversation, hideConversationForUser, signOut, supabase, connectGmail, listEmailAccounts,
+  deleteMessageForEveryone, deleteMessageForMe, getHiddenMessageIds, sendReplyMessage, canDeleteForEveryone,
+} from '../lib/supabase'
+import ForwardModal from '../components/ForwardModal'
 
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
@@ -161,6 +166,18 @@ function MessageBubble({ msg, isMe, isRead, isDelivered }) {
   if (msg.message_type === 'curry') {
     return <CurryChatBubble msg={msg} />
   }
+  if (msg.deleted_for_everyone) {
+    return (
+      <div className={`msg-row ${isMe ? 'mine' : ''}`}>
+        {!isMe && <Avatar name={msg.profiles?.username} size={28} />}
+        <div>
+          {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
+          <div className="msg-bubble deleted-msg">🚫 This message was deleted</div>
+          <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+        </div>
+      </div>
+    )
+  }
 if (msg.content?.startsWith('call_log:') || msg.content?.startsWith('missed_call:')) {
   let callType, status, duration = 0
   if (msg.content.startsWith('call_log:')) {
@@ -276,12 +293,19 @@ if (msg.content?.startsWith('status_reply:')) {
       </div>
     )
   }
-  return (
+return (
     <div className={`msg-row ${isMe ? 'mine' : ''}`}>
       {!isMe && <Avatar name={msg.profiles?.username} size={28} />}
       <div>
         {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
         <div className={`msg-bubble ${msg.is_email ? 'email-msg' : ''} ${isMe && isRead ? 'read' : ''}`}>
+          {msg.forwarded && <div className="forwarded-tag">➡️ Forwarded</div>}
+          {msg.reply_to_message_id && msg._quotedMessage && (
+            <div className="reply-quote">
+              <div className="reply-quote-name">{msg._quotedMessage.profiles?.username || 'You'}</div>
+              <div className="reply-quote-text">{msg._quotedMessage.content?.slice(0, 80)}</div>
+            </div>
+          )}
           {msg.is_email && <span className="email-tag">📧 via email</span>}
           {msg.content}
         </div>
@@ -291,7 +315,6 @@ if (msg.content?.startsWith('status_reply:')) {
     </div>
   )
 }
-
 function ThreeDotMenu({ onPoll, onTask, onSchedule, onSearch, onShare, onClose }) {
   useEffect(() => {
     const handler = (e) => { if (!e.target.closest('.threedot-wrapper')) onClose() }
@@ -370,9 +393,15 @@ export default function ChatPage({ session }) {
   const [messageMenu, setMessageMenu] = useState(null) // { message, x, y } | null
   const [collection, setCollection] = useState('all')
   const [showInsights, setShowInsights] = useState(false)
+  const [replyingTo, setReplyingTo] = useState(null)
+  const [forwardingMessage, setForwardingMessage] = useState(null)
+  const [hiddenMsgIds, setHiddenMsgIds] = useState(new Set())
   const { tags, setTag } = useConvoTags()
   const { cache: smartReplyCache, fetchSuggestion, clear: clearSmartReply } = useSmartReplyCache()
   const { theme, toggleTheme } = useTheme()
+  const [replyingTo, setReplyingTo] = useState(null) // the message object being replied to
+const [forwardingMessage, setForwardingMessage] = useState(null) // message content being forwarded
+const [hiddenMsgIds, setHiddenMsgIds] = useState(new Set())
   
 
   const msgRefs        = useRef({})
@@ -525,7 +554,11 @@ useEffect(() => {
   }
   prevMsgCountRef.current = messages.length
 }, [messages])
-
+useEffect(() => {
+  if (!messages.length) { setHiddenMsgIds(new Set()); return }
+  getHiddenMessageIds(userId, messages.map(m => m.id)).then(setHiddenMsgIds)
+}, [messages, userId])
+  
   useEffect(() => { if (activeConvo) window.history.pushState({ chatOpen: true }, '') }, [activeConvo])
 
   useEffect(() => {
@@ -668,9 +701,15 @@ useEffect(() => {
       }
     }
 
-    await sendMessage(text)
+  if (replyingTo) {
+      await sendReplyMessage(activeConvo.id, userId, text, replyingTo.id)
+      setReplyingTo(null)
+      reload()
+    } else {
+      await sendMessage(text)
+      bumpConversationActivity(text)
+    }
     setInputText('')
-    bumpConversationActivity(text)
   }
 
   const handleTyping = (e) => {
@@ -714,7 +753,7 @@ useEffect(() => {
     await sendMessage(`gif:${gif.url}::${gif.title}`)
     bumpConversationActivity('GIF')
   }
-
+ const findMessageById = (id) => messages.find(m => m.id === id)
   const getConvoName = (c) => {
     if (c.isCurryAI) return 'Curry AI'
     if (c.is_group) return c.name
@@ -1211,10 +1250,10 @@ useEffect(() => {
             <PinnedBar key={pinnedRefresh} conversationId={activeConvo?.id} onScrollTo={scrollToMessage} />
 
             {/* Messages */}
-            <div className="messages">
+           <div className="messages">
               {msgLoading && <div className="loading-state">Loading messages…</div>}
-              {messages.map((msg, i) => {
-                const prev = messages[i - 1]
+              {(() => { const visibleMessages = messages.filter(m => !hiddenMsgIds.has(m.id)); return visibleMessages.map((msg, i) => {
+                const prev = visibleMessages[i - 1]
                 const showDate = !prev || new Date(msg.created_at).toDateString() !== new Date(prev.created_at).toDateString()
                 const isMissedCall = msg.content?.startsWith('missed_call:') || msg.content?.startsWith('call_log:')
                 const isCurryMsg = msg.message_type === 'curry'
@@ -1243,8 +1282,8 @@ useEffect(() => {
                           currentUserId={userId}
                           isMe={isMine}
                         >
-                          <MessageBubble
-                            msg={{ ...msg, _currentUserId: userId }}
+                         <MessageBubble
+                            msg={{ ...msg, _currentUserId: userId, _quotedMessage: msg.reply_to_message_id ? findMessageById(msg.reply_to_message_id) : null }}
                             isMe={isMine}
                             isRead={!!readMap[msg.id]}
                             isDelivered={!!deliveredMap[msg.id]}
@@ -1252,9 +1291,9 @@ useEffect(() => {
                         </ReactableMessage>
                       )}
                     </div>
-                  </React.Fragment>
+               </React.Fragment>
                 )
-              })}
+              }) })()}
               {typing.length > 0 && <div className="typing-indicator"><span /><span /><span /></div>}
               {curryChatBusy && (
                 <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
@@ -1264,10 +1303,11 @@ useEffect(() => {
               <div ref={messagesEndRef} />
             </div>
 
-            {messageMenu && (
+          {messageMenu && (
               <MessageActionsMenu
                 session={session}
                 message={messageMenu.message}
+                currentUserId={userId}
                 position={{
                   x: messageMenu.x,
                   y: messageMenu.y,
@@ -1276,9 +1316,18 @@ useEffect(() => {
                 onPin={() => pinMessage(messageMenu.message.id)}
                 onCopy={() => {}}
                 onInsertReply={(text) => setInputText(text)}
+                onReply={() => setReplyingTo(messageMenu.message)}
+                onForward={() => setForwardingMessage(messageMenu.message.content)}
+                onDeleteForMe={async () => {
+                  await deleteMessageForMe(messageMenu.message.id, userId)
+                  setHiddenMsgIds(prev => new Set(prev).add(messageMenu.message.id))
+                }}
+                onDeleteForEveryone={async () => {
+                  try { await deleteMessageForEveryone(messageMenu.message.id, userId) }
+                  catch (e) { alert(e.message) }
+                }}
               />
             )}
-
             {showInsights && (
               <RelationshipInsights
                 messages={messages}
@@ -1289,7 +1338,30 @@ useEffect(() => {
             )}
 
             {/* Input area */}
+{forwardingMessage && (
+              <ForwardModal
+                session={session}
+                content={forwardingMessage}
+                conversations={conversations}
+                getConvoName={getConvoName}
+                currentUserId={userId}
+                emailAccounts={emailAccounts}
+                onClose={() => setForwardingMessage(null)}
+                onForwarded={() => reload()}
+              />
+            )}
+
+            {/* Input area */}
             <div className="input-area" style={{ flexDirection: 'column', alignItems: 'stretch', padding: 0 }}>
+              {replyingTo && (
+                <div className="reply-preview-bar">
+                  <div className="reply-preview-content">
+                    <div className="reply-preview-name">{replyingTo.sender_id === userId ? 'You' : getConvoName(activeConvo)}</div>
+                    <div className="reply-preview-text">{replyingTo.content?.slice(0, 100)}</div>
+                  </div>
+                  <button className="reply-preview-close" onClick={() => setReplyingTo(null)}>✕</button>
+                </div>
+              )}
               {showCurryAssistant && (
                 <CurryAssistant
                   session={session}
