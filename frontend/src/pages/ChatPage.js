@@ -44,6 +44,7 @@ import SmartCollections, { useConvoTags, filterByCollection } from '../component
 import SmartReplyPreview, { useSmartReplyCache } from '../components/SmartReplyPreview'
 import RelationshipInsights from '../components/RelationshipInsights'
 import TodaysTimeline from '../components/TodaysTimeline'
+import { useTheme } from '../hooks/useTheme'
 
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
@@ -324,6 +325,8 @@ export default function ChatPage({ session }) {
   const [showInsights, setShowInsights] = useState(false)
   const { tags, setTag } = useConvoTags()
   const { cache: smartReplyCache, fetchSuggestion, clear: clearSmartReply } = useSmartReplyCache()
+  const { theme, toggleTheme } = useTheme()
+  
 
   const msgRefs        = useRef({})
   const messagesEndRef = useRef(null)
@@ -713,22 +716,36 @@ export default function ChatPage({ session }) {
       {/* ── LIST / BROWSE SCREEN (hidden once a conversation is open) ── */}
       <div className="sidebar">
         <div className="top-header">
-          <div className="top-header-brand">
-            <img src="/logo.png" alt="Mattchat" className="top-header-logo" />
-            <span className="top-header-name">Mattchat</span>
-            <button
-              className="top-header-search-btn"
-              onClick={() => (heyCurryListening ? stopHeyCurry() : startHeyCurry())}
-              title={heyCurryListening ? '"Hey Curry" listening is on — tap to turn off' : 'Turn on "Hey Curry" listening'}
-              style={{ color: heyCurryListening ? '#a78bfa' : undefined, background: heyCurryListening ? 'rgba(167,139,250,0.15)' : undefined }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                <line x1="12" y1="19" x2="12" y2="22"/>
-              </svg>
-            </button>
-          </div>
+        <div className="top-header-brand">
+  <img src="/logo.png" alt="Mattchat" className="top-header-logo" />
+  <span className="top-header-name">Mattchat</span>
+
+  <button
+    className="theme-toggle-btn"
+    onClick={toggleTheme}
+    title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+  >
+    {theme === 'dark' ? (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+      </svg>
+    ) : (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    )}
+  </button>
+
+  <button
+    className="top-header-search-btn"
+    onClick={() => (heyCurryListening ? stopHeyCurry() : startHeyCurry())}
+    title={heyCurryListening ? '"Hey Curry" listening is on — tap to turn off' : 'Turn on "Hey Curry" listening'}
+    style={{ color: heyCurryListening ? '#a78bfa' : undefined, background: heyCurryListening ? 'rgba(167,139,250,0.15)' : undefined }}
+  >
+    ...mic svg stays exactly as-is...
+  </button>
+</div>
 
           {activeTab === 'chats' && (
             <div style={{ padding: '8px 16px 0' }}>
@@ -1241,6 +1258,8 @@ export default function ChatPage({ session }) {
                       <EmojiPicker onEmojiSelect={handleEmojiSelect} onStickerSelect={handleStickerSelect} onGifSelect={handleGifSelect} onClose={() => setShowEmojiPicker(false)} />
                     )}
                   </div>
+
+
                 )}
 
                 {showVoice ? (
