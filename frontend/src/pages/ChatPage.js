@@ -105,6 +105,25 @@ function GifBubble({ content }) {
     </div>
   )
 }
+// Reply-to-status bubble — a small "📸 Replied to a status" tag above
+// the actual reply text, same visual language as a WhatsApp/Instagram
+// status-reply quote, but simple: just a tag + the caption snippet,
+// not a full media thumbnail.
+function StatusReplyBubble({ content, isMe }) {
+  const withoutPrefix = content.replace('status_reply:', '')
+  const [encodedCaption, ...rest] = withoutPrefix.split('::')
+  const replyText = rest.join('::')
+  const caption = decodeURIComponent(encodedCaption || '')
+
+  return (
+    <div className={`msg-bubble status-reply-bubble ${isMe ? 'mine' : ''}`}>
+      <div className="status-reply-tag">
+        📸 <span>{caption ? `Status: "${caption}"` : 'Replied to a status'}</span>
+      </div>
+      <div className="status-reply-text">{replyText}</div>
+    </div>
+  )
+}
 
 // Curry's in-chat message — visually distinct from either person's
 // bubbles (centered, purple-tinted card) so it's unmistakable that
@@ -190,6 +209,19 @@ if (msg.content?.startsWith('call_log:') || msg.content?.startsWith('missed_call
       </div>
     )
   }
+if (msg.content?.startsWith('status_reply:')) {
+  return (
+    <div className={`msg-row ${isMe ? 'mine' : ''}`}>
+      {!isMe && <Avatar name={msg.profiles?.username} size={28} />}
+      <div>
+        {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
+        <StatusReplyBubble content={msg.content} isMe={isMe} />
+        <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+        <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
+      </div>
+    </div>
+  )
+}
   if (msg.message_type === 'task') {
     return (
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
