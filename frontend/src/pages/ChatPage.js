@@ -397,7 +397,6 @@ export default function ChatPage({ session }) {
   const { tags, setTag } = useConvoTags()
   const { cache: smartReplyCache, fetchSuggestion, clear: clearSmartReply } = useSmartReplyCache()
   const { theme, toggleTheme } = useTheme()
-  const [replyingTo, setReplyingTo] = useState(null) // the message object being replied to
 const [forwardingMessage, setForwardingMessage] = useState(null) // message content being forwarded
 const [hiddenMsgIds, setHiddenMsgIds] = useState(new Set())
   
