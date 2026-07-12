@@ -27,7 +27,7 @@ import { useMessageStatus } from '../hooks/useMessageStatus'
 import { useUnreadCounts } from '../hooks/useUnreadCounts'
 import { useGlobalDelivery } from '../hooks/useGlobalDelivery'
 import BottomNav from '../components/BottomNav'
-import {  IconPhone, IconVideo, IconSparkle, IconMoreVertical, IconSmile, IconMic, IconPlus } from '../components/Icons'
+import { IconPhone, IconVideo, IconSparkle, IconMoreVertical, IconSmile, IconMic, IconPlus, IconStatus } from '../components/Icons'
 import { ReactableMessage } from '../components/MessageReactions'
 import { useStatuses } from '../hooks/useStatuses'
 import StatusRing from '../components/StatusRing'
@@ -57,7 +57,6 @@ const CURRY_TRIGGER = /^hey\s+curry[,:]?\s*/i
 // the sidebar the way status_reply's URL-encoded caption was.
 function getMessagePreview(content) {
   if (!content) return 'No messages yet'
-  if (content.startsWith('status_reply:')) return '📸 Replied to a status'
   if (content.startsWith('sticker:')) {
     const emoji = content.replace('sticker:', '').split(':')[0] || '😊'
     return `${emoji} Sticker`
@@ -134,7 +133,7 @@ function StatusReplyBubble({ content, isMe }) {
   return (
     <div className={`msg-bubble status-reply-bubble ${isMe ? 'mine' : ''}`}>
       <div className="status-reply-tag">
-        📸 <span>{caption ? `Status: "${caption}"` : 'Replied to a status'}</span>
+        <IconStatus size={12} /> <span>{caption ? `Status: "${caption}"` : 'Replied to a status'}</span>
       </div>
       <div className="status-reply-text">{replyText}</div>
     </div>
@@ -921,7 +920,13 @@ export default function ChatPage({ session }) {
                             fallbackText={c.last_message}
                           />
                         ) : (
-                         <div className="contact-preview">{getMessagePreview(c.last_message)}</div>
+                         <div className="contact-preview">
+  {c.last_message?.startsWith('status_reply:') ? (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      <IconStatus size={11} /> Replied to a status
+    </span>
+  ) : getMessagePreview(c.last_message)}
+</div>
                         )}
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
