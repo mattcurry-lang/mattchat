@@ -743,7 +743,7 @@ export default function ChatPage({ session }) {
     title={heyCurryListening ? '"Hey Curry" listening is on — tap to turn off' : 'Turn on "Hey Curry" listening'}
     style={{ color: heyCurryListening ? '#a78bfa' : undefined, background: heyCurryListening ? 'rgba(167,139,250,0.15)' : undefined }}
   >
-    ...mic svg stays exactly as-is...
+     
   </button>
 </div>
 
