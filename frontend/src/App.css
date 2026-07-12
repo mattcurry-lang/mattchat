@@ -1405,6 +1405,27 @@ button.email-badge { cursor: pointer; display: inline-flex; align-items: center;
   }
 }
 
+/* ── Force-correct mine/theirs alignment on mobile — guards against
+   any nested-flex quirk (like the ReactableMessage wrapper issue we
+   fixed on desktop) resurfacing at narrow widths, where browsers can
+   compute flex alignment differently than on wide viewports. ── */
+@media (max-width: 639px) {
+  .msg-wrap.mine {
+    justify-content: flex-end !important;
+  }
+  .msg-wrap.theirs {
+    justify-content: flex-start !important;
+  }
+  .msg-row.mine {
+    align-self: flex-end !important;
+    margin-left: auto !important;
+  }
+  .msg-row:not(.mine) {
+    align-self: flex-start !important;
+    margin-right: auto !important;
+  }
+}
+
 /* Media must respect the frame's height, never exceed it */
 .status-viewer-body {
   min-height: 0;
