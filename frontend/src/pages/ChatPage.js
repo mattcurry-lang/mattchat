@@ -51,6 +51,22 @@ import { useTheme } from '../hooks/useTheme'
 // in-chat Curry instead of delivering it to the other person.
 const CURRY_TRIGGER = /^hey\s+curry[,:]?\s*/i
 
+// Turns a raw message content string into a short, human-friendly
+// preview for the chat list — so encoded/tagged formats (sticker:,
+// gif:, status_reply:, call logs) never leak their raw syntax into
+// the sidebar the way status_reply's URL-encoded caption was.
+function getMessagePreview(content) {
+  if (!content) return 'No messages yet'
+  if (content.startsWith('status_reply:')) return '📸 Replied to a status'
+  if (content.startsWith('sticker:')) {
+    const emoji = content.replace('sticker:', '').split(':')[0] || '😊'
+    return `${emoji} Sticker`
+  }
+  if (content.startsWith('gif:')) return '🎬 GIF'
+  if (content.startsWith('call_log:') || content.startsWith('missed_call:')) return '📞 Call'
+  return content
+}
+
 function formatMsgTime(ts) {
   const d = new Date(ts)
   if (isToday(d)) return format(d, 'h:mm a')
@@ -905,7 +921,7 @@ export default function ChatPage({ session }) {
                             fallbackText={c.last_message}
                           />
                         ) : (
-                          <div className="contact-preview">{c.last_message || 'No messages yet'}</div>
+                         <div className="contact-preview">{getMessagePreview(c.last_message)}</div>
                         )}
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
