@@ -68,6 +68,48 @@
   --app-height: 100vh;
   --app-height: 100dvh;
 }
+/* ═══════════════════════════════════════════════════════════
+   LIGHT MODE — overrides the dark app-shell tokens only.
+   Brand purple, accents, buttons, bubbles (already white/green)
+   stay identical in both themes — only surfaces + chrome text flip.
+   ═══════════════════════════════════════════════════════════ */
+[data-theme="light"] {
+  --dark-bg:       #f4f5fa;
+  --dark-header:   #ffffff;
+  --dark-card:     #ffffff;
+  --dark-card-2:   #eef0f8;
+  --dark-border:   rgba(17,24,39,0.08);
+  --dark-text:     #14121f;
+  --dark-text-2:   rgba(17,24,39,0.6);
+  --dark-text-3:   rgba(17,24,39,0.4);
+  --chip-bg:       rgba(17,24,39,0.06);
+  --chip-bg-hover: rgba(17,24,39,0.1);
+}
+
+:root {
+  --chip-bg:       rgba(255,255,255,0.08);
+  --chip-bg-hover: rgba(255,255,255,0.16);
+}
+
+[data-theme="light"] .chat-area {
+  background-image:
+    radial-gradient(circle at 10% 0%, rgba(108,99,255,0.06) 0%, transparent 45%),
+    radial-gradient(circle at 90% 100%, rgba(167,139,250,0.05) 0%, transparent 45%);
+}
+
+/* Theme toggle button itself */
+.theme-toggle-btn {
+  background: var(--chip-bg);
+  border: none;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  color: var(--dark-text);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background var(--t-fast);
+  flex-shrink: 0;
+}
+.theme-toggle-btn:hover { background: var(--chip-bg-hover); }
 
 /* ── Reset ─────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -238,22 +280,22 @@ html, body, #root {
   font-weight: 800;
   font-size: 18px;
   letter-spacing: -0.3px;
-  color: #ffffff;
+color: var(--dark-text);
   flex: 1;
 }
 .top-header-search-btn {
-  background: rgba(255,255,255,0.08);
+ background: var(--chip-bg);
   border: none;
   width: 34px; height: 34px;
   border-radius: 50%;
-  color: #fff;
+color: var(--dark-text);
   font-size: 15px;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: background var(--t-fast);
   flex-shrink: 0;
 }
-.top-header-search-btn:hover { background: rgba(255,255,255,0.16); }
+.top-header-search-btn:hover {background: var(--chip-bg-hover); }
 
 /* ── Story / quick-contact rail ── */
 .story-rail {
@@ -396,7 +438,7 @@ html, body, #root {
 .contact.active .contact-name { color: #c4b5fd; }
 
 .contact-info { flex: 1; min-width: 0; }
-.contact-name { font-size: 15px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.contact-name { font-size: 15px; font-weight: 600; color: var(--dark-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .contact-preview { font-size: 13px; color: var(--dark-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
 .contact-time { font-size: 11px; color: var(--dark-text-3); white-space: nowrap; font-weight: 500; }
 
@@ -468,7 +510,7 @@ html, body, #root {
   box-shadow: 0 0 6px rgba(108,99,255,0.6);
 }
 /* Unread contact rows — bolder / brighter until opened */
-.contact-name.unread { color: #fff; font-weight: 800; }
+.contact-name.unread { color: var(--dark-text); font-weight: 800; }
 .contact-preview.unread { color: rgba(255,255,255,0.85); font-weight: 600; }
 
 
@@ -550,7 +592,7 @@ html, body, #root {
   flex: 1;
 }
 .bnav-btn:hover { color: var(--dark-text-2); }
-.bnav-btn.active { color: #fff; background: rgba(255,255,255,0.06); }
+.bnav-btn.active {color: var(--dark-text); background: rgba(255,255,255,0.06); }
 .bnav-icon { display: block; }
 .bnav-label { font-size: 9.5px; font-weight: 600; }
 .bnav-plus {
@@ -603,7 +645,7 @@ html, body, #root {
   font-family: var(--font-display);
   font-size: 24px;
   font-weight: 800;
-  color: #fff;
+color: var(--dark-text);
   margin-bottom: 10px;
 }
 .welcome-pane-content p {
@@ -646,9 +688,9 @@ html, body, #root {
   position: relative; z-index: 5;
   min-height: 58px;
 }
-.chat-header-name { font-size: 15px; font-weight: 700; color: #fff; }
+.chat-header-name { font-size: 15px; font-weight: 700; color: var(--dark-text);}
 .chat-header-sub { font-size: 12px; font-weight: 500; color: var(--online); min-height: 16px; }
-.back-btn { display: flex; align-items: center; background: none; border: none; font-size: 22px; cursor: pointer; color: #fff; padding: 4px 6px 4px 0; }
+.back-btn { display: flex; align-items: center; background: none; border: none; font-size: 22px; cursor: pointer; color: var(--dark-text); padding: 4px 6px 4px 0; }
 .icon-btn {
   background: none;
   border: none;
@@ -665,8 +707,8 @@ html, body, #root {
 }
 .icon-btn:hover { background: rgba(0,0,0,0.06); }
 .icon-btn svg { display: block; }
-.icon-btn.dark { color: rgba(255,255,255,0.7); }
-.icon-btn.dark:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.icon-btn.dark {color: var(--dark-text-2); }
+.icon-btn.dark:hover { background: var(--chip-bg); color: var(--dark-text); }
 
 /* ═══════════════════════════════════════════════════════════
    MESSAGES
@@ -852,7 +894,7 @@ html, body, #root {
   padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
 }
 
-.attach-btn { background: none; border: none; cursor: pointer; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; color: rgba(255,255,255,0.7); transition: all var(--t-fast); flex-shrink: 0; }
+.attach-btn { background: none; border: none; cursor: pointer; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px;color: var(--dark-text-2); transition: all var(--t-fast); flex-shrink: 0; }
 .attach-btn svg { display: block; }
 .attach-btn:hover { background: rgba(255,255,255,0.08); transform: scale(1.08); }
 
