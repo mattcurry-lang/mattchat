@@ -305,3 +305,88 @@ export async function deleteStatus(statusId) {
   const { error } = await supabase.from('statuses').delete().eq('id', statusId)
   if (error) throw new Error(error.message)
 }
+
+// Toggles a reaction: if this user already reacted with this emoji,
+// removes it (un-like). Otherwise upserts it — so switching from one
+// emoji to another just overwrites, no duplicate rows possible thanks
+// to the unique(status_id, user_id) constraint.
+export async function toggleStatusReaction(statusId, userId, emoji = '❤️') {
+  const { data: existing } = await supabase
+    .from('status_reactions')
+    .select('id, emoji')
+    .eq('status_id', statusId)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (existing && existing.emoji === emoji) {
+    await supabase.from('status_reactions').delete().eq('id', existing.id)
+    return { liked: false }
+  }
+
+  const { error } = await supabase
+    .from('status_reactions')
+    .upsert({ status_id: statusId, user_id: userId, emoji }, { onConflict: 'status_id,user_id' })
+  if (error) throw new Error(error.message)
+  return { liked: true }
+}
+
+export async function getStatusReactions(statusId) {
+  const { data } = await supabase
+    .from('status_reactions')
+    .select('user_id, emoji, created_at, profiles!status_reactions_user_id_fkey(username)')
+    .eq('status_id', statusId)
+    .order('created_at', { ascending: false })
+  return data || []
+}
+
+// Same "find or create a 1:1 conversation" logic as getOrCreateConversation,
+// but takes the other person's user id directly instead of a
+// username/email string — used by replyToStatus below, since we
+// already know the status owner's id and shouldn't force an extra
+// username lookup just to get back to the same id.
+export async function getOrCreateConversationByUserId(currentUserId, otherUserId) {
+  if (otherUserId === currentUserId) throw new Error("That's you!")
+
+  const { data: myConvos } = await supabase
+    .from('conversation_members')
+    .select('conversation_id')
+    .eq('user_id', currentUserId)
+  const { data: theirConvos } = await supabase
+    .from('conversation_members')
+    .select('conversation_id')
+    .eq('user_id', otherUserId)
+
+  const myIds = (myConvos || []).map(r => r.conversation_id)
+  const theirIds = (theirConvos || []).map(r => r.conversation_id)
+  const shared = myIds.find(id => theirIds.includes(id))
+
+  if (shared) {
+    await unhideConversationForUser(currentUserId, shared)
+    return shared
+  }
+
+  const newId = crypto.randomUUID()
+  const { error: convoError } = await supabase
+    .from('conversations')
+    .insert({ id: newId, is_group: false, updated_at: new Date().toISOString() })
+  if (convoError) throw convoError
+  const { error: memberError } = await supabase
+    .from('conversation_members')
+    .insert([
+      { conversation_id: newId, user_id: currentUserId },
+      { conversation_id: newId, user_id: otherUserId }
+    ])
+  if (memberError) throw memberError
+  return newId
+}
+
+// Sends a status reply as a normal DM to the status owner, tagged so
+// it reads as a status reply instead of an out-of-context message.
+export async function replyToStatus(currentUserId, statusOwnerId, statusCaption, replyText) {
+  const convoId = await getOrCreateConversationByUserId(currentUserId, statusOwnerId)
+  const tag = statusCaption
+    ? `Replied to your status "${statusCaption.slice(0, 60)}${statusCaption.length > 60 ? '…' : ''}": `
+    : 'Replied to your status: '
+  await sendMessage(convoId, currentUserId, tag + replyText)
+  return convoId
+}
