@@ -45,9 +45,7 @@ import SmartReplyPreview, { useSmartReplyCache } from '../components/SmartReplyP
 import RelationshipInsights from '../components/RelationshipInsights'
 import TodaysTimeline from '../components/TodaysTimeline'
 import { useTheme } from '../hooks/useTheme'
-import {
-  getOrCreateConversation, hideConversationForUser, signOut, supabase, connectGmail, listEmailAccounts,
-  deleteMessageForEveryone, deleteMessageForMe, getHiddenMessageIds, sendReplyMessage, canDeleteForEveryone,
+import {deleteMessageForEveryone, deleteMessageForMe, getHiddenMessageIds, sendReplyMessage, canDeleteForEveryone,
 } from '../lib/supabase'
 import ForwardModal from '../components/ForwardModal'
 
