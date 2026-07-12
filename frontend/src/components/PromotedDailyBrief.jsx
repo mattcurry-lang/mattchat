@@ -73,7 +73,7 @@ export default function PromotedDailyBrief({ session, onAskQuestion, onOpenCurry
       <div style={s.card}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <div style={s.avatar}>✨</div>
-          <span style={{ fontSize: 13, color: '#9ca3af', fontWeight: 500 }}>Curry is thinking about your day…</span>
+          <span style={{ fontSize: 13, color: 'var(--dark-text-2)', fontWeight: 500 }}>Curry is thinking about your day…</span>
         </div>
       </div>
     )
@@ -133,8 +133,8 @@ export default function PromotedDailyBrief({ session, onAskQuestion, onOpenCurry
         <div style={s.suggestion}>
           <span style={{ fontSize: 16 }}>{SUGGESTION_EMOJI[suggestion.type] || '✨'}</span>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{suggestion.title}</div>
-            <div style={{ fontSize: 12, color: '#a0aec0' }}>{suggestion.reason}</div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--dark-text)' }}>{suggestion.title}</div>
+            <div style={{ fontSize: 12, color: 'var(--dark-text-2)' }}>{suggestion.reason}</div>
           </div>
         </div>
       )}
@@ -164,7 +164,7 @@ card: {
 },
   collapseBtn: {
     position: 'absolute', top: 10, right: 12, background: 'none', border: 'none',
-    color: 'rgba(255,255,255,0.35)', fontSize: 13, cursor: 'pointer', padding: 4,
+    color: 'var(--dark-text-3)', fontSize: 13, cursor: 'pointer', padding: 4,
   },
   headerRow: { display: 'flex', gap: 12, alignItems: 'flex-start', paddingRight: 20 },
   avatar: {
@@ -174,21 +174,21 @@ card: {
     boxShadow: '0 0 14px rgba(102,126,234,0.4)',
   },
   greetingRow: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  greeting: { fontSize: 15.5, fontWeight: 700, color: '#fff', lineHeight: 1.35 },
+  greeting: { fontSize: 15.5, fontWeight: 700, color: 'var(--dark-text)', lineHeight: 1.35 },
   weatherBadge: {
     display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700,
     color: '#e9d5ff', background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)',
     borderRadius: 999, padding: '2px 9px', whiteSpace: 'nowrap',
   },
   rainAlert: { fontSize: 12, color: '#93c5fd', marginTop: 4, fontWeight: 600 },
-  moodSummary: { fontSize: 13, color: '#c9cbe0', lineHeight: 1.5, marginTop: 3 },
+  moodSummary: { fontSize: 13, color: 'var(--dark-text-2)', lineHeight: 1.5, marginTop: 3 },
   insights: { display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 46 },
-  insightRow: { fontSize: 13, color: '#d8dae8', lineHeight: 1.5, display: 'flex', gap: 6 },
-  suggestion: { display: 'flex', gap: 10, alignItems: 'flex-start', background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: '9px 12px', marginLeft: 46 },
+  insightRow: { fontSize: 13, color: 'var(--dark-text-2)', lineHeight: 1.5, display: 'flex', gap: 6 },
+  suggestion: { display: 'flex', gap: 10, alignItems: 'flex-start', background: 'rgba(127,127,127,0.08)', borderRadius: 10, padding: '9px 12px', marginLeft: 46 },
   actionRow: { display: 'flex', gap: 8, marginLeft: 46, flexWrap: 'wrap' },
   questionBtn: {
     textAlign: 'left', background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)',
-    borderRadius: 10, color: '#e9d5ff', fontSize: 12.5, fontWeight: 600, padding: '8px 12px',
+    borderRadius: 10, color: '#7c3aed', fontSize: 12.5, fontWeight: 600, padding: '8px 12px',
     cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.4, flex: 1,
   },
   chatBtn: {
@@ -200,7 +200,7 @@ card: {
     background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: 12,
     padding: '8px 14px', cursor: 'pointer', fontFamily: 'inherit',
   },
-  collapsedText: { flex: 1, textAlign: 'left', fontSize: 12.5, color: '#c9cbe0', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  collapsedText: { flex: 1, textAlign: 'left', fontSize: 12.5, color: 'var(--dark-text-2)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   collapsedWeather: { fontSize: 11.5, color: '#a78bfa', fontWeight: 700, whiteSpace: 'nowrap' },
-  collapsedExpand: { color: 'rgba(255,255,255,0.3)', fontSize: 11 },
+  collapsedExpand: { color: 'var(--dark-text-3)', fontSize: 11 },
 }
