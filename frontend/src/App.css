@@ -1389,3 +1389,32 @@ button.email-badge { cursor: pointer; display: inline-flex; align-items: center;
 
 /* Make room so the nav-zones don't cover the new reply bar / footer */
 .status-viewer-nav { bottom: 64px; }
+
+/* ── Desktop: constrain status viewer to a phone-sized centered frame,
+   like Instagram/WhatsApp desktop — instead of stretching full-bleed
+   across the whole browser window, which is what pushed the footer
+   (viewer list) below the visible screen. ── */
+@media (min-width: 900px) {
+  .status-viewer-overlay {
+    max-width: 420px;
+    max-height: 90vh;
+    margin: 5vh auto;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+}
+
+/* Media must respect the frame's height, never exceed it */
+.status-viewer-body {
+  min-height: 0;
+  overflow: hidden;
+}
+.status-viewer-media {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
