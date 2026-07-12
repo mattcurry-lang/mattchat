@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { callCurryAI } from './CurryAI'
+import { canDeleteForEveryone } from '../lib/supabase'
 
 // Long-press (or right-click, desktop) context menu on a message
-// bubble. Adds Curry-powered actions alongside your existing
-// Delete/Forward/Copy/Pin. Built entirely on the existing 'chat'
-// endpoint with a crafted one-off prompt per action, so it needs
-// ZERO backend changes to ship.
+// bubble. Adds Curry-powered actions alongside Reply/Forward/Copy/
+// Pin/Delete. Built entirely on the existing 'chat' endpoint with a
+// crafted one-off prompt per AI action, so those need ZERO backend
+// changes to ship.
 //
 // Usage: wrap a message bubble's press handlers to call `open(x,y)`
 // on long-press, render <MessageActionsMenu ... /> once per chat
@@ -43,9 +44,14 @@ export function useMessageLongPress(onOpen) {
   return bind
 }
 
-export default function MessageActionsMenu({ session, message, position, onClose, onInsertReply, onPin, onDelete, onForward, onCopy }) {
+export default function MessageActionsMenu({
+  session, message, position, currentUserId, onClose,
+  onInsertReply, onPin, onCopy,
+  onReply, onForward, onDeleteForMe, onDeleteForEveryone,
+}) {
   const [busyAction, setBusyAction] = useState(null)
   const [result, setResult] = useState(null)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const menuRef = useRef(null)
 
   useEffect(() => {
@@ -61,6 +67,8 @@ export default function MessageActionsMenu({ session, message, position, onClose
   if (!message || !position) return null
 
   const text = message.content || ''
+  const isMine = message.sender_id === currentUserId
+  const canDeleteEveryone = isMine && canDeleteForEveryone(message, currentUserId)
 
   async function runAction(action) {
     setBusyAction(action.id)
@@ -76,7 +84,7 @@ export default function MessageActionsMenu({ session, message, position, onClose
   }
 
   // Keep menu on-screen — both axes
-  const menuHeight = 320 // approx max height of the full menu w/ actions
+  const menuHeight = 380
   const maxLeft = typeof window !== 'undefined' ? window.innerWidth - 240 : position.x
   const maxTop = typeof window !== 'undefined' ? window.innerHeight - menuHeight - 12 : position.y
   const left = Math.min(position.x, maxLeft)
@@ -84,13 +92,16 @@ export default function MessageActionsMenu({ session, message, position, onClose
 
   return (
     <div ref={menuRef} style={{ ...m.menu, left, top }}>
-      {!result && (
+      {!result && !confirmingDelete && (
         <>
           <div style={m.section}>
+            {onReply && <button style={m.item} onClick={() => { onReply(); onClose() }}>↩️ Reply</button>}
             {onPin && <button style={m.item} onClick={() => { onPin(); onClose() }}>📌 Pin</button>}
             {onForward && <button style={m.item} onClick={() => { onForward(); onClose() }}>➡️ Forward</button>}
             {onCopy && <button style={m.item} onClick={() => { navigator.clipboard.writeText(text); onCopy(); onClose() }}>📋 Copy</button>}
-            {onDelete && <button style={{ ...m.item, color: '#f87171' }} onClick={() => { onDelete(); onClose() }}>🗑️ Delete</button>}
+            {(onDeleteForMe || onDeleteForEveryone) && (
+              <button style={{ ...m.item, color: '#f87171' }} onClick={() => setConfirmingDelete(true)}>🗑️ Delete</button>
+            )}
           </div>
           <div style={m.divider} />
           <div style={m.section}>
@@ -101,6 +112,29 @@ export default function MessageActionsMenu({ session, message, position, onClose
             ))}
           </div>
         </>
+      )}
+
+      {confirmingDelete && (
+        <div style={m.section}>
+          <div style={{ padding: '4px 14px 8px', fontSize: 11.5, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+            Delete this message?
+          </div>
+          {onDeleteForMe && (
+            <button style={m.item} onClick={() => { onDeleteForMe(); onClose() }}>
+              Delete for me
+            </button>
+          )}
+          {canDeleteEveryone && onDeleteForEveryone ? (
+            <button style={{ ...m.item, color: '#f87171' }} onClick={() => { onDeleteForEveryone(); onClose() }}>
+              Delete for everyone
+            </button>
+          ) : isMine && onDeleteForEveryone ? (
+            <div style={{ padding: '6px 14px', fontSize: 11.5, color: 'rgba(255,255,255,0.3)' }}>
+              Too old to delete for everyone (12h window passed)
+            </div>
+          ) : null}
+          <button style={m.backBtn} onClick={() => setConfirmingDelete(false)}>← Cancel</button>
+        </div>
       )}
 
       {result && (
