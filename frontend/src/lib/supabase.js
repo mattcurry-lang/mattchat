@@ -142,6 +142,9 @@ export const getMessages = async (conversationId) => {
       transcript,
       transcript_status,
       is_pinned,
+      reply_to_message_id,
+      forwarded,
+      deleted_for_everyone,
       created_at,
       profiles!messages_sender_id_fkey(username, avatar_url)
     `)
