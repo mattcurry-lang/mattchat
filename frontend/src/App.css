@@ -1431,6 +1431,7 @@ button.email-badge { cursor: pointer; display: inline-flex; align-items: center;
   padding: 4px 8px;
   margin: -2px -4px 2px;
 }
+.status-reply-tag svg { flex-shrink: 0; }
 .status-reply-tag span {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px;
 }
