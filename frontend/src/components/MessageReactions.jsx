@@ -188,7 +188,7 @@ export function ReactableMessage({ messageId, currentUserId, isMe, children }) {
 
   return (
     <div
-      style={{ position: 'relative', display: 'inline-flex', flexDirection: 'column', maxWidth: '100%' }}
+     style={{ position: 'relative', display: 'inline-block', maxWidth: '100%' }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
