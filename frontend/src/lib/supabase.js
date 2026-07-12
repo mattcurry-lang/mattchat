@@ -380,13 +380,15 @@ export async function getOrCreateConversationByUserId(currentUserId, otherUserId
   return newId
 }
 
-// Sends a status reply as a normal DM to the status owner, tagged so
-// it reads as a status reply instead of an out-of-context message.
+// Sends a status reply as a normal DM to the status owner — just the
+// plain text, no "Replied to your status" wording baked into the
+// message content. That phrasing only ever makes sense from the
+// recipient's point of view; stored as literal text it reads wrong
+// in the sender's own chat list/preview. WhatsApp and Instagram don't
+// embed that phrase in the message at all — the "replied to a status"
+// context is a separate UI element, not part of the text itself.
 export async function replyToStatus(currentUserId, statusOwnerId, statusCaption, replyText) {
   const convoId = await getOrCreateConversationByUserId(currentUserId, statusOwnerId)
-  const tag = statusCaption
-    ? `Replied to your status "${statusCaption.slice(0, 60)}${statusCaption.length > 60 ? '…' : ''}": `
-    : 'Replied to your status: '
-  await sendMessage(convoId, currentUserId, tag + replyText)
+  await sendMessage(convoId, currentUserId, replyText)
   return convoId
 }
