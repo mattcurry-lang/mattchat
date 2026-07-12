@@ -391,3 +391,93 @@ export async function replyToStatus(currentUserId, statusOwnerId, statusCaption,
   await sendMessage(convoId, currentUserId, `status_reply:${encodedCaption}::${replyText}`)
   return convoId
 }
+
+// 12-hour window for "delete for everyone" — matches WhatsApp's
+// concept but with a longer allowance, per your call.
+const DELETE_FOR_EVERYONE_WINDOW_MS = 12 * 60 * 60 * 1000
+
+export function canDeleteForEveryone(message, currentUserId) {
+  if (message.sender_id !== currentUserId) return false
+  if (message.deleted_for_everyone) return false
+  return Date.now() - new Date(message.created_at).getTime() <= DELETE_FOR_EVERYONE_WINDOW_MS
+}
+
+// Soft-deletes for everyone: clears the content and sets a flag, so
+// the bubble can render "This message was deleted" instead of
+// disappearing outright. Only the sender can do this, and only
+// within the window above — enforced here AND worth mirroring in an
+// RLS policy/trigger later if you want server-side enforcement too.
+export async function deleteMessageForEveryone(messageId, currentUserId) {
+  const { data: msg, error: fetchErr } = await supabase
+    .from('messages').select('sender_id, created_at, deleted_for_everyone').eq('id', messageId).single()
+  if (fetchErr) throw new Error(fetchErr.message)
+  if (!canDeleteForEveryone(msg, currentUserId)) {
+    throw new Error("This message can no longer be deleted for everyone (12-hour window passed, or it isn't yours).")
+  }
+  const { error } = await supabase
+    .from('messages')
+    .update({ content: '', deleted_for_everyone: true, deleted_at: new Date().toISOString() })
+    .eq('id', messageId)
+  if (error) throw new Error(error.message)
+}
+
+// Hides a message for the current viewer only — everyone else still
+// sees it exactly as before.
+export async function deleteMessageForMe(messageId, userId) {
+  const { error } = await supabase
+    .from('hidden_messages')
+    .upsert({ message_id: messageId, user_id: userId })
+  if (error) throw new Error(error.message)
+}
+
+// Ids this user has hidden for themself, for a given conversation's
+// message set — used to filter the rendered list client-side.
+export async function getHiddenMessageIds(userId, messageIds) {
+  if (!messageIds.length) return new Set()
+  const { data } = await supabase
+    .from('hidden_messages')
+    .select('message_id')
+    .eq('user_id', userId)
+    .in('message_id', messageIds)
+  return new Set((data || []).map(r => r.message_id))
+}
+
+// Forwards a message's content into another conversation, as a fresh
+// message tagged forwarded:true (so the bubble can show a "Forwarded"
+// label like WhatsApp does, without a reply-quote attached).
+export async function forwardMessageToConversation(conversationId, senderId, content) {
+  const { error } = await supabase
+    .from('messages')
+    .insert({ conversation_id: conversationId, sender_id: senderId, content, forwarded: true })
+  if (error) throw new Error(error.message)
+  await supabase
+    .from('conversations')
+    .update({ updated_at: new Date().toISOString(), last_message: content })
+    .eq('id', conversationId)
+}
+
+// Sends a message's content as a real email, reusing the same
+// gmail-oauth-connected account flow — routes through Curry's chat
+// endpoint, which already knows how to parse a "send an email"
+// instruction into a real Gmail send action.
+export async function forwardMessageToEmail(session, toAddress, content) {
+  const prompt = `Send an email to ${toAddress} with subject "Forwarded message from Mattchat" and body: ${content}`
+  const { callCurryAI } = await import('../components/CurryAI')
+  const data = await callCurryAI('chat', { message: prompt }, session)
+  if (!data.ok) throw new Error('Could not send the email — make sure Gmail is connected in your profile menu.')
+  return data
+}
+
+// Sends a reply that's linked to an original message via
+// reply_to_message_id, so the bubble can render a quoted preview
+// above the reply text, like WhatsApp's swipe-to-reply.
+export async function sendReplyMessage(conversationId, senderId, content, replyToMessageId) {
+  const { error } = await supabase
+    .from('messages')
+    .insert({ conversation_id: conversationId, sender_id: senderId, content, reply_to_message_id: replyToMessageId })
+  if (error) throw new Error(error.message)
+  await supabase
+    .from('conversations')
+    .update({ updated_at: new Date().toISOString(), last_message: content })
+    .eq('id', conversationId)
+}
