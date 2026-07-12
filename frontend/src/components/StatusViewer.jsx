@@ -5,7 +5,11 @@ import {
 } from '../lib/supabase'
 import { IconX, IconTrash } from './Icons'
 
-const DURATION_MS = 5000
+// Only used for text/image statuses — video statuses drive their own
+// progress off real playback time instead (see handleVideoTimeUpdate),
+// since a fixed timer was cutting videos off mid-play whenever they
+// ran longer than this.
+const DURATION_MS = 7000
 
 // currentUserId is required now — needed to attribute reactions/replies
 // to the person actually viewing, and to look up whether *they've*
@@ -75,7 +79,13 @@ export default function StatusViewer({ group, isMine, currentUserId, onClose, on
     return () => { cancelled = true }
   }, [current])
 
+  // This fixed-duration timer now ONLY drives text/image statuses.
+  // Video statuses skip it entirely and instead update progress off
+  // the actual <video> element's currentTime/duration (see
+  // handleVideoTimeUpdate + handleVideoEnded below) — otherwise a
+  // video longer than DURATION_MS was getting cut off mid-play.
   useEffect(() => {
+    if (current.type === 'video') return
     if (paused || !mediaReady) { cancelAnimationFrame(rafRef.current); return }
     const tick = (ts) => {
       if (!startRef.current) startRef.current = ts - progress * DURATION_MS
@@ -88,6 +98,15 @@ export default function StatusViewer({ group, isMine, currentUserId, onClose, on
     rafRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafRef.current)
   }, [current, paused, mediaReady])
+
+  // Video's own progress bar — ties directly to real playback
+  // position, so the bar (and the eventual advance) always matches
+  // how long the video actually is, however long that is.
+  const handleVideoTimeUpdate = (e) => {
+    const v = e.target
+    if (v.duration) setProgress(v.currentTime / v.duration)
+  }
+  const handleVideoEnded = () => advance()
 
   const handleDelete = async () => {
     if (!window.confirm('Delete this status?')) return
@@ -204,7 +223,18 @@ export default function StatusViewer({ group, isMine, currentUserId, onClose, on
         )}
         {current.type === 'video' && (
           mediaUrl
-            ? <video className="status-viewer-media" src={mediaUrl} autoPlay onEnded={advance} />
+            ? (
+              <video
+                className="status-viewer-media"
+                src={mediaUrl}
+                autoPlay
+                playsInline
+                onTimeUpdate={handleVideoTimeUpdate}
+                onEnded={handleVideoEnded}
+                onPause={() => { if (!paused) setPaused(true) }}
+                onPlay={() => setPaused(false)}
+              />
+            )
             : <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13.5 }}>Loading…</div>
         )}
         {current.type !== 'text' && current.caption && (
