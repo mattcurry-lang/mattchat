@@ -116,6 +116,13 @@
     0 0 20px rgba(108,99,255,0.25);
 }
 
+[data-theme="light"] .top-header-search-btn {
+  background: var(--chip-bg);
+  color: var(--dark-text);
+}
+[data-theme="light"] .top-header-search-btn:hover {
+  background: var(--chip-bg-hover);
+}
 /* Theme toggle button itself */
 .theme-toggle-btn {
   background: var(--chip-bg);
