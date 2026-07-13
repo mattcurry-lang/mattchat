@@ -946,8 +946,8 @@ const handleSend = async () => {
   </button>
 </div>
 
- <SpotifyMiniPlayer session={session} />
- 
+
+
           {activeTab === 'chats' && (
             <div style={{ padding: '8px 16px 0' }}>
               <AICommandBar
@@ -959,7 +959,8 @@ const handleSend = async () => {
               />
             </div>
           )}
-
+ <SpotifyMiniPlayer session={session} />
+ 
           {activeTab === 'chats' && (
             <div style={{ padding: '8px 16px 0' }}>
               <AICommandBar
