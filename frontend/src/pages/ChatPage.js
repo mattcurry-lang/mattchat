@@ -1330,6 +1330,7 @@ useEffect(() => {
                 messages={messages}
                 currentUserId={userId}
                 contactName={getConvoName(activeConvo)}
+                conversationId={activeConvo?.id}
                 onClose={() => setShowInsights(false)}
               />
             )}
