@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { callCurryAI } from './CurryAI'
 
 // Relationship Insights — shows real, computed stats about a
 // conversation: message activity, when you usually talk, reply rate,
@@ -14,8 +15,18 @@ import { supabase } from '../lib/supabase'
 // so on a very old/long conversation this reflects "recent activity"
 // rather than all-time stats. That's fine for a "this week" framing
 // but don't market it as lifetime data unless useChat loads everything.
+//
+// Phase 3 adds a third "Mood" tab — this ONE is AI-derived (unlike
+// Score/Timeline), pulled live from recent messages in this specific
+// conversation each time it's opened/refreshed, not cached or guessed
+// up front.
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+const MOOD_EMOJI = {
+  positive: '😊', excited: '🤩', neutral: '🙂',
+  stressed: '😮\u200d💨', anxious: '😟', sad: '😔', negative: '😕',
+}
 
 // Score is a deterministic weighted blend of three real signals —
 // no AI, no vibes. Weights: reply rate matters most, response speed
@@ -229,24 +240,127 @@ function TimelineView({ conversationId, contactName }) {
   )
 }
 
-export default function RelationshipInsights({ messages, currentUserId, contactName, conversationId, onClose }) {
+// ── Mood Radar (Phase 3) ─────────────────────────────────────────
+// Unlike Score/Timeline, this one genuinely is AI-derived — it reads
+// recent messages live via Gemini each time it's opened or refreshed.
+// It's cached per-conversation in component state only (not persisted),
+// so switching tabs back and forth doesn't re-spend a call, but
+// reopening the chat later will.
+function useMoodRadar(conversationId, session, active) {
+  const [radar, setRadar] = useState(null)
+  const [otherName, setOtherName] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [fetchedFor, setFetchedFor] = useState(null)
+
+  const fetchRadar = useCallback(async () => {
+    if (!conversationId || !session) return
+    setLoading(true)
+    setError('')
+    try {
+      const data = await callCurryAI('mood_radar', { conversationId }, session)
+      if (data.ok) {
+        setRadar(data.radar)
+        setOtherName(data.otherName || '')
+        setFetchedFor(conversationId)
+      } else {
+        setError(data.error || 'Could not read mood right now')
+      }
+    } catch (e) {
+      setError('Network error reading mood')
+    }
+    setLoading(false)
+  }, [conversationId, session])
+
+  useEffect(() => {
+    if (active && conversationId && fetchedFor !== conversationId) fetchRadar()
+  }, [active, conversationId, fetchedFor, fetchRadar])
+
+  return { radar, otherName, loading, error, refresh: fetchRadar }
+}
+
+function MoodView({ conversationId, session, contactName, active }) {
+  const { radar, otherName, loading, error, refresh } = useMoodRadar(conversationId, session, active)
+
+  if (loading && !radar) return <div style={s.empty}>Reading the room…</div>
+
+  if (error) {
+    return (
+      <div style={s.empty}>
+        {error}{' '}
+        <button style={s.retryBtn} onClick={refresh}>Try again</button>
+      </div>
+    )
+  }
+
+  if (!radar) return <div style={s.empty}>Not enough recent messages with {contactName} to read mood yet.</div>
+
+  const displayName = otherName || contactName
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={s.moodGrid}>
+        <div style={s.moodCard}>
+          <div style={s.moodEmoji}>{MOOD_EMOJI[radar.myMood] || '🙂'}</div>
+          <div style={s.moodWho}>You</div>
+          <div style={s.moodTag}>{radar.myMood}</div>
+        </div>
+        <div style={s.moodCard}>
+          <div style={s.moodEmoji}>{MOOD_EMOJI[radar.theirMood] || '🙂'}</div>
+          <div style={s.moodWho}>{displayName}</div>
+          <div style={s.moodTag}>{radar.theirMood}</div>
+        </div>
+      </div>
+
+      {radar.summary && (
+        <div style={s.notesCard}>
+          <div style={s.notesTitle}>How it's reading</div>
+          <div style={s.moodSummary}>{radar.summary}</div>
+        </div>
+      )}
+
+      {radar.recommendation && (
+        <div style={s.notesCard}>
+          <div style={s.notesTitle}>💡 Curry's take</div>
+          <div style={s.moodSummary}>{radar.recommendation}</div>
+        </div>
+      )}
+
+      <button style={s.refreshBtn} onClick={refresh} disabled={loading}>
+        {loading ? 'Refreshing…' : '↻ Refresh'}
+      </button>
+      <div style={s.footnote}>Read live from recent messages in this chat — this tab uses AI, unlike Score and Timeline.</div>
+    </div>
+  )
+}
+
+export default function RelationshipInsights({ messages, currentUserId, contactName, conversationId, session, onClose }) {
   const [tab, setTab] = useState('score')
   const insights = useMemo(() => computeInsights(messages, currentUserId), [messages, currentUserId])
+
+  const titleByTab = {
+    score: `📊 Insights with ${contactName}`,
+    timeline: `🕰️ Timeline with ${contactName}`,
+    mood: `🌡️ Mood with ${contactName}`,
+  }
 
   return (
     <div style={s.panel}>
       <div style={s.header}>
-        <span style={s.title}>{tab === 'score' ? `📊 Insights with ${contactName}` : `🕰️ Timeline with ${contactName}`}</span>
+        <span style={s.title}>{titleByTab[tab]}</span>
         <button style={s.closeBtn} onClick={onClose}>✕</button>
       </div>
 
       <div style={s.tabRow}>
         <button style={tab === 'score' ? s.tabActive : s.tab} onClick={() => setTab('score')}>Score</button>
         <button style={tab === 'timeline' ? s.tabActive : s.tab} onClick={() => setTab('timeline')}>Timeline</button>
+        <button style={tab === 'mood' ? s.tabActive : s.tab} onClick={() => setTab('mood')}>Mood</button>
       </div>
 
       {tab === 'timeline' ? (
         <TimelineView conversationId={conversationId} contactName={contactName} />
+      ) : tab === 'mood' ? (
+        <MoodView conversationId={conversationId} session={session} contactName={contactName} active={tab === 'mood'} />
       ) : !insights ? (
         <div style={s.empty}>Not enough messages yet to show insights.</div>
       ) : (
@@ -325,6 +439,23 @@ const s = {
   notesRow: { display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12 },
   notesKey: { color: '#9ca3af', fontWeight: 600, flexShrink: 0 },
   notesValue: { color: '#e5e7eb', textAlign: 'right' },
+  moodSummary: { fontSize: 12.5, color: '#d8dae8', lineHeight: 1.5 },
+  moodGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 },
+  moodCard: {
+    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 12, padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+  },
+  moodEmoji: { fontSize: 26 },
+  moodWho: { fontSize: 12, fontWeight: 700, color: '#fff' },
+  moodTag: { fontSize: 11, color: '#c4b5fd', fontWeight: 600, textTransform: 'capitalize' },
+  refreshBtn: {
+    background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10,
+    color: '#c4b5fd', fontSize: 12, fontWeight: 700, padding: '8px 0', cursor: 'pointer', fontFamily: 'inherit',
+  },
+  retryBtn: {
+    background: 'none', border: 'none', color: '#c4b5fd', fontSize: 12, fontWeight: 700,
+    cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit', padding: 0,
+  },
   scoreCard: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     background: 'linear-gradient(135deg, rgba(167,139,250,0.16), rgba(240,147,251,0.08))',
