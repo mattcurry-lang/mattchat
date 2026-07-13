@@ -39,9 +39,32 @@ export function useChat(conversationId, currentUserId) {
           .select('*, profiles!messages_sender_id_fkey(username, avatar_url)')
           .eq('id', payload.new.id)
           .single()
-        if (msgWithProfile) {
-          setMessages(prev => [...prev, msgWithProfile])
-        }
+        if (!msgWithProfile) return
+
+        setMessages(prev => {
+          // If this is a message WE sent, it was almost certainly already
+          // pushed onto the list optimistically the instant sendMessage()
+          // was called (see below) — so instead of appending a second
+          // copy, find that placeholder and swap it for the real row.
+          // This is what makes the bubble feel instant: it was on screen
+          // before the network round trip even started, and this just
+          // upgrades it to the real id once the DB confirms it (so read
+          // receipts / status tracking, which key off the real id, work
+          // correctly from here on).
+          if (msgWithProfile.sender_id === currentUserId) {
+            const matchIdx = prev.findIndex(m => m._optimistic && m.content === msgWithProfile.content)
+            if (matchIdx !== -1) {
+              const next = [...prev]
+              next[matchIdx] = msgWithProfile
+              return next
+            }
+          }
+          // Avoid a duplicate if the real row already made it in some
+          // other way (e.g. two open tabs, or a slow-arriving optimistic
+          // match from a rapid double-send).
+          if (prev.some(m => m.id === msgWithProfile.id)) return prev
+          return [...prev, msgWithProfile]
+        })
       })
       .on('postgres_changes', {
         event: 'UPDATE',
@@ -69,21 +92,48 @@ export function useChat(conversationId, currentUserId) {
     }
   }, [conversationId, currentUserId])
 
+  // Optimistic send: the bubble goes into `messages` state IMMEDIATELY,
+  // tagged `_optimistic: true` with a temporary id, before the DB write
+  // even starts. It gets reconciled with the real row above once
+  // realtime confirms the insert. If the write fails, the placeholder is
+  // marked `_status: 'failed'` instead of silently vanishing, so the UI
+  // can show a retry/error state on that bubble if it wants to.
   const sendMessage = useCallback(async (content) => {
     if (!conversationId || !currentUserId || !content.trim()) return
+    const trimmed = content.trim()
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
-    // Insert message into DB
-    await sendMsg(conversationId, currentUserId, content.trim())
+    const optimisticMsg = {
+      id: tempId,
+      conversation_id: conversationId,
+      sender_id: currentUserId,
+      content: trimmed,
+      message_type: 'text',
+      created_at: new Date().toISOString(),
+      profiles: null,
+      _optimistic: true,
+      _status: 'sending',
+    }
+    setMessages(prev => [...prev, optimisticMsg])
 
-    // If this is an email conversation, also send an outbound email reply
-    if (isEmailConvo) {
-      await supabase.functions.invoke('send-email', {
-        body: {
-          conversationId,
-          senderId: currentUserId,
-          content: content.trim(),
-        }
-      })
+    try {
+      await sendMsg(conversationId, currentUserId, trimmed)
+
+      if (isEmailConvo) {
+        await supabase.functions.invoke('send-email', {
+          body: {
+            conversationId,
+            senderId: currentUserId,
+            content: trimmed,
+          }
+        })
+      }
+    } catch (e) {
+      console.error('sendMessage failed:', e)
+      // Leave the bubble visible but flagged, rather than yanking it —
+      // losing a message the person watched themselves send with no
+      // trace is worse than showing it as failed.
+      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, _status: 'failed' } : m))
     }
   }, [conversationId, currentUserId, isEmailConvo])
 
