@@ -1328,7 +1328,7 @@ const runCoachCheck = useCallback(async (text) => {
             )}
 
             <PinnedBar key={pinnedRefresh} conversationId={activeConvo?.id} onScrollTo={scrollToMessage} />
-              <PinnedBar key={pinnedRefresh} conversationId={activeConvo?.id} onScrollTo={scrollToMessage} />
+      
 
             {autoContext && autoContext.conversationId === activeConvo?.id && (
               <div style={{ margin: '10px 16px 0', background: 'rgba(102,126,234,0.08)', border: '1px solid rgba(102,126,234,0.2)', borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5 }}>
@@ -1372,9 +1372,7 @@ const runCoachCheck = useCallback(async (text) => {
               </div>
             )}
 
-            {/* Messages */}
-           <div className="messages">
-
+         
             {/* Messages */}
            <div className="messages">
               {msgLoading && <div className="loading-state">Loading messages…</div>}
