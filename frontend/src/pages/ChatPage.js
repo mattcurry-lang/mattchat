@@ -394,6 +394,11 @@ export default function ChatPage({ session }) {
   const [replyingTo, setReplyingTo] = useState(null)
   const [forwardingMessage, setForwardingMessage] = useState(null)
   const [hiddenMsgIds, setHiddenMsgIds] = useState(new Set())
+  // Conversation Coach (Phase 3) — a dismissible, advisory suggestion
+  // that appears AFTER a plain message has already been sent, if
+  // Curry thinks it might land colder than intended. Never blocks or
+  // delays sending; see runCoachCheck below.
+  const [coachSuggestion, setCoachSuggestion] = useState(null)
   const { tags, setTag } = useConvoTags()
   const { cache: smartReplyCache, fetchSuggestion, clear: clearSmartReply } = useSmartReplyCache()
   const { theme, toggleTheme } = useTheme()
@@ -569,6 +574,7 @@ useEffect(() => {
     setShowScheduler(false); setShowScheduledList(false); setShowSearch(false)
     setShowCurryAssistant(false); setShowThreeDot(false)
     setHasScheduled(false); setShowEmojiPicker(false); setShowInsights(false)
+    setCoachSuggestion(null)
   }, [activeConvo])
 
   useEffect(() => {
@@ -662,6 +668,27 @@ useEffect(() => {
     reload()
   }
 
+  // Conversation Coach (Phase 3) — fires AFTER a plain message has
+  // already been sent, purely advisory, never blocking. Skips very
+  // short/trivial messages so a Gemini call doesn't fire for every
+  // "ok" or "lol". Only checks Curry when there's genuine conversation
+  // context to review it against.
+  const runCoachCheck = useCallback(async (text) => {
+    if (!activeConvo?.id || activeConvo.isCurryAI) return
+    if (!text || text.trim().length < 8) return
+    try {
+      const recentContext = messages.slice(-6)
+        .filter(m => m.message_type !== 'curry' && m.content)
+        .map(m => ({ isMe: m.sender_id === userId, content: m.content }))
+      const data = await callCurryAI('coach_check', { conversationId: activeConvo.id, message: text, recentContext }, session)
+      if (data.ok && data.needsRephrase && data.suggestion) {
+        setCoachSuggestion({ suggestion: data.suggestion, reason: data.reason })
+      }
+    } catch (e) {
+      console.error('coach_check failed:', e)
+    }
+  }, [activeConvo, messages, userId, session])
+
   // "hey curry ..." inside a normal 1:1/group chat never reaches the
   // other person — it's routed to the in-chat Curry instead, and
   // Curry's reply is inserted straight into this conversation's own
@@ -672,6 +699,7 @@ useEffect(() => {
   const handleSend = async () => {
     if (!inputText.trim() || !activeConvo) return
     broadcastTyping(false)
+    setCoachSuggestion(null)
     const text = inputText.trim()
 
     if (!activeConvo.isCurryAI) {
@@ -705,6 +733,7 @@ useEffect(() => {
     } else {
       await sendMessage(text)
       bumpConversationActivity(text)
+      runCoachCheck(text)
     }
     setInputText('')
   }
@@ -772,6 +801,14 @@ useEffect(() => {
   }
 
   const callActive = ['calling', 'ringing', 'connecting', 'in-call'].includes(callStatus)
+
+  // Curry AI page nudge → opening a suggested conversation from the
+  // Daily Brief's reconnect nudges (Phase 3). Just reuses openConvo so
+  // unread badges clear the same way as clicking it from the list.
+  const openConversationById = useCallback((convoId) => {
+    const found = conversations.find(c => c.id === convoId)
+    if (found) openConvo(found)
+  }, [conversations])
 
   return (
     <div className={`app ${activeConvo ? 'chat-open' : ''}`}>
@@ -1183,7 +1220,7 @@ useEffect(() => {
                 <div className="chat-header-sub" style={{ color: '#a78bfa' }}>Always learning, always here</div>
               </div>
             </div>
-            <CurryAIChat session={session} />
+            <CurryAIChat session={session} onOpenConversation={openConversationById} />
           </div>
         ) : (
           <div className="chat-area">
@@ -1331,6 +1368,7 @@ useEffect(() => {
                 currentUserId={userId}
                 contactName={getConvoName(activeConvo)}
                 conversationId={activeConvo?.id}
+                session={session}
                 onClose={() => setShowInsights(false)}
               />
             )}
@@ -1358,6 +1396,28 @@ useEffect(() => {
                     <div className="reply-preview-text">{replyingTo.content?.slice(0, 100)}</div>
                   </div>
                   <button className="reply-preview-close" onClick={() => setReplyingTo(null)}>✕</button>
+                </div>
+              )}
+              {coachSuggestion && (
+                <div style={{ margin: '0 16px 8px', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 700, color: '#c4b5fd' }}>
+                    💬 Curry noticed {coachSuggestion.reason ? `this might read as ${coachSuggestion.reason}` : 'this might land a little differently than you meant'}
+                  </div>
+                  <div style={{ fontSize: 13, color: '#e5e7eb', lineHeight: 1.5 }}>{coachSuggestion.suggestion}</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => { setInputText(coachSuggestion.suggestion); setCoachSuggestion(null); textareaRef.current?.focus() }}
+                      style={{ background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none', borderRadius: 20, color: '#fff', fontSize: 11.5, fontWeight: 700, padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
+                    >
+                      Send this instead
+                    </button>
+                    <button
+                      onClick={() => setCoachSuggestion(null)}
+                      style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 20, color: '#9ca3af', fontSize: 11.5, fontWeight: 700, padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
                 </div>
               )}
               {showCurryAssistant && (
