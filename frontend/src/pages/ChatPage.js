@@ -48,6 +48,10 @@ import { useTheme } from '../hooks/useTheme'
 import {deleteMessageForEveryone, deleteMessageForMe, getHiddenMessageIds, sendReplyMessage, canDeleteForEveryone,
 } from '../lib/supabase'
 import ForwardModal from '../components/ForwardModal'
+// FIX (bug #1): SpotifyMiniPlayer was used below (unconditionally, inside
+// .top-header) but never imported, which crashed ChatPage with a
+// "SpotifyMiniPlayer is not defined" ReferenceError on every render.
+import SpotifyMiniPlayer from '../components/SpotifyMiniPlayer'
 
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
@@ -946,8 +950,11 @@ const handleSend = async () => {
   </button>
 </div>
 
-
-
+          {/* FIX (bug #2): this AICommandBar + SpotifyMiniPlayer block used to
+              be duplicated verbatim right after this comment (two identical
+              AICommandBars sandwiching one SpotifyMiniPlayer), which rendered
+              two stacked search bars any time activeTab === 'chats'. Now
+              there is exactly one of each. */}
           {activeTab === 'chats' && (
             <div style={{ padding: '8px 16px 0' }}>
               <AICommandBar
@@ -959,19 +966,8 @@ const handleSend = async () => {
               />
             </div>
           )}
- <SpotifyMiniPlayer session={session} />
- 
-          {activeTab === 'chats' && (
-            <div style={{ padding: '8px 16px 0' }}>
-              <AICommandBar
-                session={session}
-                value={search}
-                onSearchChange={setSearch}
-                onOpenCurry={() => setActiveConvo(CURRY_AI_CONTACT)}
-                hasLocalMatches={filtered.length > 0}
-              />
-            </div>
-          )}
+
+          <SpotifyMiniPlayer session={session} />
 
           {/* ── STORY / QUICK-CONTACT RAIL ── */}
           {activeTab === 'chats' && (
