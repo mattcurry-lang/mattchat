@@ -487,36 +487,21 @@ export async function sendReplyMessage(conversationId, senderId, content, replyT
 
 
 // ── Spotify (mirrors the Gmail connect pattern above) ───────────
-
 export const connectSpotify = async (session) => {
-
-  const res = await fetch(`${supabaseUrl}/functions/v1/spotify-oauth?action=start`, {
-
-    headers: { Authorization: `Bearer ${session.access_token}` },
-
-  })
-
-  const data = await res.json()
-
-  if (!data.ok || !data.url) throw new Error(data.error || 'Could not start the Spotify connection')
-
-  window.location.href = data.url
-
+const res = await fetch(`${supabaseUrl}/functions/v1/spotify-oauth?action=start`, {
+ headers: { Authorization: `Bearer ${session.access_token}` },
+})
+const data = await res.json()
+if (!data.ok || !data.url) throw new Error(data.error || 'Could not start the Spotify connection')
+ window.location.href = data.url
 }
-
 export const disconnectSpotify = async (session) => {
-
-  const res = await fetch(`${supabaseUrl}/functions/v1/spotify-oauth?action=disconnect`, {
-
-    method: 'POST',
-
-    headers: { Authorization: `Bearer ${session.access_token}` },
-
-  })
-
-  const data = await res.json()
-
-  if (!data.ok) throw new Error(data.error || 'Could not disconnect Spotify')
+ const res = await fetch(`${supabaseUrl}/functions/v1/spotify-oauth?action=disconnect`, {
+method: 'POST',
+headers: { Authorization: `Bearer ${session.access_token}` },
+ })
+ const data = await res.json()
+ if (!data.ok) throw new Error(data.error || 'Could not disconnect Spotify')
 
 }
 
@@ -529,14 +514,9 @@ export const disconnectSpotify = async (session) => {
 // expiry themselves.
 
 export const getSpotifyToken = async (session) => {
-
-  const res = await fetch(`${supabaseUrl}/functions/v1/spotify-token`, {
-
-    headers: { Authorization: `Bearer ${session.access_token}` },
-
-  })
-
-  return res.json()
-
+ const res = await fetch(`${supabaseUrl}/functions/v1/spotify-token`, {
+headers: { Authorization: `Bearer ${session.access_token}` },
+ })
+ return res.json()
 }
 
