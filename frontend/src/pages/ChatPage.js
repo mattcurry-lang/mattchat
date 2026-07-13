@@ -550,6 +550,27 @@ export default function ChatPage({ session }) {
     window.history.replaceState({}, '', cleanUrl)
   }, [loadEmailAccounts])
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const status = params.get('spotify_connect')
+    if (!status) return
+ 
+    if (status === 'success') {
+      const product = params.get('product')
+      alert(`Spotify connected ✓${product === 'free' ? '\n\nFree accounts get 30-second previews — full playback needs Spotify Premium.' : ''}`)
+    } else if (status === 'denied') {
+      alert('Spotify connection was cancelled.')
+    } else if (status === 'expired') {
+      alert('That connection attempt expired — please try "Connect Spotify" again.')
+    } else {
+      alert('Could not connect Spotify. Please try again.')
+    }
+ 
+    params.delete('spotify_connect')
+    params.delete('product')
+    const cleanUrl = window.location.pathname + (params.toString() ? `?${params}` : '')
+    window.history.replaceState({}, '', cleanUrl)
+  }, [])
 // Only auto-scroll when the message COUNT actually grows (a genuine
 // new message arrived), not on every re-render of the messages array
 // — some realtime updates (typing pings, status changes, re-renders
@@ -924,6 +945,20 @@ const handleSend = async () => {
     </svg>
   </button>
 </div>
+
+ <SpotifyMiniPlayer session={session} />
+ 
+          {activeTab === 'chats' && (
+            <div style={{ padding: '8px 16px 0' }}>
+              <AICommandBar
+                session={session}
+                value={search}
+                onSearchChange={setSearch}
+                onOpenCurry={() => setActiveConvo(CURRY_AI_CONTACT)}
+                hasLocalMatches={filtered.length > 0}
+              />
+            </div>
+          )}
 
           {activeTab === 'chats' && (
             <div style={{ padding: '8px 16px 0' }}>
