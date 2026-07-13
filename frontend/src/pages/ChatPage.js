@@ -742,7 +742,7 @@ const runCoachCheck = useCallback(async (text) => {
   // only works once every member of the chat has opted in via
   // CurryChatToggle; otherwise we fall back to sending the text
   // normally so nothing gets silently lost.
- const handleSend = async () => {
+const handleSend = async () => {
     if (!inputText.trim() || !activeConvo) return
     broadcastTyping(false)
     setCoachSuggestion(null)
@@ -779,8 +779,6 @@ const runCoachCheck = useCallback(async (text) => {
       bumpConversationActivity(text) // fire-and-forget too
       runCoachCheck(text)
     }
-  }
-    setInputText('')
   }
 
   const handleTyping = (e) => {
@@ -854,8 +852,7 @@ const runCoachCheck = useCallback(async (text) => {
     const found = conversations.find(c => c.id === convoId)
     if (found) openConvo(found)
   }, [conversations])
-
-  return (
+ return (
     <div className={`app ${activeConvo ? 'chat-open' : ''}`}>
 
       {/* ── INCOMING CALL ── */}
