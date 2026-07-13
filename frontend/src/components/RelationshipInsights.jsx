@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { supabase } from '../lib/supabase'
 
 // Relationship Insights — shows real, computed stats about a
 // conversation: message activity, when you usually talk, reply rate,
@@ -121,65 +122,174 @@ function computeInsights(messages, currentUserId) {
   }
 }
 
-export default function RelationshipInsights({ messages, currentUserId, contactName, onClose }) {
-  const insights = useMemo(() => computeInsights(messages, currentUserId), [messages, currentUserId])
-
-  if (!insights) {
-    return (
-      <div style={s.panel}>
-        <div style={s.header}>
-          <span style={s.title}>📊 Relationship Insights</span>
-          <button style={s.closeBtn} onClick={onClose}>✕</button>
-        </div>
-        <div style={s.empty}>Not enough messages yet to show insights.</div>
-      </div>
-    )
+// Turns a Gemini-authored freeform object (arbitrary keys, since the
+// model chooses its own field names each time it updates chat memory)
+// into a readable list — "current_group_need" -> "Current group need" —
+// rather than assuming any fixed schema.
+function prettifyKey(key) {
+  return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+function renderValue(v) {
+  if (Array.isArray(v)) {
+    return v.map(item => (typeof item === 'object' ? Object.values(item).join(' — ') : String(item))).join(', ')
   }
+  if (typeof v === 'object' && v !== null) return Object.values(v).join(', ')
+  return String(v)
+}
+
+function formatCallDuration(sec) {
+  if (!sec) return null
+  const m = Math.floor(sec / 60)
+  const s2 = sec % 60
+  return m > 0 ? `${m}m ${s2}s` : `${s2}s`
+}
+
+function useTimelineData(conversationId) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!conversationId) return
+    let cancelled = false
+    setLoading(true)
+
+    async function load() {
+      const [firstMsgRes, longestCallRes, curryMemRes] = await Promise.all([
+        supabase.from('messages').select('created_at').eq('conversation_id', conversationId)
+          .order('created_at', { ascending: true }).limit(1).maybeSingle(),
+        supabase.from('active_calls').select('duration_seconds, call_type, created_at')
+          .eq('conversation_id', conversationId).eq('status', 'ended').gt('duration_seconds', 0)
+          .order('duration_seconds', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('curry_chat_memory').select('memory, personality').eq('conversation_id', conversationId).maybeSingle(),
+      ])
+      if (cancelled) return
+      setData({
+        firstChatted: firstMsgRes.data?.created_at || null,
+        longestCall: longestCallRes.data || null,
+        curryNotes: curryMemRes.data
+          ? { ...(curryMemRes.data.personality || {}), ...(curryMemRes.data.memory || {}) }
+          : null,
+      })
+      setLoading(false)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [conversationId])
+
+  return { data, loading }
+}
+
+function TimelineView({ conversationId, contactName }) {
+  const { data, loading } = useTimelineData(conversationId)
+
+  if (loading) return <div style={s.empty}>Loading timeline…</div>
+  if (!data) return <div style={s.empty}>No timeline data yet.</div>
+
+  const notesEntries = data.curryNotes ? Object.entries(data.curryNotes).filter(([, v]) => v && v !== 'true' && v !== 'false') : []
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={s.timelineList}>
+        {data.firstChatted && (
+          <div style={s.timelineRow}>
+            <span style={s.timelineIcon}>💬</span>
+            <div>
+              <div style={s.timelineLabel}>First chatted</div>
+              <div style={s.timelineValue}>{new Date(data.firstChatted).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+            </div>
+          </div>
+        )}
+        {data.longestCall && (
+          <div style={s.timelineRow}>
+            <span style={s.timelineIcon}>{data.longestCall.call_type === 'video' ? '📹' : '📞'}</span>
+            <div>
+              <div style={s.timelineLabel}>Longest call</div>
+              <div style={s.timelineValue}>{formatCallDuration(data.longestCall.duration_seconds)}</div>
+            </div>
+          </div>
+        )}
+        {!data.firstChatted && !data.longestCall && (
+          <div style={s.empty}>Not enough history with {contactName} yet.</div>
+        )}
+      </div>
+
+      {notesEntries.length > 0 && (
+        <div style={s.notesCard}>
+          <div style={s.notesTitle}>✨ What Curry has noticed</div>
+          {notesEntries.map(([key, value]) => (
+            <div key={key} style={s.notesRow}>
+              <span style={s.notesKey}>{prettifyKey(key)}</span>
+              <span style={s.notesValue}>{renderValue(value)}</span>
+            </div>
+          ))}
+          <div style={s.footnote}>Learned from Curry conversations in this chat — nothing here was guessed up front.</div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function RelationshipInsights({ messages, currentUserId, contactName, conversationId, onClose }) {
+  const [tab, setTab] = useState('score')
+  const insights = useMemo(() => computeInsights(messages, currentUserId), [messages, currentUserId])
 
   return (
     <div style={s.panel}>
       <div style={s.header}>
-        <span style={s.title}>📊 Insights with {contactName}</span>
+        <span style={s.title}>{tab === 'score' ? `📊 Insights with ${contactName}` : `🕰️ Timeline with ${contactName}`}</span>
         <button style={s.closeBtn} onClick={onClose}>✕</button>
       </div>
 
-      <div style={s.scoreCard}>
-        <div style={s.scoreLeft}>
-          <div style={s.scoreEmoji}>{insights.scoreEmoji}</div>
-          <div>
-            <div style={s.scoreLabel}>{insights.scoreLabelText}</div>
-            <div style={s.stars}>{'★'.repeat(insights.stars)}{'☆'.repeat(5 - insights.stars)}</div>
-          </div>
-        </div>
-        <div style={s.scoreNumber}>{insights.score}</div>
+      <div style={s.tabRow}>
+        <button style={tab === 'score' ? s.tabActive : s.tab} onClick={() => setTab('score')}>Score</button>
+        <button style={tab === 'timeline' ? s.tabActive : s.tab} onClick={() => setTab('timeline')}>Timeline</button>
       </div>
 
-      <div style={s.grid}>
-        <div style={s.card}>
-          <div style={s.cardLabel}>Most active</div>
-          <div style={s.cardValue}>{insights.mostActiveDay}s</div>
-        </div>
-        <div style={s.card}>
-          <div style={s.cardLabel}>Usually chat in the</div>
-          <div style={s.cardValue}>{insights.topBucket}</div>
-        </div>
-        {insights.replyRate !== null && (
-          <div style={s.card}>
-            <div style={s.cardLabel}>Reply rate</div>
-            <div style={s.cardValue}>{insights.replyRate}%</div>
+      {tab === 'timeline' ? (
+        <TimelineView conversationId={conversationId} contactName={contactName} />
+      ) : !insights ? (
+        <div style={s.empty}>Not enough messages yet to show insights.</div>
+      ) : (
+        <>
+          <div style={s.scoreCard}>
+            <div style={s.scoreLeft}>
+              <div style={s.scoreEmoji}>{insights.scoreEmoji}</div>
+              <div>
+                <div style={s.scoreLabel}>{insights.scoreLabelText}</div>
+                <div style={s.stars}>{'★'.repeat(insights.stars)}{'☆'.repeat(5 - insights.stars)}</div>
+              </div>
+            </div>
+            <div style={s.scoreNumber}>{insights.score}</div>
           </div>
-        )}
-        {insights.avgResponseLabel && (
-          <div style={s.card}>
-            <div style={s.cardLabel}>Avg. response</div>
-            <div style={s.cardValue}>{insights.avgResponseLabel}</div>
-          </div>
-        )}
-      </div>
 
-      <div style={s.footnote}>
-        Score is computed from reply rate, response speed, and message volume in the last {insights.sampleSize} messages — no AI, no guessing.
-      </div>
+          <div style={s.grid}>
+            <div style={s.card}>
+              <div style={s.cardLabel}>Most active</div>
+              <div style={s.cardValue}>{insights.mostActiveDay}s</div>
+            </div>
+            <div style={s.card}>
+              <div style={s.cardLabel}>Usually chat in the</div>
+              <div style={s.cardValue}>{insights.topBucket}</div>
+            </div>
+            {insights.replyRate !== null && (
+              <div style={s.card}>
+                <div style={s.cardLabel}>Reply rate</div>
+                <div style={s.cardValue}>{insights.replyRate}%</div>
+              </div>
+            )}
+            {insights.avgResponseLabel && (
+              <div style={s.card}>
+                <div style={s.cardLabel}>Avg. response</div>
+                <div style={s.cardValue}>{insights.avgResponseLabel}</div>
+              </div>
+            )}
+          </div>
+
+          <div style={s.footnote}>
+            Score is computed from reply rate, response speed, and message volume in the last {insights.sampleSize} messages — no AI, no guessing.
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -193,6 +303,28 @@ const s = {
   title: { fontSize: 13, fontWeight: 700, color: '#fff' },
   closeBtn: { background: 'none', border: 'none', color: '#666', fontSize: 13, cursor: 'pointer' },
   empty: { fontSize: 13, color: '#9ca3af', padding: '8px 0' },
+  tabRow: { display: 'flex', gap: 6, marginBottom: 2 },
+  tab: {
+    flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 10, color: '#9ca3af', fontSize: 12, fontWeight: 700, padding: '7px 0', cursor: 'pointer',
+  },
+  tabActive: {
+    flex: 1, background: 'rgba(167,139,250,0.18)', border: '1px solid rgba(167,139,250,0.4)',
+    borderRadius: 10, color: '#c4b5fd', fontSize: 12, fontWeight: 700, padding: '7px 0', cursor: 'pointer',
+  },
+  timelineList: { display: 'flex', flexDirection: 'column', gap: 10 },
+  timelineRow: { display: 'flex', alignItems: 'center', gap: 10 },
+  timelineIcon: { fontSize: 20, width: 30, textAlign: 'center' },
+  timelineLabel: { fontSize: 11, color: '#9ca3af', fontWeight: 600 },
+  timelineValue: { fontSize: 14, color: '#fff', fontWeight: 700 },
+  notesCard: {
+    background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.25)',
+    borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6,
+  },
+  notesTitle: { fontSize: 12.5, fontWeight: 700, color: '#e9d5ff', marginBottom: 2 },
+  notesRow: { display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12 },
+  notesKey: { color: '#9ca3af', fontWeight: 600, flexShrink: 0 },
+  notesValue: { color: '#e5e7eb', textAlign: 'right' },
   scoreCard: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     background: 'linear-gradient(135deg, rgba(167,139,250,0.16), rgba(240,147,251,0.08))',
