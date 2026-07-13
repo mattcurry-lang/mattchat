@@ -334,6 +334,16 @@ function DailyBrief({ session, onAskQuestion }) {
     </div>
   )
 }
+{Array.isArray(brief.reconnect_nudges) && brief.reconnect_nudges.length > 0 && (
+        <div style={s.briefInsights}>
+          {brief.reconnect_nudges.map((n, i) => (
+            <div key={i} style={s.briefInsightRow}>
+              <span style={{ color: '#a78bfa' }}>•</span>
+              It's been {n.daysSince} days since you talked to {n.username} — usually it's about {n.usualGapDays}.
+            </div>
+          ))}
+        </div>
+      )}
 
 // ── Main Curry AI Chat ────────────────────────────────────────
 export default function CurryAIChat({ session }) {
