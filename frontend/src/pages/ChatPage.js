@@ -673,14 +673,14 @@ useEffect(() => {
   // short/trivial messages so a Gemini call doesn't fire for every
   // "ok" or "lol". Only checks Curry when there's genuine conversation
   // context to review it against.
-  const runCoachCheck = useCallback(async (text) => {
+const runCoachCheck = useCallback(async (text) => {
     if (!activeConvo?.id || activeConvo.isCurryAI) return
     if (!text || text.trim().length < 8) return
     try {
-      const recentContext = messages.slice(-6)
+      const recentMessages = messages.slice(-6)
         .filter(m => m.message_type !== 'curry' && m.content)
-        .map(m => ({ isMe: m.sender_id === userId, content: m.content }))
-      const data = await callCurryAI('coach_check', { conversationId: activeConvo.id, message: text, recentContext }, session)
+        .map(m => ({ isMe: m.sender_id === userId, sender: m.profiles?.username || 'Them', content: m.content }))
+      const data = await callCurryAI('coach_check', { conversationId: activeConvo.id, text, recentMessages }, session)
       if (data.ok && data.needsRephrase && data.suggestion) {
         setCoachSuggestion({ suggestion: data.suggestion, reason: data.reason })
       }
@@ -688,7 +688,6 @@ useEffect(() => {
       console.error('coach_check failed:', e)
     }
   }, [activeConvo, messages, userId, session])
-
   // "hey curry ..." inside a normal 1:1/group chat never reaches the
   // other person — it's routed to the in-chat Curry instead, and
   // Curry's reply is inserted straight into this conversation's own
