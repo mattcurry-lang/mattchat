@@ -142,9 +142,6 @@ export const getMessages = async (conversationId) => {
       transcript,
       transcript_status,
       is_pinned,
-      reply_to_message_id,
-      forwarded,
-      deleted_for_everyone,
       created_at,
       profiles!messages_sender_id_fkey(username, avatar_url)
     `)
@@ -309,178 +306,32 @@ export async function deleteStatus(statusId) {
   if (error) throw new Error(error.message)
 }
 
-// Toggles a reaction: if this user already reacted with this emoji,
-// removes it (un-like). Otherwise upserts it — so switching from one
-// emoji to another just overwrites, no duplicate rows possible thanks
-// to the unique(status_id, user_id) constraint.
-export async function toggleStatusReaction(statusId, userId, emoji = '❤️') {
-  const { data: existing } = await supabase
-    .from('status_reactions')
-    .select('id, emoji')
-    .eq('status_id', statusId)
-    .eq('user_id', userId)
-    .maybeSingle()
-
-  if (existing && existing.emoji === emoji) {
-    await supabase.from('status_reactions').delete().eq('id', existing.id)
-    return { liked: false }
-  }
-
-  const { error } = await supabase
-    .from('status_reactions')
-    .upsert({ status_id: statusId, user_id: userId, emoji }, { onConflict: 'status_id,user_id' })
-  if (error) throw new Error(error.message)
-  return { liked: true }
+// ── Spotify (mirrors the Gmail connect pattern above) ───────────
+export const connectSpotify = async (session) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/spotify-oauth?action=start`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  const data = await res.json()
+  if (!data.ok || !data.url) throw new Error(data.error || 'Could not start the Spotify connection')
+  window.location.href = data.url
 }
 
-export async function getStatusReactions(statusId) {
-  const { data } = await supabase
-    .from('status_reactions')
-    .select('user_id, emoji, created_at, profiles!status_reactions_user_id_fkey(username)')
-    .eq('status_id', statusId)
-    .order('created_at', { ascending: false })
-  return data || []
+export const disconnectSpotify = async (session) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/spotify-oauth?action=disconnect`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  const data = await res.json()
+  if (!data.ok) throw new Error(data.error || 'Could not disconnect Spotify')
 }
 
-// Same "find or create a 1:1 conversation" logic as getOrCreateConversation,
-// but takes the other person's user id directly instead of a
-// username/email string — used by replyToStatus below, since we
-// already know the status owner's id and shouldn't force an extra
-// username lookup just to get back to the same id.
-export async function getOrCreateConversationByUserId(currentUserId, otherUserId) {
-  if (otherUserId === currentUserId) throw new Error("That's you!")
-
-  const { data: myConvos } = await supabase
-    .from('conversation_members')
-    .select('conversation_id')
-    .eq('user_id', currentUserId)
-  const { data: theirConvos } = await supabase
-    .from('conversation_members')
-    .select('conversation_id')
-    .eq('user_id', otherUserId)
-
-  const myIds = (myConvos || []).map(r => r.conversation_id)
-  const theirIds = (theirConvos || []).map(r => r.conversation_id)
-  const shared = myIds.find(id => theirIds.includes(id))
-
-  if (shared) {
-    await unhideConversationForUser(currentUserId, shared)
-    return shared
-  }
-
-  const newId = crypto.randomUUID()
-  const { error: convoError } = await supabase
-    .from('conversations')
-    .insert({ id: newId, is_group: false, updated_at: new Date().toISOString() })
-  if (convoError) throw convoError
-  const { error: memberError } = await supabase
-    .from('conversation_members')
-    .insert([
-      { conversation_id: newId, user_id: currentUserId },
-      { conversation_id: newId, user_id: otherUserId }
-    ])
-  if (memberError) throw memberError
-  return newId
-}
-
-// Sends a status reply as a normal DM, tagged with a "status_reply:"
-// prefix (same convention as sticker:/gif:/call_log: elsewhere in the
-// app) so the chat can render it with a small status-icon tag instead
-// of baking a sentence like "Replied to your status" into the literal
-// text — that read wrong from the sender's own point of view.
-export async function replyToStatus(currentUserId, statusOwnerId, statusCaption, replyText) {
-  const convoId = await getOrCreateConversationByUserId(currentUserId, statusOwnerId)
-  const encodedCaption = encodeURIComponent((statusCaption || '').slice(0, 80))
-  await sendMessage(convoId, currentUserId, `status_reply:${encodedCaption}::${replyText}`)
-  return convoId
-}
-
-// 12-hour window for "delete for everyone" — matches WhatsApp's
-// concept but with a longer allowance, per your call.
-const DELETE_FOR_EVERYONE_WINDOW_MS = 12 * 60 * 60 * 1000
-
-export function canDeleteForEveryone(message, currentUserId) {
-  if (message.sender_id !== currentUserId) return false
-  if (message.deleted_for_everyone) return false
-  return Date.now() - new Date(message.created_at).getTime() <= DELETE_FOR_EVERYONE_WINDOW_MS
-}
-
-// Soft-deletes for everyone: clears the content and sets a flag, so
-// the bubble can render "This message was deleted" instead of
-// disappearing outright. Only the sender can do this, and only
-// within the window above — enforced here AND worth mirroring in an
-// RLS policy/trigger later if you want server-side enforcement too.
-export async function deleteMessageForEveryone(messageId, currentUserId) {
-  const { data: msg, error: fetchErr } = await supabase
-    .from('messages').select('sender_id, created_at, deleted_for_everyone').eq('id', messageId).single()
-  if (fetchErr) throw new Error(fetchErr.message)
-  if (!canDeleteForEveryone(msg, currentUserId)) {
-    throw new Error("This message can no longer be deleted for everyone (12-hour window passed, or it isn't yours).")
-  }
-  const { error } = await supabase
-    .from('messages')
-    .update({ content: '', deleted_for_everyone: true, deleted_at: new Date().toISOString() })
-    .eq('id', messageId)
-  if (error) throw new Error(error.message)
-}
-
-// Hides a message for the current viewer only — everyone else still
-// sees it exactly as before.
-export async function deleteMessageForMe(messageId, userId) {
-  const { error } = await supabase
-    .from('hidden_messages')
-    .upsert({ message_id: messageId, user_id: userId })
-  if (error) throw new Error(error.message)
-}
-
-// Ids this user has hidden for themself, for a given conversation's
-// message set — used to filter the rendered list client-side.
-export async function getHiddenMessageIds(userId, messageIds) {
-  if (!messageIds.length) return new Set()
-  const { data } = await supabase
-    .from('hidden_messages')
-    .select('message_id')
-    .eq('user_id', userId)
-    .in('message_id', messageIds)
-  return new Set((data || []).map(r => r.message_id))
-}
-
-// Forwards a message's content into another conversation, as a fresh
-// message tagged forwarded:true (so the bubble can show a "Forwarded"
-// label like WhatsApp does, without a reply-quote attached).
-export async function forwardMessageToConversation(conversationId, senderId, content) {
-  const { error } = await supabase
-    .from('messages')
-    .insert({ conversation_id: conversationId, sender_id: senderId, content, forwarded: true })
-  if (error) throw new Error(error.message)
-  await supabase
-    .from('conversations')
-    .update({ updated_at: new Date().toISOString(), last_message: content })
-    .eq('id', conversationId)
-}
-
-// Sends a message's content as a real email, reusing the same
-// gmail-oauth-connected account flow — routes through Curry's chat
-// endpoint, which already knows how to parse a "send an email"
-// instruction into a real Gmail send action.
-export async function forwardMessageToEmail(session, toAddress, content) {
-  const prompt = `Send an email to ${toAddress} with subject "Forwarded message from Mattchat" and body: ${content}`
-  const { callCurryAI } = await import('../components/CurryAI')
-  const data = await callCurryAI('chat', { message: prompt }, session)
-  if (!data.ok) throw new Error('Could not send the email — make sure Gmail is connected in your profile menu.')
-  return data
-}
-
-// Sends a reply that's linked to an original message via
-// reply_to_message_id, so the bubble can render a quoted preview
-// above the reply text, like WhatsApp's swipe-to-reply.
-export async function sendReplyMessage(conversationId, senderId, content, replyToMessageId) {
-  const { error } = await supabase
-    .from('messages')
-    .insert({ conversation_id: conversationId, sender_id: senderId, content, reply_to_message_id: replyToMessageId })
-  if (error) throw new Error(error.message)
-  await supabase
-    .from('conversations')
-    .update({ updated_at: new Date().toISOString(), last_message: content })
-    .eq('id', conversationId)
+// Returns { connected, accessToken, product, displayName } — the
+// access token is always fresh (the edge function refreshes it
+// server-side if needed), so callers never have to think about
+// expiry themselves.
+export const getSpotifyToken = async (session) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/spotify-token`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  return res.json()
 }
