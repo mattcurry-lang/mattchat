@@ -742,16 +742,16 @@ const runCoachCheck = useCallback(async (text) => {
   // only works once every member of the chat has opted in via
   // CurryChatToggle; otherwise we fall back to sending the text
   // normally so nothing gets silently lost.
-  const handleSend = async () => {
+ const handleSend = async () => {
     if (!inputText.trim() || !activeConvo) return
     broadcastTyping(false)
     setCoachSuggestion(null)
     const text = inputText.trim()
+    setInputText('') // clear immediately — don't wait on the network round trip
 
     if (!activeConvo.isCurryAI) {
       const match = text.match(CURRY_TRIGGER)
       if (match) {
-        setInputText('')
         setCurryChatBusy(true)
         const question = text.slice(match[0].length).trim() || text
         try {
@@ -761,9 +761,6 @@ const runCoachCheck = useCallback(async (text) => {
             await sendMessage(text)
             bumpConversationActivity(text)
           }
-          // On success Curry's reply arrives via the realtime messages
-          // subscription (it was inserted server-side), so nothing
-          // else to do here.
         } catch (err) {
           alert('Curry could not respond right now. Please try again.')
         }
@@ -772,15 +769,17 @@ const runCoachCheck = useCallback(async (text) => {
       }
     }
 
-  if (replyingTo) {
-      await sendReplyMessage(activeConvo.id, userId, text, replyingTo.id)
+    if (replyingTo) {
+      const replyTarget = replyingTo
       setReplyingTo(null)
+      await sendReplyMessage(activeConvo.id, userId, text, replyTarget.id)
       reload()
     } else {
-      await sendMessage(text)
-      bumpConversationActivity(text)
+      sendMessage(text)              // fire-and-forget — no await
+      bumpConversationActivity(text) // fire-and-forget too
       runCoachCheck(text)
     }
+  }
     setInputText('')
   }
 
