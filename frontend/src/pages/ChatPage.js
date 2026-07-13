@@ -53,6 +53,8 @@ import ForwardModal from '../components/ForwardModal'
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
 const CURRY_TRIGGER = /^hey\s+curry[,:]?\s*/i
+const CATCH_UP_THRESHOLD = 8       // unread messages before offering a summary
+const AUTO_CONTEXT_GAP_DAYS = 2    // quiet period before showing "last spoke" context
 
 // Turns a raw message content string into a short, human-friendly
 // preview for the chat list — so encoded/tagged formats (sticker:,
@@ -394,10 +396,15 @@ export default function ChatPage({ session }) {
   const [replyingTo, setReplyingTo] = useState(null)
   const [forwardingMessage, setForwardingMessage] = useState(null)
   const [hiddenMsgIds, setHiddenMsgIds] = useState(new Set())
-  // Conversation Coach (Phase 3) — a dismissible, advisory suggestion
+ 
   // that appears AFTER a plain message has already been sent, if
   // Curry thinks it might land colder than intended. Never blocks or
   // delays sending; see runCoachCheck below.
+   const [autoContext, setAutoContext] = useState(null) // {conversationId, daysSince, lastTopic, openPromise} | null
+  const [autoContextLoading, setAutoContextLoading] = useState(false)
+  const [catchUpPending, setCatchUpPending] = useState(null) // {convoId, unreadCount} | null
+  const [catchUpResult, setCatchUpResult] = useState(null)   // {conversationId, bullets, readingTimeSavedMin} | null
+  const [catchUpLoading, setCatchUpLoading] = useState(false)
   const [coachSuggestion, setCoachSuggestion] = useState(null)
   const { tags, setTag } = useConvoTags()
   const { cache: smartReplyCache, fetchSuggestion, clear: clearSmartReply } = useSmartReplyCache()
@@ -637,9 +644,19 @@ useEffect(() => {
   // the actual "mark as read" DB write still happens via
   // useMessageStatus once messages load, this just makes the badge
   // disappear instantly instead of waiting on that round trip.
-  const openConvo = (c) => {
+ const openConvo = (c) => {
+    const unread = unreadCounts[c.id] || 0
     setActiveConvo(c)
     clearUnread(c.id)
+
+    setCatchUpPending(unread >= CATCH_UP_THRESHOLD ? { convoId: c.id, unreadCount: unread } : null)
+    setCatchUpResult(null)
+    setAutoContext(null)
+
+    const gapMs = c.updated_at ? Date.now() - new Date(c.updated_at).getTime() : 0
+    if (gapMs > AUTO_CONTEXT_GAP_DAYS * 24 * 60 * 60 * 1000) {
+      runAutoContext(c.id)
+    }
   }
 
   const startNewChat = async (e) => {
@@ -673,6 +690,36 @@ useEffect(() => {
   // short/trivial messages so a Gemini call doesn't fire for every
   // "ok" or "lol". Only checks Curry when there's genuine conversation
   // context to review it against.
+  const runAutoContext = useCallback(async (convoId) => {
+    setAutoContextLoading(true)
+    try {
+      const data = await callCurryAI('auto_context', { conversationId: convoId }, session)
+      if (data.ok && data.context && (data.context.lastTopic || data.context.openPromise)) {
+        setAutoContext({ conversationId: convoId, ...data.context })
+      }
+    } catch (e) {
+      console.error('auto_context failed:', e)
+    }
+    setAutoContextLoading(false)
+  }, [session])
+
+  const runCatchMeUp = async () => {
+    if (!catchUpPending || catchUpPending.convoId !== activeConvo?.id) return
+    setCatchUpLoading(true)
+    const missed = messages.slice(-catchUpPending.unreadCount)
+      .filter(m => m.message_type !== 'curry' && m.content
+        && !m.content.startsWith('call_log:') && !m.content.startsWith('missed_call:')
+        && !m.content.startsWith('sticker:') && !m.content.startsWith('gif:'))
+      .map(m => ({ sender: m.sender_id === userId ? 'You' : (m.profiles?.username || 'Them'), content: m.content }))
+    try {
+      const data = await callCurryAI('catch_me_up', { conversationId: activeConvo.id, messages: missed }, session)
+      if (data.ok) setCatchUpResult({ ...data, conversationId: activeConvo.id })
+    } catch (e) {
+      console.error('catch_me_up failed:', e)
+    }
+    setCatchUpPending(null)
+    setCatchUpLoading(false)
+  }
 const runCoachCheck = useCallback(async (text) => {
     if (!activeConvo?.id || activeConvo.isCurryAI) return
     if (!text || text.trim().length < 8) return
@@ -1281,6 +1328,52 @@ const runCoachCheck = useCallback(async (text) => {
             )}
 
             <PinnedBar key={pinnedRefresh} conversationId={activeConvo?.id} onScrollTo={scrollToMessage} />
+              <PinnedBar key={pinnedRefresh} conversationId={activeConvo?.id} onScrollTo={scrollToMessage} />
+
+            {autoContext && autoContext.conversationId === activeConvo?.id && (
+              <div style={{ margin: '10px 16px 0', background: 'rgba(102,126,234,0.08)', border: '1px solid rgba(102,126,234,0.2)', borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <span style={{ color: '#a5b4fc', fontWeight: 700 }}>
+                    🕰️ Last spoke {autoContext.daysSince === 0 ? 'today' : autoContext.daysSince === 1 ? 'yesterday' : `${autoContext.daysSince} days ago`}
+                  </span>
+                  <button onClick={() => setAutoContext(null)} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                </div>
+                {autoContext.lastTopic && <div style={{ color: '#d1d5db' }}>Last about: {autoContext.lastTopic}</div>}
+                {autoContext.openPromise && <div style={{ color: '#fbbf24' }}>📌 {autoContext.openPromise}</div>}
+              </div>
+            )}
+
+            {catchUpPending && catchUpPending.convoId === activeConvo?.id && (
+              <div style={{ margin: '10px 16px 0', background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
+                <span style={{ flex: 1, color: '#e5e7eb' }}>📬 You missed {catchUpPending.unreadCount} messages</span>
+                <button onClick={runCatchMeUp} disabled={catchUpLoading} style={{ background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none', borderRadius: 20, color: '#fff', fontSize: 11.5, fontWeight: 700, padding: '6px 12px', cursor: catchUpLoading ? 'default' : 'pointer', fontFamily: 'inherit', opacity: catchUpLoading ? 0.6 : 1 }}>
+                  {catchUpLoading ? 'Summarizing…' : 'Catch me up'}
+                </button>
+                <button onClick={() => setCatchUpPending(null)} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 12 }}>✕</button>
+              </div>
+            )}
+
+            {catchUpResult && catchUpResult.conversationId === activeConvo?.id && (
+              <div style={{ margin: '10px 16px 0', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#c4b5fd', fontWeight: 700 }}>✨ While you were away</span>
+                  <button onClick={() => setCatchUpResult(null)} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                </div>
+                {catchUpResult.bullets && catchUpResult.bullets.length > 0 ? (
+                  <ul style={{ margin: 0, paddingLeft: 18, color: '#e5e7eb', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {catchUpResult.bullets.map((b, i) => <li key={i}>{b}</li>)}
+                  </ul>
+                ) : (
+                  <div style={{ color: '#9ca3af' }}>Nothing especially notable — just regular chat.</div>
+                )}
+                {catchUpResult.readingTimeSavedMin > 0 && (
+                  <div style={{ color: '#a5b4fc', fontSize: 11 }}>⏱ ~{catchUpResult.readingTimeSavedMin} min of reading saved</div>
+                )}
+              </div>
+            )}
+
+            {/* Messages */}
+           <div className="messages">
 
             {/* Messages */}
            <div className="messages">
