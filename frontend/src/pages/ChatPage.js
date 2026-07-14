@@ -1252,6 +1252,7 @@ const handleSend = async () => {
         {show2FA && <TwoFactorModal onClose={() => setShow2FA(false)} />}
 {showProfileSetup && (
   <ProfileSetupModal
+    session={session}
     userId={userId}
     username={profile?.username}
     onComplete={(patch) => { setProfile(p => ({ ...p, ...patch })); setShowProfileSetup(false) }}
