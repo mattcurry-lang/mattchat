@@ -20,6 +20,11 @@ import { callCurryAI } from './CurryAI'
 // Score/Timeline), pulled live from recent messages in this specific
 // conversation each time it's opened/refreshed, not cached or guessed
 // up front.
+//
+// Phase 4 adds a fourth "Profile" tab — Personality Profiles. Mostly
+// deterministic (active hour, message length, voice-note usage all
+// come straight from timestamps/message_type), with a small AI-read
+// layer on top for topics/traits, same live-per-open pattern as Mood.
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -334,6 +339,108 @@ function MoodView({ conversationId, session, contactName, active }) {
   )
 }
 
+// ── Personality Profile (Phase 4) ─────────────────────────────────
+// Mostly deterministic — active hour, message style, voice-note usage
+// all come straight from real timestamps/message_type on the server.
+// Topics/traits are the only AI-read part, and only from the other
+// person's actual message content. Same live-per-open, state-cached
+// pattern as Mood Radar above (not persisted, re-fetched on reopen).
+function usePersonalityProfile(conversationId, session, active) {
+  const [profile, setProfile] = useState(null)
+  const [otherName, setOtherName] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [fetchedFor, setFetchedFor] = useState(null)
+
+  const fetchProfile = useCallback(async () => {
+    if (!conversationId || !session) return
+    setLoading(true)
+    setError('')
+    try {
+      const data = await callCurryAI('personality_profile', { conversationId }, session)
+      if (data.ok) {
+        setProfile(data.profile)
+        setOtherName(data.otherName || '')
+        setFetchedFor(conversationId)
+      } else {
+        setError(data.error || 'Could not build a profile right now')
+      }
+    } catch (e) {
+      setError('Network error building profile')
+    }
+    setLoading(false)
+  }, [conversationId, session])
+
+  useEffect(() => {
+    if (active && conversationId && fetchedFor !== conversationId) fetchProfile()
+  }, [active, conversationId, fetchedFor, fetchProfile])
+
+  return { profile, otherName, loading, error, refresh: fetchProfile }
+}
+
+function PersonalityView({ conversationId, session, contactName, active }) {
+  const { profile, otherName, loading, error, refresh } = usePersonalityProfile(conversationId, session, active)
+
+  if (loading && !profile) return <div style={s.empty}>Getting to know {contactName}…</div>
+
+  if (error) {
+    return (
+      <div style={s.empty}>
+        {error}{' '}
+        <button style={s.retryBtn} onClick={refresh}>Try again</button>
+      </div>
+    )
+  }
+
+  if (!profile) return <div style={s.empty}>Not enough messages with {contactName} yet to build a profile.</div>
+
+  const displayName = otherName || contactName
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={s.grid}>
+        <div style={s.card}>
+          <div style={s.cardLabel}>Usually active</div>
+          <div style={s.cardValue}>{profile.activeHour}</div>
+        </div>
+        <div style={s.card}>
+          <div style={s.cardLabel}>Message style</div>
+          <div style={s.cardValue}>{profile.messageStyle}</div>
+        </div>
+        {profile.voiceNotePct > 0 && (
+          <div style={s.card}>
+            <div style={s.cardLabel}>Voice notes</div>
+            <div style={s.cardValue}>{profile.voiceNotePct}%</div>
+          </div>
+        )}
+      </div>
+
+      {profile.topics && profile.topics.length > 0 && (
+        <div style={s.notesCard}>
+          <div style={s.notesTitle}>💭 Often brings up</div>
+          <div style={s.chipRow}>
+            {profile.topics.map((t, i) => <span key={i} style={s.topicChip}>{t}</span>)}
+          </div>
+        </div>
+      )}
+
+      {profile.traits && profile.traits.length > 0 && (
+        <div style={s.notesCard}>
+          <div style={s.notesTitle}>✨ {displayName}'s style</div>
+          {profile.traits.map((t, i) => (
+            <div key={i} style={s.moodSummary}>{t}</div>
+          ))}
+        </div>
+      )}
+
+      <button style={s.refreshBtn} onClick={refresh} disabled={loading}>
+        {loading ? 'Refreshing…' : '↻ Refresh'}
+      </button>
+      <div style={s.footnote}>Active hour, message style, and voice-note usage are computed directly from real messages. Topics and traits are Curry's read of {displayName}'s own words — nothing invented.</div>
+    </div>
+  )
+}
+
 export default function RelationshipInsights({ messages, currentUserId, contactName, conversationId, session, onClose }) {
   const [tab, setTab] = useState('score')
   const insights = useMemo(() => computeInsights(messages, currentUserId), [messages, currentUserId])
@@ -342,6 +449,7 @@ export default function RelationshipInsights({ messages, currentUserId, contactN
     score: `📊 Insights with ${contactName}`,
     timeline: `🕰️ Timeline with ${contactName}`,
     mood: `🌡️ Mood with ${contactName}`,
+    profile: `🧬 Profile of ${contactName}`,
   }
 
   return (
@@ -355,12 +463,15 @@ export default function RelationshipInsights({ messages, currentUserId, contactN
         <button style={tab === 'score' ? s.tabActive : s.tab} onClick={() => setTab('score')}>Score</button>
         <button style={tab === 'timeline' ? s.tabActive : s.tab} onClick={() => setTab('timeline')}>Timeline</button>
         <button style={tab === 'mood' ? s.tabActive : s.tab} onClick={() => setTab('mood')}>Mood</button>
+        <button style={tab === 'profile' ? s.tabActive : s.tab} onClick={() => setTab('profile')}>Profile</button>
       </div>
 
       {tab === 'timeline' ? (
         <TimelineView conversationId={conversationId} contactName={contactName} />
       ) : tab === 'mood' ? (
         <MoodView conversationId={conversationId} session={session} contactName={contactName} active={tab === 'mood'} />
+      ) : tab === 'profile' ? (
+        <PersonalityView conversationId={conversationId} session={session} contactName={contactName} active={tab === 'profile'} />
       ) : !insights ? (
         <div style={s.empty}>Not enough messages yet to show insights.</div>
       ) : (
@@ -473,5 +584,10 @@ const s = {
   },
   cardLabel: { fontSize: 11, color: '#9ca3af', fontWeight: 600, marginBottom: 3 },
   cardValue: { fontSize: 17, color: '#c4b5fd', fontWeight: 700, textTransform: 'capitalize' },
+  chipRow: { display: 'flex', flexWrap: 'wrap', gap: 6 },
+  topicChip: {
+    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(167,139,250,0.25)',
+    borderRadius: 20, color: '#e9d5ff', fontSize: 11.5, fontWeight: 600, padding: '4px 10px',
+  },
   footnote: { fontSize: 10.5, color: 'rgba(255,255,255,0.3)', textAlign: 'center' },
 }
