@@ -520,3 +520,38 @@ headers: { Authorization: `Bearer ${session.access_token}` },
  return res.json()
 }
 
+export async function uploadAvatar(userId, file) {
+  const ext = file.name.split('.').pop()
+  const path = `${userId}/${Date.now()}.${ext}`
+
+  const { error: uploadError } = await supabase.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true, cacheControl: '3600' })
+  if (uploadError) throw uploadError
+
+  const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+
+  const { error: updateError } = await supabase
+    .from('profiles')
+    .update({ avatar_url: data.publicUrl, avatar_source: 'upload', profile_setup_completed: true })
+    .eq('id', userId)
+  if (updateError) throw updateError
+
+  return data.publicUrl
+}
+
+export async function skipProfileSetup(userId) {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ profile_setup_completed: true, avatar_source: 'skipped' })
+    .eq('id', userId)
+  if (error) throw error
+}
+
+export async function setUsagePreference(userId, preference) {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ usage_preference: preference })
+    .eq('id', userId)
+  if (error) throw error
+}
