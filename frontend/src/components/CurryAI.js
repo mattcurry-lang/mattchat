@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import MemoryVault from './MemoryVault'
 
 const SUPABASE_URL = 'https://bqerkvywgxoioocbkxif.supabase.co'
 
@@ -56,6 +57,7 @@ function VoiceMode({ session, voiceOn, onEnd, onNewMessages }) {
   const [transcript, setTranscript] = useState('')
   const [response, setResponse] = useState('')
   const [volume, setVolume] = useState(0)
+  const [showMemoryVault, setShowMemoryVault] = useState(false)
 
   const stoppedRef = useRef(false)
   const processingRef = useRef(false)
@@ -346,7 +348,7 @@ function DailyBrief({ session, onAskQuestion }) {
 
 
 // ── Main Curry AI Chat ────────────────────────────────────────
-export default function CurryAIChat({ session }) {
+export default function CurryAIChat({ session, onOpenConversation }) {
   const [messages, setMessages] = useState([
     { role: 'assistant', content: `Hey! I'm Curry AI ✨ — your personal companion inside Mattchat.\n\nI can send messages, schedule them, summarize chats, translate, create polls & tasks, draft emails, and answer anything.\n\nShare a chat with me from its ⋮ menu and I'll start noticing patterns, moods, and things worth suggesting — like a friend would.` }
   ])
@@ -420,7 +422,16 @@ export default function CurryAIChat({ session }) {
       />
     )
   }
-
+if (showMemoryVault) {
+    return (
+      <MemoryVault
+        session={session}
+        userId={session.user.id}
+        onOpenConversation={onOpenConversation}
+        onClose={() => setShowMemoryVault(false)}
+      />
+    )
+  }
   return (
     <div style={s.container}>
       {/* Header */}
@@ -432,7 +443,8 @@ export default function CurryAIChat({ session }) {
             <div style={s.headerSub}>Always learning, always here</div>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={() => setShowMemoryVault(true)} style={s.iconBtn} title="Memory Vault">🗂️</button>
           <button onClick={() => setVoiceOn(v => !v)} style={s.speakerBtn} title={voiceOn ? 'Mute' : 'Unmute'}>
             <SpeakerIcon on={voiceOn} />
           </button>
