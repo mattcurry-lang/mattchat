@@ -1,13 +1,10 @@
 import React, { useState, useRef } from 'react'
 import Avatar from './Avatar'
 import { uploadAvatar, skipProfileSetup, setUsagePreference } from '../lib/supabase'
+import PinterestPicker from './PinterestPicker'
 
-// Three-step flow: usage preference -> pick method -> (upload | pinterest stub | done)
-// onComplete(updatedProfile) is called whenever the modal closes with a
-// meaningful change (upload succeeded, or skipped) so the parent can
-// refresh `profile` without a full reload.
-export default function ProfileSetupModal({ userId, username, onComplete, onClose, allowDismiss = false }) {
-  const [step, setStep] = useState('usage') // 'usage' | 'method' | 'uploading'
+export default function ProfileSetupModal({ session, userId, username, onComplete, onClose, allowDismiss = false }) {
+  const [step, setStep] = useState('usage') // 'usage' | 'method' | 'pinterest'
   const [preference, setPreference] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
@@ -25,7 +22,6 @@ export default function ProfileSetupModal({ userId, username, onComplete, onClos
     if (!file) return
     if (!file.type.startsWith('image/')) { setError('Please choose an image file.'); return }
     if (file.size > 8 * 1024 * 1024) { setError('Image must be under 8MB.'); return }
-
     setError('')
     setPreviewUrl(URL.createObjectURL(file))
     setUploading(true)
@@ -42,6 +38,10 @@ export default function ProfileSetupModal({ userId, username, onComplete, onClos
   const handleSkip = async () => {
     try { await skipProfileSetup(userId) } catch (e) { console.error(e) }
     onComplete({ profile_setup_completed: true, avatar_source: 'skipped', usage_preference: preference })
+  }
+
+  const handlePinterestPicked = (imageUrl) => {
+    onComplete({ avatar_url: imageUrl, avatar_source: 'pinterest', profile_setup_completed: true, usage_preference: preference })
   }
 
   return (
@@ -63,9 +63,7 @@ export default function ProfileSetupModal({ userId, username, onComplete, onClos
                 🙂 Personal
               </button>
             </div>
-            {allowDismiss && (
-              <button className="btn-ghost" style={{ marginTop: 4 }} onClick={onClose}>Cancel</button>
-            )}
+            {allowDismiss && <button className="btn-ghost" style={{ marginTop: 4 }} onClick={onClose}>Cancel</button>}
           </>
         )}
 
@@ -88,19 +86,24 @@ export default function ProfileSetupModal({ userId, username, onComplete, onClos
               <button className="btn-primary" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
                 🖼️ Upload from device
               </button>
-              <button
-                className="btn-ghost"
-                disabled
-                title="Coming soon"
-                style={{ opacity: 0.5, cursor: 'not-allowed' }}
-              >
-                📌 Choose from Pinterest — coming soon
+              <button className="btn-primary" disabled={uploading} style={{ background: 'linear-gradient(135deg,#e60023,#ad081b)' }} onClick={() => setStep('pinterest')}>
+                📌 Choose from Pinterest
               </button>
               <button className="btn-ghost" disabled={uploading} onClick={handleSkip}>
                 Skip for now
               </button>
             </div>
           </>
+        )}
+
+        {step === 'pinterest' && (
+          <PinterestPicker
+            session={session}
+            userId={userId}
+            preference={preference}
+            onPicked={handlePinterestPicked}
+            onBack={() => setStep('method')}
+          />
         )}
       </div>
     </div>
