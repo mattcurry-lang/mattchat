@@ -48,11 +48,8 @@ import { useTheme } from '../hooks/useTheme'
 import {deleteMessageForEveryone, deleteMessageForMe, getHiddenMessageIds, sendReplyMessage, canDeleteForEveryone,
 } from '../lib/supabase'
 import ForwardModal from '../components/ForwardModal'
-// FIX (bug #1): SpotifyMiniPlayer was used below (unconditionally, inside
-// .top-header) but never imported, which crashed ChatPage with a
-// "SpotifyMiniPlayer is not defined" ReferenceError on every render.
 import SpotifyMiniPlayer from '../components/SpotifyMiniPlayer'
-
+import PersonalAnalytics from '../components/PersonalAnalytics'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -397,6 +394,7 @@ export default function ChatPage({ session }) {
   const [messageMenu, setMessageMenu] = useState(null) // { message, x, y } | null
   const [collection, setCollection] = useState('all')
   const [showInsights, setShowInsights] = useState(false)
+  const [showPersonalAnalytics, setShowPersonalAnalytics] = useState(false)
   const [replyingTo, setReplyingTo] = useState(null)
   const [forwardingMessage, setForwardingMessage] = useState(null)
   const [hiddenMsgIds, setHiddenMsgIds] = useState(new Set())
@@ -1199,6 +1197,17 @@ const handleSend = async () => {
                 >
                   ✉️ {connectingGmail ? 'Connecting…' : emailAccounts.length > 0 ? `Gmail connected (${emailAccounts.length})` : 'Connect Gmail'}
                 </button>
+                  <button
+                  onClick={() => { setShowPersonalAnalytics(true); setShowProfileMenu(false) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(167,139,250,0.12)',
+                    border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#c4b5fd',
+                    fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: 'pointer',
+                    fontFamily: 'inherit', whiteSpace: 'nowrap',
+                  }}
+                >
+                  📊 Your Communication Analytics
+                </button>
                 <button
                   onClick={() => { setShow2FA(true); setShowProfileMenu(false) }}
                   style={{
@@ -1217,7 +1226,10 @@ const handleSend = async () => {
         )}
 
         {show2FA && <TwoFactorModal onClose={() => setShow2FA(false)} />}
-
+       
+{showPersonalAnalytics && (
+          <PersonalAnalytics userId={userId} conversations={conversations} onClose={() => setShowPersonalAnalytics(false)} />
+        )}
         {showAddStatus && (
           <AddStatusModal userId={userId} onClose={() => setShowAddStatus(false)} onPosted={reloadStatuses} />
         )}
