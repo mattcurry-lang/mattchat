@@ -7,6 +7,7 @@ import EmailFormPage from './pages/EmailFormPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import MfaChallengePage from './pages/MfaChallengePage'
 import './App.css'
+import Privacy from './pages/Privacy'
 
 export default function App() {
   const [session, setSession] = useState(undefined)
@@ -63,7 +64,8 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         {/* Public email contact form — no login needed */}
-        <Route path="/email/:username" element={<EmailFormPage />} />
+       <Route path="/email/:username" element={<EmailFormPage />} />
+  <Route path="/privacy" element={<Privacy />} />
 
         <Route path="/auth" element={!session ? <AuthPage /> : <Navigate to="/" />} />
 
