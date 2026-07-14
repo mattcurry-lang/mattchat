@@ -364,6 +364,10 @@ function getOtherUserId(convo, myUserId) {
   const other = convo?.conversation_members?.find(m => m.user_id !== myUserId)
   return other?.user_id || null
 }
+function getOtherUserAvatar(convo, myUserId) {
+  const other = convo?.conversation_members?.find(m => m.user_id !== myUserId)
+  return other?.profiles?.avatar_url || null
+}
 
 export default function ChatPage({ session }) {
   const [activeConvo, setActiveConvo]   = useState(null)
@@ -1081,7 +1085,7 @@ const handleSend = async () => {
                   return (
                     <div key={c.id} className={`contact ${activeConvo?.id === c.id ? 'active' : ''}`} onClick={() => openConvo(c)}>
                       <div className="contact-avatar-wrap">
-                        <Avatar name={getConvoName(c)} online={online} size={46} />
+                        <Avatar name={getConvoName(c)} online={online} size={46} photoUrl={getOtherUserAvatar(c, userId)} />
                         {unread > 0 && <span className="unread-badge">{unread > 9 ? '9+' : unread}</span>}
                         {sharedConvoIds.has(c.id) && (
                           <span className="shared-badge" title="Shared with Curry">
@@ -1357,7 +1361,7 @@ const handleSend = async () => {
             {/* Header */}
             <div className="chat-header">
               <button className="back-btn" onClick={() => setActiveConvo(null)}>←</button>
-              <Avatar name={getConvoName(activeConvo)} size={36} online={otherUserId ? isOnline(otherUserId) : false} />
+              <Avatar name={getConvoName(activeConvo)} size={36} online={otherUserId ? isOnline(otherUserId) : false} photoUrl={getOtherUserAvatar(activeConvo, userId)} />
               <div style={{ flex: 1 }}>
                 <div className="chat-header-name">{getConvoName(activeConvo)}</div>
                 <div className="chat-header-sub" style={{ minHeight: 16 }}>{headerStatus()}</div>
