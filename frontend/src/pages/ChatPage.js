@@ -51,6 +51,7 @@ import ForwardModal from '../components/ForwardModal'
 import SpotifyMiniPlayer from '../components/SpotifyMiniPlayer'
 import PersonalAnalytics from '../components/PersonalAnalytics'
 import ProfileSetupModal from '../components/ProfileSetupModal'
+import connectPinterest t from '../lib/supabase'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -556,7 +557,25 @@ useEffect(() => {
     const cleanUrl = window.location.pathname + (params.toString() ? `?${params}` : '')
     window.history.replaceState({}, '', cleanUrl)
   }, [loadEmailAccounts])
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  const status = params.get('pinterest_connect')
+  if (!status) return
 
+  if (status === 'success') {
+    // No alert here — the picker modal (if open) will detect the
+    // connection itself and move to the board-picker step.
+    window.dispatchEvent(new CustomEvent('pinterest-connected'))
+  } else if (status === 'denied') {
+    alert('Pinterest connection was cancelled.')
+  } else {
+    alert('Could not connect Pinterest. Please try again.')
+  }
+
+  params.delete('pinterest_connect')
+  const cleanUrl = window.location.pathname + (params.toString() ? `?${params}` : '')
+  window.history.replaceState({}, '', cleanUrl)
+}, [])
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const status = params.get('spotify_connect')
