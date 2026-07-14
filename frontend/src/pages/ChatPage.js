@@ -997,7 +997,7 @@ const handleSend = async () => {
               <button className="story-item" onClick={() => openViewer('mine')} title="My status">
                 <div className="story-avatar-wrap">
                   <StatusRing size={58} hasStatus={myStatuses.length > 0} viewed>
-                    <Avatar name={profile?.username || 'You'} size={52} />
+                    <Avatar name={profile?.username || 'You'} size={52} photoUrl={profile?.avatar_url} />
                   </StatusRing>
                   <button
                     className="status-add-badge"
@@ -1133,7 +1133,7 @@ const handleSend = async () => {
               <div className="status-tab-mine" onClick={() => openViewer('mine')}>
                 <div className="story-avatar-wrap">
                   <StatusRing size={54} hasStatus={myStatuses.length > 0} viewed>
-                    <Avatar name={profile?.username || 'You'} size={48} />
+                   <Avatar name={profile?.username || 'You'} size={48} photoUrl={profile?.avatar_url} />
                   </StatusRing>
                   <button className="status-add-badge" onClick={(e) => { e.stopPropagation(); setShowAddStatus(true) }}>
                     <IconPlus size={11} />
@@ -1192,7 +1192,7 @@ const handleSend = async () => {
           <div className="profile-menu-overlay" onClick={() => setShowProfileMenu(false)}>
             <div className="profile-menu" onClick={e => e.stopPropagation()}>
               <div className="profile-menu-header">
-                <Avatar name={profile?.username || session.user.email} size={48} />
+                <Avatar name={profile?.username || session.user.email} size={48} photoUrl={profile?.avatar_url} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, color: '#fff', fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {profile?.username || 'You'}
@@ -1221,6 +1221,17 @@ const handleSend = async () => {
                 >
                   ✉️ {connectingGmail ? 'Connecting…' : emailAccounts.length > 0 ? `Gmail connected (${emailAccounts.length})` : 'Connect Gmail'}
                 </button>
+                  <button
+  onClick={() => { setShowProfileSetup(true); setShowProfileMenu(false) }}
+  style={{
+    display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(167,139,250,0.12)',
+    border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#c4b5fd',
+    fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: 'pointer',
+    fontFamily: 'inherit', whiteSpace: 'nowrap',
+  }}
+>
+  🖼️ Change display picture
+</button>
                   <button
                   onClick={() => { setShowPersonalAnalytics(true); setShowProfileMenu(false) }}
                   style={{
