@@ -57,7 +57,7 @@ function VoiceMode({ session, voiceOn, onEnd, onNewMessages }) {
   const [transcript, setTranscript] = useState('')
   const [response, setResponse] = useState('')
   const [volume, setVolume] = useState(0)
-  const [showMemoryVault, setShowMemoryVault] = useState(false)
+
 
   const stoppedRef = useRef(false)
   const processingRef = useRef(false)
@@ -356,6 +356,7 @@ export default function CurryAIChat({ session, onOpenConversation }) {
   const [loading, setLoading] = useState(false)
   const [voiceOn, setVoiceOn] = useState(true)
   const [voiceMode, setVoiceMode] = useState(false)
+    const [showMemoryVault, setShowMemoryVault] = useState(false)
   const messagesEndRef = useRef(null)
 
   useEffect(() => {
