@@ -51,7 +51,7 @@ import ForwardModal from '../components/ForwardModal'
 import SpotifyMiniPlayer from '../components/SpotifyMiniPlayer'
 import PersonalAnalytics from '../components/PersonalAnalytics'
 import ProfileSetupModal from '../components/ProfileSetupModal'
-import connectPinterest  from '../lib/supabase'
+import { connectPinterest } from '../lib/supabase'   
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
