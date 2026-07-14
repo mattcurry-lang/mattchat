@@ -50,6 +50,7 @@ import {deleteMessageForEveryone, deleteMessageForMe, getHiddenMessageIds, sendR
 import ForwardModal from '../components/ForwardModal'
 import SpotifyMiniPlayer from '../components/SpotifyMiniPlayer'
 import PersonalAnalytics from '../components/PersonalAnalytics'
+import ProfileSetupModal from '../components/ProfileSetupModal'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -372,6 +373,7 @@ export default function ChatPage({ session }) {
   const [showSearchBar, setShowSearchBar] = useState(false)
   const [listFilter, setListFilter]     = useState('all') // 'all' | 'group'
   const [showProfileMenu, setShowProfileMenu] = useState(false)
+  const [showProfileSetup, setShowProfileSetup] = useState(false)
   const [show2FA, setShow2FA] = useState(false)
   const [profile, setProfile]           = useState(null)
   const [showVoice, setShowVoice]       = useState(false)
@@ -499,10 +501,13 @@ export default function ChatPage({ session }) {
     useHeyCurry(onHeyCurryActivated, { autoStart: false })
   const bindLongPress = useMessageLongPress((message, x, y) => setMessageMenu({ message, x, y }))
 
-  useEffect(() => {
-    supabase.from('profiles').select('*').eq('id', userId).single().then(({ data }) => setProfile(data))
-  }, [userId])
-
+  
+useEffect(() => {
+  supabase.from('profiles').select('*').eq('id', userId).single().then(({ data }) => {
+    setProfile(data)
+    if (data && !data.profile_setup_completed) setShowProfileSetup(true)
+  })
+}, [userId])
   // Which conversations has this user shared with Curry — powers the
   // sparkle badge in the list. Read directly off the table (RLS scopes
   // it to the signed-in user already) rather than round-tripping
@@ -1226,6 +1231,14 @@ const handleSend = async () => {
         )}
 
         {show2FA && <TwoFactorModal onClose={() => setShow2FA(false)} />}
+{showProfileSetup && (
+  <ProfileSetupModal
+    userId={userId}
+    username={profile?.username}
+    onComplete={(patch) => { setProfile(p => ({ ...p, ...patch })); setShowProfileSetup(false) }}
+    onClose={() => setShowProfileSetup(false)}
+  />
+)}
        
 {showPersonalAnalytics && (
           <PersonalAnalytics userId={userId} conversations={conversations} onClose={() => setShowPersonalAnalytics(false)} />
