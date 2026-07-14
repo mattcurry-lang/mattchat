@@ -172,7 +172,7 @@ function MessageBubble({ msg, isMe, isRead, isDelivered }) {
   if (msg.deleted_for_everyone) {
     return (
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
-        {!isMe && <Avatar name={msg.profiles?.username} size={28} />}
+        {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
         <div>
           {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
           <div className="msg-bubble deleted-msg">🚫 This message was deleted</div>
@@ -221,7 +221,7 @@ if (msg.content?.startsWith('call_log:') || msg.content?.startsWith('missed_call
   if (msg.content?.startsWith('sticker:')) {
     return (
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
-        {!isMe && <Avatar name={msg.profiles?.username} size={28} />}
+        {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
         <div>
           {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
           <StickerBubble content={msg.content} isMe={isMe} />
@@ -234,7 +234,7 @@ if (msg.content?.startsWith('call_log:') || msg.content?.startsWith('missed_call
   if (msg.content?.startsWith('gif:')) {
     return (
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
-        {!isMe && <Avatar name={msg.profiles?.username} size={28} />}
+        {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
         <div>
           {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
           <GifBubble content={msg.content} isMe={isMe} />
@@ -247,7 +247,7 @@ if (msg.content?.startsWith('call_log:') || msg.content?.startsWith('missed_call
 if (msg.content?.startsWith('status_reply:')) {
   return (
     <div className={`msg-row ${isMe ? 'mine' : ''}`}>
-      {!isMe && <Avatar name={msg.profiles?.username} size={28} />}
+      {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
       <div>
         {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
         <StatusReplyBubble content={msg.content} isMe={isMe} />
@@ -260,7 +260,7 @@ if (msg.content?.startsWith('status_reply:')) {
   if (msg.message_type === 'task') {
     return (
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
-        {!isMe && <Avatar name={msg.profiles?.username} size={28} />}
+        {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
         <div>
           {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
           <TaskMessage message={msg} currentUserId={msg._currentUserId} />
@@ -273,7 +273,7 @@ if (msg.content?.startsWith('status_reply:')) {
   if (msg.message_type === 'poll') {
     return (
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
-        {!isMe && <Avatar name={msg.profiles?.username} size={28} />}
+        {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
         <div>
           {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
           <PollMessage message={msg} currentUserId={msg._currentUserId} />
@@ -286,7 +286,7 @@ if (msg.content?.startsWith('status_reply:')) {
   if (msg.message_type === 'voice') {
     return (
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
-        {!isMe && <Avatar name={msg.profiles?.username} size={28} />}
+        {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
         <div>
           {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
           <VoiceMessage message={msg} isMe={isMe} />
@@ -298,7 +298,7 @@ if (msg.content?.startsWith('status_reply:')) {
   }
 return (
     <div className={`msg-row ${isMe ? 'mine' : ''}`}>
-      {!isMe && <Avatar name={msg.profiles?.username} size={28} />}
+      {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
       <div>
         {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
         <div className={`msg-bubble ${msg.is_email ? 'email-msg' : ''} ${isMe && isRead ? 'read' : ''}`}>
