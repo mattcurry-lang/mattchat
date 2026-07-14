@@ -555,3 +555,46 @@ export async function setUsagePreference(userId, preference) {
     .eq('id', userId)
   if (error) throw error
 }
+
+// ── Pinterest ────────────────────────────────────────────
+export const connectPinterest = async (session) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/pinterest-oauth?action=start`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  const data = await res.json()
+  if (!data.ok || !data.url) throw new Error(data.error || 'Could not start the Pinterest connection')
+  window.location.href = data.url
+}
+
+export const disconnectPinterest = async (session) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/pinterest-oauth?action=disconnect`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  const data = await res.json()
+  if (!data.ok) throw new Error(data.error || 'Could not disconnect Pinterest')
+}
+
+export const listPinterestBoards = async (session) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/pinterest-oauth?action=list_boards`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  return res.json() // { ok, connected, boards }
+}
+
+export const listPinterestPins = async (session, boardId) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/pinterest-oauth?action=list_pins&board_id=${boardId}`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  return res.json() // { ok, pins }
+}
+
+// Sets the profile avatar directly to a Pinterest-hosted image URL —
+// no re-upload needed, Pinterest's CDN URLs are public and stable.
+export async function setAvatarFromUrl(userId, imageUrl) {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ avatar_url: imageUrl, avatar_source: 'pinterest', profile_setup_completed: true })
+    .eq('id', userId)
+  if (error) throw error
+}
