@@ -27,7 +27,11 @@ import { useMessageStatus } from '../hooks/useMessageStatus'
 import { useUnreadCounts } from '../hooks/useUnreadCounts'
 import { useGlobalDelivery } from '../hooks/useGlobalDelivery'
 import BottomNav from '../components/BottomNav'
-import { IconPhone, IconVideo, IconSparkle, IconMoreVertical, IconSmile, IconMic, IconPlus, IconStatus } from '../components/Icons'
+import {
+  IconPhone, IconVideo, IconPhoneOff, IconSparkle, IconMoreVertical, IconSmile, IconMic, IconPlus, IconStatus,
+  IconChart, IconCheckSquare, IconClock, IconSearch, IconMail, IconShield, IconLogOut, IconInbox, IconPin,
+  IconMessageSquare, IconHistory,IconX
+} from '../components/Icons'
 import { ReactableMessage } from '../components/MessageReactions'
 import { useStatuses } from '../hooks/useStatuses'
 import StatusRing from '../components/StatusRing'
@@ -70,8 +74,8 @@ function getMessagePreview(content) {
     const emoji = content.replace('sticker:', '').split(':')[0] || '😊'
     return `${emoji} Sticker`
   }
-  if (content.startsWith('gif:')) return '🎬 GIF'
-  if (content.startsWith('call_log:') || content.startsWith('missed_call:')) return '📞 Call'
+if (content.startsWith('gif:')) return 'GIF'
+  if (content.startsWith('call_log:') || content.startsWith('missed_call:')) return 'Call'
   return content
 }
 
@@ -326,14 +330,13 @@ function ThreeDotMenu({ onPoll, onTask, onSchedule, onSearch, onShare, onClose }
     return () => document.removeEventListener('mousedown', handler)
   }, [onClose])
 
-  const items = [
-    { icon: '📊', label: 'Create Poll', action: onPoll },
-    { icon: '✅', label: 'Task List', action: onTask },
-    { icon: '🕐', label: 'Schedule Message', action: onSchedule },
-    { icon: '🔍', label: 'Search Messages', action: onSearch },
-    { icon: '📧', label: 'Share Contact Link', action: onShare },
+const items = [
+    { icon: <IconChart size={17} />, label: 'Create Poll', action: onPoll },
+    { icon: <IconCheckSquare size={17} />, label: 'Task List', action: onTask },
+    { icon: <IconClock size={17} />, label: 'Schedule Message', action: onSchedule },
+    { icon: <IconSearch size={17} />, label: 'Search Messages', action: onSearch },
+    { icon: <IconMail size={17} />, label: 'Share Contact Link', action: onShare },
   ]
-
   return (
     <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, zIndex: 200, background: 'rgba(255,255,255,0.98)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow-lg)', overflow: 'hidden', animation: 'menuPop 0.18s cubic-bezier(0.34,1.56,0.64,1)', minWidth: 200 }}>
       {items.map(({ icon, label, action }) => (
@@ -342,7 +345,7 @@ function ThreeDotMenu({ onPoll, onTask, onSchedule, onSearch, onShare, onClose }
           onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-surface-2)'}
           onMouseLeave={e => e.currentTarget.style.background = 'none'}
         >
-          <span style={{ fontSize: 18, width: 24, textAlign: 'center' }}>{icon}</span>
+<span style={{ width: 24, display: 'flex', justifyContent: 'center', color: 'var(--text-secondary)' }}>{icon}</span>
           {label}
         </button>
       ))}
@@ -1069,9 +1072,9 @@ const handleSend = async () => {
               <div className="contact-list">
                 {listFilter === 'all' && (
                   <div className={`contact ${activeConvo?.isCurryAI ? 'active' : ''}`} onClick={() => setActiveConvo(CURRY_AI_CONTACT)}>
-                    <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 21, flexShrink: 0 }}>✨</div>
+<div style={{ width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconSparkle size={20} style={{ color: '#fff' }} /></div>
                     <div className="contact-info">
-                      <div className="contact-name" style={{ color: '#a78bfa' }}>✨ Curry AI</div>
+                      <div className="contact-name" style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#a78bfa' }}><IconSparkle size={12} /> Curry AI</div>
                       <div className="contact-preview">Your personal AI assistant</div>
                     </div>
                   </div>
@@ -1106,10 +1109,18 @@ const handleSend = async () => {
                             fallbackText={c.last_message}
                           />
                         ) : (
-                         <div className="contact-preview">
+  <div className="contact-preview">
   {c.last_message?.startsWith('status_reply:') ? (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
       <IconStatus size={11} /> Replied to a status
+    </span>
+  ) : c.last_message?.startsWith('gif:') ? (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      <IconFilm size={11} /> GIF
+    </span>
+  ) : (c.last_message?.startsWith('call_log:') || c.last_message?.startsWith('missed_call:')) ? (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      <IconPhone size={11} /> Call
     </span>
   ) : getMessagePreview(c.last_message)}
 </div>
@@ -1223,20 +1234,8 @@ const handleSend = async () => {
                     fontFamily: 'inherit', opacity: connectingGmail ? 0.6 : 1, whiteSpace: 'nowrap',
                   }}
                   title={emailAccounts.length > 0 ? `Connected: ${emailAccounts.map(a => a.email_address).join(', ')}` : 'Let Curry send real emails on your behalf'}
-                >
-                  ✉️ {connectingGmail ? 'Connecting…' : emailAccounts.length > 0 ? `Gmail connected (${emailAccounts.length})` : 'Connect Gmail'}
+                ><IconMail size={14} /> {connectingGmail ? 'Connecting…' : emailAccounts.length > 0 ? `Gmail connected (${emailAccounts.length})` : 'Connect Gmail'}
                 </button>
-                  <button
-  onClick={() => { setShowProfileSetup(true); setShowProfileMenu(false) }}
-  style={{
-    display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(167,139,250,0.12)',
-    border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#c4b5fd',
-    fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: 'pointer',
-    fontFamily: 'inherit', whiteSpace: 'nowrap',
-  }}
->
-  🖼️ Change display picture
-</button>
                   <button
                   onClick={() => { setShowPersonalAnalytics(true); setShowProfileMenu(false) }}
                   style={{
@@ -1246,7 +1245,7 @@ const handleSend = async () => {
                     fontFamily: 'inherit', whiteSpace: 'nowrap',
                   }}
                 >
-                  📊 Your Communication Analytics
+                  <IconChart size={14} /> Your Communication Analytics
                 </button>
                 <button
                   onClick={() => { setShow2FA(true); setShowProfileMenu(false) }}
@@ -1257,9 +1256,9 @@ const handleSend = async () => {
                     fontFamily: 'inherit', whiteSpace: 'nowrap',
                   }}
                 >
-                  🔐 Two-factor authentication
+                  <IconShield size={14} /> Two-factor authentication
                 </button>
-                <button className="profile-menu-signout" onClick={signOut}>⏏ Sign out</button>
+                <button className="profile-menu-signout" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={signOut}><IconLogOut size={14} /> Sign out</button>
               </div>
             </div>
           </div>
@@ -1364,9 +1363,9 @@ const handleSend = async () => {
           <div className="chat-area" style={{ background: 'linear-gradient(180deg,#0f0f1a 0%,#1a1a2e 100%)' }}>
             <div className="chat-header">
               <button className="back-btn" onClick={() => setActiveConvo(null)}>←</button>
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>✨</div>
+             <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconSparkle size={16} style={{ color: '#fff' }} /></div>
               <div style={{ flex: 1 }}>
-                <div className="chat-header-name">✨ Curry AI</div>
+                <div className="chat-header-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconSparkle size={13} /> Curry AI</div>
                 <div className="chat-header-sub" style={{ color: '#a78bfa' }}>Always learning, always here</div>
               </div>
             </div>
@@ -1392,7 +1391,7 @@ const handleSend = async () => {
                   <CallButtons onVoiceCall={() => startCall('audio')} onVideoCall={() => startCall('video')} disabled={false} />
                 )}
                 {callActive && (
-                  <button onClick={endCall} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 'var(--r-full)', padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: '#f87171' }}>📵 End call</button>
+<button onClick={endCall} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 'var(--r-full)', padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: '#f87171' }}><IconPhoneOff size={13} /> End call</button>
                 )}
                 <button className="icon-btn dark" onClick={() => setShowCurryAssistant(v => !v)} title="Curry AI assistant"><IconSparkle size={16} /></button>
                 <button className="icon-btn dark" onClick={() => setShowInsights(v => !v)} title="Relationship insights"
@@ -1402,7 +1401,7 @@ const handleSend = async () => {
                 {hasScheduled && (
                   <button onClick={() => setShowScheduledList(true)} title="View scheduled messages"
                     style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 'var(--r-full)', padding: '5px 10px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: '#c4b5fd', animation: 'scheduledPulse 2s ease infinite' }}>
-                    🕐 <span style={{ fontSize: 11 }}>Scheduled</span>
+                   <IconClock size={13} /> <span style={{ fontSize: 11 }}>Scheduled</span>
                   </button>
                 )}
                 <div className="threedot-wrapper" style={{ position: 'relative' }}>
@@ -1430,7 +1429,7 @@ const handleSend = async () => {
 
             {(callStatus === 'calling' || callStatus === 'ringing') && (
               <div style={{ padding: '10px 16px', background: 'linear-gradient(135deg, rgba(14,165,233,0.08), rgba(99,102,241,0.08))', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 600, color: 'var(--accent-2)' }}>
-                <span>📞</span>
+             <IconPhone size={14} />
                 Calling {getConvoName(activeConvo)}…
                 <button onClick={endCall} style={{ marginLeft: 'auto', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 20, padding: '4px 12px', fontSize: 12, fontWeight: 700, color: '#ef4444', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
               </div>
@@ -1443,18 +1442,19 @@ const handleSend = async () => {
               <div style={{ margin: '10px 16px 0', background: 'rgba(102,126,234,0.08)', border: '1px solid rgba(102,126,234,0.2)', borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <span style={{ color: '#a5b4fc', fontWeight: 700 }}>
-                    🕰️ Last spoke {autoContext.daysSince === 0 ? 'today' : autoContext.daysSince === 1 ? 'yesterday' : `${autoContext.daysSince} days ago`}
+         <span style={{ color: '#a5b4fc', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <IconHistory size={13} /> Last spoke {autoContext.daysSince === 0 ? 'today' : autoContext.daysSince === 1 ? 'yesterday' : `${autoContext.daysSince} days ago`}
                   </span>
-                  <button onClick={() => setAutoContext(null)} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                  <button onClick={() => setAutoContext(null)} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 12 }}><IconX size={12} /></button>
                 </div>
                 {autoContext.lastTopic && <div style={{ color: '#d1d5db' }}>Last about: {autoContext.lastTopic}</div>}
-                {autoContext.openPromise && <div style={{ color: '#fbbf24' }}>📌 {autoContext.openPromise}</div>}
+                {autoContext.openPromise && <div style={{ color: '#fbbf24', display: 'flex', alignItems: 'center', gap: 5 }}><IconPin size={12} /> {autoContext.openPromise}</div>}
               </div>
             )}
 
             {catchUpPending && catchUpPending.convoId === activeConvo?.id && (
               <div style={{ margin: '10px 16px 0', background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
-                <span style={{ flex: 1, color: '#e5e7eb' }}>📬 You missed {catchUpPending.unreadCount} messages</span>
+                <span style={{ flex: 1, color: '#e5e7eb', display: 'flex', alignItems: 'center', gap: 6 }}><IconInbox size={14} /> You missed {catchUpPending.unreadCount} messages</span>
                 <button onClick={runCatchMeUp} disabled={catchUpLoading} style={{ background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none', borderRadius: 20, color: '#fff', fontSize: 11.5, fontWeight: 700, padding: '6px 12px', cursor: catchUpLoading ? 'default' : 'pointer', fontFamily: 'inherit', opacity: catchUpLoading ? 0.6 : 1 }}>
                   {catchUpLoading ? 'Summarizing…' : 'Catch me up'}
                 </button>
@@ -1465,7 +1465,7 @@ const handleSend = async () => {
             {catchUpResult && catchUpResult.conversationId === activeConvo?.id && (
               <div style={{ margin: '10px 16px 0', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: '#c4b5fd', fontWeight: 700 }}>✨ While you were away</span>
+          <span style={{ color: '#c4b5fd', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5 }}><IconSparkle size={12} /> While you were away</span>
                   <button onClick={() => setCatchUpResult(null)} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 12 }}>✕</button>
                 </div>
                 {catchUpResult.bullets && catchUpResult.bullets.length > 0 ? (
@@ -1476,7 +1476,7 @@ const handleSend = async () => {
                   <div style={{ color: '#9ca3af' }}>Nothing especially notable — just regular chat.</div>
                 )}
                 {catchUpResult.readingTimeSavedMin > 0 && (
-                  <div style={{ color: '#a5b4fc', fontSize: 11 }}>⏱ ~{catchUpResult.readingTimeSavedMin} min of reading saved</div>
+                 <div style={{ color: '#a5b4fc', fontSize: 11, display: 'flex', alignItems: 'center', gap: 5 }}><IconClock size={11} /> ~{catchUpResult.readingTimeSavedMin} min of reading saved</div>
                 )}
               </div>
             )}
@@ -1530,7 +1530,7 @@ const handleSend = async () => {
               {typing.length > 0 && <div className="typing-indicator"><span /><span /><span /></div>}
               {curryChatBusy && (
                 <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-                  <div style={{ fontSize: 12, color: '#c4b5fd', fontWeight: 600, padding: '6px 12px' }}>✨ Curry is thinking…</div>
+                  <div style={{ fontSize: 12, color: '#c4b5fd', fontWeight: 600, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 5 }}><IconSparkle size={11} /> Curry is thinking…</div>
                 </div>
               )}
               <div ref={messagesEndRef} />
@@ -1599,8 +1599,8 @@ const handleSend = async () => {
               )}
               {coachSuggestion && (
                 <div style={{ margin: '0 16px 8px', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ fontSize: 11.5, fontWeight: 700, color: '#c4b5fd' }}>
-                    💬 Curry noticed {coachSuggestion.reason ? `this might read as ${coachSuggestion.reason}` : 'this might land a little differently than you meant'}
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: '#c4b5fd', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <IconMessageSquare size={12} /> Curry noticed {coachSuggestion.reason ? `this might read as ${coachSuggestion.reason}` : 'this might land a little differently than you meant'}
                   </div>
                   <div style={{ fontSize: 13, color: '#e5e7eb', lineHeight: 1.5 }}>{coachSuggestion.suggestion}</div>
                   <div style={{ display: 'flex', gap: 8 }}>
