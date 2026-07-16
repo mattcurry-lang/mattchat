@@ -52,6 +52,7 @@ import SpotifyMiniPlayer from '../components/SpotifyMiniPlayer'
 import PersonalAnalytics from '../components/PersonalAnalytics'
 import ProfileSetupModal from '../components/ProfileSetupModal'
 import { connectPinterest } from '../lib/supabase'   
+import ProfileCard from '../components/ProfileCard'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -405,7 +406,7 @@ export default function ChatPage({ session }) {
   const [replyingTo, setReplyingTo] = useState(null)
   const [forwardingMessage, setForwardingMessage] = useState(null)
   const [hiddenMsgIds, setHiddenMsgIds] = useState(new Set())
- 
+ const [profileCardTarget, setProfileCardTarget] = useState(null) // profile object | null
   // that appears AFTER a plain message has already been sent, if
   // Curry thinks it might land colder than intended. Never blocks or
   // delays sending; see runCoachCheck below.
@@ -1361,7 +1362,12 @@ const handleSend = async () => {
             {/* Header */}
             <div className="chat-header">
               <button className="back-btn" onClick={() => setActiveConvo(null)}>←</button>
-              <Avatar name={getConvoName(activeConvo)} size={36} online={otherUserId ? isOnline(otherUserId) : false} photoUrl={getOtherUserAvatar(activeConvo, userId)} />
+            <button
+  onClick={() => setProfileCardTarget(activeConvo.conversation_members?.find(m => m.user_id !== userId)?.profiles)}
+  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+>
+  <Avatar name={getConvoName(activeConvo)} size={36} online={otherUserId ? isOnline(otherUserId) : false} photoUrl={getOtherUserAvatar(activeConvo, userId)} />
+</button>
               <div style={{ flex: 1 }}>
                 <div className="chat-header-name">{getConvoName(activeConvo)}</div>
                 <div className="chat-header-sub" style={{ minHeight: 16 }}>{headerStatus()}</div>
@@ -1668,3 +1674,20 @@ const handleSend = async () => {
     </div>
   )
 }
+{profileCardTarget && (
+  <ProfileCard
+    targetProfile={profileCardTarget}
+    myProfile={profile}
+    messages={activeConvo?.id === profileCardTarget._convoId ? messages : []}
+    currentUserId={userId}
+    onClose={() => setProfileCardTarget(null)}
+    onAskCurry={(question) => {
+      setActiveConvo(CURRY_AI_CONTACT)
+      // AICommandBar / CurryAIChat would need a prefill prop to actually
+      // send this automatically — for now this opens Curry so the user
+      // can paste/ask it themselves. Wire a prefill prop through
+      // CurryAIChat if you want it fully automatic.
+    }}
+  />
+)}
+ 
