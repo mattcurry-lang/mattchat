@@ -3,9 +3,26 @@ import { connectPinterest, listPinterestBoards, listPinterestPins, setAvatarFrom
 
 const e = React.createElement
 
-const PROFESSIONAL_WORDS = ['work', 'career', 'business', 'professional', 'office', 'job', 'linkedin', 'portfolio', 'headshot', 'corporate']
-const PERSONAL_WORDS = ['me', 'selfie', 'personal', 'aesthetic', 'mood', 'life', 'travel', 'friends', 'family', 'cute', 'style']
+const CATEGORY_WORDS = {
+  professional: ['work', 'career', 'business', 'professional', 'office', 'job', 'linkedin', 'portfolio', 'headshot', 'corporate'],
+  personal:     ['me', 'selfie', 'personal', 'aesthetic', 'mood', 'life', 'cute', 'style'],
+  minimal:      ['minimal', 'simple', 'clean', 'aesthetic', 'monochrome'],
+  gaming:       ['gaming', 'game', 'gamer', 'esports', 'console', 'pixel'],
+  ai_avatar:    ['ai', 'avatar', 'digital art', 'render', 'character', 'generated'],
+  photography:  ['photography', 'photo', 'camera', 'portrait', 'shot'],
+  anime:        ['anime', 'manga', 'anime art', 'anime icon', 'chibi'],
+  nature:       ['nature', 'landscape', 'forest', 'mountains', 'scenery', 'plants'],
+  animals:      ['animals', 'dog', 'cat', 'pets', 'wildlife', 'puppy'],
+  cars:         ['cars', 'car', 'automotive', 'jdm', 'supercar'],
+  sports:       ['sports', 'football', 'basketball', 'soccer', 'fitness', 'gym'],
+  music:        ['music', 'concert', 'guitar', 'vinyl', 'band', 'artist'],
+}
 
+function scoreBoard(name, category) {
+  const lower = (name || '').toLowerCase()
+  const words = CATEGORY_WORDS[category] || CATEGORY_WORDS.personal
+  return words.some(w => lower.includes(w)) ? 1 : 0
+}
 function scoreBoard(name, preference) {
   const lower = (name || '').toLowerCase()
   const words = preference === 'professional' ? PROFESSIONAL_WORDS : PERSONAL_WORDS
