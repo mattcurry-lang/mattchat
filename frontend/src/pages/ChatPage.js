@@ -1329,7 +1329,22 @@ const handleSend = async () => {
         hidden={!!activeConvo}
         onActivate={() => setActiveConvo(CURRY_AI_CONTACT)}
       />
-
+{profileCardTarget && (
+  <ProfileCard
+    targetProfile={profileCardTarget}
+    myProfile={profile}
+    messages={activeConvo?.id === profileCardTarget._convoId ? messages : []}
+    currentUserId={userId}
+    onClose={() => setProfileCardTarget(null)}
+    onAskCurry={(question) => {
+      setActiveConvo(CURRY_AI_CONTACT)
+      // AICommandBar / CurryAIChat would need a prefill prop to actually
+      // send this automatically — for now this opens Curry so the user
+      // can paste/ask it themselves. Wire a prefill prop through
+      // CurryAIChat if you want it fully automatic.
+    }}
+  />
+)}
       {/* ── WELCOME PANE — desktop only. Fills the space next to the
            sidebar when no conversation is open. Hidden on narrow
            screens (no room for it) and hidden entirely once a
@@ -1674,20 +1689,5 @@ const handleSend = async () => {
     </div>
   )
 }
-{profileCardTarget && (
-  <ProfileCard
-    targetProfile={profileCardTarget}
-    myProfile={profile}
-    messages={activeConvo?.id === profileCardTarget._convoId ? messages : []}
-    currentUserId={userId}
-    onClose={() => setProfileCardTarget(null)}
-    onAskCurry={(question) => {
-      setActiveConvo(CURRY_AI_CONTACT)
-      // AICommandBar / CurryAIChat would need a prefill prop to actually
-      // send this automatically — for now this opens Curry so the user
-      // can paste/ask it themselves. Wire a prefill prop through
-      // CurryAIChat if you want it fully automatic.
-    }}
-  />
-)}
+
  
