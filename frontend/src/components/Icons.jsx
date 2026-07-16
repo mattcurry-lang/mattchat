@@ -192,3 +192,47 @@ export function IconKeypad({ size = 18, ...props }) {
     </svg>
   )
 }
+// ── Communication & content ──────────────────────────────────
+export function IconMail({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <rect x="3" y="5" width="18" height="14" rx="2.5" />
+      <path d="M4 7l8 6 8-6" />
+    </svg>
+  )
+}
+
+export function IconMessageSquare({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H9l-4.5 4V16H6.5A2.5 2.5 0 0 1 4 13.5v-8Z" />
+    </svg>
+  )
+}
+
+export function IconFilm({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <line x1="3" y1="9" x2="21" y2="9" />
+      <line x1="3" y1="15" x2="21" y2="15" />
+      <line x1="8.5" y1="4" x2="8.5" y2="9" />
+      <line x1="8.5" y1="15" x2="8.5" y2="20" />
+      <line x1="15.5" y1="4" x2="15.5" y2="9" />
+      <line x1="15.5" y1="15" x2="15.5" y2="20" />
+    </svg>
+  )
+}
+
+export function IconBook({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H12v18H6.5A2.5 2.5 0 0 1 4 18.5v-13Z" />
+      <path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H12v18h5.5a2.5 2.5 0 0 0 2.5-2.5v-13Z" />
+    </svg>
+  )
+}
+
+export function IconMusic({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0
