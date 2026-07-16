@@ -564,10 +564,8 @@ export function IconHomeFamily({ size = 18, ...props }) {
     </svg>
   )
 }
-    <svg width={size} height={size} viewBox="0 0
 
-
-      export function IconCheckSquare({ size = 18, ...props }) {
+export function IconCheckSquare({ size = 18, ...props }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
       <rect x="4" y="4" width="16" height="16" rx="3" />
