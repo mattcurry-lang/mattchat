@@ -565,3 +565,32 @@ export function IconHomeFamily({ size = 18, ...props }) {
   )
 }
     <svg width={size} height={size} viewBox="0 0
+
+
+      export function IconCheckSquare({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      <path d="M8 12.5l2.5 2.5L16 9" />
+    </svg>
+  )
+}
+
+export function IconShield({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M12 3l7 3v5.5c0 4.5-3 8-7 9.5-4-1.5-7-5-7-9.5V6l7-3Z" />
+      <path d="M9.2 12l1.8 1.8 3.8-3.8" />
+    </svg>
+  )
+}
+
+export function IconLogOut({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="M16 17l5-5-5-5" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  )
+}
