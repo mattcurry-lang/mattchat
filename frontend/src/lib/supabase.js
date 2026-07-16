@@ -598,3 +598,53 @@ export async function setAvatarFromUrl(userId, imageUrl) {
     .eq('id', userId)
   if (error) throw error
 }
+
+export async function updateProfileDetails(userId, { bio, organization, currentlyStudying, interests }) {
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      bio: bio ?? null,
+      organization: organization ?? null,
+      currently_studying: currentlyStudying ?? null,
+      interests: interests ?? [],
+    })
+    .eq('id', userId)
+  if (error) throw error
+}
+
+export async function setAvatarCategory(userId, category) {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ avatar_category: category })
+    .eq('id', userId)
+  if (error) throw error
+}
+
+// Computes "usually replies within X" from real message history between
+// the two people — average gap between one person's message and the
+// other's next reply, over the last N exchanges. Real behavior, not a
+// guess, so it stays honest as the two people actually talk more.
+export function computeReplyTimeLabel(messages, otherUserId, currentUserId) {
+  if (!messages || messages.length < 4) return null
+
+  const gaps = []
+  for (let i = 1; i < messages.length; i++) {
+    const prev = messages[i - 1]
+    const curr = messages[i]
+    if (prev.sender_id === currentUserId && curr.sender_id === otherUserId) {
+      const gapMs = new Date(curr.created_at).getTime() - new Date(prev.created_at).getTime()
+      if (gapMs > 0 && gapMs < 24 * 60 * 60 * 1000) gaps.push(gapMs) // ignore >24h gaps (not a "reply")
+    }
+  }
+
+  if (gaps.length < 3) return null // not enough signal to be meaningful
+
+  const avgMs = gaps.reduce((a, b) => a + b, 0) / gaps.length
+  const mins = Math.round(avgMs / 60000)
+
+  if (mins < 1) return 'Usually replies instantly'
+  if (mins < 60) return `Usually replies within ${mins} min`
+  const hours = Math.round(mins / 60)
+  if (hours < 24) return `Usually replies within ${hours} hr`
+  return null // don't show if it's consistently slow — not flattering, not useful
+}
