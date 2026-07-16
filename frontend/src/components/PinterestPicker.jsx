@@ -23,7 +23,7 @@ function scoreBoard(name, category) {
   const words = CATEGORY_WORDS[category] || CATEGORY_WORDS.personal
   return words.some(w => lower.includes(w)) ? 1 : 0
 }
-function scoreBoard(name, preference) {
+function Category(name, preference) {
   const lower = (name || '').toLowerCase()
   const catInfo = AVATAR_CATEGORIES.find(c => c.id === category)
 const label = 'Pick a board \u2014 sorted for ' + (catInfo ? catInfo.label.toLowerCase() : 'your') + ' style.'
