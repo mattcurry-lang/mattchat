@@ -1333,7 +1333,7 @@ const handleSend = async () => {
   <ProfileCard
     targetProfile={profileCardTarget}
     myProfile={profile}
-    messages={activeConvo?.id === profileCardTarget._convoId ? messages : []}
+    messages={messages}
     currentUserId={userId}
     onClose={() => setProfileCardTarget(null)}
     onAskCurry={(question) => {
@@ -1689,5 +1689,3 @@ const handleSend = async () => {
     </div>
   )
 }
-
- 
