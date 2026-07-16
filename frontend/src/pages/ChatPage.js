@@ -1443,8 +1443,7 @@ const handleSend = async () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <span style={{ color: '#a5b4fc', fontWeight: 700 }}>
          <span style={{ color: '#a5b4fc', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <IconHistory size={13} /> Last spoke {autoContext.daysSince === 0 ? 'today' : autoContext.daysSince === 1 ? 'yesterday' : `${autoContext.daysSince} days ago`}
-                  </span>
+                    <IconHistory size={13} /> Last spoke {autoContext.daysSince === 0 ? 'today' : autoContext.daysSince === 1 ? 'yesterday' : `${autoContext.daysSince} days ago`}</span>
                   <button onClick={() => setAutoContext(null)} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 12 }}><IconX size={12} /></button>
                 </div>
                 {autoContext.lastTopic && <div style={{ color: '#d1d5db' }}>Last about: {autoContext.lastTopic}</div>}
