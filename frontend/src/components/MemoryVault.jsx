@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { callCurryAI } from './CurryAI'
-
+import { IconFolder, IconX } from './Icons'
 // Memory Vault — two ways in to what Curry has actually learned:
 // 1. Search: semantic search over everything shared with Curry, via the
 //    same embedding pipeline used for in-chat recall (memory_search).
@@ -75,8 +75,8 @@ export default function MemoryVault({ session, userId, onOpenConversation, onClo
   return (
     <div style={s.container}>
       <div style={s.header}>
-        <span style={s.title}>🗂️ Memory Vault</span>
-        <button style={s.closeBtn} onClick={onClose}>✕</button>
+      <span style={{ ...s.title, display: 'flex', alignItems: 'center', gap: 8 }}><IconFolder size={16} /> Memory Vault</span>
+        <button style={s.closeBtn} onClick={onClose}><IconX size={15} /></button>
       </div>
 
       <div style={s.body}>
