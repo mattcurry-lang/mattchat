@@ -57,6 +57,7 @@ import PersonalAnalytics from '../components/PersonalAnalytics'
 import ProfileSetupModal from '../components/ProfileSetupModal'
 import { connectPinterest } from '../lib/supabase'   
 import ProfileCard from '../components/ProfileCard'
+import ConnectedAppsSection from '../components/ConnectedApps/ConnectedAppsSection'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -406,6 +407,7 @@ export default function ChatPage({ session }) {
   const [collection, setCollection] = useState('all')
   const [showInsights, setShowInsights] = useState(false)
   const [showPersonalAnalytics, setShowPersonalAnalytics] = useState(false)
+  const [showConnectedApps, setShowConnectedApps] = useState(false)
   const [replyingTo, setReplyingTo] = useState(null)
   const [forwardingMessage, setForwardingMessage] = useState(null)
   const [hiddenMsgIds, setHiddenMsgIds] = useState(new Set())
@@ -612,6 +614,35 @@ useEffect(() => {
 // adding anything, which was yanking the view back to the bottom
 // every time, even mid-scroll.
 const prevMsgCountRef = useRef(0)
+
+  
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  const status = params.get('instagram_connect')
+  if (!status) return
+ 
+  if (status === 'success') {
+    const username = params.get('username')
+    alert(`Instagram connected${username ? `: @${username}` : ''} ✓`)
+    // If ConnectedAppsSection is mounted (profile page open), it will
+    // pick up the new status on its own next refreshStatus() call —
+    // no extra event needed unless you want it to react instantly
+    // while already open, in which case:
+    window.dispatchEvent(new CustomEvent('instagram-connected'))
+  } else if (status === 'denied') {
+    alert('Instagram connection was cancelled.')
+  } else if (status === 'expired') {
+    alert('That connection attempt expired — please try "Connect Instagram" again.')
+  } else {
+    alert('Could not connect Instagram. Please try again.')
+  }
+ 
+  params.delete('instagram_connect')
+  params.delete('username')
+  const cleanUrl = window.location.pathname + (params.toString() ? `?${params}` : '')
+  window.history.replaceState({}, '', cleanUrl)
+}, [])
+ 
 useEffect(() => {
   if (messages.length > prevMsgCountRef.current) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -1247,6 +1278,18 @@ const handleSend = async () => {
                 >
                   <IconChart size={14} /> Your Communication Analytics
                 </button>
+<button
+                  onClick={() => { setShowConnectedApps(true); setShowProfileMenu(false) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(167,139,250,0.12)',
+                    border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#c4b5fd',
+                    fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: 'pointer',
+                    fontFamily: 'inherit', whiteSpace: 'nowrap',
+                  }}
+                >
+                  📷 Connected Apps
+                </button>
+                  
                 <button
                   onClick={() => { setShow2FA(true); setShowProfileMenu(false) }}
                   style={{
@@ -1277,6 +1320,20 @@ const handleSend = async () => {
        
 {showPersonalAnalytics && (
           <PersonalAnalytics userId={userId} conversations={conversations} onClose={() => setShowPersonalAnalytics(false)} />
+        )}
+{showConnectedApps && (
+          <div className="profile-menu-overlay" onClick={() => setShowConnectedApps(false)}>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: 'var(--bg-surface-1, #14141f)', borderRadius: 20, padding: 20,
+                width: 'min(420px, 92vw)', maxHeight: '80vh', overflowY: 'auto',
+                border: '1px solid var(--border)',
+              }}
+            >
+              <ConnectedAppsSection session={session} userId={userId} />
+            </div>
+          </div>
         )}
         {showAddStatus && (
           <AddStatusModal userId={userId} onClose={() => setShowAddStatus(false)} onPosted={reloadStatuses} />
