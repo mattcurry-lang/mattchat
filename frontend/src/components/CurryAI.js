@@ -156,7 +156,6 @@ function VoiceMode({ session, voiceOn, onEnd, onNewMessages }) {
     return null
   }
 }
-
   async function finishRecording() {
     if (processingRef.current) return
     processingRef.current = true
