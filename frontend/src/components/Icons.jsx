@@ -630,3 +630,11 @@ export function IconAlertTriangle({ size = 18, ...props }) {
     </svg>
   )
 }
+
+export function IconStar({ size = 18, filled = false, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} fill={filled ? 'currentColor' : 'none'} {...props}>
+      <path d="M12 3.5l2.6 5.6 6 .7-4.4 4.2 1.1 6-5.3-3-5.3 3 1.1-6L3.4 9.8l6-.7L12 3.5Z" strokeLinejoin="round" />
+    </svg>
+  )
+}
