@@ -592,3 +592,41 @@ export function IconLogOut({ size = 18, ...props }) {
     </svg>
   )
 }
+
+export function IconLock({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <rect x="5" y="11" width="14" height="9" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  )
+}
+
+export function IconSend({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <line x1="22" y1="2" x2="11" y2="13" />
+      <path d="M22 2 15 22l-4-9-9-4Z" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function IconHourglass({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M6 3h12" /><path d="M6 21h12" />
+      <path d="M7 3c0 5 5 6.5 5 9s-5 4-5 9" />
+      <path d="M17 3c0 5-5 6.5-5 9s5 4 5 9" />
+    </svg>
+  )
+}
+
+export function IconAlertTriangle({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M12 4 2.5 20h19L12 4Z" strokeLinejoin="round" />
+      <line x1="12" y1="10" x2="12" y2="14.5" />
+      <line x1="12" y1="17.2" x2="12.01" y2="17.2" strokeWidth="2.6" />
+    </svg>
+  )
+}
