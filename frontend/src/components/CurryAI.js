@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import MemoryVault from './MemoryVault'
+import {
+  IconSparkle, IconX, IconMic, IconSend, IconTrash, IconFolder, IconMusic, IconFilm, IconBook, IconHeart,
+  IconGlobe, IconMessageSquare, IconWand, IconLock, IconHourglass, IconAlertTriangle,
+} from './Icons'
 
 const SUPABASE_URL = 'https://bqerkvywgxoioocbkxif.supabase.co'
 
@@ -52,6 +56,9 @@ async function transcribeAudio(blob, session) {
 }
 
 // ── Voice Mode (full screen, like the reference) ─────────────
+// NOTE: the animated gradient orb below (vm.orb / vm.orbInner /
+// vm.orbShine / glow rings) is hand-built CSS, not an emoji — left
+// completely untouched.
 function VoiceMode({ session, voiceOn, onEnd, onNewMessages }) {
   const [status, setStatus] = useState('listening')
   const [transcript, setTranscript] = useState('')
@@ -262,11 +269,17 @@ function VoiceMode({ session, voiceOn, onEnd, onNewMessages }) {
 }
 
 // ── Daily Brief card ────────────────────────────────────────
-const MOOD_EMOJI = {
-  positive: '😊', excited: '🤩', neutral: '🙂',
-  stressed: '😮\u200d💨', anxious: '😟', sad: '😔', negative: '😕',
+// Mood is shown as a small colored dot + label instead of an emoji
+// face — consistent with the rest of the icon system, reads cleanly
+// at small sizes.
+const MOOD_COLOR = {
+  positive: '#4ade80', excited: '#f472b6', neutral: '#9ca3af',
+  stressed: '#fb923c', anxious: '#facc15', sad: '#60a5fa', negative: '#f87171',
 }
-const SUGGESTION_EMOJI = { music: '🎵', movie: '🎬', book: '📖', encouragement: '💜', none: '' }
+function MoodDot({ mood, size = 10 }) {
+  return <span style={{ display: 'inline-block', width: size, height: size, borderRadius: '50%', background: MOOD_COLOR[mood] || '#9ca3af', flexShrink: 0 }} />
+}
+const SUGGESTION_ICON = { music: IconMusic, movie: IconFilm, book: IconBook, encouragement: IconHeart, none: null }
 
 function DailyBrief({ session, onAskQuestion }) {
   const [brief, setBrief] = useState(null)
@@ -298,14 +311,15 @@ function DailyBrief({ session, onAskQuestion }) {
   }
   if (!brief) return null
 
-  const moodEmoji = MOOD_EMOJI[brief.mood] || '🙂'
   const suggestion = brief.suggestion
   const insights = Array.isArray(brief.insights) ? brief.insights : []
 
   return (
     <div style={s.briefCard}>
-      <button style={s.briefClose} onClick={() => setDismissed(true)} title="Dismiss">✕</button>
-      <div style={s.briefGreeting}>{moodEmoji} {brief.greeting}</div>
+      <button style={s.briefClose} onClick={() => setDismissed(true)} title="Dismiss"><IconX size={11} /></button>
+      <div style={{ ...s.briefGreeting, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <MoodDot mood={brief.mood} /> {brief.greeting}
+      </div>
       {brief.mood_summary && <div style={s.briefMood}>{brief.mood_summary}</div>}
 
       {insights.length > 0 && (
@@ -317,7 +331,7 @@ function DailyBrief({ session, onAskQuestion }) {
           ))}
         </div>
       )}
-{Array.isArray(brief.reconnect_nudges) && brief.reconnect_nudges.length > 0 && (
+      {Array.isArray(brief.reconnect_nudges) && brief.reconnect_nudges.length > 0 && (
         <div style={s.briefInsights}>
           {brief.reconnect_nudges.map((n, i) => (
             <div key={i} style={s.briefInsightRow}>
@@ -329,7 +343,9 @@ function DailyBrief({ session, onAskQuestion }) {
       )}
       {suggestion && suggestion.type && suggestion.type !== 'none' && suggestion.title && (
         <div style={s.briefSuggestion}>
-          <span style={{ fontSize: 15 }}>{SUGGESTION_EMOJI[suggestion.type] || '✨'}</span>
+          <span style={{ color: '#c4b5fd', flexShrink: 0, marginTop: 1 }}>
+            {(() => { const Icon = SUGGESTION_ICON[suggestion.type] || IconSparkle; return <Icon size={15} /> })()}
+          </span>
           <div>
             <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{suggestion.title}</div>
             <div style={{ fontSize: 12, color: '#a0aec0' }}>{suggestion.reason}</div>
@@ -350,7 +366,7 @@ function DailyBrief({ session, onAskQuestion }) {
 // ── Main Curry AI Chat ────────────────────────────────────────
 export default function CurryAIChat({ session, onOpenConversation }) {
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: `Hey! I'm Curry AI ✨ — your personal companion inside Mattchat.\n\nI can send messages, schedule them, summarize chats, translate, create polls & tasks, draft emails, and answer anything.\n\nShare a chat with me from its ⋮ menu and I'll start noticing patterns, moods, and things worth suggesting — like a friend would.` }
+    { role: 'assistant', content: `Hey! I'm Curry AI — your personal companion inside Mattchat.\n\nI can send messages, schedule them, summarize chats, translate, create polls & tasks, draft emails, and answer anything.\n\nShare a chat with me from its menu and I'll start noticing patterns, moods, and things worth suggesting — like a friend would.` }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -438,18 +454,18 @@ if (showMemoryVault) {
       {/* Header */}
       <div style={s.header}>
         <div style={s.headerLeft}>
-          <div style={s.avatar}>✨</div>
+          <div style={s.avatar}><IconSparkle size={16} style={{ color: '#fff' }} /></div>
           <div>
             <div style={s.headerName}>Curry AI</div>
             <div style={s.headerSub}>Always learning, always here</div>
           </div>
         </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={() => setShowMemoryVault(true)} style={s.iconBtn} title="Memory Vault">🗂️</button>
+          <button onClick={() => setShowMemoryVault(true)} style={s.iconBtn} title="Memory Vault"><IconFolder size={17} /></button>
           <button onClick={() => setVoiceOn(v => !v)} style={s.speakerBtn} title={voiceOn ? 'Mute' : 'Unmute'}>
             <SpeakerIcon on={voiceOn} />
           </button>
-          <button style={s.iconBtn} onClick={clearHistory} title="Clear history"><TrashIcon /></button>
+          <button style={s.iconBtn} onClick={clearHistory} title="Clear history"><IconTrash size={16} /></button>
         </div>
       </div>
 
@@ -458,7 +474,7 @@ if (showMemoryVault) {
         <DailyBrief session={session} onAskQuestion={(q) => sendMessage(q)} />
         {messages.map((msg, i) => (
           <div key={i} style={{ ...s.row, ...(msg.role === 'user' ? s.rowUser : {}) }}>
-            {msg.role === 'assistant' && <div style={s.aiAvatar}>✨</div>}
+            {msg.role === 'assistant' && <div style={s.aiAvatar}><IconSparkle size={12} style={{ color: '#fff' }} /></div>}
             <div style={{ ...s.bubble, ...(msg.role === 'user' ? s.bubbleUser : s.bubbleAI) }}>
               {msg.content.split('\n').map((line, j, arr) => (
                 <span key={j}>{line}{j < arr.length - 1 && <br />}</span>
@@ -468,7 +484,7 @@ if (showMemoryVault) {
         ))}
         {loading && (
           <div style={s.row}>
-            <div style={s.aiAvatar}>✨</div>
+            <div style={s.aiAvatar}><IconSparkle size={12} style={{ color: '#fff' }} /></div>
             <div style={{ ...s.bubble, ...s.bubbleAI, padding: '12px 16px' }}><TypingDots /></div>
           </div>
         )}
@@ -494,7 +510,7 @@ if (showMemoryVault) {
           </svg>
         </button>
         <button style={{ ...s.sendBtn, opacity: (!input.trim() || loading) ? 0.35 : 1 }} onClick={() => sendMessage()} disabled={!input.trim() || loading}>
-          <SendIcon />
+          <IconSend size={17} />
         </button>
       </div>
     </div>
@@ -571,8 +587,8 @@ export function CurryAssistant({ session, conversationId, messages: chatMessages
   return (
     <div style={s.panel}>
       <div style={s.panelHeader}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>✨ Curry AI</span>
-        <button style={s.iconBtn} onClick={onClose}>✕</button>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}><IconSparkle size={13} /> Curry AI</span>
+        <button style={s.iconBtn} onClick={onClose}><IconX size={13} /></button>
       </div>
 
       {/* Share-with-Curry toggle — the trust boundary, front and center */}
@@ -581,7 +597,7 @@ export function CurryAssistant({ session, conversationId, messages: chatMessages
         onClick={toggleShare}
         disabled={shareLoading}
       >
-        <span style={{ fontSize: 15 }}>{shared ? '🧠' : '🔒'}</span>
+        <span style={{ color: shared ? '#c4b5fd' : '#8b8fa3' }}>{shared ? <IconSparkle size={15} /> : <IconLock size={15} />}</span>
         <div style={{ flex: 1, textAlign: 'left' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: shared ? '#c4b5fd' : '#e2e8f0' }}>
             {shared ? 'Shared with Curry' : 'Share this chat with Curry'}
@@ -600,12 +616,12 @@ export function CurryAssistant({ session, conversationId, messages: chatMessages
 
       <div style={s.actionRow}>
         {[
-          { id: 'smartreply', label: '💬 Smart Reply', action: handleSmartReply },
-          { id: 'summarize', label: '📝 Summarize', action: handleSummarize },
-          { id: 'translate', label: '🌍 Translate', action: () => setMode('translate') },
-          { id: 'ask', label: '🤔 Ask AI', action: () => setMode('ask') },
-        ].map(({ id, label, action }) => (
-          <button key={id} style={{ ...s.chip, ...(mode === id ? s.chipActive : {}) }} onClick={action}>{label}</button>
+          { id: 'smartreply', icon: IconMessageSquare, label: 'Smart Reply', action: handleSmartReply },
+          { id: 'summarize', icon: IconWand, label: 'Summarize', action: handleSummarize },
+          { id: 'translate', icon: IconGlobe, label: 'Translate', action: () => setMode('translate') },
+          { id: 'ask', icon: IconSparkle, label: 'Ask AI', action: () => setMode('ask') },
+        ].map(({ id, icon: Icon, label, action }) => (
+          <button key={id} style={{ ...s.chip, ...(mode === id ? s.chipActive : {}), display: 'flex', alignItems: 'center', gap: 5 }} onClick={action}><Icon size={13} /> {label}</button>
         ))}
       </div>
       {loading && <div style={s.hint}>Thinking...</div>}
@@ -717,7 +733,9 @@ export function CurryChatToggle({ session, conversationId }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
       <div style={{ ...s.shareRow, cursor: 'default', ...(allConsented ? s.shareRowOn : {}) }}>
-        <span style={{ fontSize: 15 }}>{allConsented ? '✨' : myConsent ? '⏳' : '🗣️'}</span>
+        <span style={{ color: allConsented ? '#c4b5fd' : myConsent ? '#fbbf24' : '#9ca3af' }}>
+          {allConsented ? <IconSparkle size={15} /> : myConsent ? <IconHourglass size={15} /> : <IconMessageSquare size={15} />}
+        </span>
         <div style={{ flex: 1, textAlign: 'left' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: allConsented ? '#c4b5fd' : '#e2e8f0' }}>
             {title}
@@ -742,8 +760,8 @@ export function CurryChatToggle({ session, conversationId }) {
         </button>
       </div>
       {error && (
-        <div style={{ fontSize: 11, color: '#f87171', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8, padding: '6px 10px' }}>
-          ⚠️ {error}
+        <div style={{ fontSize: 11, color: '#f87171', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8, padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <IconAlertTriangle size={12} /> {error}
         </div>
       )}
     </div>
@@ -756,20 +774,6 @@ function SpeakerIcon({ on }) {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
       {on ? (<><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></>) : (<><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></>)}
-    </svg>
-  )
-}
-function SendIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-    </svg>
-  )
-}
-function TrashIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
     </svg>
   )
 }
