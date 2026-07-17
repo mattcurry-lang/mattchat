@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react'
 import { callCurryAI } from './CurryAI'
+import {
+  IconX, IconChevronUp, IconChevronDown, IconMusic, IconFilm, IconBook, IconHeart, IconSparkle,
+  IconUmbrella, IconSun, IconCloud, IconCloudSun, IconCloudRain, IconCloudSnow, IconCloudLightning,
+  IconCloudFog, IconThermometer,
+} from './Icons'
 
 // Promoted version of the Daily Brief — meant to sit at the TOP of the
 // home screen (above the story rail), not buried inside the Curry
@@ -7,25 +12,31 @@ import { callCurryAI } from './CurryAI'
 //
 // Collapses to a slim one-liner once dismissed for the session so it
 // doesn't nag every time the user reopens the app tab.
-const MOOD_EMOJI = {
-  positive: '😊', excited: '🤩', neutral: '🙂',
-  stressed: '😮\u200d💨', anxious: '😟', sad: '😔', negative: '😕',
+
+// Mood is a small colored status dot rather than an emoji face —
+// matches the pattern used in CurryAI.jsx and RelationshipInsights.jsx.
+const MOOD_COLOR = {
+  positive: '#4ade80', excited: '#f472b6', neutral: '#9ca3af',
+  stressed: '#fb923c', anxious: '#facc15', sad: '#60a5fa', negative: '#f87171',
 }
-const SUGGESTION_EMOJI = { music: '🎵', movie: '🎬', book: '📖', encouragement: '💜', none: '' }
+function MoodDot({ mood, size = 11 }) {
+  return <span style={{ display: 'inline-block', width: size, height: size, borderRadius: '50%', background: MOOD_COLOR[mood] || '#9ca3af', flexShrink: 0, boxShadow: `0 0 8px ${MOOD_COLOR[mood] || '#9ca3af'}66` }} />
+}
+const SUGGESTION_ICON = { music: IconMusic, movie: IconFilm, book: IconBook, encouragement: IconHeart, none: null }
 
 // Weather is intentionally kept separate from the cached daily insight —
 // weather changes hour to hour, but the brief itself is cached once per
 // day server-side. This is its own lightweight, always-fresh call.
-function weatherEmoji(description = '') {
+function weatherIcon(description = '') {
   const d = description.toLowerCase()
-  if (d.includes('thunder')) return '⛈️'
-  if (d.includes('snow')) return '❄️'
-  if (d.includes('drizzle') || d.includes('rain') || d.includes('shower')) return '🌧️'
-  if (d.includes('fog')) return '🌫️'
-  if (d.includes('overcast')) return '☁️'
-  if (d.includes('partly') || d.includes('mainly clear')) return '⛅'
-  if (d.includes('clear')) return '☀️'
-  return '🌡️'
+  if (d.includes('thunder')) return IconCloudLightning
+  if (d.includes('snow')) return IconCloudSnow
+  if (d.includes('drizzle') || d.includes('rain') || d.includes('shower')) return IconCloudRain
+  if (d.includes('fog')) return IconCloudFog
+  if (d.includes('overcast')) return IconCloud
+  if (d.includes('partly') || d.includes('mainly clear')) return IconCloudSun
+  if (d.includes('clear')) return IconSun
+  return IconThermometer
 }
 
 export default function PromotedDailyBrief({ session, onAskQuestion, onOpenCurry }) {
@@ -72,7 +83,7 @@ export default function PromotedDailyBrief({ session, onAskQuestion, onOpenCurry
     return (
       <div style={s.card}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <div style={s.avatar}>✨</div>
+          <div style={s.avatar}><IconSparkle size={16} style={{ color: '#fff' }} /></div>
           <span style={{ fontSize: 13, color: 'var(--dark-text-2)', fontWeight: 500 }}>Curry is thinking about your day…</span>
         </div>
       </div>
@@ -80,41 +91,41 @@ export default function PromotedDailyBrief({ session, onAskQuestion, onOpenCurry
   }
   if (!brief) return null
 
-  const moodEmoji = MOOD_EMOJI[brief.mood] || '🙂'
   const suggestion = brief.suggestion
   const insights = Array.isArray(brief.insights) ? brief.insights : []
+  const WeatherIcon = weather ? weatherIcon(weather.description) : null
 
   if (collapsed) {
     return (
       <button style={s.collapsedBar} onClick={() => setCollapsed(false)}>
-        <span>{moodEmoji}</span>
+        <MoodDot mood={brief.mood} />
         <span style={s.collapsedText}>{brief.greeting}</span>
         {weather && (
-          <span style={s.collapsedWeather}>{weatherEmoji(weather.description)} {weather.tempC}°C</span>
+          <span style={s.collapsedWeather}><WeatherIcon size={12} /> {weather.tempC}°C</span>
         )}
-        <span style={s.collapsedExpand}>▾</span>
+        <span style={s.collapsedExpand}><IconChevronDown size={13} /></span>
       </button>
     )
   }
 
   return (
     <div style={s.card}>
-      <button style={s.collapseBtn} onClick={() => setCollapsed(true)} title="Minimize">︿</button>
+      <button style={s.collapseBtn} onClick={() => setCollapsed(true)} title="Minimize"><IconChevronUp size={14} /></button>
 
       <div style={s.headerRow}>
-        <div style={s.avatar}>✨</div>
+        <div style={s.avatar}><IconSparkle size={16} style={{ color: '#fff' }} /></div>
         <div style={{ flex: 1 }}>
           <div style={s.greetingRow}>
-            <div style={s.greeting}>{moodEmoji} {brief.greeting}</div>
+            <div style={s.greeting}><MoodDot mood={brief.mood} /> {brief.greeting}</div>
             {weather && (
               <div style={s.weatherBadge} title={weather.description}>
-                {weatherEmoji(weather.description)} {weather.tempC}°C
+                <WeatherIcon size={13} /> {weather.tempC}°C
               </div>
             )}
           </div>
           {brief.mood_summary && <div style={s.moodSummary}>{brief.mood_summary}</div>}
           {weather?.rainAlert && (
-            <div style={s.rainAlert}>🌂 {weather.rainAlert}</div>
+            <div style={s.rainAlert}><IconUmbrella size={13} /> {weather.rainAlert}</div>
           )}
         </div>
       </div>
@@ -131,7 +142,9 @@ export default function PromotedDailyBrief({ session, onAskQuestion, onOpenCurry
 
       {suggestion && suggestion.type && suggestion.type !== 'none' && suggestion.title && (
         <div style={s.suggestion}>
-          <span style={{ fontSize: 16 }}>{SUGGESTION_EMOJI[suggestion.type] || '✨'}</span>
+          <span style={{ color: '#a78bfa', flexShrink: 0, marginTop: 1 }}>
+            {(() => { const Icon = SUGGESTION_ICON[suggestion.type] || IconSparkle; return <Icon size={16} /> })()}
+          </span>
           <div>
             <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--dark-text)' }}>{suggestion.title}</div>
             <div style={{ fontSize: 12, color: 'var(--dark-text-2)' }}>{suggestion.reason}</div>
@@ -164,7 +177,7 @@ card: {
 },
   collapseBtn: {
     position: 'absolute', top: 10, right: 12, background: 'none', border: 'none',
-    color: 'var(--dark-text-3)', fontSize: 13, cursor: 'pointer', padding: 4,
+    color: 'var(--dark-text-3)', cursor: 'pointer', padding: 4, display: 'flex',
   },
   headerRow: { display: 'flex', gap: 12, alignItems: 'flex-start', paddingRight: 20 },
   avatar: {
@@ -174,13 +187,13 @@ card: {
     boxShadow: '0 0 14px rgba(102,126,234,0.4)',
   },
   greetingRow: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  greeting: { fontSize: 15.5, fontWeight: 700, color: 'var(--dark-text)', lineHeight: 1.35 },
+  greeting: { fontSize: 15.5, fontWeight: 700, color: 'var(--dark-text)', lineHeight: 1.35, display: 'flex', alignItems: 'center', gap: 8 },
   weatherBadge: {
-    display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700,
+    display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700,
     color: '#e9d5ff', background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)',
     borderRadius: 999, padding: '2px 9px', whiteSpace: 'nowrap',
   },
-  rainAlert: { fontSize: 12, color: '#93c5fd', marginTop: 4, fontWeight: 600 },
+  rainAlert: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#93c5fd', marginTop: 4, fontWeight: 600 },
   moodSummary: { fontSize: 13, color: 'var(--dark-text-2)', lineHeight: 1.5, marginTop: 3 },
   insights: { display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 46 },
   insightRow: { fontSize: 13, color: 'var(--dark-text-2)', lineHeight: 1.5, display: 'flex', gap: 6 },
@@ -201,6 +214,6 @@ card: {
     padding: '8px 14px', cursor: 'pointer', fontFamily: 'inherit',
   },
   collapsedText: { flex: 1, textAlign: 'left', fontSize: 12.5, color: 'var(--dark-text-2)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  collapsedWeather: { fontSize: 11.5, color: '#a78bfa', fontWeight: 700, whiteSpace: 'nowrap' },
-  collapsedExpand: { color: 'var(--dark-text-3)', fontSize: 11 },
+  collapsedWeather: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: '#a78bfa', fontWeight: 700, whiteSpace: 'nowrap' },
+  collapsedExpand: { color: 'var(--dark-text-3)', display: 'flex' },
 }
