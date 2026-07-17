@@ -410,7 +410,6 @@ export default function ChatPage({ session }) {
   const [showInsights, setShowInsights] = useState(false)
   const [showPersonalAnalytics, setShowPersonalAnalytics] = useState(false)
   const [showConnectedApps, setShowConnectedApps] = useState(false)
-  const igQuick = useInstagramConnection(session, userId)
 const [showInstagramFull, setShowInstagramFull] = useState(false)
   const [replyingTo, setReplyingTo] = useState(null)
   const [forwardingMessage, setForwardingMessage] = useState(null)
@@ -439,6 +438,7 @@ const [showInstagramFull, setShowInstagramFull] = useState(false)
 
   const userId = session.user.id
   const isOnline = usePresence(userId)
+  const igQuick = useInstagramConnection(session, userId)
 
   const { callStatus, activeCall, callToken, callError, startCall, answerCall, declineCall, endCall } =
     useCall(userId, activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null)
