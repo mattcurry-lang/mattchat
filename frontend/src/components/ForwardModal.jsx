@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import Avatar from './Avatar'
 import { forwardMessageToConversation, forwardMessageToEmail } from '../lib/supabase'
+import { IconX, IconMessageSquare, IconMail } from './Icons'
 
 // Lets the user forward a message either to one of their existing
 // conversations, or as a real email (reusing the connected Gmail
@@ -51,7 +52,7 @@ export default function ForwardModal({
       <div className="modal-panel" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <span className="modal-title">Forward message</span>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}><IconX size={13} /></button>
         </div>
 
         <div className="modal-preview" style={{ maxHeight: 70, overflow: 'hidden' }}>{content}</div>
@@ -59,18 +60,18 @@ export default function ForwardModal({
         <div style={{ display: 'flex', gap: 6 }}>
           <button
             className={mode === 'chat' ? 'btn-primary' : 'btn-ghost'}
-            style={{ flex: 1 }}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
             onClick={() => setMode('chat')}
-          >💬 To a chat</button>
+          ><IconMessageSquare size={14} /> To a chat</button>
           <button
             className={mode === 'email' ? 'btn-primary' : 'btn-ghost'}
-            style={{ flex: 1 }}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
             onClick={() => setMode('email')}
-          >✉️ To email</button>
+          ><IconMail size={14} /> To email</button>
         </div>
 
         {sentTo ? (
-          <div className="auth-success">Forwarded to {sentTo} ✓</div>
+          <div className="auth-success">Forwarded to {sentTo}</div>
         ) : mode === 'chat' ? (
           <>
             <input
