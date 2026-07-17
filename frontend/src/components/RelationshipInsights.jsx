@@ -1,6 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { callCurryAI } from './CurryAI'
+import {
+  IconX, IconChart, IconHistory, IconThermometer, IconDna, IconSparkle, IconLightbulb,
+  IconMessageSquare, IconHeart, IconSmile, IconUsers, IconSprout, IconStar, IconPhone, IconVideo,
+} from './Icons'
 
 // Relationship Insights — shows real, computed stats about a
 // conversation: message activity, when you usually talk, reply rate,
@@ -28,9 +32,15 @@ import { callCurryAI } from './CurryAI'
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-const MOOD_EMOJI = {
-  positive: '😊', excited: '🤩', neutral: '🙂',
-  stressed: '😮\u200d💨', anxious: '😟', sad: '😔', negative: '😕',
+// Mood is shown as a small colored status dot rather than an emoji
+// face — matches the dot/badge language used across the rest of the
+// app (unread counts, status rings, presence indicators).
+const MOOD_COLOR = {
+  positive: '#4ade80', excited: '#f472b6', neutral: '#9ca3af',
+  stressed: '#fb923c', anxious: '#facc15', sad: '#60a5fa', negative: '#f87171',
+}
+function MoodDot({ mood, size = 11 }) {
+  return <span style={{ display: 'inline-block', width: size, height: size, borderRadius: '50%', background: MOOD_COLOR[mood] || '#9ca3af', flexShrink: 0, boxShadow: `0 0 8px ${MOOD_COLOR[mood] || '#9ca3af'}66` }} />
 }
 
 // Score is a deterministic weighted blend of three real signals —
@@ -58,11 +68,22 @@ function computeScore(replyRate, avgResponseMs, totalMessages) {
   return Math.round(reply * 0.5 + speed * 0.35 + volume * 0.15)
 }
 
-function scoreLabel(score) {
-  if (score >= 85) return { emoji: '💜', label: 'Best Friend' }
-  if (score >= 65) return { emoji: '🙂', label: 'Good Friend' }
-  if (score >= 45) return { emoji: '👋', label: 'Regular Contact' }
-  return { emoji: '🌱', label: 'New Connection' }
+// Score tier now maps to an icon + tint instead of an emoji.
+function scoreTier(score) {
+  if (score >= 85) return { Icon: IconHeart, iconProps: { filled: true }, color: '#f472b6', label: 'Best Friend' }
+  if (score >= 65) return { Icon: IconSmile, iconProps: {}, color: '#4ade80', label: 'Good Friend' }
+  if (score >= 45) return { Icon: IconUsers, iconProps: {}, color: '#60a5fa', label: 'Regular Contact' }
+  return { Icon: IconSprout, iconProps: {}, color: '#a78bfa', label: 'New Connection' }
+}
+
+function StarRow({ stars, color }) {
+  return (
+    <span style={{ display: 'inline-flex', gap: 1.5 }}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <IconStar key={i} size={11} filled={i < stars} style={{ color }} />
+      ))}
+    </span>
+  )
 }
 
 function computeInsights(messages, currentUserId) {
@@ -121,7 +142,7 @@ function computeInsights(messages, currentUserId) {
   }
 
   const score = computeScore(replyRate, avgResponseMs, textMsgs.length)
-  const { emoji: scoreEmoji, label: scoreLabelText } = scoreLabel(score)
+  const tier = scoreTier(score)
   const stars = Math.max(1, Math.round(score / 20))
 
   return {
@@ -132,8 +153,7 @@ function computeInsights(messages, currentUserId) {
     avgResponseLabel: avgResponseMs !== null ? formatDuration(avgResponseMs) : null,
     sampleSize: textMsgs.length,
     score,
-    scoreEmoji,
-    scoreLabelText,
+    tier,
     stars,
   }
 }
@@ -208,7 +228,7 @@ function TimelineView({ conversationId, contactName }) {
       <div style={s.timelineList}>
         {data.firstChatted && (
           <div style={s.timelineRow}>
-            <span style={s.timelineIcon}>💬</span>
+            <span style={s.timelineIconWrap}><IconMessageSquare size={15} /></span>
             <div>
               <div style={s.timelineLabel}>First chatted</div>
               <div style={s.timelineValue}>{new Date(data.firstChatted).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
@@ -217,7 +237,9 @@ function TimelineView({ conversationId, contactName }) {
         )}
         {data.longestCall && (
           <div style={s.timelineRow}>
-            <span style={s.timelineIcon}>{data.longestCall.call_type === 'video' ? '📹' : '📞'}</span>
+            <span style={s.timelineIconWrap}>
+              {data.longestCall.call_type === 'video' ? <IconVideo size={15} /> : <IconPhone size={15} />}
+            </span>
             <div>
               <div style={s.timelineLabel}>Longest call</div>
               <div style={s.timelineValue}>{formatCallDuration(data.longestCall.duration_seconds)}</div>
@@ -231,7 +253,7 @@ function TimelineView({ conversationId, contactName }) {
 
       {notesEntries.length > 0 && (
         <div style={s.notesCard}>
-          <div style={s.notesTitle}>✨ What Curry has noticed</div>
+          <div style={s.notesTitle}><IconSparkle size={12} /> What Curry has noticed</div>
           {notesEntries.map(([key, value]) => (
             <div key={key} style={s.notesRow}>
               <span style={s.notesKey}>{prettifyKey(key)}</span>
@@ -306,12 +328,12 @@ function MoodView({ conversationId, session, contactName, active }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={s.moodGrid}>
         <div style={s.moodCard}>
-          <div style={s.moodEmoji}>{MOOD_EMOJI[radar.myMood] || '🙂'}</div>
+          <MoodDot mood={radar.myMood} size={20} />
           <div style={s.moodWho}>You</div>
           <div style={s.moodTag}>{radar.myMood}</div>
         </div>
         <div style={s.moodCard}>
-          <div style={s.moodEmoji}>{MOOD_EMOJI[radar.theirMood] || '🙂'}</div>
+          <MoodDot mood={radar.theirMood} size={20} />
           <div style={s.moodWho}>{displayName}</div>
           <div style={s.moodTag}>{radar.theirMood}</div>
         </div>
@@ -326,13 +348,13 @@ function MoodView({ conversationId, session, contactName, active }) {
 
       {radar.recommendation && (
         <div style={s.notesCard}>
-          <div style={s.notesTitle}>💡 Curry's take</div>
+          <div style={s.notesTitle}><IconLightbulb size={12} /> Curry's take</div>
           <div style={s.moodSummary}>{radar.recommendation}</div>
         </div>
       )}
 
       <button style={s.refreshBtn} onClick={refresh} disabled={loading}>
-        {loading ? 'Refreshing…' : '↻ Refresh'}
+        {loading ? 'Refreshing…' : 'Refresh'}
       </button>
       <div style={s.footnote}>Read live from recent messages in this chat — this tab uses AI, unlike Score and Timeline.</div>
     </div>
@@ -417,7 +439,7 @@ function PersonalityView({ conversationId, session, contactName, active }) {
 
       {profile.topics && profile.topics.length > 0 && (
         <div style={s.notesCard}>
-          <div style={s.notesTitle}>💭 Often brings up</div>
+          <div style={s.notesTitle}><IconMessageSquare size={12} /> Often brings up</div>
           <div style={s.chipRow}>
             {profile.topics.map((t, i) => <span key={i} style={s.topicChip}>{t}</span>)}
           </div>
@@ -426,7 +448,7 @@ function PersonalityView({ conversationId, session, contactName, active }) {
 
       {profile.traits && profile.traits.length > 0 && (
         <div style={s.notesCard}>
-          <div style={s.notesTitle}>✨ {displayName}'s style</div>
+          <div style={s.notesTitle}><IconSparkle size={12} /> {displayName}'s style</div>
           {profile.traits.map((t, i) => (
             <div key={i} style={s.moodSummary}>{t}</div>
           ))}
@@ -434,36 +456,48 @@ function PersonalityView({ conversationId, session, contactName, active }) {
       )}
 
       <button style={s.refreshBtn} onClick={refresh} disabled={loading}>
-        {loading ? 'Refreshing…' : '↻ Refresh'}
+        {loading ? 'Refreshing…' : 'Refresh'}
       </button>
       <div style={s.footnote}>Active hour, message style, and voice-note usage are computed directly from real messages. Topics and traits are Curry's read of {displayName}'s own words — nothing invented.</div>
     </div>
   )
 }
 
+const TABS = [
+  { id: 'score', label: 'Score', Icon: IconChart },
+  { id: 'timeline', label: 'Timeline', Icon: IconHistory },
+  { id: 'mood', label: 'Mood', Icon: IconThermometer },
+  { id: 'profile', label: 'Profile', Icon: IconDna },
+]
+
 export default function RelationshipInsights({ messages, currentUserId, contactName, conversationId, session, onClose }) {
   const [tab, setTab] = useState('score')
   const insights = useMemo(() => computeInsights(messages, currentUserId), [messages, currentUserId])
+  const activeTabMeta = TABS.find(t => t.id === tab)
 
   const titleByTab = {
-    score: `📊 Insights with ${contactName}`,
-    timeline: `🕰️ Timeline with ${contactName}`,
-    mood: `🌡️ Mood with ${contactName}`,
-    profile: `🧬 Profile of ${contactName}`,
+    score: `Insights with ${contactName}`,
+    timeline: `Timeline with ${contactName}`,
+    mood: `Mood with ${contactName}`,
+    profile: `Profile of ${contactName}`,
   }
 
   return (
     <div style={s.panel}>
       <div style={s.header}>
-        <span style={s.title}>{titleByTab[tab]}</span>
-        <button style={s.closeBtn} onClick={onClose}>✕</button>
+        <span style={s.title}>
+          {activeTabMeta && <activeTabMeta.Icon size={14} style={{ color: '#c4b5fd' }} />}
+          {titleByTab[tab]}
+        </span>
+        <button style={s.closeBtn} onClick={onClose}><IconX size={13} /></button>
       </div>
 
       <div style={s.tabRow}>
-        <button style={tab === 'score' ? s.tabActive : s.tab} onClick={() => setTab('score')}>Score</button>
-        <button style={tab === 'timeline' ? s.tabActive : s.tab} onClick={() => setTab('timeline')}>Timeline</button>
-        <button style={tab === 'mood' ? s.tabActive : s.tab} onClick={() => setTab('mood')}>Mood</button>
-        <button style={tab === 'profile' ? s.tabActive : s.tab} onClick={() => setTab('profile')}>Profile</button>
+        {TABS.map(({ id, label, Icon }) => (
+          <button key={id} style={tab === id ? s.tabActive : s.tab} onClick={() => setTab(id)}>
+            <Icon size={13} /> {label}
+          </button>
+        ))}
       </div>
 
       {tab === 'timeline' ? (
@@ -478,10 +512,12 @@ export default function RelationshipInsights({ messages, currentUserId, contactN
         <>
           <div style={s.scoreCard}>
             <div style={s.scoreLeft}>
-              <div style={s.scoreEmoji}>{insights.scoreEmoji}</div>
+              <div style={{ ...s.scoreIconWrap, background: `${insights.tier.color}22`, color: insights.tier.color }}>
+                <insights.tier.Icon size={18} {...insights.tier.iconProps} />
+              </div>
               <div>
-                <div style={s.scoreLabel}>{insights.scoreLabelText}</div>
-                <div style={s.stars}>{'★'.repeat(insights.stars)}{'☆'.repeat(5 - insights.stars)}</div>
+                <div style={s.scoreLabel}>{insights.tier.label}</div>
+                <StarRow stars={insights.stars} color={insights.tier.color} />
               </div>
             </div>
             <div style={s.scoreNumber}>{insights.score}</div>
@@ -525,28 +561,36 @@ const s = {
     padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12,
   },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: 13, fontWeight: 700, color: '#fff' },
-  closeBtn: { background: 'none', border: 'none', color: '#666', fontSize: 13, cursor: 'pointer' },
+  title: { fontSize: 13, fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: 7, letterSpacing: '-0.01em' },
+  closeBtn: { background: 'none', border: 'none', color: '#666', cursor: 'pointer', display: 'flex', alignItems: 'center' },
   empty: { fontSize: 13, color: '#9ca3af', padding: '8px 0' },
   tabRow: { display: 'flex', gap: 6, marginBottom: 2 },
   tab: {
-    flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: 10, color: '#9ca3af', fontSize: 12, fontWeight: 700, padding: '7px 0', cursor: 'pointer',
+    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 10, color: '#9ca3af', fontSize: 11.5, fontWeight: 700, padding: '7px 0', cursor: 'pointer',
+    fontFamily: 'inherit',
   },
   tabActive: {
-    flex: 1, background: 'rgba(167,139,250,0.18)', border: '1px solid rgba(167,139,250,0.4)',
-    borderRadius: 10, color: '#c4b5fd', fontSize: 12, fontWeight: 700, padding: '7px 0', cursor: 'pointer',
+    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+    background: 'rgba(167,139,250,0.18)', border: '1px solid rgba(167,139,250,0.4)',
+    borderRadius: 10, color: '#c4b5fd', fontSize: 11.5, fontWeight: 700, padding: '7px 0', cursor: 'pointer',
+    fontFamily: 'inherit',
   },
   timelineList: { display: 'flex', flexDirection: 'column', gap: 10 },
-  timelineRow: { display: 'flex', alignItems: 'center', gap: 10 },
-  timelineIcon: { fontSize: 20, width: 30, textAlign: 'center' },
+  timelineRow: { display: 'flex', alignItems: 'center', gap: 12 },
+  timelineIconWrap: {
+    width: 32, height: 32, borderRadius: 10, flexShrink: 0,
+    background: 'rgba(167,139,250,0.12)', color: '#c4b5fd',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
   timelineLabel: { fontSize: 11, color: '#9ca3af', fontWeight: 600 },
   timelineValue: { fontSize: 14, color: '#fff', fontWeight: 700 },
   notesCard: {
     background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.25)',
     borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6,
   },
-  notesTitle: { fontSize: 12.5, fontWeight: 700, color: '#e9d5ff', marginBottom: 2 },
+  notesTitle: { fontSize: 12, fontWeight: 700, color: '#e9d5ff', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6, letterSpacing: '0.01em' },
   notesRow: { display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12 },
   notesKey: { color: '#9ca3af', fontWeight: 600, flexShrink: 0 },
   notesValue: { color: '#e5e7eb', textAlign: 'right' },
@@ -554,9 +598,8 @@ const s = {
   moodGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 },
   moodCard: {
     background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: 12, padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+    borderRadius: 12, padding: '14px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
   },
-  moodEmoji: { fontSize: 26 },
   moodWho: { fontSize: 12, fontWeight: 700, color: '#fff' },
   moodTag: { fontSize: 11, color: '#c4b5fd', fontWeight: 600, textTransform: 'capitalize' },
   refreshBtn: {
@@ -572,17 +615,19 @@ const s = {
     background: 'linear-gradient(135deg, rgba(167,139,250,0.16), rgba(240,147,251,0.08))',
     border: '1px solid rgba(167,139,250,0.3)', borderRadius: 14, padding: '12px 16px',
   },
-  scoreLeft: { display: 'flex', alignItems: 'center', gap: 10 },
-  scoreEmoji: { fontSize: 26 },
+  scoreLeft: { display: 'flex', alignItems: 'center', gap: 12 },
+  scoreIconWrap: {
+    width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
   scoreLabel: { fontSize: 14, fontWeight: 700, color: '#fff' },
-  stars: { fontSize: 12, color: '#e9d5ff', letterSpacing: 1, marginTop: 2 },
   scoreNumber: { fontSize: 24, fontWeight: 800, color: '#c4b5fd' },
   grid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 },
   card: {
     background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
     borderRadius: 12, padding: '10px 12px',
   },
-  cardLabel: { fontSize: 11, color: '#9ca3af', fontWeight: 600, marginBottom: 3 },
+  cardLabel: { fontSize: 10.5, color: '#9ca3af', fontWeight: 600, marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' },
   cardValue: { fontSize: 17, color: '#c4b5fd', fontWeight: 700, textTransform: 'capitalize' },
   chipRow: { display: 'flex', flexWrap: 'wrap', gap: 6 },
   topicChip: {
