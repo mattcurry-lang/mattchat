@@ -133,6 +133,30 @@ function VoiceMode({ session, voiceOn, onEnd, onNewMessages }) {
     }
   }, [monitorVolume, onEnd])
 
+  async function getInstagramContext(supabase, userId, authHeader) {
+  try {
+    const { data: account } = await supabase
+      .from('connected_accounts')
+      .select('status')
+      .eq('user_id', userId)
+      .eq('provider', 'instagram')
+      .maybeSingle()
+
+    if (!account || account.status !== 'connected') return null
+
+    const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/instagram-api`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: authHeader },
+      body: JSON.stringify({ action: 'curry_context' }),
+    })
+    const data = await res.json()
+    return data.ok ? data.context : null
+  } catch (e) {
+    console.error('getInstagramContext failed:', e)
+    return null
+  }
+}
+
   async function finishRecording() {
     if (processingRef.current) return
     processingRef.current = true
