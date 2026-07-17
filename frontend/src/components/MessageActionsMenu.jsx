@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { callCurryAI } from './CurryAI'
 import { canDeleteForEveryone } from '../lib/supabase'
+import { IconWand, IconList, IconGlobe, IconHelpCircle, IconReply, IconPin, IconForward, IconCopy, IconTrash, IconX, IconHourglass } from './Icons'
 
 // Long-press (or right-click, desktop) context menu on a message
 // bubble. Adds Curry-powered actions alongside Reply/Forward/Copy/
@@ -13,11 +14,11 @@ import { canDeleteForEveryone } from '../lib/supabase'
 // screen (not per message) and pass the currently-targeted message in.
 
 const ACTIONS = [
-  { id: 'rewrite',   label: '✨ Rewrite',  prompt: (t) => `Rewrite this message to sound more polished, keeping the same meaning and language. Return ONLY the rewritten message, nothing else:\n\n"${t}"` },
-  { id: 'summarize', label: '✨ Summarize', prompt: (t) => `Summarize this message in one short sentence. Return ONLY the summary:\n\n"${t}"` },
-  { id: 'translate', label: '✨ Translate', prompt: (t) => `Translate this message to English (if it's already English, translate to Spanish instead). Return ONLY the translation:\n\n"${t}"` },
-  { id: 'explain',   label: '✨ Explain',   prompt: (t) => `Explain what this message means / is referring to, briefly and plainly. Return ONLY the explanation:\n\n"${t}"` },
-  { id: 'reply',     label: '✨ Suggest reply', prompt: (t) => `Suggest one short, natural reply to this message. Return ONLY the reply text, nothing else:\n\n"${t}"` },
+  { id: 'rewrite',   icon: IconWand,        label: 'Rewrite',  prompt: (t) => `Rewrite this message to sound more polished, keeping the same meaning and language. Return ONLY the rewritten message, nothing else:\n\n"${t}"` },
+  { id: 'summarize', icon: IconList,        label: 'Summarize', prompt: (t) => `Summarize this message in one short sentence. Return ONLY the summary:\n\n"${t}"` },
+  { id: 'translate', icon: IconGlobe,       label: 'Translate', prompt: (t) => `Translate this message to English (if it's already English, translate to Spanish instead). Return ONLY the translation:\n\n"${t}"` },
+  { id: 'explain',   icon: IconHelpCircle,  label: 'Explain',   prompt: (t) => `Explain what this message means / is referring to, briefly and plainly. Return ONLY the explanation:\n\n"${t}"` },
+  { id: 'reply',     icon: IconReply,       label: 'Suggest reply', prompt: (t) => `Suggest one short, natural reply to this message. Return ONLY the reply text, nothing else:\n\n"${t}"` },
 ]
 
 export function useMessageLongPress(onOpen) {
@@ -95,19 +96,19 @@ export default function MessageActionsMenu({
       {!result && !confirmingDelete && (
         <>
           <div style={m.section}>
-            {onReply && <button style={m.item} onClick={() => { onReply(); onClose() }}>↩️ Reply</button>}
-            {onPin && <button style={m.item} onClick={() => { onPin(); onClose() }}>📌 Pin</button>}
-            {onForward && <button style={m.item} onClick={() => { onForward(); onClose() }}>➡️ Forward</button>}
-            {onCopy && <button style={m.item} onClick={() => { navigator.clipboard.writeText(text); onCopy(); onClose() }}>📋 Copy</button>}
+            {onReply && <button style={m.item} onClick={() => { onReply(); onClose() }}><IconReply size={14} /> Reply</button>}
+            {onPin && <button style={m.item} onClick={() => { onPin(); onClose() }}><IconPin size={14} /> Pin</button>}
+            {onForward && <button style={m.item} onClick={() => { onForward(); onClose() }}><IconForward size={14} /> Forward</button>}
+            {onCopy && <button style={m.item} onClick={() => { navigator.clipboard.writeText(text); onCopy(); onClose() }}><IconCopy size={14} /> Copy</button>}
             {(onDeleteForMe || onDeleteForEveryone) && (
-              <button style={{ ...m.item, color: '#f87171' }} onClick={() => setConfirmingDelete(true)}>🗑️ Delete</button>
+              <button style={{ ...m.item, color: '#f87171' }} onClick={() => setConfirmingDelete(true)}><IconTrash size={14} /> Delete</button>
             )}
           </div>
           <div style={m.divider} />
           <div style={m.section}>
             {ACTIONS.map(a => (
               <button key={a.id} style={m.item} onClick={() => runAction(a)} disabled={!!busyAction}>
-                {busyAction === a.id ? '⏳ Thinking...' : a.label}
+                {busyAction === a.id ? (<><IconHourglass size={14} /> Thinking...</>) : (<><a.icon size={14} style={{ color: '#a78bfa' }} /> {a.label}</>)}
               </button>
             ))}
           </div>
@@ -140,8 +141,8 @@ export default function MessageActionsMenu({
       {result && (
         <div style={m.resultBox}>
           <div style={m.resultHeader}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#c4b5fd' }}>✨ {ACTIONS.find(a => a.id === result.actionId)?.label.replace('✨ ', '')}</span>
-            <button style={m.resultClose} onClick={onClose}>✕</button>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#c4b5fd' }}>{ACTIONS.find(a => a.id === result.actionId)?.label}</span>
+            <button style={m.resultClose} onClick={onClose}><IconX size={11} /></button>
           </div>
           <div style={m.resultText}>{result.text}</div>
           {result.actionId === 'reply' && onInsertReply && (
@@ -167,13 +168,13 @@ const m = {
   section: { padding: '6px 0' },
   divider: { height: 1, background: 'rgba(255,255,255,0.08)' },
   item: {
-    display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none',
+    display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', background: 'none', border: 'none',
     padding: '9px 14px', fontSize: 13, fontWeight: 500, color: '#e2e8f0', cursor: 'pointer',
     fontFamily: 'inherit',
   },
   resultBox: { padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 },
   resultHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  resultClose: { background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 11, cursor: 'pointer' },
+  resultClose: { background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', display: 'flex' },
   resultText: { fontSize: 13, color: '#f0f0f0', lineHeight: 1.5, maxHeight: 160, overflowY: 'auto' },
   useBtn: { background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12.5, fontWeight: 700, padding: '7px 10px', cursor: 'pointer', fontFamily: 'inherit' },
   backBtn: { background: 'none', border: 'none', color: '#9ca3af', fontSize: 11.5, fontWeight: 600, padding: '2px 0', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' },
