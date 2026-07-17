@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { callCurryAI } from './CurryAI'
+import { IconSparkle, IconMic, IconMail, IconCloudSun, IconX } from './Icons'
 
 // Drop-in replacement for the plain search-icon row at the top of the
 // sidebar. Visually it's the thing that says "this isn't WhatsApp" —
@@ -43,10 +44,16 @@ export default function AICommandBar({ session, value, onSearchChange, onOpenCur
     if (e.key === 'Escape') { setAnswer(''); inputRef.current?.blur() }
   }
 
+  const QUICK_CHIPS = [
+    { icon: IconMic, label: 'Voice', fill: 'voice' },
+    { icon: IconMail, label: 'Email', fill: 'email' },
+    { icon: IconCloudSun, label: 'Weather', fill: 'weather' },
+  ]
+
   return (
     <div style={c.wrap}>
       <div style={{ ...c.bar, ...(focused ? c.barFocused : {}) }}>
-        <span style={c.sparkle}>✨</span>
+        <span style={c.sparkle}><IconSparkle size={14} /></span>
         <input
           ref={inputRef}
           value={value}
@@ -62,15 +69,15 @@ export default function AICommandBar({ session, value, onSearchChange, onOpenCur
         ) : value.trim() ? (
           <button style={c.goBtn} onClick={askCurry} title="Ask Curry">→</button>
         ) : (
-          <button style={c.orbBtn} onClick={onOpenCurry} title="Open Curry">🎤</button>
+          <button style={c.orbBtn} onClick={onOpenCurry} title="Open Curry"><IconMic size={14} /></button>
         )}
       </div>
 
       {value.trim() && !answer && !asking && (
         <div style={c.quickRow}>
-          {['🎤 Voice', '📧 Email', '🌦 Weather'].map(chip => (
-            <button key={chip} style={c.chip} onClick={() => { onSearchChange(chip.split(' ')[1] + ' '); inputRef.current?.focus() }}>
-              {chip}
+          {QUICK_CHIPS.map(({ icon: Icon, label, fill }) => (
+            <button key={label} style={c.chip} onClick={() => { onSearchChange(fill + ' '); inputRef.current?.focus() }}>
+              <Icon size={11} /> {label}
             </button>
           ))}
         </div>
@@ -79,8 +86,8 @@ export default function AICommandBar({ session, value, onSearchChange, onOpenCur
       {(asking || answer) && (
         <div style={c.answerCard}>
           <div style={c.answerHeader}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#c4b5fd' }}>✨ Curry</span>
-            <button style={c.answerClose} onClick={() => setAnswer('')}>✕</button>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#c4b5fd', display: 'flex', alignItems: 'center', gap: 5 }}><IconSparkle size={11} /> Curry</span>
+            <button style={c.answerClose} onClick={() => setAnswer('')}><IconX size={10} /></button>
           </div>
           {asking ? (
             <div style={{ fontSize: 12.5, color: '#9ca3af' }}>Thinking...</div>
@@ -98,32 +105,25 @@ const c = {
   bar: {
     display: 'flex', alignItems: 'center', gap: 8,
     background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(167,139,250,0.25)',
+    border: '1px solid rgba(167,139,250,0.35)',
     borderRadius: 24, padding: '9px 14px',
     transition: 'all 0.2s ease',
+    animation: 'commandBarGlow 2.8s ease-in-out infinite',
   },
-bar: {
-  display: 'flex', alignItems: 'center', gap: 8,
-  background: 'rgba(255,255,255,0.05)',
-  border: '1px solid rgba(167,139,250,0.35)',
-  borderRadius: 24, padding: '9px 14px',
-  transition: 'all 0.2s ease',
-  animation: 'commandBarGlow 2.8s ease-in-out infinite',
-},
-  sparkle: { fontSize: 14, flexShrink: 0 },
+  sparkle: { display: 'flex', flexShrink: 0, color: '#a78bfa' },
   input: { flex: 1, background: 'none', border: 'none', outline: 'none', color: '#f0f0f0', fontSize: 13.5, fontFamily: 'inherit' },
   goBtn: { width: 24, height: 24, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none', color: '#fff', fontSize: 13, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  orbBtn: { background: 'none', border: 'none', fontSize: 14, cursor: 'pointer', flexShrink: 0, opacity: 0.8 },
+  orbBtn: { background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, color: '#a78bfa', opacity: 0.85, display: 'flex' },
   spinner: { width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(167,139,250,0.25)', borderTopColor: '#a78bfa', animation: 'currySpin 0.7s linear infinite', flexShrink: 0 },
   quickRow: { display: 'flex', gap: 6, marginTop: 6, paddingLeft: 4 },
-  chip: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, color: '#9ca3af', fontSize: 11, fontWeight: 600, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' },
+  chip: { display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, color: '#9ca3af', fontSize: 11, fontWeight: 600, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' },
   answerCard: {
     marginTop: 8, background: 'linear-gradient(135deg, rgba(102,126,234,0.12), rgba(118,75,162,0.12))',
     border: '1px solid rgba(167,139,250,0.25)', borderRadius: 14, padding: '10px 14px',
     animation: 'curryFadeIn 0.2s ease',
   },
   answerHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  answerClose: { background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 11, cursor: 'pointer' },
+  answerClose: { background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', display: 'flex' },
   answerText: { fontSize: 13, color: '#e2e8f0', lineHeight: 1.5 },
 }
 
