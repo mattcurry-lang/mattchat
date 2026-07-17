@@ -58,6 +58,8 @@ import ProfileSetupModal from '../components/ProfileSetupModal'
 import { connectPinterest } from '../lib/supabase'   
 import ProfileCard from '../components/ProfileCard'
 import ConnectedAppsSection from '../components/ConnectedApps/ConnectedAppsSection'
+import { useInstagramConnection } from '../hooks/useInstagramConnection'
+import InstagramView from '../components/ConnectedApps/InstagramView'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -408,6 +410,8 @@ export default function ChatPage({ session }) {
   const [showInsights, setShowInsights] = useState(false)
   const [showPersonalAnalytics, setShowPersonalAnalytics] = useState(false)
   const [showConnectedApps, setShowConnectedApps] = useState(false)
+  const igQuick = useInstagramConnection(session, userId)
+const [showInstagramFull, setShowInstagramFull] = useState(false)
   const [replyingTo, setReplyingTo] = useState(null)
   const [forwardingMessage, setForwardingMessage] = useState(null)
   const [hiddenMsgIds, setHiddenMsgIds] = useState(new Set())
@@ -624,11 +628,10 @@ useEffect(() => {
   if (status === 'success') {
     const username = params.get('username')
     alert(`Instagram connected${username ? `: @${username}` : ''} ✓`)
-    // If ConnectedAppsSection is mounted (profile page open), it will
-    // pick up the new status on its own next refreshStatus() call —
-    // no extra event needed unless you want it to react instantly
+     igQuick.refreshStatus()
     // while already open, in which case:
     window.dispatchEvent(new CustomEvent('instagram-connected'))
+    
   } else if (status === 'denied') {
     alert('Instagram connection was cancelled.')
   } else if (status === 'expired') {
@@ -1048,6 +1051,17 @@ const handleSend = async () => {
                 </div>
                 <span className="story-label">My status</span>
               </button>
+{igQuick.status === 'connected' && (
+  <button className="story-item" onClick={() => setShowInstagramFull(true)} title={`@${igQuick.account?.username}`}>
+    <div className="story-avatar-wrap">
+      <StatusRing size={58} hasStatus viewed>
+        <Avatar name={igQuick.account?.username} size={52} photoUrl={igQuick.account?.avatar_url} />
+      </StatusRing>
+      <div style={{ position: 'absolute', bottom: -2, right: -2, width: 20, height: 20, borderRadius: '50%', background: 'linear-gradient(135deg,#f58529,#dd2a7b,#8134af,#515bd4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, border: '2px solid var(--bg-surface-1, #0f0f1a)' }}>📷</div>
+    </div>
+    <span className="story-label">Instagram</span>
+  </button>
+)}
 
               {statusGroups.map(group => (
                 <button key={group.userId} className="story-item" onClick={() => openViewer(group.userId)} title={group.profile.username}>
@@ -1335,6 +1349,20 @@ const handleSend = async () => {
             </div>
           </div>
         )}
+{showInstagramFull && (
+  <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto' }}>
+    <div style={{ maxWidth: 640, margin: '0 auto', padding: 16 }}>
+      <InstagramView
+        session={session}
+        account={igQuick.account}
+        status={igQuick.status}
+        onDisconnect={igQuick.disconnect}
+        disconnecting={igQuick.disconnecting}
+        onClose={() => setShowInstagramFull(false)}
+      />
+    </div>
+  </div>
+)}
         {showAddStatus && (
           <AddStatusModal userId={userId} onClose={() => setShowAddStatus(false)} onPosted={reloadStatuses} />
         )}
