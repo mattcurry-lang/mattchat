@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { format, isToday, isYesterday } from 'date-fns';
+import { IconSearch, IconX, IconMic, IconChart, IconCheckSquare } from './Icons';
 
 function highlight(text, query) {
   if (!query.trim() || typeof text !== 'string') return text;
@@ -20,11 +21,11 @@ function formatTime(iso) {
 }
 
 const TYPE_OPTIONS = [
-  { value: 'all', label: 'All types' },
-  { value: 'text', label: '💬 Text' },
-  { value: 'voice', label: '🎙️ Voice' },
-  { value: 'poll', label: '📊 Poll' },
-  { value: 'task', label: '✅ Task' },
+  { value: 'all', label: 'All types', Icon: null },
+  { value: 'text', label: 'Text', Icon: null },
+  { value: 'voice', label: 'Voice', Icon: IconMic },
+  { value: 'poll', label: 'Poll', Icon: IconChart },
+  { value: 'task', label: 'Task', Icon: IconCheckSquare },
 ];
 
 export default function MessageSearch({ conversationId, currentUserId, otherUserName, onScrollTo, onClose }) {
@@ -82,10 +83,10 @@ export default function MessageSearch({ conversationId, currentUserId, otherUser
     setLoading(false);
   }
 
-  function getTypeLabel(type) {
-    if (type === 'voice') return '🎙️ Voice note';
-    if (type === 'poll') return '📊 Poll';
-    if (type === 'task') return '✅ Task list';
+  function getTypeMeta(type) {
+    if (type === 'voice') return { label: 'Voice note', Icon: IconMic };
+    if (type === 'poll') return { label: 'Poll', Icon: IconChart };
+    if (type === 'task') return { label: 'Task list', Icon: IconCheckSquare };
     return null;
   }
 
@@ -93,8 +94,8 @@ export default function MessageSearch({ conversationId, currentUserId, otherUser
     <div style={styles.overlay} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={styles.panel}>
         <div style={styles.header}>
-          <span style={styles.title}>🔍 Search Messages</span>
-          <button style={styles.closeBtn} onClick={onClose}>✕</button>
+          <span style={styles.title}><IconSearch size={15} /> Search Messages</span>
+          <button style={styles.closeBtn} onClick={onClose}><IconX size={15} /></button>
         </div>
 
         <input
@@ -131,10 +132,10 @@ export default function MessageSearch({ conversationId, currentUserId, otherUser
               {TYPE_OPTIONS.map(opt => (
                 <button
                   key={opt.value}
-                  style={{ ...styles.pill, ...(msgType === opt.value ? styles.pillActive : {}) }}
+                  style={{ ...styles.pill, ...(msgType === opt.value ? styles.pillActive : {}), display: 'flex', alignItems: 'center', gap: 4 }}
                   onClick={() => setMsgType(opt.value)}
                 >
-                  {opt.label}
+                  {opt.Icon && <opt.Icon size={11} />} {opt.label}
                 </button>
               ))}
             </div>
@@ -152,26 +153,29 @@ export default function MessageSearch({ conversationId, currentUserId, otherUser
             <div style={styles.status}>Type to search, or pick a filter above.</div>
           )}
 
-          {!loading && results.map(msg => (
-            <button
-              key={msg.id}
-              style={styles.resultItem}
-              onClick={() => { onScrollTo(msg.id); onClose(); }}
-            >
-              <div style={styles.resultMeta}>
-                <span style={styles.resultSender}>
-                  {msg.sender_id === currentUserId ? 'You' : otherUserName || 'Them'}
-                </span>
-                <span style={styles.resultTime}>{formatTime(msg.created_at)}</span>
-              </div>
-              <div style={styles.resultContent}>
-                {getTypeLabel(msg.message_type)
-                  ? <span style={styles.typeTag}>{getTypeLabel(msg.message_type)}</span>
-                  : highlight(msg.content, query)
-                }
-              </div>
-            </button>
-          ))}
+          {!loading && results.map(msg => {
+            const typeMeta = getTypeMeta(msg.message_type)
+            return (
+              <button
+                key={msg.id}
+                style={styles.resultItem}
+                onClick={() => { onScrollTo(msg.id); onClose(); }}
+              >
+                <div style={styles.resultMeta}>
+                  <span style={styles.resultSender}>
+                    {msg.sender_id === currentUserId ? 'You' : otherUserName || 'Them'}
+                  </span>
+                  <span style={styles.resultTime}>{formatTime(msg.created_at)}</span>
+                </div>
+                <div style={styles.resultContent}>
+                  {typeMeta
+                    ? <span style={styles.typeTag}><typeMeta.Icon size={11} /> {typeMeta.label}</span>
+                    : highlight(msg.content, query)
+                  }
+                </div>
+              </button>
+            )
+          })}
         </div>
       </div>
     </div>
@@ -193,10 +197,10 @@ const styles = {
   header: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
   },
-  title: { fontSize: 16, fontWeight: 700, color: '#fff' },
+  title: { fontSize: 16, fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 },
   closeBtn: {
     background: 'none', border: 'none', color: '#888',
-    fontSize: 18, cursor: 'pointer', padding: '0 4px',
+    cursor: 'pointer', padding: '0 4px', display: 'flex',
   },
   input: {
     background: '#2a2a3e', border: '1px solid #3a3a4e', borderRadius: 10,
@@ -231,6 +235,7 @@ const styles = {
   resultTime: { fontSize: 11, color: '#666' },
   resultContent: { fontSize: 14, color: '#e2e8f0', lineHeight: 1.4 },
   typeTag: {
+    display: 'inline-flex', alignItems: 'center', gap: 5,
     fontSize: 12, color: '#a0aec0',
     background: 'rgba(102,126,234,0.15)', borderRadius: 6, padding: '2px 8px',
   },
