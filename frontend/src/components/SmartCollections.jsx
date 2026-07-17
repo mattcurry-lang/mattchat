@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { IconCircleDot, IconUsers, IconSparkle, IconBriefcase, IconGraduationCap, IconHomeFamily } from './Icons'
 
 // Smart Collections — horizontal filter tabs above the chat list.
 //
@@ -14,9 +15,9 @@ import { useState, useEffect, useCallback } from 'react'
 
 const STORAGE_KEY = 'curry_convo_tags'
 const CUSTOM_TAGS = [
-  { id: 'work', label: 'Work', emoji: '💼' },
-  { id: 'school', label: 'School', emoji: '🎓' },
-  { id: 'family', label: 'Family', emoji: '👨‍👩‍👧' },
+  { id: 'work', label: 'Work', Icon: IconBriefcase },
+  { id: 'school', label: 'School', Icon: IconGraduationCap },
+  { id: 'family', label: 'Family', Icon: IconHomeFamily },
 ]
 
 function loadTags() {
@@ -55,11 +56,11 @@ export default function SmartCollections({ active, onChange, conversations, unre
   }
 
   const tabs = [
-    { id: 'all', label: 'Chats', emoji: null },
-    { id: 'unread', label: 'Unread', emoji: '🔵' },
-    { id: 'group', label: 'Group', emoji: '👥' },
-    { id: 'ai', label: 'AI', emoji: '✨' },
-    ...CUSTOM_TAGS.map(t => ({ id: t.id, label: t.label, emoji: t.emoji })),
+    { id: 'all', label: 'Chats', Icon: null },
+    { id: 'unread', label: 'Unread', Icon: IconCircleDot },
+    { id: 'group', label: 'Group', Icon: IconUsers },
+    { id: 'ai', label: 'AI', Icon: IconSparkle },
+    ...CUSTOM_TAGS.map(t => ({ id: t.id, label: t.label, Icon: t.Icon })),
   ].filter(t => t.id === 'all' || t.id === 'unread' || t.id === 'group' || t.id === 'ai' || counts[t.id] > 0)
   // custom tags only show once at least one chat has been tagged, so the row doesn't clutter up empty
 
@@ -71,7 +72,7 @@ export default function SmartCollections({ active, onChange, conversations, unre
           onClick={() => onChange(tab.id)}
           style={{ ...s.tab, ...(active === tab.id ? s.tabActive : {}) }}
         >
-          {tab.emoji && <span style={{ marginRight: 4 }}>{tab.emoji}</span>}
+          {tab.Icon && <tab.Icon size={12} style={{ marginRight: 4 }} />}
           {tab.label}
           {counts[tab.id] > 0 && tab.id !== 'all' && (
             <span style={{ ...s.count, ...(active === tab.id ? s.countActive : {}) }}>{counts[tab.id]}</span>
@@ -105,10 +106,10 @@ export function TagPicker({ convoId, currentTag, onSetTag, onClose }) {
       {CUSTOM_TAGS.map(t => (
         <button
           key={t.id}
-          style={{ ...s.pickerItem, ...(currentTag === t.id ? s.pickerItemActive : {}) }}
+          style={{ ...s.pickerItem, ...(currentTag === t.id ? s.pickerItemActive : {}), display: 'flex', alignItems: 'center', gap: 8 }}
           onClick={() => { onSetTag(convoId, t.id); onClose() }}
         >
-          {t.emoji} {t.label}
+          <t.Icon size={13} /> {t.label}
         </button>
       ))}
     </div>
