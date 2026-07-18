@@ -60,6 +60,7 @@ import ProfileCard from '../components/ProfileCard'
 import ConnectedAppsSection from '../components/ConnectedApps/ConnectedAppsSection'
 import { useInstagramConnection } from '../hooks/useInstagramConnection'
 import InstagramView from '../components/ConnectedApps/InstagramView'
+import PulsePage from '../components/Pulse/PulsePage'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -1254,6 +1255,22 @@ const handleSend = async () => {
               </div>
             </div>
           )}
+            {activeTab === 'pulse' && (
+  <div style={{ height: '100%', overflowY: 'auto' }}>
+    <PulsePage
+      session={session}
+      userId={userId}
+      profile={profile}
+      conversations={conversations}
+      unreadCounts={unreadCounts}
+      getConvoName={getConvoName}
+      onOpenConversation={(convoId) => {
+        const found = conversations.find(c => c.id === convoId)
+        if (found) { openConvo(found); setActiveTab('chats') }
+      }}
+    />
+  </div>
+)}
         </div>
 
         {showProfileMenu && (
