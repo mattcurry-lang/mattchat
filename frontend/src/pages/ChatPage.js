@@ -1053,16 +1053,23 @@ const handleSend = async () => {
               </button>
 {igQuick.status === 'connected' && (
   <button className="story-item" onClick={() => setShowInstagramFull(true)} title={`@${igQuick.account?.username}`}>
-    <div className="story-avatar-wrap">
-      <StatusRing size={58} hasStatus viewed>
-        <Avatar name={igQuick.account?.username} size={52} photoUrl={igQuick.account?.avatar_url} />
-      </StatusRing>
-      <div style={{ position: 'absolute', bottom: -2, right: -2, width: 20, height: 20, borderRadius: '50%', background: 'linear-gradient(135deg,#f58529,#dd2a7b,#8134af,#515bd4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, border: '2px solid var(--bg-surface-1, #0f0f1a)' }}>📷</div>
+    <div
+      style={{
+        width: 58, height: 58, borderRadius: '50%',
+        background: 'linear-gradient(135deg,#f58529,#dd2a7b,#8134af,#515bd4)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 13, boxSizing: 'border-box',
+      }}
+    >
+      <svg viewBox="0 0 640 640" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="60" y="60" width="520" height="520" rx="140" stroke="white" strokeWidth="52" fill="none" />
+        <circle cx="320" cy="320" r="110" stroke="white" strokeWidth="52" fill="none" />
+        <circle cx="478" cy="170" r="28" fill="white" />
+      </svg>
     </div>
     <span className="story-label">Instagram</span>
   </button>
 )}
-
               {statusGroups.map(group => (
                 <button key={group.userId} className="story-item" onClick={() => openViewer(group.userId)} title={group.profile.username}>
                   <StatusRing size={58} hasStatus viewed={group.allViewed}>
