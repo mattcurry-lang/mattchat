@@ -47,18 +47,14 @@ export default function PulseSummaryCard({ name, items, loading, aiSummary }) {
         </div>
       )}
 
-      {!loading && totalUnread > 0 && (
-        <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
-          {mostActiveApp && (
-            <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-              Most active: <span style={{ color: '#c4b5fd', fontWeight: 700 }}>{mostActiveApp}</span>
+     {!loading && totalUnread > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
+          {items.filter((i) => i.count > 0).map((i) => (
+            <div key={i.id} style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
+              <span>{i.sender}</span>
+              <span style={{ color: '#c4b5fd', fontWeight: 700 }}>{i.count}</span>
             </div>
-          )}
-          {mostActivePerson && (
-            <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-              From: <span style={{ color: '#c4b5fd', fontWeight: 700 }}>{mostActivePerson}</span>
-            </div>
-          )}
+          ))}
         </div>
       )}
 
