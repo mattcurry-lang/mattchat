@@ -26,6 +26,14 @@ export default function BottomNav({ activeTab, onTabChange, onNewChat, onProfile
         <IconPhone size={19} className="bnav-icon" />
         <span className="bnav-label">Calls</span>
       </button>
+      <button
+        className={`bnav-btn ${activeTab === 'pulse' ? 'active' : ''}`}
+        onClick={() => onTabChange('pulse')}
+        title="Pulse"
+      >
+        <IconSparkle size={19} className="bnav-icon" />
+        <span className="bnav-label">Pulse</span>
+      </button>
       <button className="bnav-plus" onClick={onNewChat} title="New chat">
         <span>＋</span>
       </button>
