@@ -54,16 +54,7 @@ export function useMessageStatus(messages, conversationId, currentUserId) {
       })
 
     // Best-effort denormalized copy onto messages.read_at/read_by.
-    const ids = unread.map(m => m.id)
-    supabase
-      .from('messages')
-      .update({ read_at: new Date().toISOString(), read_by: currentUserId })
-      .in('id', ids)
-      .then(({ error }) => {
-        if (error) console.error('[useMessageStatus] failed to mark read on messages table:', error)
-      })
   }, [messages, conversationId, currentUserId])
-
   // ── Subscribe to reads so the sender sees when their message is seen ──
   useEffect(() => {
     if (!conversationId) return
