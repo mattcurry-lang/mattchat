@@ -61,6 +61,7 @@ import ConnectedAppsSection from '../components/ConnectedApps/ConnectedAppsSecti
 import { useInstagramConnection } from '../hooks/useInstagramConnection'
 import InstagramView from '../components/ConnectedApps/InstagramView'
 import PulsePage from '../components/Pulse/PulsePage'
+import { playSound } from '../lib/mattchatSounds'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -508,7 +509,7 @@ const [showInstagramFull, setShowInstagramFull] = useState(false)
   )
   const callConvo = activeCall ? getConvoById(activeCall.conversationId) : null
 
-  const onHeyCurryActivated = useCallback(() => setActiveConvo(CURRY_AI_CONTACT), [])
+  const onHeyCurryActivated = useCallback(() => { playSound('echo'); setActiveConvo(CURRY_AI_CONTACT) }, [])
   // autoStart: false — "hey curry" listening is now an explicit
   // opt-in (see the mic toggle button in the header) instead of
   // running in the background from the moment the app loads, which
@@ -865,6 +866,7 @@ const handleSend = async () => {
       await sendReplyMessage(activeConvo.id, userId, text, replyTarget.id)
       reload()
     } else {
+       playSound('tap')
       sendMessage(text)              // fire-and-forget — no await
       bumpConversationActivity(text) // fire-and-forget too
       runCoachCheck(text)
@@ -1782,8 +1784,7 @@ const handleSend = async () => {
 
             {showScheduler && (
               <ScheduleMessageModal conversationId={activeConvo.id} senderId={userId}
-                onClose={(success) => { setShowScheduler(false); if (success) { alert('Message scheduled ✓'); setHasScheduled(true) } }} />
-            )}
+                onClose={(success) => { setShowScheduler(false); if (success) { playSound('spark'); alert('Message scheduled ✓'); setHasScheduled(true) } }}
             {showScheduledList && (
               <ScheduledMessagesList conversationId={activeConvo.id} currentUserId={userId} onClose={() => setShowScheduledList(false)} />
             )}
