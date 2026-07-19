@@ -70,7 +70,7 @@ export function useMessageStatus(messages, conversationId, currentUserId) {
     // Initial load — which of our sent messages have been read?
     async function loadReads() {
       const myMsgIds = messages
-        .filter(m => m.sender_id === currentUserId)
+        .filter(m => m.sender_id === currentUserId && !m._optimistic)
         .map(m => m.id)
       if (!myMsgIds.length) return
       const { data, error } = await supabase
