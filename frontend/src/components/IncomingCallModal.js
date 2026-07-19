@@ -1,9 +1,15 @@
 import React, { useEffect, useState } from 'react'
 import { IconPhone, IconMic, IconBluetooth } from './Icons'
+import { useRingtone } from './hooks/useRingtone' 
 
 export default function IncomingCallModal({ callerName, callType, onAnswer, onDecline }) {
   const [dots, setDots] = useState('.')
   const [startMuted, setStartMuted] = useState(false)
+
+  // This modal only exists on screen while there's an active incoming
+  // call, so it should ring for as long as it's mounted — the hook's
+  // cleanup stops the sound automatically on answer/decline/unmount.
+  useRingtone(true, 'ringtone')
 
   useEffect(() => {
     const id = setInterval(() => setDots(d => (d.length >= 3 ? '.' : d + '.')), 500)
