@@ -43,10 +43,9 @@ export function usePresence(myUserId) {
     }
 
     const connect = () => {
-      channel = supabase.channel('online-users', {
-        config: { presence: { key: myUserId } },
-      })
-
+ channel = supabase.channel('online-users', {
+  config: { presence: { key: myUserId }, private: true },
+})
       channel
         .on('presence', { event: 'sync' }, () => {
           const state = channel.presenceState()
