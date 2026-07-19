@@ -62,6 +62,7 @@ import { useInstagramConnection } from '../hooks/useInstagramConnection'
 import InstagramView from '../components/ConnectedApps/InstagramView'
 import PulsePage from '../components/Pulse/PulsePage'
 import { playSound } from '../lib/mattchatSounds'
+import { removeReactionChannel } from '../components/MessageReactions'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -682,6 +683,7 @@ useEffect(() => {
     setShowCurryAssistant(false); setShowThreeDot(false)
     setHasScheduled(false); setShowEmojiPicker(false); setShowInsights(false)
     setCoachSuggestion(null)
+    return () => { if (activeConvo?.id) removeReactionChannel(activeConvo.id) }
   }, [activeConvo])
 
   useEffect(() => {
@@ -1632,11 +1634,12 @@ const handleSend = async () => {
                       {isCurryMsg ? (
                         <MessageBubble msg={msg} isMe={false} isRead={false} isDelivered={false} />
                       ) : (
-                        <ReactableMessage
-                          messageId={msg.id}
-                          currentUserId={userId}
-                          isMe={isMine}
-                        >
+                       <ReactableMessage
+  messageId={msg.id}
+  currentUserId={userId}
+  isMe={isMine}
+  conversationId={activeConvo.id}
+>
                          <MessageBubble
                             msg={{ ...msg, _currentUserId: userId, _quotedMessage: msg.reply_to_message_id ? findMessageById(msg.reply_to_message_id) : null }}
                             isMe={isMine}
