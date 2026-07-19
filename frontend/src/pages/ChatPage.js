@@ -556,18 +556,20 @@ useEffect(() => {
     const status = params.get('email_connect')
     if (!status) return
 
-    if (status === 'success') {
+  if (status === 'success') {
       const email = params.get('email')
+      playSound('spark')
       alert(`Gmail connected${email ? `: ${email}` : ''} ✓\n\nCurry can now send real emails from this account when you ask it to.`)
       loadEmailAccounts()
     } else if (status === 'denied') {
       alert('Gmail connection was cancelled.')
     } else if (status === 'expired') {
+      playSound('warning')
       alert('That connection attempt expired — please try "Connect Gmail" again.')
     } else {
+      playSound('warning')
       alert('Could not connect Gmail. Please try again.')
     }
-
     params.delete('email_connect')
     params.delete('email')
     const cleanUrl = window.location.pathname + (params.toString() ? `?${params}` : '')
@@ -581,10 +583,12 @@ useEffect(() => {
   if (status === 'success') {
     // No alert here — the picker modal (if open) will detect the
     // connection itself and move to the board-picker step.
+    playSound('spark')
     window.dispatchEvent(new CustomEvent('pinterest-connected'))
   } else if (status === 'denied') {
     alert('Pinterest connection was cancelled.')
   } else {
+    playSound('warning')
     alert('Could not connect Pinterest. Please try again.')
   }
 
@@ -597,14 +601,17 @@ useEffect(() => {
     const status = params.get('spotify_connect')
     if (!status) return
  
-    if (status === 'success') {
+   if (status === 'success') {
       const product = params.get('product')
+      playSound('spark')
       alert(`Spotify connected ✓${product === 'free' ? '\n\nFree accounts get 30-second previews — full playback needs Spotify Premium.' : ''}`)
     } else if (status === 'denied') {
       alert('Spotify connection was cancelled.')
     } else if (status === 'expired') {
+      playSound('warning')
       alert('That connection attempt expired — please try "Connect Spotify" again.')
     } else {
+      playSound('warning')
       alert('Could not connect Spotify. Please try again.')
     }
  
@@ -627,18 +634,20 @@ useEffect(() => {
   const status = params.get('instagram_connect')
   if (!status) return
  
-  if (status === 'success') {
+if (status === 'success') {
     const username = params.get('username')
+    playSound('spark')
     alert(`Instagram connected${username ? `: @${username}` : ''} ✓`)
      igQuick.refreshStatus()
-    // while already open, in which case:
     window.dispatchEvent(new CustomEvent('instagram-connected'))
     
   } else if (status === 'denied') {
     alert('Instagram connection was cancelled.')
   } else if (status === 'expired') {
+    playSound('warning')
     alert('That connection attempt expired — please try "Connect Instagram" again.')
   } else {
+    playSound('warning')
     alert('Could not connect Instagram. Please try again.')
   }
  
@@ -713,8 +722,9 @@ useEffect(() => {
 
     try {
       await hideConversationForUser(userId, convoId)
-    } catch (err) {
+   } catch (err) {
       console.error('deleteConversation (hide) failed:', err)
+      playSound('warning')
       alert(`Could not delete this conversation: ${err.message}`)
       return
     }
@@ -758,7 +768,7 @@ useEffect(() => {
       const found = conversations.find(c => c.id === convoId)
       if (found) setActiveConvo(found)
       setShowNewChat(false); setNewContact('')
-    } catch (err) { alert(err.message) }
+   } catch (err) { playSound('warning'); alert(err.message) }
   }
 
   // Explicitly bumps a conversation's updated_at/last_message from the
@@ -847,12 +857,14 @@ const handleSend = async () => {
         const question = text.slice(match[0].length).trim() || text
         try {
           const data = await callCurryAI('chat_ask', { conversationId: activeConvo.id, question }, session)
-          if (!data.ok && data.reason === 'no_consent') {
+    if (!data.ok && data.reason === 'no_consent') {
+            playSound('warning')
             alert("Curry isn't turned on for this chat yet — both people need to enable it first (✨ icon → Invite Curry into this chat).")
             await sendMessage(text)
             bumpConversationActivity(text)
           }
         } catch (err) {
+          playSound('warning')
           alert('Curry could not respond right now. Please try again.')
         }
         setCurryChatBusy(false)
@@ -882,9 +894,10 @@ const handleSend = async () => {
 
   const handleKeyDown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }
 
-  const handleShare = () => {
+ const handleShare = () => {
     const link = `https://mattchat-nine.vercel.app/email/${profile?.username || ''}`
     navigator.clipboard.writeText(link)
+    playSound('spark')
     alert('Contact link copied!')
   }
 
