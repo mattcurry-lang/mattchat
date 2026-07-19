@@ -1,97 +1,98 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
-const OFFLINE_GRACE_MS = 5000
-const HEARTBEAT_MS = 25000
+const HEARTBEAT_MS = 20000   // how often we write our own last_seen
+const POLL_MS = 15000        // how often we refresh everyone else's last_seen
+const ONLINE_THRESHOLD_MS = 45000 // last_seen within this window = "online"
 
+/**
+ * Heartbeat-based presence — deliberately NOT using Supabase's Presence
+ * API. After extensive testing, Presence's sync/join/leave events were
+ * silently withheld by this project's Realtime Authorization layer even
+ * though subscribe()/track() both reported success — a server-side
+ * config issue we couldn't resolve without deeper Realtime
+ * Authorization setup. This is a simpler, more reliable substitute:
+ *
+ *   - Every HEARTBEAT_MS, write your own `last_seen = now()` to profiles.
+ *   - Every POLL_MS, re-fetch last_seen for everyone you might need to
+ *     check ("known" ids — accumulated from every isOnline() call).
+ *   - Someone is "online" if their last_seen is within
+ *     ONLINE_THRESHOLD_MS. No presence channel, no join/leave, no
+ *     private-channel auth — just a plain column write/read, which has
+ *     been reliable all session where Presence was not.
+ *
+ * Same external interface as before: usePresence(myUserId) returns an
+ * isOnline(userId) function — no changes needed anywhere else in the
+ * app that already calls it.
+ */
 export function usePresence(myUserId) {
-  const [onlineIds, setOnlineIds] = useState(new Set())
-  const offlineTimers = useRef({})
+  const [lastSeenMap, setLastSeenMap] = useState({}) // { [userId]: isoString }
+  const knownIds = useRef(new Set())
 
-  // Lets you check the live state from the console at any time:
-  //   [...window.__presenceOnline]
-  useEffect(() => {
-    window.__presenceOnline = onlineIds
-  }, [onlineIds])
-
-
+  // ── Heartbeat: write our own last_seen ──
   useEffect(() => {
     if (!myUserId) return
-    let channel, heartbeat, retryTimeout
-    let stopped = false
 
-    console.log('[presence] mounting for user', myUserId)
-
-    const clearOfflineTimer = (id) => {
-      if (offlineTimers.current[id]) {
-        clearTimeout(offlineTimers.current[id])
-        delete offlineTimers.current[id]
-      }
+    const beat = () => {
+      supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', myUserId)
+        .then(({ error }) => { if (error) console.error('[presence] heartbeat write failed:', error) })
     }
 
-    const scheduleOffline = (id) => {
-      if (offlineTimers.current[id]) return
-      offlineTimers.current[id] = setTimeout(() => {
-        console.log('[presence] marking OFFLINE after grace period:', id)
-        setOnlineIds(prev => {
-          const next = new Set(prev)
-          next.delete(id)
-          return next
-        })
-        delete offlineTimers.current[id]
-      }, OFFLINE_GRACE_MS)
-    }
+    beat() // immediately on mount, don't wait for the first interval
+    const interval = setInterval(beat, HEARTBEAT_MS)
 
-    const connect = () => {
- channel = supabase.channel('online-users', {
-  config: { presence: { key: myUserId } },
-})
-      channel
-        .on('presence', { event: 'sync' }, () => {
-          const state = channel.presenceState()
-          const nowOnline = new Set(Object.keys(state))
-          console.log('[presence] SYNC event. Raw state:', state, '-> online keys:', [...nowOnline])
-          nowOnline.forEach(clearOfflineTimer)
-          setOnlineIds(prev => new Set([...prev, ...nowOnline]))
-        })
-        .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-          console.log('[presence] JOIN event, key:', key, newPresences)
-          clearOfflineTimer(key)
-          setOnlineIds(prev => new Set([...prev, key]))
-        })
-        .on('presence', { event: 'leave' }, ({ key }) => {
-          console.log('[presence] LEAVE event, key:', key)
-          scheduleOffline(key)
-        })
-        .subscribe(async (status, err) => {
-          console.log('[presence] subscribe status:', status, err || '')
-          if (status === 'SUBSCRIBED') {
-            const trackResult = await channel.track({ online_at: new Date().toISOString() })
-            console.log('[presence] track() result:', trackResult, 'for key', myUserId)
-            heartbeat = setInterval(() => {
-              channel.track({ online_at: new Date().toISOString() })
-            }, HEARTBEAT_MS)
-          }
-          if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status) && !stopped) {
-            console.log('[presence] connection problem, status:', status, '- reconnecting in 2s')
-            clearInterval(heartbeat)
-            supabase.removeChannel(channel)
-            retryTimeout = setTimeout(connect, 2000)
-          }
-        })
-    }
-
-    connect()
+    // Also beat when the tab regains focus/visibility — makes "coming
+    // back from background" reflect faster than waiting for the next
+    // scheduled interval.
+    const onVisible = () => { if (document.visibilityState === 'visible') beat() }
+    document.addEventListener('visibilitychange', onVisible)
 
     return () => {
-      stopped = true
-      clearInterval(heartbeat)
-      clearTimeout(retryTimeout)
-      Object.values(offlineTimers.current).forEach(clearTimeout)
-      offlineTimers.current = {}
-      if (channel) { channel.untrack(); supabase.removeChannel(channel) }
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
     }
   }, [myUserId])
 
-  return (userId) => onlineIds.has(userId)
+  // ── Poll: refresh last_seen for every id we've been asked about ──
+  const pollKnownIds = useCallback(() => {
+    const ids = [...knownIds.current]
+    if (ids.length === 0) return
+    supabase.from('profiles').select('id, last_seen').in('id', ids)
+      .then(({ data, error }) => {
+        if (error) { console.error('[presence] poll failed:', error); return }
+        setLastSeenMap((prev) => {
+          const next = { ...prev }
+          ;(data || []).forEach((row) => { next[row.id] = row.last_seen })
+          return next
+        })
+      })
+  }, [])
+
+  useEffect(() => {
+    if (!myUserId) return
+    const interval = setInterval(pollKnownIds, POLL_MS)
+    return () => clearInterval(interval)
+  }, [myUserId, pollKnownIds])
+
+  // isOnline(userId) — registers the id for future polling (so anyone
+  // ChatPage asks about gets picked up automatically) and returns
+  // whether their last known heartbeat is recent enough.
+  const isOnline = useCallback((userId) => {
+    if (!userId) return false
+    if (!knownIds.current.has(userId)) {
+      knownIds.current.add(userId)
+      // Fetch this one immediately rather than waiting for the next
+      // scheduled poll, so a newly-viewed conversation doesn't show
+      // "offline" for up to POLL_MS before its first real check.
+      supabase.from('profiles').select('id, last_seen').eq('id', userId).maybeSingle()
+        .then(({ data }) => {
+          if (data) setLastSeenMap((prev) => ({ ...prev, [data.id]: data.last_seen }))
+        })
+    }
+    const lastSeen = lastSeenMap[userId]
+    if (!lastSeen) return false
+    return Date.now() - new Date(lastSeen).getTime() < ONLINE_THRESHOLD_MS
+  }, [lastSeenMap])
+
+  return isOnline
 }
