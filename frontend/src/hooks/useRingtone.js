@@ -1,26 +1,27 @@
 import { useEffect, useRef } from 'react'
-// Generates two distinct tones with the Web Audio API — no audio file needed.
-//
+
 // mode='ringback' — what the CALLER hears while the other person's phone
-// is ringing. Classic dual-tone (440Hz+480Hz), slow steady cadence
-// (2s on / 4s off), same as a US ringback tone.
+// is ringing. Synthesized dual-tone (440Hz+480Hz), 2s on / 4s off,
+// same as a classic US ringback tone. Unchanged.
 //
-// mode='ringtone' — what the RECEIVER hears for an incoming call. Higher,
-// brighter double-chirp pattern so the two are never confused for each
-// other even with your eyes closed.
+// mode='ringtone' — what the RECEIVER hears for an incoming call.
+// Plays the real Mattchat ringtone (public/sounds/ringtone.wav), which
+// is already a seamless 4-second loop, so looping it just works.
 //
 // Usage: useRingtone(isRinging, mode) — stops automatically when
-// isRinging goes false.
+// isRinging goes false, or when the component unmounts.
 export function useRingtone(isRinging, mode = 'ringback') {
   const audioCtxRef = useRef(null)
   const timeoutsRef = useRef([])
   const stoppedRef = useRef(true)
+  const ringtoneElRef = useRef(null)
 
   useEffect(() => {
     function clearAllTimeouts() {
       timeoutsRef.current.forEach(clearTimeout)
       timeoutsRef.current = []
     }
+
     function stopRing() {
       stoppedRef.current = true
       clearAllTimeouts()
@@ -28,12 +29,33 @@ export function useRingtone(isRinging, mode = 'ringback') {
         audioCtxRef.current.close().catch(() => {})
         audioCtxRef.current = null
       }
+      if (ringtoneElRef.current) {
+        ringtoneElRef.current.pause()
+        ringtoneElRef.current.currentTime = 0
+        ringtoneElRef.current = null
+      }
     }
+
     if (!isRinging) {
       stopRing()
       return
     }
 
+    stoppedRef.current = false
+
+    // --- Receiver: play the real ringtone file, looped ---
+    if (mode === 'ringtone') {
+      const el = new Audio('/sounds/ringtone.wav')
+      el.loop = true
+      el.volume = 0.85
+      ringtoneElRef.current = el
+      el.play().catch(() => {
+        console.warn('Mattchat: ringtone playback blocked — page needs a user gesture to unlock audio first.')
+      })
+      return stopRing
+    }
+
+    // --- Caller: synthesized dual-tone ringback (unchanged) ---
     let ctx
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext
@@ -42,7 +64,6 @@ export function useRingtone(isRinging, mode = 'ringback') {
     } catch (e) {
       return
     }
-    stoppedRef.current = false
 
     function playTone(freq1, freq2, start, dur, peakGain = 0.15) {
       const osc1 = ctx.createOscillator()
@@ -72,20 +93,7 @@ export function useRingtone(isRinging, mode = 'ringback') {
       timeoutsRef.current.push(t)
     }
 
-    function ringtoneBurst() {
-      if (stoppedRef.current) return
-      const now = ctx.currentTime
-      // Two short bright chirps back to back, then a pause —
-      // deliberately busier/higher than the ringback tone.
-      playTone(830, 1046, now, 0.4)
-      playTone(830, 1046, now + 0.55, 0.4)
-      const t = setTimeout(ringtoneBurst, 2500)
-      timeoutsRef.current.push(t)
-    }
-
-    if (mode === 'ringtone') ringtoneBurst()
-    else ringbackBurst()
-
+    ringbackBurst()
     return stopRing
   }, [isRinging, mode])
 }
