@@ -1782,9 +1782,16 @@ const handleSend = async () => {
               </div>
             </div>
 
-            {showScheduler && (
-              <ScheduleMessageModal conversationId={activeConvo.id} senderId={userId}
-                onClose={(success) => { setShowScheduler(false); if (success) { playSound('spark'); alert('Message scheduled ✓'); setHasScheduled(true) } }}
+      {showScheduler && (
+              <ScheduleMessageModal
+                conversationId={activeConvo.id}
+                senderId={userId}
+                onClose={(success) => {
+                  setShowScheduler(false)
+                  if (success) { playSound('spark'); alert('Message scheduled ✓'); setHasScheduled(true) }
+                }}
+              />
+            )}
             {showScheduledList && (
               <ScheduledMessagesList conversationId={activeConvo.id} currentUserId={userId} onClose={() => setShowScheduledList(false)} />
             )}
