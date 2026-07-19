@@ -8,12 +8,33 @@ import ResetPasswordPage from './pages/ResetPasswordPage'
 import MfaChallengePage from './pages/MfaChallengePage'
 import './App.css'
 import Privacy from './pages/Privacy'
-
 export default function App() {
   const [session, setSession] = useState(undefined)
   const [isRecovery, setIsRecovery] = useState(false)
   const [needsMfa, setNeedsMfa] = useState(false)
   const [aalChecked, setAalChecked] = useState(false)
+
+  // Browsers block audio until the user has interacted with the page at
+  // least once. This primes a silent play+pause on the very first
+  // click/tap anywhere in the app so later programmatic playback
+  // (notification ping, incoming-call ringtone) isn't blocked.
+  useEffect(() => {
+    const unlockAudio = () => {
+      try {
+        const el = new Audio('/sounds/notification.wav')
+        el.volume = 0
+        el.play().then(() => {
+          el.pause()
+          el.currentTime = 0
+        }).catch(() => {})
+      } catch (e) {
+        // ignore — worst case, first sound is silently blocked and
+        // subsequent ones work once a gesture does succeed
+      }
+    }
+    window.addEventListener('pointerdown', unlockAudio, { once: true })
+    return () => window.removeEventListener('pointerdown', unlockAudio)
+  }, [])
 
   // A signed-in session from Supabase can still be "aal1" even when the
   // account has a verified 2FA factor — Supabase issues the session
@@ -28,13 +49,11 @@ export default function App() {
     }
     setAalChecked(true)
   }
-
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       if (session) checkAal(); else setAalChecked(true)
     })
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       // Supabase fires this specific event when the session came from a
       // password-reset link — NOT from a normal sign-in. We latch this
@@ -48,10 +67,8 @@ export default function App() {
       setAalChecked(false)
       if (session) checkAal(); else setAalChecked(true)
     })
-
     return () => subscription.unsubscribe()
   }, [])
-
   if (session === undefined || !aalChecked) {
     return (
       <div className="splash">
@@ -59,16 +76,13 @@ export default function App() {
       </div>
     )
   }
-
   return (
     <BrowserRouter>
       <Routes>
         {/* Public email contact form — no login needed */}
        <Route path="/email/:username" element={<EmailFormPage />} />
   <Route path="/privacy" element={<Privacy />} />
-
         <Route path="/auth" element={!session ? <AuthPage /> : <Navigate to="/" />} />
-
         {/* Recovery session takes priority over the normal session check —
             otherwise a recovery session (which IS a real session) would
             fall through to ChatPage instead of letting them set a new password. */}
@@ -80,7 +94,6 @@ export default function App() {
               : <Navigate to={session ? '/' : '/auth'} />
           }
         />
-
         <Route
           path="/*"
           element={
