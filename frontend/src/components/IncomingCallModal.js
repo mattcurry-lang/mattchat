@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { IconPhone, IconMic, IconBluetooth } from './Icons'
-import { useRingtone } from './hooks/useRingtone' 
+import { useRingtone } from '../hooks/useRingtone' 
 
 export default function IncomingCallModal({ callerName, callType, onAnswer, onDecline }) {
   const [dots, setDots] = useState('.')
