@@ -9,7 +9,36 @@ const ALL_REACTION_EMOJIS = [
   '👏','🫡','💪','🤝','😏','🥺','😴','🤔','🫠','⚡',
 ]
 
-export function useReactions(messageId, currentUserId) {
+// One shared channel per conversation instead of one per message — the
+// old version opened a brand-new realtime subscription for every
+// message rendered on screen, which was silently exhausting Supabase's
+// concurrent-connection limit and causing presence/messages/reads to
+// randomly disconnect across the whole app. This version subscribes
+// once per conversation and fans events out locally by message_id.
+
+const reactionListeners = new Map() // conversationId -> Set of {messageId, callback}
+const reactionChannels = new Map()  // conversationId -> supabase channel
+
+function ensureReactionChannel(conversationId) {
+  if (reactionChannels.has(conversationId)) return
+  const channel = supabase
+    .channel(`reactions:convo:${conversationId}`)
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'message_reactions',
+    }, (payload) => {
+      const messageId = payload.new?.message_id || payload.old?.message_id
+      if (!messageId) return
+      const listeners = reactionListeners.get(conversationId)
+      if (!listeners) return
+      listeners.forEach((entry) => {
+        if (entry.messageId === messageId) entry.callback()
+      })
+    })
+    .subscribe()
+  reactionChannels.set(conversationId, channel)
+}
+
+export function useReactions(messageId, currentUserId, conversationId) {
   const [reactions, setReactions] = useState([])
 
   const load = useCallback(async () => {
@@ -31,15 +60,21 @@ export function useReactions(messageId, currentUserId) {
 
   useEffect(() => {
     load()
-    const channel = supabase
-      .channel(`reactions:${messageId}`)
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'message_reactions',
-        filter: `message_id=eq.${messageId}`,
-      }, load)
-      .subscribe()
-    return () => supabase.removeChannel(channel)
-  }, [messageId, load])
+    if (!conversationId) return
+
+    ensureReactionChannel(conversationId)
+    if (!reactionListeners.has(conversationId)) reactionListeners.set(conversationId, new Set())
+    const entry = { messageId, callback: load }
+    reactionListeners.get(conversationId).add(entry)
+
+    return () => {
+      reactionListeners.get(conversationId)?.delete(entry)
+      // Note: intentionally NOT tearing down the shared channel here —
+      // other messages in this conversation may still be listening on
+      // it. It gets cleaned up naturally when the whole conversation
+      // unmounts (see removeReactionChannel below, called from ChatPage).
+    }
+  }, [messageId, conversationId, load])
 
   const toggleReaction = useCallback(async (emoji) => {
     const existing = reactions.find(r => r.emoji === emoji && r.iMine)
@@ -53,6 +88,15 @@ export function useReactions(messageId, currentUserId) {
   }, [messageId, currentUserId, reactions, load])
 
   return { reactions, toggleReaction }
+}
+
+export function removeReactionChannel(conversationId) {
+  const channel = reactionChannels.get(conversationId)
+  if (channel) {
+    supabase.removeChannel(channel)
+    reactionChannels.delete(conversationId)
+    reactionListeners.delete(conversationId)
+  }
 }
 
 // Quick bar that appears on hover
@@ -159,12 +203,12 @@ function FullReactionPicker({ onSelect, onClose, isMe }) {
 }
 
 // Main wrapper
-export function ReactableMessage({ messageId, currentUserId, isMe, children }) {
+export function ReactableMessage({ messageId, currentUserId, isMe, conversationId, children }) {
   const [hovered, setHovered]       = useState(false)
   const [showBar, setShowBar]       = useState(false)
   const [showPicker, setShowPicker] = useState(false)
   const hoverTimer = useRef(null)
-  const { reactions, toggleReaction } = useReactions(messageId, currentUserId)
+  const { reactions, toggleReaction } = useReactions(messageId, currentUserId, conversationId)
 
   const handleMouseEnter = () => {
     clearTimeout(hoverTimer.current)
