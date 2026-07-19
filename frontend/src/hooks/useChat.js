@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase, getMessages, sendMessage as sendMsg } from '../lib/supabase'
+import { playSound } from '../lib/mattchatSounds'
 
 export function useChat(conversationId, currentUserId) {
   const [messages, setMessages] = useState([])
@@ -28,7 +29,7 @@ export function useChat(conversationId, currentUserId) {
     // Real-time subscription
     const channel = supabase
       .channel(`conversation:${conversationId}`)
-      .on('postgres_changes', {
+     .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'messages',
@@ -40,6 +41,10 @@ export function useChat(conversationId, currentUserId) {
           .eq('id', payload.new.id)
           .single()
         if (!msgWithProfile) return
+
+        if (msgWithProfile.sender_id !== currentUserId) {
+          playSound('pulse')
+        }
 
         setMessages(prev => {
           // If this is a message WE sent, it was almost certainly already
