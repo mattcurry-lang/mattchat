@@ -666,7 +666,9 @@ useEffect(() => {
 }, [messages])
 useEffect(() => {
   if (!messages.length) { setHiddenMsgIds(new Set()); return }
-  getHiddenMessageIds(userId, messages.map(m => m.id)).then(setHiddenMsgIds)
+  const realIds = messages.filter(m => !m._optimistic).map(m => m.id)
+  if (!realIds.length) return
+  getHiddenMessageIds(userId, realIds).then(setHiddenMsgIds)
 }, [messages, userId])
   
   useEffect(() => { if (activeConvo) window.history.pushState({ chatOpen: true }, '') }, [activeConvo])
