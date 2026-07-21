@@ -41,8 +41,8 @@ function ensureReactionChannel(conversationId) {
 export function useReactions(messageId, currentUserId, conversationId) {
   const [reactions, setReactions] = useState([])
 
-  const load = useCallback(async () => {
-    if (!messageId) return
+ const load = useCallback(async () => {
+    if (!messageId || messageId.startsWith?.('temp-')) return
     const { data } = await supabase
       .from('message_reactions')
       .select('emoji, user_id')
