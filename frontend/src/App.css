@@ -1487,3 +1487,15 @@ button.email-badge { cursor: pointer; display: inline-flex; align-items: center;
 .reply-preview-name { font-size: 12px; font-weight: 700; color: var(--brand-light); }
 .reply-preview-text { font-size: 12.5px; color: var(--dark-text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .reply-preview-close { background: none; border: none; color: var(--dark-text-3); font-size: 14px; cursor: pointer; padding: 4px; }
+
+.field input[type="password"]::-ms-reveal,
+.field input[type="password"]::-ms-clear {
+  display: none;
+}
+.field input[type="password"]::-webkit-credentials-auto-fill-button,
+.field input[type="password"]::-webkit-strong-password-auto-fill-button {
+  visibility: hidden;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+}
