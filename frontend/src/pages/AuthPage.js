@@ -73,12 +73,11 @@ function FeatureIconPulse() {
 }
 
 const FEATURES = [
-  { Icon: FeatureIconMemory, bg: 'linear-gradient(135deg, rgba(167,139,250,0.22), rgba(244,114,182,0.18))', text: 'Curry remembers every chat you share — ask "what did I promise Lainey?" weeks later and get a real answer' },
-  { Icon: FeatureIconRadar, bg: 'linear-gradient(135deg, rgba(56,189,248,0.22), rgba(108,99,255,0.18))', text: 'Live mood radar and relationship scores — know how a conversation is actually going before you reply' },
-  { Icon: FeatureIconMail, bg: 'linear-gradient(135deg, rgba(251,191,36,0.22), rgba(244,114,182,0.18))', text: 'Curry sends real emails from your own Gmail — draft, confirm, done, without leaving the chat' },
-  { Icon: FeatureIconPulse, bg: 'linear-gradient(135deg, rgba(52,211,153,0.22), rgba(56,189,248,0.18))', text: "Reconnect nudges that notice when you've gone quiet with someone who matters" },
+  { Icon: FeatureIconMemory, bg: 'linear-gradient(135deg, rgba(167,139,250,0.22), rgba(244,114,182,0.18))', text: 'Curry never forgets a conversation' },
+  { Icon: FeatureIconRadar, bg: 'linear-gradient(135deg, rgba(56,189,248,0.22), rgba(108,99,255,0.18))', text: 'Know the mood before you reply' },
+  { Icon: FeatureIconMail, bg: 'linear-gradient(135deg, rgba(251,191,36,0.22), rgba(244,114,182,0.18))', text: 'Real emails, sent from the chat' },
+  { Icon: FeatureIconPulse, bg: 'linear-gradient(135deg, rgba(52,211,153,0.22), rgba(56,189,248,0.18))', text: 'Nudges you before you drift apart' },
 ]
-
 export default function AuthPage() {
   const [mode, setMode]               = useState('login') // 'login' | 'signup' | 'reset'
   const [email, setEmail]             = useState('')
