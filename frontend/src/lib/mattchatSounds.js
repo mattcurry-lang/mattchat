@@ -93,9 +93,8 @@ const SOUND_BUILDERS = {
 // Sounds backed by the studio-designed WAV files in public/sounds/,
 // rather than synthesized live. Reuses one <audio> element per sound
 // so rapid repeats (e.g. a burst of incoming messages) restart cleanly
-// instead of overlapping or queuing.
 const FILE_SOUNDS = {
-  pulse: '/sounds/notification.wav', // incoming message
+  pulse: '/sounds/pulse.mp3', // incoming message
 }
 const fileAudioCache = {}
 
