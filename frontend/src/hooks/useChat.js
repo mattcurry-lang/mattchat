@@ -8,9 +8,11 @@ export function useChat(conversationId, currentUserId) {
   const [typing, setTyping] = useState([])
   const [isEmailConvo, setIsEmailConvo] = useState(false)
   const channelRef = useRef(null)
+  const typingRowActive = useRef(false) // whether we currently own a typing_status row for this convo
 
   useEffect(() => {
     if (!conversationId) return
+    typingRowActive.current = false
 
     setLoading(true)
     getMessages(conversationId).then(data => {
@@ -93,36 +95,19 @@ export function useChat(conversationId, currentUserId) {
     channelRef.current = channel
 
     return () => {
+      // Don't leave a stale "typing" row behind if we unmount/switch
+      // conversations mid-keystroke.
+      if (typingRowActive.current && currentUserId) {
+        typingRowActive.current = false
+        supabase.from('typing_status')
+          .delete()
+          .eq('conversation_id', conversationId)
+          .eq('user_id', currentUserId)
+          .then(({ error }) => { if (error) console.error('[useChat] typing_status cleanup failed:', error) })
+      }
       supabase.removeChannel(channel)
     }
   }, [conversationId, currentUserId])
-
-   const broadcastTyping = useCallback((isTyping) => {
-    channelRef.current?.send({
-      type: 'broadcast',
-      event: 'typing',
-      payload: { user_id: currentUserId, is_typing: isTyping }
-    })
-
-    if (!conversationId || !currentUserId) return
-
-    if (isTyping && !typingRowActive.current) {
-      typingRowActive.current = true
-      supabase.from('typing_status')
-        .upsert({ conversation_id: conversationId, user_id: currentUserId, updated_at: new Date().toISOString() })
-        .then(({ error }) => { if (error) console.error('[useChat] typing_status upsert failed:', error) })
-    } else if (!isTyping && typingRowActive.current) {
-      typingRowActive.current = false
-      supabase.from('typing_status')
-        .delete()
-        .eq('conversation_id', conversationId)
-        .eq('user_id', currentUserId)
-        .then(({ error }) => { if (error) console.error('[useChat] typing_status delete failed:', error) })
-    }
-  }, [currentUserId, conversationId])
-
-  return { messages, loading, typing, sendMessage, broadcastTyping }
-}
 
   // Optimistic send: the bubble goes into `messages` state IMMEDIATELY,
   // tagged `_optimistic: true` with a temporary id, before the DB write
@@ -169,13 +154,34 @@ export function useChat(conversationId, currentUserId) {
     }
   }, [conversationId, currentUserId, isEmailConvo])
 
+  // Broadcasts typing for the in-chat indicator (unchanged, low-latency),
+  // AND writes/clears a typing_status row for the conversation-list
+  // indicator. The DB write only fires on state transitions
+  // (false→true, true→false), not on every keystroke, so it stays cheap
+  // even with a fast typist.
   const broadcastTyping = useCallback((isTyping) => {
     channelRef.current?.send({
       type: 'broadcast',
       event: 'typing',
       payload: { user_id: currentUserId, is_typing: isTyping }
     })
-  }, [currentUserId])
+
+    if (!conversationId || !currentUserId) return
+
+    if (isTyping && !typingRowActive.current) {
+      typingRowActive.current = true
+      supabase.from('typing_status')
+        .upsert({ conversation_id: conversationId, user_id: currentUserId, updated_at: new Date().toISOString() })
+        .then(({ error }) => { if (error) console.error('[useChat] typing_status upsert failed:', error) })
+    } else if (!isTyping && typingRowActive.current) {
+      typingRowActive.current = false
+      supabase.from('typing_status')
+        .delete()
+        .eq('conversation_id', conversationId)
+        .eq('user_id', currentUserId)
+        .then(({ error }) => { if (error) console.error('[useChat] typing_status delete failed:', error) })
+    }
+  }, [currentUserId, conversationId])
 
   return { messages, loading, typing, sendMessage, broadcastTyping }
 }
