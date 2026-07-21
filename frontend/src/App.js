@@ -19,7 +19,7 @@ export default function App() {
   // least once. This primes a silent play+pause on the very first
   // click/tap anywhere in the app so later programmatic playback
   // (notification ping, incoming-call ringtone) isn't blocked.
- useEffect(() => {
+useEffect(() => {
     window.addEventListener('pointerdown', unlockFileAudio, { once: true })
     return () => window.removeEventListener('pointerdown', unlockFileAudio)
   }, [])
