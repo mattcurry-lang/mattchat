@@ -63,6 +63,8 @@ import InstagramView from '../components/ConnectedApps/InstagramView'
 import PulsePage from '../components/Pulse/PulsePage'
 import { playSound } from '../lib/mattchatSounds'
 import { removeReactionChannel } from '../components/MessageReactions'
+import { useTypingStatus } from '../hooks/useTypingStatus'
+import { useConversationListState } from '../hooks/useConversationListState'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -455,6 +457,18 @@ const { isOnline, getLastSeenLabel } = usePresence(userId)
     userId,
     conversations.map(c => c.id)
   )
+
+  const typingMap = useTypingStatus(userId, conversations.map(c => c.id))
+const listState = useConversationListState({
+  conversations,
+  unreadCounts,
+  typingMap,
+  isOnline,
+  getLastSeenLabel,
+  getOtherUserId,
+  currentUserId: userId,
+  openConvoId: activeConvo?.id,
+})
   useGlobalDelivery(userId, conversations.map(c => c.id))
   const { messages, loading: msgLoading, typing, sendMessage, broadcastTyping } = useChat(
     activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
@@ -1153,58 +1167,63 @@ const handleSend = async () => {
                 )}
 
                 {convLoading && <div className="loading-state">Loading…</div>}
-
-                {filtered.map(c => {
-                  const otherId = getOtherUserId(c, userId)
-                  const online  = otherId ? isOnline(otherId) : false
-                  const unread  = unreadCounts[c.id] || 0
-                  return (
-                    <div key={c.id} className={`contact ${activeConvo?.id === c.id ? 'active' : ''}`} onClick={() => openConvo(c)}>
-                      <div className="contact-avatar-wrap">
-                        <Avatar name={getConvoName(c)} online={online} size={46} photoUrl={getOtherUserAvatar(c, userId)} />
-                        {unread > 0 && <span className="unread-badge">{unread > 9 ? '9+' : unread}</span>}
-                        {sharedConvoIds.has(c.id) && (
-                          <span className="shared-badge" title="Shared with Curry">
-                            <IconSparkle size={9} />
-                          </span>
-                        )}
-                      </div>
-                      <div className="contact-info">
-                        <div className={`contact-name ${unread > 0 ? 'unread' : ''}`}>{getConvoName(c)}</div>
-                        {unread > 0 ? (
-                          <SmartReplyPreview
-                            session={session}
-                            convo={c}
-                            entry={smartReplyCache[c.id]}
-                            onFetch={fetchSuggestion}
-                            onSend={(text) => quickSendReply(c, text)}
-                            fallbackText={c.last_message}
-                          />
-                        ) : (
-  <div className="contact-preview">
-  {c.last_message?.startsWith('status_reply:') ? (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-      <IconStatus size={11} /> Replied to a status
-    </span>
-  ) : c.last_message?.startsWith('gif:') ? (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-      <IconFilm size={11} /> GIF
-    </span>
-  ) : (c.last_message?.startsWith('call_log:') || c.last_message?.startsWith('missed_call:')) ? (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-      <IconPhone size={11} /> Call
-    </span>
-  ) : getMessagePreview(c.last_message)}
-</div>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                        <div className="contact-time">{c.updated_at ? formatMsgTime(c.updated_at) : ''}</div>
-                        <button className="delete-chat-btn" onClick={e => { e.stopPropagation(); deleteConversation(c.id) }}>🗑️</button>
-                      </div>
-                    </div>
-                  )
-                })}
+{filtered.map(c => {
+  const otherId = getOtherUserId(c, userId)
+  const state = listState[c.id]
+  const unread = state?.unreadMessageCount || 0
+  return (
+    <div key={c.id} className={`contact ${activeConvo?.id === c.id ? 'active' : ''}`} onClick={() => openConvo(c)}>
+      <div className="contact-avatar-wrap">
+        <Avatar name={getConvoName(c)} online={state?.onlineStatus} size={46} photoUrl={getOtherUserAvatar(c, userId)} />
+        {unread > 0 && <span className="unread-badge">{unread > 9 ? '9+' : unread}</span>}
+        {sharedConvoIds.has(c.id) && (
+          <span className="shared-badge" title="Shared with Curry">
+            <IconSparkle size={9} />
+          </span>
+        )}
+      </div>
+      <div className="contact-info">
+        <div className={`contact-name ${unread > 0 ? 'unread' : ''}`}>{getConvoName(c)}</div>
+        <div className="contact-preview-swap" key={state?.previewKind}>
+          {state?.isTyping ? (
+            <span className="typing-preview">typing…</span>
+          ) : unread > 1 ? (
+            <span className="unread-count-preview">{unread} new messages</span>
+          ) : unread === 1 ? (
+            <SmartReplyPreview
+              session={session}
+              convo={c}
+              entry={smartReplyCache[c.id]}
+              onFetch={fetchSuggestion}
+              onSend={(text) => quickSendReply(c, text)}
+              fallbackText={c.last_message}
+            />
+          ) : (
+            <div className="contact-preview">
+              {c.last_message?.startsWith('status_reply:') ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <IconStatus size={11} /> Replied to a status
+                </span>
+              ) : c.last_message?.startsWith('gif:') ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <IconFilm size={11} /> GIF
+                </span>
+              ) : (c.last_message?.startsWith('call_log:') || c.last_message?.startsWith('missed_call:')) ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <IconPhone size={11} /> Call
+                </span>
+              ) : getMessagePreview(c.last_message)}
+            </div>
+          )}
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+        <div className="contact-time">{c.updated_at ? formatMsgTime(c.updated_at) : ''}</div>
+        <button className="delete-chat-btn" onClick={e => { e.stopPropagation(); deleteConversation(c.id) }}>🗑️</button>
+      </div>
+    </div>
+  )
+})}
 
                 {!convLoading && filtered.length === 0 && (
                   <div className="empty-state">
