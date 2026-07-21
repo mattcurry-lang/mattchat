@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { formatDistanceToNow, isToday, isYesterday, format } from 'date-fns'
 
 const HEARTBEAT_MS = 20000   // how often we write our own last_seen
 const POLL_MS = 15000        // how often we refresh everyone else's last_seen
@@ -9,21 +10,19 @@ const ONLINE_THRESHOLD_MS = 45000 // last_seen within this window = "online"
  * Heartbeat-based presence — deliberately NOT using Supabase's Presence
  * API. After extensive testing, Presence's sync/join/leave events were
  * silently withheld by this project's Realtime Authorization layer even
- * though subscribe()/track() both reported success — a server-side
- * config issue we couldn't resolve without deeper Realtime
- * Authorization setup. This is a simpler, more reliable substitute:
+ * though subscribe()/track() both reported success. This is a simpler,
+ * more reliable substitute:
  *
  *   - Every HEARTBEAT_MS, write your own `last_seen = now()` to profiles.
  *   - Every POLL_MS, re-fetch last_seen for everyone you might need to
- *     check ("known" ids — accumulated from every isOnline() call).
+ *     check ("known" ids — accumulated from every isOnline()/lastSeen
+ *     call).
  *   - Someone is "online" if their last_seen is within
- *     ONLINE_THRESHOLD_MS. No presence channel, no join/leave, no
- *     private-channel auth — just a plain column write/read, which has
- *     been reliable all session where Presence was not.
+ *     ONLINE_THRESHOLD_MS.
  *
- * Same external interface as before: usePresence(myUserId) returns an
- * isOnline(userId) function — no changes needed anywhere else in the
- * app that already calls it.
+ * Returns { isOnline, getLastSeenLabel }:
+ *   isOnline(userId)        -> boolean
+ *   getLastSeenLabel(userId) -> "Last seen 2 minutes ago" | "Last seen yesterday" | '' (unknown/online)
  */
 export function usePresence(myUserId) {
   const [lastSeenMap, setLastSeenMap] = useState({}) // { [userId]: isoString }
@@ -38,12 +37,9 @@ export function usePresence(myUserId) {
         .then(({ error }) => { if (error) console.error('[presence] heartbeat write failed:', error) })
     }
 
-    beat() // immediately on mount, don't wait for the first interval
+    beat()
     const interval = setInterval(beat, HEARTBEAT_MS)
 
-    // Also beat when the tab regains focus/visibility — makes "coming
-    // back from background" reflect faster than waiting for the next
-    // scheduled interval.
     const onVisible = () => { if (document.visibilityState === 'visible') beat() }
     document.addEventListener('visibilitychange', onVisible)
 
@@ -74,25 +70,36 @@ export function usePresence(myUserId) {
     return () => clearInterval(interval)
   }, [myUserId, pollKnownIds])
 
-  // isOnline(userId) — registers the id for future polling (so anyone
-  // ChatPage asks about gets picked up automatically) and returns
-  // whether their last known heartbeat is recent enough.
+  const registerAndFetch = useCallback((userId) => {
+    if (!userId || knownIds.current.has(userId)) return
+    knownIds.current.add(userId)
+    supabase.from('profiles').select('id, last_seen').eq('id', userId).maybeSingle()
+      .then(({ data }) => {
+        if (data) setLastSeenMap((prev) => ({ ...prev, [data.id]: data.last_seen }))
+      })
+  }, [])
+
   const isOnline = useCallback((userId) => {
     if (!userId) return false
-    if (!knownIds.current.has(userId)) {
-      knownIds.current.add(userId)
-      // Fetch this one immediately rather than waiting for the next
-      // scheduled poll, so a newly-viewed conversation doesn't show
-      // "offline" for up to POLL_MS before its first real check.
-      supabase.from('profiles').select('id, last_seen').eq('id', userId).maybeSingle()
-        .then(({ data }) => {
-          if (data) setLastSeenMap((prev) => ({ ...prev, [data.id]: data.last_seen }))
-        })
-    }
+    registerAndFetch(userId)
     const lastSeen = lastSeenMap[userId]
     if (!lastSeen) return false
     return Date.now() - new Date(lastSeen).getTime() < ONLINE_THRESHOLD_MS
-  }, [lastSeenMap])
+  }, [lastSeenMap, registerAndFetch])
 
-  return isOnline
+  // "Last seen 2 minutes ago" / "Last seen yesterday" / "Last seen Jul 3"
+  // Never called for someone currently online — ChatPage checks
+  // isOnline() first and only falls back to this label if they're not.
+  const getLastSeenLabel = useCallback((userId) => {
+    if (!userId) return ''
+    registerAndFetch(userId)
+    const lastSeen = lastSeenMap[userId]
+    if (!lastSeen) return ''
+    const d = new Date(lastSeen)
+    if (isToday(d)) return `Last seen ${formatDistanceToNow(d, { addSuffix: true })}`
+    if (isYesterday(d)) return 'Last seen yesterday'
+    return `Last seen ${format(d, 'MMM d')}`
+  }, [lastSeenMap, registerAndFetch])
+
+  return { isOnline, getLastSeenLabel }
 }
