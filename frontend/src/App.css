@@ -1499,3 +1499,24 @@ button.email-badge { cursor: pointer; display: inline-flex; align-items: center;
   position: absolute;
   right: 0;
 }
+
+.contact-preview-swap {
+  min-height: 18px;
+}
+.contact-preview-swap > * {
+  animation: previewFade 0.2s ease;
+}
+@keyframes previewFade {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.typing-preview {
+  color: #22c55e;
+  font-weight: 600;
+  font-size: 13px;
+}
+.unread-count-preview {
+  color: var(--text-secondary, #9ca3af);
+  font-weight: 600;
+  font-size: 13px;
+}
