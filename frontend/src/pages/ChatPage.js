@@ -440,7 +440,7 @@ const [showInstagramFull, setShowInstagramFull] = useState(false)
   const textareaRef    = useRef(null)
 
   const userId = session.user.id
-  const isOnline = usePresence(userId)
+const { isOnline, getLastSeenLabel } = usePresence(userId)
   const igQuick = useInstagramConnection(session, userId)
 
   const { callStatus, activeCall, callToken, callError, startCall, answerCall, declineCall, endCall } =
@@ -949,9 +949,9 @@ const handleSend = async () => {
     if (callStatus === 'in-call')    return '🟢 On a call'
     if (typing.length > 0)           return `${getConvoName(activeConvo)} is typing…`
     if (otherUserId && isOnline(otherUserId)) return 'Online'
+    if (otherUserId) return getLastSeenLabel(otherUserId)
     return ''
   }
-
   const callActive = ['calling', 'ringing', 'connecting', 'in-call'].includes(callStatus)
 
   // Curry AI page nudge → opening a suggested conversation from the
