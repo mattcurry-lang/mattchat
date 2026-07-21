@@ -97,6 +97,33 @@ export function useChat(conversationId, currentUserId) {
     }
   }, [conversationId, currentUserId])
 
+   const broadcastTyping = useCallback((isTyping) => {
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { user_id: currentUserId, is_typing: isTyping }
+    })
+
+    if (!conversationId || !currentUserId) return
+
+    if (isTyping && !typingRowActive.current) {
+      typingRowActive.current = true
+      supabase.from('typing_status')
+        .upsert({ conversation_id: conversationId, user_id: currentUserId, updated_at: new Date().toISOString() })
+        .then(({ error }) => { if (error) console.error('[useChat] typing_status upsert failed:', error) })
+    } else if (!isTyping && typingRowActive.current) {
+      typingRowActive.current = false
+      supabase.from('typing_status')
+        .delete()
+        .eq('conversation_id', conversationId)
+        .eq('user_id', currentUserId)
+        .then(({ error }) => { if (error) console.error('[useChat] typing_status delete failed:', error) })
+    }
+  }, [currentUserId, conversationId])
+
+  return { messages, loading, typing, sendMessage, broadcastTyping }
+}
+
   // Optimistic send: the bubble goes into `messages` state IMMEDIATELY,
   // tagged `_optimistic: true` with a temporary id, before the DB write
   // even starts. It gets reconciled with the real row above once
