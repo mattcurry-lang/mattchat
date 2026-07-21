@@ -110,19 +110,7 @@ export function unlockFileAudio() {
   })
 }
 
-const fileAudioCache = {}
-let audioUnlocked = false
-export function unlockFileAudio() {
-  if (audioUnlocked) return
-  audioUnlocked = true
-  Object.entries(FILE_SOUNDS).forEach(([name, path]) => {
-    const el = new Audio(path)
-    el.volume = 0
-    el.play().then(() => { el.pause(); el.currentTime = 0 }).catch(() => {})
-    fileAudioCache[name] = el
-  })
-}
-
+ 
 function playFileSound(name, path) {
   if (!fileAudioCache[name]) {
     const el = new Audio(path)
