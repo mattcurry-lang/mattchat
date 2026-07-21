@@ -97,6 +97,7 @@ const SOUND_BUILDERS = {
 const FILE_SOUNDS = {
   pulse: '/sounds/notification.wav', // incoming message
 }
+const fileAudioCache = {}
 
 let audioUnlocked = false
 export function unlockFileAudio() {
