@@ -8,6 +8,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage'
 import MfaChallengePage from './pages/MfaChallengePage'
 import './App.css'
 import Privacy from './pages/Privacy'
+import { unlockFileAudio } from './lib/mattchatSounds'
 export default function App() {
   const [session, setSession] = useState(undefined)
   const [isRecovery, setIsRecovery] = useState(false)
@@ -18,24 +19,10 @@ export default function App() {
   // least once. This primes a silent play+pause on the very first
   // click/tap anywhere in the app so later programmatic playback
   // (notification ping, incoming-call ringtone) isn't blocked.
-  useEffect(() => {
-    const unlockAudio = () => {
-      try {
-        const el = new Audio('/sounds/notification.wav')
-        el.volume = 0
-        el.play().then(() => {
-          el.pause()
-          el.currentTime = 0
-        }).catch(() => {})
-      } catch (e) {
-        // ignore — worst case, first sound is silently blocked and
-        // subsequent ones work once a gesture does succeed
-      }
-    }
-    window.addEventListener('pointerdown', unlockAudio, { once: true })
-    return () => window.removeEventListener('pointerdown', unlockAudio)
+ useEffect(() => {
+    window.addEventListener('pointerdown', unlockFileAudio, { once: true })
+    return () => window.removeEventListener('pointerdown', unlockFileAudio)
   }, [])
-
   // A signed-in session from Supabase can still be "aal1" even when the
   // account has a verified 2FA factor — Supabase issues the session
   // right after password auth, then expects the app to separately
