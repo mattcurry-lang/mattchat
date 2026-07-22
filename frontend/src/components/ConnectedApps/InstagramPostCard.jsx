@@ -20,8 +20,10 @@ export default function InstagramPostCard({ post, onAction }) {
 
   return (
     <motion.button
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
+      whileHover="hover"
+      whileTap={{ scale: 0.97 }}
+      initial="rest"
+      animate="rest"
       onClick={handleOpen}
       style={{
         display: 'block', width: '100%', aspectRatio: '1/1', borderRadius: 12,
@@ -31,35 +33,47 @@ export default function InstagramPostCard({ post, onAction }) {
       title="Opens on Instagram"
     >
       {!imgLoaded && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>📷</div>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: 'var(--text-muted)' }}>📷</div>
       )}
-      <img
+
+      <motion.img
         src={post.thumbnailUrl}
         alt={post.caption?.slice(0, 60) || 'Instagram post'}
         loading="lazy"
         onLoad={() => setImgLoaded(true)}
-        style={{ width: '100%', height: '100%', objectFit: 'cover', display: imgLoaded ? 'block' : 'none' }}
+        variants={{ rest: { scale: 1 }, hover: { scale: 1.06 } }}
+        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: imgLoaded ? 1 : 0 }}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
       />
 
       {isVideo && (
-        <div style={{ position: 'absolute', top: 6, right: 6, fontSize: 14, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}>▶️</div>
+        <div
+          style={{
+            position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%',
+            background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(2px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10,
+          }}
+        >
+          ▶️
+        </div>
       )}
 
-      <div
+      <motion.div
+        variants={{ rest: { opacity: 0 }, hover: { opacity: 1 } }}
+        transition={{ duration: 0.18 }}
         style={{
           position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end',
-          padding: 8, opacity: 0, transition: 'opacity 0.15s',
-          background: 'linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.55) 100%)',
+          padding: 8,
+          background: 'linear-gradient(180deg, transparent 45%, rgba(0,0,0,0.6) 100%)',
         }}
-        className="ig-post-overlay"
-        onMouseEnter={(e) => (e.currentTarget.style.opacity = 1)}
-        onMouseLeave={(e) => (e.currentTarget.style.opacity = 0)}
       >
         <div style={{ display: 'flex', gap: 10, fontSize: 11, fontWeight: 700, color: '#fff' }}>
           {post.likeCount != null && <span>♥ {formatCount(post.likeCount)}</span>}
           {post.commentCount != null && <span>💬 {formatCount(post.commentCount)}</span>}
         </div>
-      </div>
+      </motion.div>
     </motion.button>
   )
 }
