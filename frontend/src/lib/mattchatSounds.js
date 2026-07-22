@@ -53,6 +53,15 @@ function tone(ctx, { freq, start, duration, gain = 0.22, type = 'sine', filterFr
 }
 
 const SOUND_BUILDERS = {
+  // "Pulse" fallback — used automatically if the real notification
+  // file fails to load (wrong path, not yet deployed, etc). A soft
+  // two-note rising chime, same family as the rest.
+  pulse: (ctx) => {
+    const t = ctx.currentTime
+    tone(ctx, { freq: 587, start: t, duration: 0.16, gain: 0.2, type: 'sine', filterFreq: 2800 })
+    tone(ctx, { freq: 784, start: t + 0.09, duration: 0.2, gain: 0.18, type: 'sine', filterFreq: 3400 })
+  },
+
   // "Tap" — message sent. A single tiny, quiet, crisp click-tone.
   tap: (ctx) => {
     const t = ctx.currentTime
@@ -115,6 +124,14 @@ function playFileSound(name, path) {
   if (!fileAudioCache[name]) {
     const el = new Audio(path)
     el.volume = 0.9
+    // If the file genuinely fails to load (404, wrong MIME, etc — not
+    // just a gesture-block), fall back to the synthesized version so
+    // the sound still plays instead of going silent.
+    el.addEventListener('error', () => {
+      console.warn(`playSound: "${name}" file failed to load at ${path}, falling back to synthesized tone`)
+      const builder = SOUND_BUILDERS[name]
+      if (builder) { try { builder(getContext()) } catch (e) {} }
+    })
     fileAudioCache[name] = el
   }
   const el = fileAudioCache[name]
@@ -123,7 +140,6 @@ function playFileSound(name, path) {
     console.warn(`playSound: "${name}" playback blocked — page needs a user gesture to unlock audio first.`)
   })
 }
-
 /**
  * Plays one of Mattchat's official sounds: 'pulse' | 'tap' | 'echo' |
  * 'spark' | 'warning' | 'beacon'. Safe to call from any click/event
