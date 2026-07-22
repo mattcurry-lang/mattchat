@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { AppIcon } from './PulseIcons'
 
 const IMPORTANCE_COLOR = {
@@ -25,9 +25,13 @@ export default function PulseActivityCard({ item, privacyMode, onOpen, onMarkRea
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
+      layout
+      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.97 }}
+      whileHover={{ y: -1, backgroundColor: 'var(--bg-surface-3, rgba(255,255,255,0.05))' }}
+      whileTap={{ scale: 0.99 }}
+      transition={{ type: 'spring', stiffness: 380, damping: 28 }}
       style={{
         display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
         borderRadius: 16, background: 'var(--bg-surface-2)', border: '1px solid var(--border)',
@@ -56,47 +60,67 @@ export default function PulseActivityCard({ item, privacyMode, onOpen, onMarkRea
         <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 3 }}>{timeAgo(item.receivedAt)}</div>
       </div>
 
-      {item.count > 0 && (
-        <div style={{
-          minWidth: 22, height: 22, borderRadius: 11, background: 'linear-gradient(135deg,#667eea,#764ba2)',
-          color: '#fff', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px',
-        }}>
-          {item.count > 99 ? '99+' : item.count}
-        </div>
-      )}
-
-      <div style={{ position: 'relative' }}>
-        <button
-          onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v) }}
-          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16, padding: 4 }}
-        >⋮</button>
-        {menuOpen && (
-          <div
-            onClick={(e) => e.stopPropagation()}
+      <AnimatePresence>
+        {item.count > 0 && (
+          <motion.div
+            key={item.count}
+            initial={{ scale: 0.4, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.4, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 24 }}
             style={{
-              position: 'absolute', top: '100%', right: 0, zIndex: 50, marginTop: 4,
-              background: 'var(--bg-surface-1, #14141f)', border: '1px solid var(--border)', borderRadius: 12,
-              boxShadow: 'var(--shadow-lg)', minWidth: 150, overflow: 'hidden',
+              minWidth: 22, height: 22, borderRadius: 11, background: 'linear-gradient(135deg,#667eea,#764ba2)',
+              color: '#fff', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px',
+              boxShadow: '0 2px 6px rgba(102,126,234,0.35)',
             }}
           >
-            {[
-              { label: 'Open app', action: () => { onOpen?.(item); setMenuOpen(false) } },
-              { label: 'Mark read', action: () => { onMarkRead?.(item); setMenuOpen(false) } },
-            ].map((opt) => (
-              <button
-                key={opt.label}
-                onClick={opt.action}
-                style={{
-                  display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px',
-                  background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 12.5,
-                  fontFamily: 'inherit', cursor: 'pointer',
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+            {item.count > 99 ? '99+' : item.count}
+          </motion.div>
         )}
+      </AnimatePresence>
+
+      <div style={{ position: 'relative' }}>
+        <motion.button
+          whileHover={{ scale: 1.15, color: 'var(--text-secondary)' }}
+          whileTap={{ scale: 0.9 }}
+          onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v) }}
+          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16, padding: 4 }}
+        >⋮</motion.button>
+        <AnimatePresence>
+          {menuOpen && (
+            <motion.div
+              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0, y: -4, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -4, scale: 0.96 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+              style={{
+                position: 'absolute', top: '100%', right: 0, zIndex: 50, marginTop: 4,
+                background: 'var(--bg-surface-1, #14141f)', border: '1px solid var(--border)', borderRadius: 12,
+                boxShadow: 'var(--shadow-lg)', minWidth: 150, overflow: 'hidden',
+              }}
+            >
+              {[
+                { label: 'Open app', action: () => { onOpen?.(item); setMenuOpen(false) } },
+                { label: 'Mark read', action: () => { onMarkRead?.(item); setMenuOpen(false) } },
+              ].map((opt) => (
+                <button
+                  key={opt.label}
+                  onClick={opt.action}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px',
+                    background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 12.5,
+                    fontFamily: 'inherit', cursor: 'pointer', transition: 'background 0.12s',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-surface-2)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   )
