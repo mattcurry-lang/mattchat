@@ -122,12 +122,24 @@ export const AppIcon = {
       <svg width="60%" height="60%" viewBox="0 0 24 24"><path {...stroke} d="M4 20l1.4-4.2A8 8 0 1 1 9 19l-5 1z" /><circle cx="12" cy="12" r="2" fill="white" /></svg>
     </Badge>
   ),
+  google_drive: ({ size = 40 }) => (
+    <Badge color="linear-gradient(135deg,#34d399,#22a06b)" size={size}>
+      <svg width="60%" height="60%" viewBox="0 0 24 24"><path {...stroke} d="M8 3h8l6 10-4 8H6l-4-8z" /><path {...stroke} d="M4 13h16" /></svg>
+    </Badge>
+  ),
+  google_calendar: ({ size = 40 }) => (
+    <Badge color="linear-gradient(135deg,#5b8def,#4285f4)" size={size}>
+      <svg width="60%" height="60%" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2.5" {...stroke} /><path {...stroke} d="M3 10h18" /><path {...stroke} d="M8 3v4M16 3v4" /><circle cx="9" cy="15" r="1" fill="white" /></svg>
+    </Badge>
+  ),
 }
 
 export const PLATFORM_META = {
   mattchat:  { label: 'Mattchat',  supportLevel: 'internal' },
   gmail:     { label: 'Gmail',     supportLevel: 'oauth' },
   instagram: { label: 'Instagram', supportLevel: 'oauth' },
+  google_drive:    { label: 'Google Drive',    supportLevel: 'oauth' },
+  google_calendar: { label: 'Google Calendar', supportLevel: 'oauth' },
   slack:     { label: 'Slack',     supportLevel: 'oauth_planned' },
   teams:     { label: 'Microsoft Teams', supportLevel: 'oauth_planned' },
   whatsapp:  { label: 'WhatsApp',  supportLevel: 'native_only' },
