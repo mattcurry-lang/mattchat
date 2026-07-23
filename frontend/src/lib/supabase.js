@@ -111,7 +111,61 @@ export const disconnectEmailAccount = async (session, accountId) => {
   const data = await res.json()
   if (!data.ok) throw new Error(data.error || 'Could not disconnect that account')
 }
+// ── Google Drive (mirrors the Gmail connect pattern above) ───────────
+export const connectGoogleDrive = async (session) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/google-drive-oauth?action=start`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  const data = await res.json()
+  if (!data.ok || !data.url) throw new Error(data.error || 'Could not start the Google Drive connection')
+  window.location.href = data.url
+}
 
+export const listGoogleDriveAccounts = async (session) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/google-drive-oauth?action=list`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  const data = await res.json()
+  return data.accounts || []
+}
+
+export const disconnectGoogleDriveAccount = async (session, accountId) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/google-drive-oauth?action=disconnect`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accountId }),
+  })
+  const data = await res.json()
+  if (!data.ok) throw new Error(data.error || 'Could not disconnect that Drive account')
+}
+
+// ── Google Calendar (mirrors the Gmail connect pattern above) ────────
+export const connectGoogleCalendar = async (session) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/google-calendar-oauth?action=start`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  const data = await res.json()
+  if (!data.ok || !data.url) throw new Error(data.error || 'Could not start the Google Calendar connection')
+  window.location.href = data.url
+}
+
+export const listGoogleCalendarAccounts = async (session) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/google-calendar-oauth?action=list`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  const data = await res.json()
+  return data.accounts || []
+}
+
+export const disconnectGoogleCalendarAccount = async (session, accountId) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/google-calendar-oauth?action=disconnect`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accountId }),
+  })
+  const data = await res.json()
+  if (!data.ok) throw new Error(data.error || 'Could not disconnect that Calendar account')
+}
 // Message helpers
 export const getConversations = async (userId) => {
   const { data, error } = await supabase
