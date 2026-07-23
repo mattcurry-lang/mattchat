@@ -1,19 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { subscribeToChannel } from '../lib/realtimeManager'
 
 const TYPING_TTL_MS = 4000 // > the 1500ms stop-typing timeout in ChatPage, so it doesn't blink between keystrokes
 
 /**
  * useTypingStatus
  * Tracks who's typing, across every conversation the user is in, using
- * ONE realtime channel (not one per conversation). Backed by the
- * typing_status table, which useChat's broadcastTyping keeps in sync.
+ * ONE realtime channel (this was already the pattern here — good
+ * design, kept as-is). Now goes through the shared manager so a
+ * dropped connection re-runs the catch-up query on reconnect instead
+ * of leaving stale/missing typing state.
  *
  * Returns { [conversationId]: typingUserId }.
  */
 export function useTypingStatus(userId, conversationIds) {
   const [typingMap, setTypingMap] = useState({})
-  const idsKey = conversationIds.join(',')
+  const idsKey = conversationIds.slice().sort().join(',')
   const timersRef = useRef({})
 
   const setRow = useCallback((conversationId, typingUserId) => {
@@ -39,8 +42,7 @@ export function useTypingStatus(userId, conversationIds) {
     })
   }, [])
 
-  // Catch-up: pick up anyone already mid-typing when the app loads.
-  useEffect(() => {
+  const catchUp = useCallback(() => {
     if (!userId || !conversationIds.length) { setTypingMap({}); return }
     const cutoff = new Date(Date.now() - TYPING_TTL_MS).toISOString()
     supabase
@@ -55,30 +57,31 @@ export function useTypingStatus(userId, conversationIds) {
       })
   }, [userId, idsKey, setRow])
 
-  // Live updates, one channel total.
+  useEffect(() => { catchUp() }, [catchUp])
+
   useEffect(() => {
     if (!userId || !conversationIds.length) return
     const filter = `conversation_id=in.(${conversationIds.join(',')})`
-    const channel = supabase
-      .channel(`typing:${userId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'typing_status', filter }, (payload) => {
-        if (payload.new.user_id === userId) return
-        setRow(payload.new.conversation_id, payload.new.user_id)
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'typing_status', filter }, (payload) => {
-        if (payload.new.user_id === userId) return
-        setRow(payload.new.conversation_id, payload.new.user_id)
-      })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'typing_status', filter }, (payload) => {
-        clearRow(payload.old.conversation_id)
-      })
-      .subscribe()
-
+    const unsubscribe = subscribeToChannel(
+      `typing:${userId}:${idsKey}`,
+      (channel, emit) => channel
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'typing_status', filter }, (p) => emit('insert', p))
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'typing_status', filter }, (p) => emit('update', p))
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'typing_status', filter }, (p) => emit('delete', p)),
+      {
+        onEvent: (type, payload) => {
+          if (type === 'delete') { clearRow(payload.old.conversation_id); return }
+          if (payload.new.user_id === userId) return
+          setRow(payload.new.conversation_id, payload.new.user_id)
+        },
+        onResync: catchUp,
+      }
+    )
     return () => {
-      supabase.removeChannel(channel)
+      unsubscribe()
       Object.values(timersRef.current).forEach(clearTimeout)
     }
-  }, [userId, idsKey, setRow, clearRow])
+  }, [userId, idsKey, setRow, clearRow, catchUp])
 
   return typingMap
 }
