@@ -72,6 +72,7 @@ export function useCall(userId, conversationId) {
   // call the way a bare supabase.channel() subscription would.
   const checkForActiveCall = useCallback(() => {
     if (!userId) return
+     if (callRef.current) return
     supabase
       .from('active_calls')
       .select('id, conversation_id, room_url, room_name, call_type, initiated_by, status')
@@ -112,6 +113,7 @@ export function useCall(userId, conversationId) {
     if (!userId) return
 
     const handleInsert = (payload) => {
+      console.log('[useCall] INSERT received:', payload.new.initiated_by, 'me:', userId
       const call = payload.new
       if (call.initiated_by === userId) return
       if (call.status !== 'ringing') return
