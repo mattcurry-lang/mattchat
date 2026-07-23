@@ -113,7 +113,7 @@ export function useCall(userId, conversationId) {
     if (!userId) return
 
     const handleInsert = (payload) => {
-      console.log('[useCall] INSERT received:', payload.new.initiated_by, 'me:', userId
+      console.log('[useCall] INSERT received:', payload.new.initiated_by, 'me:', userId)
       const call = payload.new
       if (call.initiated_by === userId) return
       if (call.status !== 'ringing') return
