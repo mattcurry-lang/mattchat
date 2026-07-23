@@ -1,12 +1,11 @@
 import React, { useState, useMemo } from 'react'
-import { motion } from 'framer-motion'
 import PulseSummaryCard from './PulseSummaryCard'
 import PulseFilterBar from './PulseFilterBar'
 import PulseActivityCard from './PulseActivityCard'
 import PulseLockedCard from './PulseLockedCard'
 import { PLATFORM_META } from './PulseIcons'
 import { usePulseData, usePulseSettings } from '../../hooks/usePulseData'
-import { openInstagramProfile } from '../../lib/openInstagram'
+import { getPulsePlugin } from '../../lib/pulsePlugins'
 
 const LOCKED_PLATFORMS = Object.entries(PLATFORM_META).filter(([, meta]) => meta.supportLevel === 'native_only')
 
@@ -32,16 +31,13 @@ export default function PulsePage({
     return list
   }, [items, filter, search])
 
+  // FIX/REFACTOR: this used to be an if/else chain hardcoding what
+  // "tap this card" means per app (mattchat / instagram / gmail),
+  // which meant every new integration needed an edit here too. Each
+  // plugin now owns its own onOpen behavior — this just delegates.
   const handleOpen = (item) => {
-    if (item.app === 'mattchat' && item.conversationId) {
-      onOpenConversation?.(item.conversationId)
-    } else if (item.app === 'instagram') {
-      // No official Instagram feed/DM link exists — send them to their
-      // own profile, the one real thing Mattchat's connection covers.
-      openInstagramProfile(item.sender?.replace('@', ''))
-    } else if (item.app === 'gmail') {
-      window.open('https://mail.google.com', '_blank')
-    }
+    const plugin = getPulsePlugin(item.app)
+    plugin?.onOpen?.(item, { onOpenConversation })
   }
 
   return (
