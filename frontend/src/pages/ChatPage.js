@@ -66,6 +66,7 @@ import { removeReactionChannel } from '../components/MessageReactions'
 import { useTypingStatus } from '../hooks/useTypingStatus'
 import { useConversationListState } from '../hooks/useConversationListState'
 import { connectGoogleDrive, connectGoogleCalendar } from '../lib/supabase'
+import { subscribeToChannel } from '../lib/realtimeManager'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -755,30 +756,29 @@ useEffect(() => {
     return () => { if (activeConvo?.id) removeReactionChannel(activeConvo.id) }
   }, [activeConvo])
 
-  useEffect(() => {
+useEffect(() => {
     if (!activeConvo?.id || activeConvo.isCurryAI) return
-    async function checkScheduled() {
-      const { data } = await supabase.from('scheduled_messages').select('id')
+
+    const checkScheduled = () => {
+      supabase.from('scheduled_messages').select('id')
         .eq('conversation_id', activeConvo.id).eq('sender_id', userId).eq('status', 'pending').limit(1)
-      setHasScheduled((data || []).length > 0)
+        .then(({ data }) => setHasScheduled((data || []).length > 0))
     }
+
     checkScheduled()
-    const sub = supabase.channel(`sched-check:${activeConvo.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'scheduled_messages', filter: `conversation_id=eq.${activeConvo.id}` }, checkScheduled)
-      .subscribe()
-    return () => supabase.removeChannel(sub)
+
+    const unsubscribe = subscribeToChannel(
+      `sched-check:${activeConvo.id}`,
+      (channel, emit) => channel.on('postgres_changes', {
+        event: '*', schema: 'public', table: 'scheduled_messages',
+        filter: `conversation_id=eq.${activeConvo.id}`,
+      }, (payload) => emit('change', payload)),
+      { onEvent: checkScheduled, onResync: checkScheduled }
+    )
+
+    return unsubscribe
   }, [activeConvo, userId])
-
-  useEffect(() => {
-    const interval = setInterval(() => { supabase.functions.invoke('send-scheduled-messages') }, 60000)
-    return () => clearInterval(interval)
-  }, [])
-
-  useEffect(() => {
-    const interval = setInterval(() => { supabase.functions.invoke('cleanup-expired-statuses') }, 5 * 60000)
-    return () => clearInterval(interval)
-  }, [])
-
+ 
   // "Deletes" a conversation for THIS user only. It doesn't touch the
   // conversations/messages/members rows at all — it just records that
   // you've hidden this conversation (hidden_conversations table), so:
