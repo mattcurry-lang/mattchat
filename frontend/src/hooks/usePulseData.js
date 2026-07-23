@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { getAllPulsePlugins } from '../lib/pulsePlugins'
 
 async function fetchPulseData(session) {
   const { data, error } = await supabase.functions.invoke('pulse-data', {
@@ -9,78 +10,25 @@ async function fetchPulseData(session) {
   return data
 }
 
-// Builds real activity cards only from real data. `conversations` and
-// `unreadCounts` come from ChatPage's existing hooks — no new fetch
-// needed for Mattchat's own unread state, it's already loaded there.
-function buildActivityItems({ gmail, instagram, conversations, unreadCounts, getConvoName }) {
-  const items = []
-
-  // Mattchat's own unread conversations — always real, from the same
-  // data ChatPage already renders in the sidebar.
-  ;(conversations || []).forEach((c) => {
-    const unread = unreadCounts?.[c.id] || 0
-    if (unread === 0) return
-    items.push({
-      id: `mattchat-${c.id}`,
-      app: 'mattchat',
-      sender: getConvoName ? getConvoName(c) : 'Mattchat',
-      title: `${unread} unread message${unread > 1 ? 's' : ''}`,
-      count: unread,
-      receivedAt: c.updated_at,
-      importance: unread >= 4 ? 'high' : 'medium',
-      conversationId: c.id,
-    })
-  })
-
-  // Gmail — real unread counts per connected account.
-  if (gmail?.connected) {
-    gmail.accounts.forEach((acc) => {
-      if (acc.error) {
-        items.push({
-          id: `gmail-error-${acc.email}`,
-          app: 'gmail',
-          sender: acc.email,
-          title: acc.error === 'token_expired' ? 'Reconnect needed' : "Couldn't check inbox",
-          count: 0,
-          receivedAt: new Date().toISOString(),
-          importance: 'low',
-          error: true,
-        })
-        return
-      }
-      if (acc.unreadCount > 0) {
-        items.push({
-          id: `gmail-${acc.email}`,
-          app: 'gmail',
-          sender: acc.email,
-          title: `${acc.unreadCount} unread email${acc.unreadCount > 1 ? 's' : ''}`,
-          count: acc.unreadCount,
-          receivedAt: new Date().toISOString(),
-          importance: acc.unreadCount >= 5 ? 'high' : 'medium',
-        })
-      }
-    })
-  }
-
-  // Instagram — connection status only (no DM/notification access
-  // exists via the API), shown as an informational card, not framed
-  // as "unread messages" since that data doesn't exist for Mattchat.
-  if (instagram?.connected) {
-    items.push({
-      id: 'instagram-status',
-      app: 'instagram',
-      sender: `@${instagram.username}`,
-      title: 'Connected — view your profile and posts in Mattchat',
-      count: 0,
-      receivedAt: new Date().toISOString(),
-      importance: 'low',
-      isStatusOnly: true,
-    })
-  }
-
-  return items.sort((a, b) => new Date(b.receivedAt) - new Date(a.receivedAt))
-}
-
+/**
+ * usePulseData
+ *
+ * FIX/REFACTOR: item-building used to be one growing function
+ * (buildActivityItems) with an if/else branch per integration —
+ * adding YouTube/Drive/Calendar/Spotify/Dropbox/OneDrive meant
+ * growing that function indefinitely. Now every integration is a
+ * self-contained plugin (see src/lib/pulsePlugins/) and this hook
+ * just asks the registry for all of them.
+ *
+ * Bonus fix that falls out of the plugin split: local-only plugins
+ * (right now just Mattchat's own unread counts) no longer wait on the
+ * pulse-data network round trip to render — only plugins that
+ * genuinely need `raw` (usesRemoteData: true) hold off. Previously
+ * EVERYTHING, including your own unread Mattchat conversations, was
+ * hidden until the Gmail/Instagram fetch finished. This is the
+ * "Pulse should load progressively" requirement from the design
+ * brief, not just an architecture cleanup.
+ */
 export function usePulseData(session, { conversations, unreadCounts, getConvoName } = {}) {
   const [raw, setRaw] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -101,9 +49,21 @@ export function usePulseData(session, { conversations, unreadCounts, getConvoNam
 
   useEffect(() => { load() }, [load])
 
-  const items = raw
-    ? buildActivityItems({ gmail: raw.gmail, instagram: raw.instagram, conversations, unreadCounts, getConvoName })
-    : []
+  const ctx = { conversations, unreadCounts, getConvoName, session }
+
+  const items = getAllPulsePlugins()
+    .flatMap((plugin) => {
+      if (plugin.usesRemoteData && !raw) return [] // still waiting on the fetch
+      try {
+        return plugin.buildItems(raw, ctx) || []
+      } catch (e) {
+        // One misbehaving integration should never take the whole
+        // Pulse feed down with it.
+        console.error(`[pulse] plugin "${plugin.id}" buildItems failed:`, e)
+        return []
+      }
+    })
+    .sort((a, b) => new Date(b.receivedAt) - new Date(a.receivedAt))
 
   const totalUnread = items.reduce((sum, i) => sum + (i.count || 0), 0)
 
