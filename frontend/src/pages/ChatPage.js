@@ -65,6 +65,7 @@ import { playSound } from '../lib/mattchatSounds'
 import { removeReactionChannel } from '../components/MessageReactions'
 import { useTypingStatus } from '../hooks/useTypingStatus'
 import { useConversationListState } from '../hooks/useConversationListState'
+import { connectGoogleDrive, connectGoogleCalendar } from '../lib/supabase'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -671,7 +672,59 @@ if (status === 'success') {
   const cleanUrl = window.location.pathname + (params.toString() ? `?${params}` : '')
   window.history.replaceState({}, '', cleanUrl)
 }, [])
- 
+
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  const status = params.get('drive_connect')
+  if (!status) return
+
+  if (status === 'success') {
+    const email = params.get('email')
+    playSound('spark')
+    alert(`Google Drive connected${email ? `: ${email}` : ''} ✓`)
+    window.dispatchEvent(new CustomEvent('google-drive-connected'))
+  } else if (status === 'denied') {
+    alert('Google Drive connection was cancelled.')
+  } else if (status === 'expired') {
+    playSound('warning')
+    alert('That connection attempt expired — please try "Connect Google Drive" again.')
+  } else {
+    playSound('warning')
+    alert('Could not connect Google Drive. Please try again.')
+  }
+
+  params.delete('drive_connect')
+  params.delete('email')
+  const cleanUrl = window.location.pathname + (params.toString() ? `?${params}` : '')
+  window.history.replaceState({}, '', cleanUrl)
+}, [])
+
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  const status = params.get('calendar_connect')
+  if (!status) return
+
+  if (status === 'success') {
+    const email = params.get('email')
+    playSound('spark')
+    alert(`Google Calendar connected${email ? `: ${email}` : ''} ✓`)
+    window.dispatchEvent(new CustomEvent('google-calendar-connected'))
+  } else if (status === 'denied') {
+    alert('Google Calendar connection was cancelled.')
+  } else if (status === 'expired') {
+    playSound('warning')
+    alert('That connection attempt expired — please try "Connect Google Calendar" again.')
+  } else {
+    playSound('warning')
+    alert('Could not connect Google Calendar. Please try again.')
+  }
+
+  params.delete('calendar_connect')
+  params.delete('email')
+  const cleanUrl = window.location.pathname + (params.toString() ? `?${params}` : '')
+  window.history.replaceState({}, '', cleanUrl)
+}, [])
+  
 useEffect(() => {
   if (messages.length > prevMsgCountRef.current) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
