@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { subscribeToChannel } from '../lib/realtimeManager'
 
 const FUNCTIONS_BASE = 'https://bqerkvywgxoioocbkxif.supabase.co/functions/v1'
 const MISSED_CALL_TIMEOUT_MS = 30000
@@ -64,28 +65,32 @@ export function useCall(userId, conversationId) {
   }, [userId])
 
   // ── GLOBAL listener — catches incoming calls on ANY conversation ──
-  useEffect(() => {
+// ── GLOBAL listener — catches incoming calls on ANY conversation ──
+  // Migrated onto the shared realtime manager: reconnects with backoff
+  // automatically, and re-checks for a live incoming/active call on
+  // resync so a dropped socket during ring-in can't silently eat the
+  // call the way a bare supabase.channel() subscription would.
+  const checkForActiveCall = useCallback(() => {
     if (!userId) return
-
-    const channel = supabase
-      .channel(`incoming-calls:${userId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'active_calls',
-      }, (payload) => {
-        const call = payload.new
-        if (call.initiated_by === userId) return
-        if (call.status !== 'ringing') return
-
+    supabase
+      .from('active_calls')
+      .select('id, conversation_id, room_url, room_name, call_type, initiated_by, status')
+      .neq('initiated_by', userId)
+      .in('status', ['ringing', 'answered'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data: call, error }) => {
+        if (error || !call) return
         supabase
           .from('conversation_members')
           .select('user_id')
           .eq('conversation_id', call.conversation_id)
           .eq('user_id', userId)
           .single()
-          .then(({ data, error }) => {
-            if (error || !data) return
+          .then(({ data, error: memberErr }) => {
+            if (memberErr || !data) return
+            if (callRef.current?.id === call.id) return // already tracking it
 
             const incoming = {
               id: call.id,
@@ -98,39 +103,86 @@ export function useCall(userId, conversationId) {
             }
             callRef.current = incoming
             setActiveCall(incoming)
-            setCallStatus('incoming')
+            setCallStatus(call.status === 'answered' ? 'connecting' : 'incoming')
           })
       })
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'active_calls',
-      }, (payload) => {
-        const call = payload.new
-        if (!callRef.current) return
-        if (call.id !== callRef.current.id) return
-
-        if (call.status === 'answered') {
-          clearMissedTimer()
-          setCallStatus('connecting')
-          return
-        }
-
-        if (call.status === 'ended' || call.status === 'declined' || call.status === 'missed') {
-          clearMissedTimer()
-          setCallStatus(call.status === 'missed' ? 'missed' : 'ended')
-          setTimeout(() => {
-            setCallStatus('idle')
-            setActiveCall(null)
-            setCallToken(null)
-            callRef.current = null
-          }, 2000)
-        }
-      })
-      .subscribe()
-
-    return () => { supabase.removeChannel(channel) }
   }, [userId])
+
+  useEffect(() => {
+    if (!userId) return
+
+    const handleInsert = (payload) => {
+      const call = payload.new
+      if (call.initiated_by === userId) return
+      if (call.status !== 'ringing') return
+
+      supabase
+        .from('conversation_members')
+        .select('user_id')
+        .eq('conversation_id', call.conversation_id)
+        .eq('user_id', userId)
+        .single()
+        .then(({ data, error }) => {
+          if (error || !data) return
+
+          const incoming = {
+            id: call.id,
+            conversationId: call.conversation_id,
+            roomUrl: call.room_url,
+            roomName: call.room_name,
+            callType: call.call_type,
+            initiatedBy: call.initiated_by,
+            status: call.status,
+          }
+          callRef.current = incoming
+          setActiveCall(incoming)
+          setCallStatus('incoming')
+        })
+    }
+
+    const handleUpdate = (payload) => {
+      const call = payload.new
+      if (!callRef.current) return
+      if (call.id !== callRef.current.id) return
+
+      if (call.status === 'answered') {
+        clearMissedTimer()
+        setCallStatus('connecting')
+        return
+      }
+
+      if (call.status === 'ended' || call.status === 'declined' || call.status === 'missed') {
+        clearMissedTimer()
+        setCallStatus(call.status === 'missed' ? 'missed' : 'ended')
+        setTimeout(() => {
+          setCallStatus('idle')
+          setActiveCall(null)
+          setCallToken(null)
+          callRef.current = null
+        }, 2000)
+      }
+    }
+
+    const unsubscribe = subscribeToChannel(
+      `incoming-calls:${userId}`,
+      (channel, emit) => channel
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'active_calls' }, (p) => emit('insert', p))
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'active_calls' }, (p) => emit('update', p)),
+      {
+        onEvent: (type, payload) => {
+          if (type === 'insert') handleInsert(payload)
+          else if (type === 'update') handleUpdate(payload)
+        },
+        // A drop during ring-in is the one case that actually matters —
+        // this re-checks the DB for anything ringing/answered we might
+        // have missed while disconnected, instead of just leaving the
+        // call unanswered on this device forever.
+        onResync: checkForActiveCall,
+      }
+    )
+
+    return unsubscribe
+  }, [userId, checkForActiveCall])
 
   // ── Start a call ──────────────────────────────────────────────────
   // targetConversationId is optional — pass it when starting a call
