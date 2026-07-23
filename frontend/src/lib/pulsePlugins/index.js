@@ -16,5 +16,7 @@
 import './mattchat'
 import './gmail'
 import './instagram'
+import './googleDrive'
+import './googleCalendar'
 
 export { registerPulsePlugin, getPulsePlugin, getAllPulsePlugins } from './registry'
