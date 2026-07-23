@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { subscribeToChannel } from '../lib/realtimeManager'
 
 const QUICK_EMOJIS = ['❤️', '😂', '😮', '😢', '🙏', '👍']
 
@@ -9,39 +10,29 @@ const ALL_REACTION_EMOJIS = [
   '👏','🫡','💪','🤝','😏','🥺','😴','🤔','🫠','⚡',
 ]
 
-// One shared channel per conversation instead of one per message — the
-// old version opened a brand-new realtime subscription for every
-// message rendered on screen, which was silently exhausting Supabase's
-// concurrent-connection limit and causing presence/messages/reads to
-// randomly disconnect across the whole app. This version subscribes
-// once per conversation and fans events out locally by message_id.
-
-const reactionListeners = new Map() // conversationId -> Set of {messageId, callback}
-const reactionChannels = new Map()  // conversationId -> supabase channel
-
-function ensureReactionChannel(conversationId) {
-  if (reactionChannels.has(conversationId)) return
-  const channel = supabase
-    .channel(`reactions:convo:${conversationId}`)
-    .on('postgres_changes', {
-      event: '*', schema: 'public', table: 'message_reactions',
-    }, (payload) => {
-      const messageId = payload.new?.message_id || payload.old?.message_id
-      if (!messageId) return
-      const listeners = reactionListeners.get(conversationId)
-      if (!listeners) return
-      listeners.forEach((entry) => {
-        if (entry.messageId === messageId) entry.callback()
-      })
-    })
-    .subscribe()
-  reactionChannels.set(conversationId, channel)
-}
+// FIX (this pass): the previous version already fixed the worse bug —
+// one channel per MESSAGE was exhausting Supabase's concurrent
+// connection limit. It hand-rolled its own per-conversation channel
+// sharing (reactionChannels/reactionListeners maps) to solve that.
+//
+// This pass replaces that hand-rolled sharing with the same shared
+// realtime manager every other hook now goes through, so reactions get
+// the same reconnect-with-backoff + resync-on-reconnect behavior for
+// free, instead of a bespoke mechanism with none of that.
+//
+// TODO: like message_reads, `message_reactions` has no conversation_id
+// column, so the underlying postgres_changes subscription is still
+// unfiltered at the table level (every reaction change on the whole
+// platform reaches every open conversation's channel — cheap per-event
+// since it's a single boolean check against local message ids, but
+// still more traffic than necessary). Same real fix as noted in
+// useMessageStatus: a denormalized conversation_id column, or
+// RLS-authorized Realtime once that's available.
 
 export function useReactions(messageId, currentUserId, conversationId) {
   const [reactions, setReactions] = useState([])
 
- const load = useCallback(async () => {
+  const load = useCallback(async () => {
     if (!messageId || messageId.startsWith?.('temp-')) return
     const { data } = await supabase
       .from('message_reactions')
@@ -62,18 +53,20 @@ export function useReactions(messageId, currentUserId, conversationId) {
     load()
     if (!conversationId) return
 
-    ensureReactionChannel(conversationId)
-    if (!reactionListeners.has(conversationId)) reactionListeners.set(conversationId, new Set())
-    const entry = { messageId, callback: load }
-    reactionListeners.get(conversationId).add(entry)
-
-    return () => {
-      reactionListeners.get(conversationId)?.delete(entry)
-      // Note: intentionally NOT tearing down the shared channel here —
-      // other messages in this conversation may still be listening on
-      // it. It gets cleaned up naturally when the whole conversation
-      // unmounts (see removeReactionChannel below, called from ChatPage).
-    }
+    const unsubscribe = subscribeToChannel(
+      `reactions:${conversationId}`,
+      (channel, emit) => channel.on('postgres_changes', {
+        event: '*', schema: 'public', table: 'message_reactions',
+      }, (payload) => emit('change', payload)),
+      {
+        onEvent: (type, payload) => {
+          const changedMessageId = payload.new?.message_id || payload.old?.message_id
+          if (changedMessageId === messageId) load()
+        },
+        onResync: load,
+      }
+    )
+    return unsubscribe
   }, [messageId, conversationId, load])
 
   const toggleReaction = useCallback(async (emoji) => {
@@ -90,21 +83,19 @@ export function useReactions(messageId, currentUserId, conversationId) {
   return { reactions, toggleReaction }
 }
 
-export function removeReactionChannel(conversationId) {
-  const channel = reactionChannels.get(conversationId)
-  if (channel) {
-    supabase.removeChannel(channel)
-    reactionChannels.delete(conversationId)
-    reactionListeners.delete(conversationId)
-  }
-}
+// Kept as a no-op export so ChatPage's existing cleanup call
+// (`removeReactionChannel(activeConvo.id)`) doesn't need to change.
+// The shared manager now tears the channel down automatically the
+// moment its last subscriber (the last mounted message in that
+// conversation) unsubscribes — there's no longer a separate handle
+// that needs an explicit close.
+export function removeReactionChannel(conversationId) {}
 
 // Quick bar that appears on hover
 function QuickReactionBar({ onSelect, onMore, isMe }) {
   return (
     <div style={{
       position: 'absolute',
-      // Position above the bubble
       bottom: '100%',
       [isMe ? 'right' : 'left']: 0,
       marginBottom: 4,
@@ -129,7 +120,7 @@ function QuickReactionBar({ onSelect, onMore, isMe }) {
           transform: scale(1.4) translateY(-3px) !important;
         }
       `}</style>
-      {QUICK_EMOJIS.map((emoji, i) => (
+      {QUICK_EMOJIS.map((emoji) => (
         <button
           key={emoji}
           className="quick-emoji-btn"
@@ -236,20 +227,16 @@ export function ReactableMessage({ messageId, currentUserId, isMe, conversationI
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* Hover quick bar — appears above bubble */}
       {showBar && !showPicker && (
         <QuickReactionBar isMe={isMe} onSelect={handleReactionSelect} onMore={() => { setShowPicker(true); setShowBar(false) }} />
       )}
 
-      {/* Full picker */}
       {showPicker && (
         <FullReactionPicker isMe={isMe} onSelect={handleReactionSelect} onClose={() => setShowPicker(false)} />
       )}
 
-      {/* Bubble content */}
       {children}
 
-      {/* Reaction chips — directly below bubble, no gap */}
       {reactions.length > 0 && (
         <div style={{
           display: 'flex',
