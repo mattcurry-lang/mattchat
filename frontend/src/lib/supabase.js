@@ -705,7 +705,7 @@ export function computeReplyTimeLabel(messages, otherUserId, currentUserId) {
 
 // ── Tasks (AI-generated + manual) ─────────────────────────
 export async function listTasks(userId, { status } = {}) {
-  let query = supabase.from('tasks').select('*, emails:source_email_id(subject, sender, body_text)').eq('user_id', userId).order('due_date', { ascending: true, nullsFirst: false })
+  let query = supabase.from('ai_tasks').select('*, emails:source_email_id(subject, sender, body_text)').eq('user_id', userId).order('due_date', { ascending: true, nullsFirst: false })
   if (status) query = query.eq('status', status)
   const { data, error } = await query
   if (error) throw error
@@ -713,22 +713,22 @@ export async function listTasks(userId, { status } = {}) {
 }
 
 export async function confirmTask(taskId) {
-  const { error } = await supabase.from('tasks').update({ status: 'confirmed', updated_at: new Date().toISOString() }).eq('id', taskId)
+  const { error } = await supabase.from('ai_tasks').update({ status: 'confirmed', updated_at: new Date().toISOString() }).eq('id', taskId)
   if (error) throw error
 }
 
 export async function dismissTask(taskId) {
-  const { error } = await supabase.from('tasks').update({ status: 'dismissed', updated_at: new Date().toISOString() }).eq('id', taskId)
+  const { error } = await supabase.from('ai_tasks').update({ status: 'dismissed', updated_at: new Date().toISOString() }).eq('id', taskId)
   if (error) throw error
 }
 
 export async function completeTask(taskId) {
-  const { error } = await supabase.from('tasks').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', taskId)
+  const { error } = await supabase.from('ai_tasks').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', taskId)
   if (error) throw error
 }
 
 export async function updateTask(taskId, patch) {
-  const { error } = await supabase.from('tasks').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', taskId)
+  const { error } = await supabase.from('ai_tasks').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', taskId)
   if (error) throw error
 }
 
