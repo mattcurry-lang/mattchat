@@ -702,3 +702,46 @@ export function computeReplyTimeLabel(messages, otherUserId, currentUserId) {
   if (hours < 24) return `Usually replies within ${hours} hr`
   return null // don't show if it's consistently slow — not flattering, not useful
 }
+
+// ── Tasks (AI-generated + manual) ─────────────────────────
+export async function listTasks(userId, { status } = {}) {
+  let query = supabase.from('tasks').select('*, emails:source_email_id(subject, sender, body_text)').eq('user_id', userId).order('due_date', { ascending: true, nullsFirst: false })
+  if (status) query = query.eq('status', status)
+  const { data, error } = await query
+  if (error) throw error
+  return data || []
+}
+
+export async function confirmTask(taskId) {
+  const { error } = await supabase.from('tasks').update({ status: 'confirmed', updated_at: new Date().toISOString() }).eq('id', taskId)
+  if (error) throw error
+}
+
+export async function dismissTask(taskId) {
+  const { error } = await supabase.from('tasks').update({ status: 'dismissed', updated_at: new Date().toISOString() }).eq('id', taskId)
+  if (error) throw error
+}
+
+export async function completeTask(taskId) {
+  const { error } = await supabase.from('tasks').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', taskId)
+  if (error) throw error
+}
+
+export async function updateTask(taskId, patch) {
+  const { error } = await supabase.from('tasks').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', taskId)
+  if (error) throw error
+}
+
+// ── AI settings (user control) ────────────────────────────
+export async function getAiSettings(userId) {
+  const { data } = await supabase.from('ai_settings').select('*').eq('user_id', userId).maybeSingle()
+  return data || {
+    ai_scheduling_enabled: true, auto_task_creation_enabled: true,
+    reminders_enabled: true, document_analysis_enabled: true, analyzed_labels: ['INBOX'],
+  }
+}
+
+export async function updateAiSettings(userId, patch) {
+  const { error } = await supabase.from('ai_settings').upsert({ user_id: userId, ...patch, updated_at: new Date().toISOString() })
+  if (error) throw error
+}
