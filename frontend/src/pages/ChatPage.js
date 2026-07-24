@@ -424,6 +424,8 @@ const [showInstagramFull, setShowInstagramFull] = useState(false)
   const [forwardingMessage, setForwardingMessage] = useState(null)
   const [hiddenMsgIds, setHiddenMsgIds] = useState(new Set())
  const [profileCardTarget, setProfileCardTarget] = useState(null) // profile object | null
+  const [showDocuments, setShowDocuments] = useState(false)
+const [showWeeklyReport, setShowWeeklyReport] = useState(false)
   // that appears AFTER a plain message has already been sent, if
   // Curry thinks it might land colder than intended. Never blocks or
   // delays sending; see runCoachCheck below.
@@ -1421,6 +1423,18 @@ const handleSend = async () => {
 >
   <IconCheckSquare size={14} /> AI Tasks
 </button>
+  <button
+  onClick={() => { setShowDocuments(true); setShowProfileMenu(false) }}
+  style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#c4b5fd', fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+>
+  📄 Documents
+</button>
+<button
+  onClick={() => { setShowWeeklyReport(true); setShowProfileMenu(false) }}
+  style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#c4b5fd', fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+>
+  📊 Weekly Report
+</button>
 <button
                   onClick={() => { setShowConnectedApps(true); setShowProfileMenu(false) }}
                   style={{
@@ -1460,7 +1474,20 @@ const handleSend = async () => {
     onClose={() => setShowProfileSetup(false)}
   />
 )}
-       
+
+{showDocuments && (
+  <div className="profile-menu-overlay" onClick={() => setShowDocuments(false)}>
+    <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-surface-1, #14141f)', borderRadius: 20, padding: 0, width: 'min(560px, 94vw)', maxHeight: '85vh', overflowY: 'auto', border: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 0' }}>
+        <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Documents</h3>
+        <button onClick={() => setShowDocuments(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16 }}><IconX size={16} /></button>
+      </div>
+      <DocumentsPage userId={userId} session={session} />
+    </div>
+  </div>
+)}
+
+{showWeeklyReport && <WeeklyReportModal session={session} onClose={() => setShowWeeklyReport(false)} />}
 {showPersonalAnalytics && (
           <PersonalAnalytics userId={userId} conversations={conversations} onClose={() => setShowPersonalAnalytics(false)} />
         )}
