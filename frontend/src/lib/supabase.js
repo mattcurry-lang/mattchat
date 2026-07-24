@@ -745,3 +745,11 @@ export async function updateAiSettings(userId, patch) {
   const { error } = await supabase.from('ai_settings').upsert({ user_id: userId, ...patch, updated_at: new Date().toISOString() })
   if (error) throw error
 }
+
+export async function listStudySessions(userId, taskId) {
+  const { data, error } = await supabase
+    .from('study_sessions').select('*').eq('user_id', userId).eq('task_id', taskId)
+    .order('start_time', { ascending: true })
+  if (error) throw error
+  return data || []
+}
