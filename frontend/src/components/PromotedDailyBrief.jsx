@@ -44,7 +44,27 @@ export default function PromotedDailyBrief({ session, onAskQuestion, onOpenCurry
   const [loading, setLoading] = useState(true)
   const [collapsed, setCollapsed] = useState(false)
   const [weather, setWeather] = useState(null)
+  const [academicBrief, setAcademicBrief] = useState(null)
 
+const [academicBrief, setAcademicBrief] = useState(null)
+
+useEffect(() => {
+  let cancelled = false
+  async function loadAcademicBrief() {
+    try {
+      const res = await fetch('https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/daily-brief', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const data = await res.json()
+      if (!cancelled && data.ok) setAcademicBrief(data.brief)
+    } catch (e) {
+      console.error('Academic daily brief failed:', e)
+    }
+  }
+  loadAcademicBrief()
+  return () => { cancelled = true }
+}, [session])
+  
   useEffect(() => {
     let cancelled = false
     async function load() {
@@ -140,6 +160,39 @@ export default function PromotedDailyBrief({ session, onAskQuestion, onOpenCurry
         </div>
       )}
 
+      {academicBrief && (academicBrief.schedule?.length > 0 || academicBrief.dueSoon?.length > 0 || academicBrief.overdue?.length > 0) && (
+  <div style={s.academicSection}>
+    {academicBrief.summary && <div style={s.academicSummary}>{academicBrief.summary}</div>}
+
+    {academicBrief.overdue?.length > 0 && (
+      <div style={s.academicRow}>
+        <span style={{ color: '#f87171', fontWeight: 700 }}>⚠ Overdue:</span>{' '}
+        {academicBrief.overdue.map(t => t.title).join(', ')}
+      </div>
+    )}
+
+    {academicBrief.dueSoon?.length > 0 && (
+      <div style={s.academicRow}>
+        <span style={{ color: '#fbbf24', fontWeight: 700 }}>Due soon:</span>{' '}
+        {academicBrief.dueSoon.map(t => `${t.title} (${t.due_date})`).join(', ')}
+      </div>
+    )}
+
+    {academicBrief.schedule?.length > 0 && (
+      <div style={s.academicRow}>
+        <span style={{ color: '#a78bfa', fontWeight: 700 }}>Today's sessions:</span>{' '}
+        {academicBrief.schedule.map(s => `${s.ai_tasks?.title || 'Session'} at ${new Date(s.start_time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`).join(', ')}
+      </div>
+    )}
+
+    {academicBrief.highlights?.length > 0 && (
+      <ul style={{ margin: '4px 0 0', paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {academicBrief.highlights.map((h, i) => <li key={i} style={{ fontSize: 12.5, color: 'var(--dark-text-2)' }}>{h}</li>)}
+      </ul>
+    )}
+  </div>
+)}
+
       {suggestion && suggestion.type && suggestion.type !== 'none' && suggestion.title && (
         <div style={s.suggestion}>
           <span style={{ color: '#a78bfa', flexShrink: 0, marginTop: 1 }}>
@@ -165,6 +218,14 @@ export default function PromotedDailyBrief({ session, onAskQuestion, onOpenCurry
 }
 
 const s = {
+
+  academicSection: {
+  marginLeft: 46, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(167,139,250,0.15)',
+  borderRadius: 10, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6,
+},
+academicSummary: { fontSize: 12.5, color: 'var(--dark-text)', lineHeight: 1.5, fontWeight: 600 },
+academicRow: { fontSize: 12, color: 'var(--dark-text-2)', lineHeight: 1.5 },
+  
 card: {
   position: 'relative',
   background: 'linear-gradient(135deg, rgba(102,126,234,0.16), rgba(118,75,162,0.16), rgba(240,147,251,0.08))',
