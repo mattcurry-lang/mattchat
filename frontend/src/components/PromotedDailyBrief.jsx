@@ -46,8 +46,6 @@ export default function PromotedDailyBrief({ session, onAskQuestion, onOpenCurry
   const [weather, setWeather] = useState(null)
   const [academicBrief, setAcademicBrief] = useState(null)
 
-const [academicBrief, setAcademicBrief] = useState(null)
-
 useEffect(() => {
   let cancelled = false
   async function loadAcademicBrief() {
