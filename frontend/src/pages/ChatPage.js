@@ -68,6 +68,8 @@ import { useConversationListState } from '../hooks/useConversationListState'
 import { connectGoogleDrive, connectGoogleCalendar } from '../lib/supabase'
 import { subscribeToChannel } from '../lib/realtimeManager'
 import TasksPage from '../components/Tasks/TasksPage'
+import DocumentsPage from '../components/Documents/DocumentsPage'
+import WeeklyReportModal from '../components/WeeklyReportModal'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
