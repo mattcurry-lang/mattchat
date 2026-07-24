@@ -70,6 +70,7 @@ import { subscribeToChannel } from '../lib/realtimeManager'
 import TasksPage from '../components/Tasks/TasksPage'
 import DocumentsPage from '../components/Documents/DocumentsPage'
 import WeeklyReportModal from '../components/WeeklyReportModal'
+import AISettingsModal from '../components/AISettingsModal'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -428,6 +429,7 @@ const [showInstagramFull, setShowInstagramFull] = useState(false)
  const [profileCardTarget, setProfileCardTarget] = useState(null) // profile object | null
   const [showDocuments, setShowDocuments] = useState(false)
 const [showWeeklyReport, setShowWeeklyReport] = useState(false)
+  const [showAISettings, setShowAISettings] = useState(false)
   // that appears AFTER a plain message has already been sent, if
   // Curry thinks it might land colder than intended. Never blocks or
   // delays sending; see runCoachCheck below.
@@ -1437,6 +1439,12 @@ const handleSend = async () => {
 >
   📊 Weekly Report
 </button>
+    <button
+  onClick={() => { setShowAISettings(true); setShowProfileMenu(false) }}
+  style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#c4b5fd', fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+>
+  ⚙️ AI Settings
+</button>
 <button
                   onClick={() => { setShowConnectedApps(true); setShowProfileMenu(false) }}
                   style={{
@@ -1528,6 +1536,7 @@ const handleSend = async () => {
             </div>
           </div>
         )}
+{showAISettings && <AISettingsModal userId={userId} onClose={() => setShowAISettings(false)} />}
 {showInstagramFull && (
   <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto' }}>
     <div style={{ maxWidth: 640, margin: '0 auto', padding: 16 }}>
