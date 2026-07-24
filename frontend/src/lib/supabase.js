@@ -753,3 +753,27 @@ export async function listStudySessions(userId, taskId) {
   if (error) throw error
   return data || []
 }
+
+export async function listDocumentAnalyses(userId) {
+  const { data, error } = await supabase
+    .from('document_analyses').select('*, emails(subject, sender)').eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function askDocument(session, documentId, question) {
+  const res = await fetch('https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/document-ask', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ documentId, question }),
+  })
+  return res.json()
+}
+
+export async function getWeeklyReport(session) {
+  const res = await fetch('https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/weekly-report', {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  return res.json()
+}
