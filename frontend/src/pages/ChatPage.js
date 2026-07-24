@@ -76,7 +76,7 @@ const CATCH_UP_THRESHOLD = 8       // unread messages before offering a summary
 const AUTO_CONTEXT_GAP_DAYS = 2    // quiet period before showing "last spoke" context
 
 // Turns a raw message content string into a short, human-friendly
-// preview for the chat list — so encoded/tagged formats (sticker:,
+// preview for the chat list — so encoded/tagged formats (sticker:
 // gif:, status_reply:, call logs) never leak their raw syntax into
 // the sidebar the way status_reply's URL-encoded caption was.
 function getMessagePreview(content) {
