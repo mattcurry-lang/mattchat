@@ -70,44 +70,49 @@ export function useCall(userId, conversationId) {
   // automatically, and re-checks for a live incoming/active call on
   // resync so a dropped socket during ring-in can't silently eat the
   // call the way a bare supabase.channel() subscription would.
-  const checkForActiveCall = useCallback(() => {
-    if (!userId) return
-     if (callRef.current) return
-    supabase
-      .from('active_calls')
-      .select('id, conversation_id, room_url, room_name, call_type, initiated_by, status')
-      .neq('initiated_by', userId)
-      .in('status', ['ringing', 'answered'])
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data: call, error }) => {
-        if (error || !call) return
-        supabase
-          .from('conversation_members')
-          .select('user_id')
-          .eq('conversation_id', call.conversation_id)
-          .eq('user_id', userId)
-          .single()
-          .then(({ data, error: memberErr }) => {
-            if (memberErr || !data) return
-            if (callRef.current?.id === call.id) return // already tracking it
+const checkForActiveCall = useCallback(() => {
+  if (!userId) return
+  if (callRef.current) return
 
-            const incoming = {
-              id: call.id,
-              conversationId: call.conversation_id,
-              roomUrl: call.room_url,
-              roomName: call.room_name,
-              callType: call.call_type,
-              initiatedBy: call.initiated_by,
-              status: call.status,
-            }
-            callRef.current = incoming
-            setActiveCall(incoming)
-            setCallStatus(call.status === 'answered' ? 'connecting' : 'incoming')
-          })
-      })
-  }, [userId])
+  supabase
+    .from('active_calls')
+    .select('id, conversation_id, room_url, room_name, call_type, initiated_by, status, created_at')
+    .neq('initiated_by', userId)
+    .in('status', ['ringing', 'answered'])
+    // Only trust calls started recently — a stale "ringing" row from a
+    // closed tab or missed cleanup should never resurface as a fresh
+    // incoming call just because our socket reconnected.
+    .gt('created_at', new Date(Date.now() - 45_000).toISOString())
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+    .then(({ data: call, error }) => {
+      if (error || !call) return
+      supabase
+        .from('conversation_members')
+        .select('user_id')
+        .eq('conversation_id', call.conversation_id)
+        .eq('user_id', userId)
+        .single()
+        .then(({ data, error: memberErr }) => {
+          if (memberErr || !data) return
+          if (callRef.current?.id === call.id) return
+
+          const incoming = {
+            id: call.id,
+            conversationId: call.conversation_id,
+            roomUrl: call.room_url,
+            roomName: call.room_name,
+            callType: call.call_type,
+            initiatedBy: call.initiated_by,
+            status: call.status,
+          }
+          callRef.current = incoming
+          setActiveCall(incoming)
+          setCallStatus(call.status === 'answered' ? 'connecting' : 'incoming')
+        })
+    })
+}, [userId])
 
   useEffect(() => {
     if (!userId) return
