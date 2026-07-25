@@ -14,6 +14,25 @@ function loadYouTubeAPI() {
 }
 
 export default function WatchTogetherPlayer({ watchSession, onUpdatePlayback, onClose, isHost }) {
+  return (
+    <>
+      {!mini && <div style={{ position: 'fixed', inset: 0, zIndex: 599, background: 'rgba(0,0,0,0.92)' }} />}
+      <div style={{
+        position: 'fixed', zIndex: 601,
+        ...(mini ? { bottom: 90 + 158, right: 16, width: 240 } : { top: 12, left: 0, right: 0, display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '0 16px' }),
+      }}>
+        <button onClick={onClose} style={mini ? miniBtnStyle : topBtnStyle}>{mini ? '✕' : 'Leave'}</button>
+      </div>
+      <div style={
+        mini
+          ? { position: 'fixed', bottom: 90, right: 16, width: 240, aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.4)', zIndex: 600, background: '#000' }
+          : { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '90vw', maxWidth: 900, aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden', zIndex: 600, background: '#000' }
+      }>
+        <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      </div>
+    </>
+  )
+}
   const containerRef = useRef(null)
   const playerRef = useRef(null)
   const applyingRemoteUpdate = useRef(false)
