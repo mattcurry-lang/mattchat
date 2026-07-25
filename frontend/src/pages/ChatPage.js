@@ -74,6 +74,8 @@ import AISettingsModal from '../components/AISettingsModal'
 import { extractYouTubeId } from '../lib/youtube'
 import YouTubeCard from '../components/YouTubeCard'
 import YouTubePlayer from '../components/YouTubePlayer'
+import { useWatchTogether } from '../hooks/useWatchTogether'
+import WatchTogetherPlayer from '../components/WatchTogetherPlayer'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -441,6 +443,10 @@ const [showInstagramFull, setShowInstagramFull] = useState(false)
 const [showWeeklyReport, setShowWeeklyReport] = useState(false)
   const [showAISettings, setShowAISettings] = useState(false)
   const [youtubePlayer, setYoutubePlayer] = useState(null) // { videoId, mini } | null
+  const watchTogether = useWatchTogether(
+  activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
+  userId
+)
   // that appears AFTER a plain message has already been sent, if
   // Curry thinks it might land colder than intended. Never blocks or
   // delays sending; see runCoachCheck below.
@@ -1812,7 +1818,16 @@ const handleSend = async () => {
     ...msg,
     _currentUserId: userId,
     _quotedMessage: msg.reply_to_message_id ? findMessageById(msg.reply_to_message_id) : null,
-  _onPlayYouTube: (videoId) => setYoutubePlayer({ videoId, mini: false }),
+ _onPlayYouTube: (videoId) => {
+  if (activeConvo?.id && !activeConvo.isCurryAI) {
+    const startWatch = window.confirm('Watch this together with ' + getConvoName(activeConvo) + '? (Cancel to just watch solo)')
+    if (startWatch) {
+      watchTogether.startSession(videoId).catch((e) => alert('Could not start Watch Together: ' + e.message))
+      return
+    }
+  }
+  setYoutubePlayer({ videoId, mini: false })
+},
   }}
   isMe={isMine}
   isRead={!!readMap[msg.id]}
@@ -1883,6 +1898,14 @@ const handleSend = async () => {
                 onForwarded={() => reload()}
               />
             )}
+                {watchTogether.session && activeConvo?.id === watchTogether.session.conversation_id && (
+  <WatchTogetherPlayer
+    watchSession={watchTogether.session}
+    onUpdatePlayback={watchTogether.updatePlayback}
+    onClose={watchTogether.endSession}
+    isHost={watchTogether.session.started_by === userId}
+  />
+)}
 
             {/* Input area */}
             <div className="input-area" style={{ flexDirection: 'column', alignItems: 'stretch', padding: 0 }}>
