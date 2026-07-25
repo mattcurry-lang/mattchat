@@ -71,6 +71,8 @@ import TasksPage from '../components/Tasks/TasksPage'
 import DocumentsPage from '../components/Documents/DocumentsPage'
 import WeeklyReportModal from '../components/WeeklyReportModal'
 import AISettingsModal from '../components/AISettingsModal'
+import { extractYouTubeId } from '../lib/youtube'
+import YouTubeCard from '../components/YouTubeCard'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -315,22 +317,28 @@ if (msg.content?.startsWith('status_reply:')) {
       </div>
     )
   }
-return (
+const youtubeId = extractYouTubeId(msg.content)
+
+  return (
     <div className={`msg-row ${isMe ? 'mine' : ''}`}>
       {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
       <div>
         {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
-        <div className={`msg-bubble ${msg.is_email ? 'email-msg' : ''} ${isMe && isRead ? 'read' : ''}`}>
-          {msg.forwarded && <div className="forwarded-tag">➡️ Forwarded</div>}
-          {msg.reply_to_message_id && msg._quotedMessage && (
-            <div className="reply-quote">
-              <div className="reply-quote-name">{msg._quotedMessage.profiles?.username || 'You'}</div>
-              <div className="reply-quote-text">{msg._quotedMessage.content?.slice(0, 80)}</div>
-            </div>
-          )}
-          {msg.is_email && <span className="email-tag">📧 via email</span>}
-          {msg.content}
-        </div>
+        {youtubeId ? (
+          <YouTubeCard videoId={youtubeId} onPlay={msg._onPlayYouTube} />
+        ) : (
+          <div className={`msg-bubble ${msg.is_email ? 'email-msg' : ''} ${isMe && isRead ? 'read' : ''}`}>
+            {msg.forwarded && <div className="forwarded-tag">➡️ Forwarded</div>}
+            {msg.reply_to_message_id && msg._quotedMessage && (
+              <div className="reply-quote">
+                <div className="reply-quote-name">{msg._quotedMessage.profiles?.username || 'You'}</div>
+                <div className="reply-quote-text">{msg._quotedMessage.content?.slice(0, 80)}</div>
+              </div>
+            )}
+            {msg.is_email && <span className="email-tag">📧 via email</span>}
+            {msg.content}
+          </div>
+        )}
         <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
         <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
       </div>
@@ -1787,12 +1795,17 @@ const handleSend = async () => {
   isMe={isMine}
   conversationId={activeConvo.id}
 >
-                         <MessageBubble
-                            msg={{ ...msg, _currentUserId: userId, _quotedMessage: msg.reply_to_message_id ? findMessageById(msg.reply_to_message_id) : null }}
-                            isMe={isMine}
-                            isRead={!!readMap[msg.id]}
-                            isDelivered={!!deliveredMap[msg.id]}
-                          />
+                        <MessageBubble
+  msg={{
+    ...msg,
+    _currentUserId: userId,
+    _quotedMessage: msg.reply_to_message_id ? findMessageById(msg.reply_to_message_id) : null,
+    _onPlayYouTube: (videoId) => window.open(`https://www.youtube.com/watch?v=${videoId}`, '_blank'),
+  }}
+  isMe={isMine}
+  isRead={!!readMap[msg.id]}
+  isDelivered={!!deliveredMap[msg.id]}
+/>
                         </ReactableMessage>
                       )}
                     </div>
