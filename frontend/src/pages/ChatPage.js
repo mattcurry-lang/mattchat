@@ -1799,7 +1799,7 @@ const handleSend = async () => {
                     >
                       {isCurryMsg ? (
                          <MessageBubble msg={msg} isMe={false} isRead={false} isDelivered={false} session={session} />
-) : (
+ 
                       ) : (
                        <ReactableMessage
   messageId={msg.id}
