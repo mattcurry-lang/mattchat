@@ -73,6 +73,7 @@ import WeeklyReportModal from '../components/WeeklyReportModal'
 import AISettingsModal from '../components/AISettingsModal'
 import { extractYouTubeId } from '../lib/youtube'
 import YouTubeCard from '../components/YouTubeCard'
+import YouTubePlayer from '../components/YouTubePlayer'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -438,6 +439,7 @@ const [showInstagramFull, setShowInstagramFull] = useState(false)
   const [showDocuments, setShowDocuments] = useState(false)
 const [showWeeklyReport, setShowWeeklyReport] = useState(false)
   const [showAISettings, setShowAISettings] = useState(false)
+  const [youtubePlayer, setYoutubePlayer] = useState(null) // { videoId, mini } | null
   // that appears AFTER a plain message has already been sent, if
   // Curry thinks it might land colder than intended. Never blocks or
   // delays sending; see runCoachCheck below.
@@ -1609,6 +1611,14 @@ const handleSend = async () => {
         hidden={!!activeConvo}
         onActivate={() => setActiveConvo(CURRY_AI_CONTACT)}
       />
+          {youtubePlayer && (
+  <YouTubePlayer
+    videoId={youtubePlayer.videoId}
+    mini={youtubePlayer.mini}
+    onClose={() => setYoutubePlayer(null)}
+    onExpand={() => setYoutubePlayer(p => ({ ...p, mini: !p.mini }))}
+  />
+)}
 {profileCardTarget && (
   <ProfileCard
     targetProfile={profileCardTarget}
@@ -1800,7 +1810,7 @@ const handleSend = async () => {
     ...msg,
     _currentUserId: userId,
     _quotedMessage: msg.reply_to_message_id ? findMessageById(msg.reply_to_message_id) : null,
-    _onPlayYouTube: (videoId) => window.open(`https://www.youtube.com/watch?v=${videoId}`, '_blank'),
+  _onPlayYouTube: (videoId) => setYoutubePlayer({ videoId, mini: false }),
   }}
   isMe={isMine}
   isRead={!!readMap[msg.id]}
