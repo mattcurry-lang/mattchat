@@ -1620,6 +1620,16 @@ const handleSend = async () => {
         hidden={!!activeConvo}
         onActivate={() => setActiveConvo(CURRY_AI_CONTACT)}
       />
+
+                {watchTogether.session?.status === 'active' && (
+  <WatchTogetherPlayer
+    watchSession={watchTogether.session}
+    onUpdatePlayback={watchTogether.updatePlayback}
+    onClose={watchTogether.endSession}
+    isHost={watchTogether.session.started_by === userId}
+    mini={activeConvo?.id !== watchTogether.session.conversation_id}
+  />
+)}
           {youtubePlayer && (
   <YouTubePlayer
     videoId={youtubePlayer.videoId}
@@ -1897,25 +1907,7 @@ _onPlayYouTube: (videoId) => {
                 onForwarded={() => reload()}
               />
             )}
-{watchTogether.session && activeConvo?.id === watchTogether.session.conversation_id && (
-  watchTogether.session.status === 'pending' ? (
-    <WatchTogetherInvite
-      session={watchTogether.session}
-      currentUserId={userId}
-      inviterName={getConvoName(activeConvo)}
-      onAccept={watchTogether.acceptInvite}
-      onDecline={watchTogether.declineInvite}
-    />
-  ) : watchTogether.session.status === 'active' ? (
-    <WatchTogetherPlayer
-      watchSession={watchTogether.session}
-      onUpdatePlayback={watchTogether.updatePlayback}
-      onClose={watchTogether.endSession}
-      isHost={watchTogether.session.started_by === userId}
-    />
-  ) : null
-)}
-
+ 
             {/* Input area */}
             <div className="input-area" style={{ flexDirection: 'column', alignItems: 'stretch', padding: 0 }}>
               {replyingTo && (
