@@ -20,8 +20,7 @@ export function useWatchTogether(conversationId, userId) {
   }, [conversationId])
 
   useEffect(() => { loadActive() }, [loadActive])
-
-  useEffect(() => {
+useEffect(() => {
     if (!conversationId) return
     const unsubscribe = subscribeToChannel(
       `watch-together:${conversationId}`,
@@ -31,17 +30,19 @@ export function useWatchTogether(conversationId, userId) {
       }, (payload) => emit('change', payload)),
       {
         onEvent: (type, payload) => {
+          console.log('[watchTogether] realtime event received:', payload.new)
           const row = payload.new
           if (!row || row.status === 'ended' || row.status === 'declined') { setSession(null); return }
-          if (row.last_updated_by === userId && Date.now() - lastLocalUpdate.current < 1500) return
-          setSession(row)
+          // Always refetch fresh from the DB rather than trusting the
+          // payload shape directly — avoids any stale-closure issue
+          // and guarantees we render exactly what's actually stored.
+          loadActive()
         },
         onResync: loadActive,
       }
     )
     return unsubscribe
   }, [conversationId, userId, loadActive])
-
   // Creates a PENDING invite, not a live session — the other person
   // must accept before either side actually watches anything.
   const inviteToWatch = useCallback(async (videoId) => {
