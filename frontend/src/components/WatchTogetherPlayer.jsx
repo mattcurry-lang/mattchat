@@ -13,26 +13,7 @@ function loadYouTubeAPI() {
   return apiLoadPromise
 }
 
-export default function WatchTogetherPlayer({ watchSession, onUpdatePlayback, onClose, isHost }) {
-  return (
-    <>
-      {!mini && <div style={{ position: 'fixed', inset: 0, zIndex: 599, background: 'rgba(0,0,0,0.92)' }} />}
-      <div style={{
-        position: 'fixed', zIndex: 601,
-        ...(mini ? { bottom: 90 + 158, right: 16, width: 240 } : { top: 12, left: 0, right: 0, display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '0 16px' }),
-      }}>
-        <button onClick={onClose} style={mini ? miniBtnStyle : topBtnStyle}>{mini ? '✕' : 'Leave'}</button>
-      </div>
-      <div style={
-        mini
-          ? { position: 'fixed', bottom: 90, right: 16, width: 240, aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.4)', zIndex: 600, background: '#000' }
-          : { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '90vw', maxWidth: 900, aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden', zIndex: 600, background: '#000' }
-      }>
-        <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-      </div>
-    </>
-  )
-}
+export default function WatchTogetherPlayer({ watchSession, onUpdatePlayback, onClose, isHost, mini }) {
   const containerRef = useRef(null)
   const playerRef = useRef(null)
   const applyingRemoteUpdate = useRef(false)
@@ -97,21 +78,37 @@ export default function WatchTogetherPlayer({ watchSession, onUpdatePlayback, on
 
   useEffect(() => {
     applyRemote(watchSession.playback_state, watchSession.playback_position)
-  }, [watchSession.playback_state, watchSession.playback_position, watchSession.updated_at])
+  }, [watchSession.playback_state, watchSession.playback_position, watchSession.updated_at, applyRemote])
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 700, background: 'rgba(0,0,0,0.94)', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 14 }}>
-        <div style={{ color: '#c4b5fd', fontSize: 13, fontWeight: 700 }}>🎬 Watching together</div>
-        <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 20, color: '#fff', fontSize: 12, fontWeight: 600, padding: '6px 14px', cursor: 'pointer', fontFamily: 'inherit' }}>
-          Leave
-        </button>
+    <>
+      {!mini && <div style={{ position: 'fixed', inset: 0, zIndex: 599, background: 'rgba(0,0,0,0.92)' }} />}
+
+      <div style={{
+        position: 'fixed', zIndex: 601,
+        ...(mini
+          ? { bottom: 90 + 158, right: 16, width: 240 }
+          : { top: 12, left: 0, right: 0, display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '0 16px' }),
+      }}>
+        <button onClick={onClose} style={mini ? miniBtnStyle : topBtnStyle}>{mini ? '✕' : 'Leave'}</button>
       </div>
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px 16px' }}>
-        <div style={{ width: '100%', maxWidth: 900 }}>
-          <div ref={containerRef} style={{ width: '100%', aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden' }} />
-        </div>
+
+      <div style={
+        mini
+          ? { position: 'fixed', bottom: 90, right: 16, width: 240, aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.4)', zIndex: 600, background: '#000' }
+          : { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '90vw', maxWidth: 900, aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden', zIndex: 600, background: '#000' }
+      }>
+        <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
       </div>
-    </div>
+    </>
   )
+}
+
+const miniBtnStyle = {
+  background: 'rgba(0,0,0,0.85)', border: 'none', color: '#fff', fontSize: 11, fontWeight: 600,
+  cursor: 'pointer', fontFamily: 'inherit', padding: '4px 10px', borderRadius: 8,
+}
+const topBtnStyle = {
+  background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 20,
+  color: '#fff', fontSize: 12, fontWeight: 600, padding: '6px 14px', cursor: 'pointer', fontFamily: 'inherit',
 }
