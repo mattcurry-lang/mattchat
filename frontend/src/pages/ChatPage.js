@@ -76,6 +76,7 @@ import YouTubeCard from '../components/YouTubeCard'
 import YouTubePlayer from '../components/YouTubePlayer'
 import { useWatchTogether } from '../hooks/useWatchTogether'
 import WatchTogetherPlayer from '../components/WatchTogetherPlayer'
+import WatchTogetherInvite from '../components/WatchTogetherInvite'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -1819,13 +1820,10 @@ const handleSend = async () => {
     ...msg,
     _currentUserId: userId,
     _quotedMessage: msg.reply_to_message_id ? findMessageById(msg.reply_to_message_id) : null,
- _onPlayYouTube: (videoId) => {
+_onPlayYouTube: (videoId) => {
   if (activeConvo?.id && !activeConvo.isCurryAI) {
-    const startWatch = window.confirm('Watch this together with ' + getConvoName(activeConvo) + '? (Cancel to just watch solo)')
-    if (startWatch) {
-      watchTogether.startSession(videoId).catch((e) => alert('Could not start Watch Together: ' + e.message))
-      return
-    }
+    watchTogether.inviteToWatch(videoId).catch((e) => alert('Could not start Watch Together: ' + e.message))
+    return
   }
   setYoutubePlayer({ videoId, mini: false })
 },
@@ -1899,13 +1897,23 @@ const handleSend = async () => {
                 onForwarded={() => reload()}
               />
             )}
-                {watchTogether.session && activeConvo?.id === watchTogether.session.conversation_id && (
-  <WatchTogetherPlayer
-    watchSession={watchTogether.session}
-    onUpdatePlayback={watchTogether.updatePlayback}
-    onClose={watchTogether.endSession}
-    isHost={watchTogether.session.started_by === userId}
-  />
+{watchTogether.session && activeConvo?.id === watchTogether.session.conversation_id && (
+  watchTogether.session.status === 'pending' ? (
+    <WatchTogetherInvite
+      session={watchTogether.session}
+      currentUserId={userId}
+      inviterName={getConvoName(activeConvo)}
+      onAccept={watchTogether.acceptInvite}
+      onDecline={watchTogether.declineInvite}
+    />
+  ) : watchTogether.session.status === 'active' ? (
+    <WatchTogetherPlayer
+      watchSession={watchTogether.session}
+      onUpdatePlayback={watchTogether.updatePlayback}
+      onClose={watchTogether.endSession}
+      isHost={watchTogether.session.started_by === userId}
+    />
+  ) : null
 )}
 
             {/* Input area */}
