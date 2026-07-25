@@ -187,7 +187,8 @@ function CurryChatBubble({ msg }) {
   )
 }
 
-function MessageBubble({ msg, isMe, isRead, isDelivered }) {
+function MessageBubble({ msg, isMe, isRead, isDelivered, session }) {
+  
   if (msg.message_type === 'curry') {
     return <CurryChatBubble msg={msg} />
   }
@@ -1797,7 +1798,8 @@ const handleSend = async () => {
                       {...(!isCurryMsg ? bindLongPress(msg) : {})}
                     >
                       {isCurryMsg ? (
-                        <MessageBubble msg={msg} isMe={false} isRead={false} isDelivered={false} />
+                         <MessageBubble msg={msg} isMe={false} isRead={false} isDelivered={false} session={session} />
+) : (
                       ) : (
                        <ReactableMessage
   messageId={msg.id}
@@ -1815,6 +1817,7 @@ const handleSend = async () => {
   isMe={isMine}
   isRead={!!readMap[msg.id]}
   isDelivered={!!deliveredMap[msg.id]}
+                  session={session}
 />
                         </ReactableMessage>
                       )}
