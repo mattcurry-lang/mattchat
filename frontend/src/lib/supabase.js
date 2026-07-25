@@ -777,3 +777,21 @@ export async function getWeeklyReport(session) {
   })
   return res.json()
 }
+
+export async function analyzeYouTubeVideo(session, videoId) {
+  const res = await fetch('https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/youtube-analyze', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ videoId }),
+  })
+  return res.json()
+}
+
+export async function askYouTubeVideo(session, videoId, question) {
+  const res = await fetch('https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/youtube-ask', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ videoId, question }),
+  })
+  return res.json()
+}
