@@ -326,7 +326,7 @@ const youtubeId = extractYouTubeId(msg.content)
       <div>
         {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
         {youtubeId ? (
-          <YouTubeCard videoId={youtubeId} onPlay={msg._onPlayYouTube} />
+          <YouTubeCard videoId={youtubeId} onPlay={msg._onPlayYouTube} session={session} />
         ) : (
           <div className={`msg-bubble ${msg.is_email ? 'email-msg' : ''} ${isMe && isRead ? 'read' : ''}`}>
             {msg.forwarded && <div className="forwarded-tag">➡️ Forwarded</div>}
