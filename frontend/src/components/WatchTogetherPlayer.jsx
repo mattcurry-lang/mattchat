@@ -78,7 +78,6 @@ export default function WatchTogetherPlayer({ watchSession, onUpdatePlayback, on
 
   useEffect(() => {
     applyRemote(watchSession.playback_state, watchSession.playback_position)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchSession.playback_state, watchSession.playback_position, watchSession.updated_at])
 
   return (
