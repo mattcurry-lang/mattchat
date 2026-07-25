@@ -443,10 +443,7 @@ const [showInstagramFull, setShowInstagramFull] = useState(false)
 const [showWeeklyReport, setShowWeeklyReport] = useState(false)
   const [showAISettings, setShowAISettings] = useState(false)
   const [youtubePlayer, setYoutubePlayer] = useState(null) // { videoId, mini } | null
-  const watchTogether = useWatchTogether(
-  activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
-  userId
-)
+  
   // that appears AFTER a plain message has already been sent, if
   // Curry thinks it might land colder than intended. Never blocks or
   // delays sending; see runCoachCheck below.
@@ -471,6 +468,10 @@ const [showWeeklyReport, setShowWeeklyReport] = useState(false)
   const userId = session.user.id
 const { isOnline, getLastSeenLabel } = usePresence(userId)
   const igQuick = useInstagramConnection(session, userId)
+   const watchTogether = useWatchTogether(
+  activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
+  userId
+)
 
   const { callStatus, activeCall, callToken, callError, startCall, answerCall, declineCall, endCall } =
     useCall(userId, activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null)
