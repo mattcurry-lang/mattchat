@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
-
+import { useNavigate } from 'react-router-dom'
 /* ============================================================
    MATTCHAT — "The Future of Human Communication" landing page
    Self-contained: styles live in the <style> block at the bottom
@@ -117,7 +117,7 @@ function HeroDashboard() {
   )
 }
 
-function HeroSection() {
+function HeroSection({ onGetStarted }) {
   return (
     <section className="mc-section mc-hero">
       <div className="mc-hero-grid">
@@ -129,7 +129,7 @@ function HeroSection() {
             meetings, and AI assistance into one seamless experience.
           </p>
           <div className="mc-hero-actions">
-            <GlowButton primary href="#get-started">Get Started</GlowButton>
+            <GlowButton primary onClick={onGetStarted}>Get Started</GlowButton>
             <GlowButton href="#platform">Explore</GlowButton>
           </div>
         </div>
@@ -395,12 +395,12 @@ function TestimonialsSection() {
 
 /* ---------- section: final CTA ---------- */
 
-function FinalCTASection() {
+function FinalCTASection({ onGetStarted }) {
   return (
     <section className="mc-section mc-final" id="get-started">
       <div className="mc-final-glow" />
       <h2 className="mc-h1 mc-center">Experience Communication<br />Reimagined.</h2>
-      <GlowButton primary href="#">Launch Mattchat</GlowButton>
+      <GlowButton primary onClick={onGetStarted}>Launch Mattchat</GlowButton>
     </section>
   )
 }
@@ -457,22 +457,25 @@ function AmbientBackground() {
 /* ---------- root ---------- */
 
 export default function LandingPage() {
+  const navigate = useNavigate()
   return (
     <div className="mc-root">
       <AmbientBackground />
       <nav className="mc-nav">
         <span className="mc-nav-logo">Mattchat</span>
-        <GlowButton href="#get-started">Get Started</GlowButton>
+        <GlowButton onClick={() => navigate('/auth')}>Get Started</GlowButton>
       </nav>
 
-      <HeroSection />
+      <HeroSection onGetStarted={() => navigate('/auth')} />
       <WhySection />
       <CurrySection />
       <PlatformSection />
       <CompareSection />
       <IntegrationsSection />
       <TestimonialsSection />
-      <FinalCTASection />
+      <FinalCTASection onGetStarted={() => navigate('/auth')} />
+
+     
 
       <footer className="mc-footer">
         <span>© {new Date().getFullYear()} Mattchat</span>
