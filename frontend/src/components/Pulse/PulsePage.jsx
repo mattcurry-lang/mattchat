@@ -7,7 +7,7 @@ import { PLATFORM_META, AppIcon } from './PulseIcons'
 import { usePulseData, usePulseSettings } from '../../hooks/usePulseData'
 import { getPulsePlugin } from '../../lib/pulsePlugins'
 import YouTubePulsePage from './YouTubePulsePage'
-import ShortsPage from 'components/Shorts/ShortsPage'
+import ShortsPage from './Shorts/ShortsPage'
 
 
 const LOCKED_PLATFORMS = Object.entries(PLATFORM_META).filter(([, meta]) => meta.supportLevel === 'native_only')
