@@ -31,17 +31,21 @@ export default function NotificationSettingsModal({ userId, onClose }) {
     await updateNotificationPreferences(userId, patch)
   }
 
-  const handleEnable = async () => {
-    setError(null)
-    setSubscribing(true)
-    try {
-      await subscribeToPush(userId)
-      setPermission('granted')
-    } catch (e) {
+ const handleEnable = async () => {
+  setError(null)
+  setSubscribing(true)
+  try {
+    await subscribeToPush(userId)
+    setPermission('granted')
+  } catch (e) {
+    if (e.message?.includes('push service') || e.name === 'AbortError') {
+      setError("Push notifications couldn't register. If you're using Brave, enable \"Use Google services for push messaging\" in brave://settings/privacy, then restart your browser and try again.")
+    } else {
       setError(e.message)
     }
-    setSubscribing(false)
   }
+  setSubscribing(false)
+}
 
   const handleDisable = async () => {
     await unsubscribeFromPush(userId)
