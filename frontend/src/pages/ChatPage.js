@@ -77,6 +77,7 @@ import YouTubePlayer from '../components/YouTubePlayer'
 import { useWatchTogether } from '../hooks/useWatchTogether'
 import WatchTogetherPlayer from '../components/WatchTogetherPlayer'
 import WatchTogetherInvite from '../components/WatchTogetherInvite'
+import YouTubeSearchModal from '../components/YouTubeSearchModal'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -363,6 +364,7 @@ const items = [
     { icon: <IconClock size={17} />, label: 'Schedule Message', action: onSchedule },
     { icon: <IconSearch size={17} />, label: 'Search Messages', action: onSearch },
     { icon: <IconMail size={17} />, label: 'Share Contact Link', action: onShare },
+    { icon: <IconVideo size={17} />, label: 'Search YouTube', action: onSearchYouTube },
   ]
   return (
     <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, zIndex: 200, background: 'rgba(255,255,255,0.98)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow-lg)', overflow: 'hidden', animation: 'menuPop 0.18s cubic-bezier(0.34,1.56,0.64,1)', minWidth: 200 }}>
@@ -444,7 +446,7 @@ const [showInstagramFull, setShowInstagramFull] = useState(false)
 const [showWeeklyReport, setShowWeeklyReport] = useState(false)
   const [showAISettings, setShowAISettings] = useState(false)
   const [youtubePlayer, setYoutubePlayer] = useState(null) // { videoId, mini } | null
-  
+  const [showYouTubeSearch, setShowYouTubeSearch] = useState(false)
   // that appears AFTER a plain message has already been sent, if
   // Curry thinks it might land colder than intended. Never blocks or
   // delays sending; see runCoachCheck below.
@@ -1718,14 +1720,15 @@ const handleSend = async () => {
                   <button className="icon-btn dark" onClick={() => setShowThreeDot(v => !v)} title="More options"
                     style={{ color: showThreeDot ? '#a78bfa' : undefined, background: showThreeDot ? 'rgba(167,139,250,0.15)' : undefined }}><IconMoreVertical size={17} /></button>
                   {showThreeDot && (
-                    <ThreeDotMenu
-                      onPoll={() => { setShowPoll(v => !v); setShowTask(false) }}
-                      onTask={() => { setShowTask(v => !v); setShowPoll(false) }}
-                      onSchedule={() => setShowScheduler(true)}
-                      onSearch={() => setShowSearch(true)}
-                      onShare={handleShare}
-                      onClose={() => setShowThreeDot(false)}
-                    />
+                   <ThreeDotMenu
+  onPoll={() => { setShowPoll(v => !v); setShowTask(false) }}
+  onTask={() => { setShowTask(v => !v); setShowPoll(false) }}
+  onSchedule={() => setShowScheduler(true)}
+  onSearch={() => setShowSearch(true)}
+  onSearchYouTube={() => setShowYouTubeSearch(true)}
+  onShare={handleShare}
+  onClose={() => setShowThreeDot(false)}
+/>
                   )}
                 </div>
               </div>
@@ -1962,6 +1965,18 @@ _onWatchTogether: (videoId) => {
                   }}
                 />
               )}
+{showYouTubeSearch && (
+  <YouTubeSearchModal
+    session={session}
+    onClose={() => setShowYouTubeSearch(false)}
+    onSelectVideo={async (videoId) => {
+      setShowYouTubeSearch(false)
+      const url = `https://www.youtube.com/watch?v=${videoId}`
+      await sendMessage(url)
+      bumpConversationActivity(url)
+    }}
+  />
+)}
               {showPoll && (
                 <div style={{ padding: '0 16px' }}>
                   <PollCreator conversationId={activeConvo.id} senderId={userId} onSent={() => setShowPoll(false)} onCancel={() => setShowPoll(false)} />
