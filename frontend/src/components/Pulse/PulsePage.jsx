@@ -6,6 +6,7 @@ import PulseLockedCard from './PulseLockedCard'
 import { PLATFORM_META } from './PulseIcons'
 import { usePulseData, usePulseSettings } from '../../hooks/usePulseData'
 import { getPulsePlugin } from '../../lib/pulsePlugins'
+import YouTubePulsePage from './YouTubePulsePage'
 
 const LOCKED_PLATFORMS = Object.entries(PLATFORM_META).filter(([, meta]) => meta.supportLevel === 'native_only')
 
@@ -15,6 +16,7 @@ export default function PulsePage({
 }) {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [showYouTubePulse, setShowYouTubePulse] = useState(false)
   const { privacyMode, setPrivacyMode } = usePulseSettings(userId)
   const { items, loading, error, reload } = usePulseData(session, { conversations, unreadCounts, getConvoName })
 
