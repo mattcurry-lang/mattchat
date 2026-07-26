@@ -804,3 +804,32 @@ export async function searchYouTube(session, query, pageToken) {
   })
   return res.json()
 }
+
+export async function saveYouTubeSearch(userId, query) {
+  // De-dupe: if this exact query already exists for the user, just
+  // bump its timestamp instead of piling up duplicate rows — matches
+  // how YouTube's own search history behaves.
+  const { data: existing } = await supabase
+    .from('youtube_search_history').select('id').eq('user_id', userId).eq('query', query).maybeSingle()
+  if (existing) {
+    await supabase.from('youtube_search_history').update({ created_at: new Date().toISOString() }).eq('id', existing.id)
+  } else {
+    await supabase.from('youtube_search_history').insert({ user_id: userId, query })
+  }
+}
+
+export async function listYouTubeSearchHistory(userId) {
+  const { data, error } = await supabase
+    .from('youtube_search_history').select('*').eq('user_id', userId)
+    .order('created_at', { ascending: false }).limit(15)
+  if (error) throw error
+  return data || []
+}
+
+export async function deleteYouTubeSearchHistoryItem(id) {
+  await supabase.from('youtube_search_history').delete().eq('id', id)
+}
+
+export async function clearYouTubeSearchHistory(userId) {
+  await supabase.from('youtube_search_history').delete().eq('user_id', userId)
+}
