@@ -79,6 +79,8 @@ import WatchTogetherPlayer from '../components/WatchTogetherPlayer'
 import WatchTogetherInvite from '../components/WatchTogetherInvite'
 import YouTubeSearchModal from '../components/YouTubeSearchModal'
 import ShortsPage from '../components/Shorts/ShortsPage'
+import NotificationSettingsModal from '../components/NotificationSettingsModal'
+import { listenForNotificationActions } from '../lib/pushNotifications'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -472,6 +474,7 @@ const [showWeeklyReport, setShowWeeklyReport] = useState(false)
   const [showYouTubeSearch, setShowYouTubeSearch] = useState(false)
   const [showShorts, setShowShorts] = useState(false)
 const [shortsInitialVideo, setShortsInitialVideo] = useState(null)
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false)
   // that appears AFTER a plain message has already been sent, if
   // Curry thinks it might land colder than intended. Never blocks or
   // delays sending; see runCoachCheck below.
@@ -589,6 +592,19 @@ const listState = useConversationListState({
     useHeyCurry(onHeyCurryActivated, { autoStart: false })
   const bindLongPress = useMessageLongPress((message, x, y) => setMessageMenu({ message, x, y }))
 
+useEffect(() => {
+  const unsubscribe = listenForNotificationActions((action, data) => {
+    if (data.type === 'call' && action === 'answer') {
+      answerCall()
+    } else if (data.type === 'call' && action === 'decline') {
+      declineCall()
+    } else if (data.conversationId) {
+      const found = conversations.find(c => c.id === data.conversationId)
+      if (found) openConvo(found)
+    }
+  })
+  return unsubscribe
+}, [conversations, answerCall, declineCall])
   
 useEffect(() => {
   supabase.from('profiles').select('*').eq('id', userId).single().then(({ data }) => {
@@ -608,6 +624,7 @@ useEffect(() => {
     setSharedConvoIds(new Set((data || []).map(r => r.conversation_id)))
   }, [userId])
 
+  
   useEffect(() => { loadSharedConvoIds() }, [loadSharedConvoIds])
 
   const loadEmailAccounts = useCallback(async () => {
@@ -1493,6 +1510,12 @@ const handleSend = async () => {
 >
   ⚙️ AI Settings
 </button>
+    <button
+  onClick={() => { setShowNotificationSettings(true); setShowProfileMenu(false) }}
+  style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#c4b5fd', fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+>
+  🔔 Notifications
+</button>
 <button
                   onClick={() => { setShowConnectedApps(true); setShowProfileMenu(false) }}
                   style={{
@@ -1521,7 +1544,7 @@ const handleSend = async () => {
             </div>
           </div>
         )}
-
+{showNotificationSettings && <NotificationSettingsModal userId={userId} onClose={() => setShowNotificationSettings(false)} />}
         {show2FA && <TwoFactorModal onClose={() => setShow2FA(false)} />}
 {showProfileSetup && (
   <ProfileSetupModal
