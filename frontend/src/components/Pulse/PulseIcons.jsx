@@ -132,10 +132,19 @@ export const AppIcon = {
       <svg width="60%" height="60%" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2.5" {...stroke} /><path {...stroke} d="M3 10h18" /><path {...stroke} d="M8 3v4M16 3v4" /><circle cx="9" cy="15" r="1" fill="white" /></svg>
     </Badge>
   ),
+  youtube: ({ size = 40 }) => (
+    <Badge color="linear-gradient(135deg,#ff4444,#cc0000)" size={size}>
+      <svg width="60%" height="60%" viewBox="0 0 24 24">
+        <rect x="2" y="5" width="20" height="14" rx="4" {...stroke} />
+        <path d="M10 9l6 3-6 3z" fill="white" stroke="none" />
+      </svg>
+    </Badge>
+  ),
 }
 
 export const PLATFORM_META = {
   mattchat:  { label: 'Mattchat',  supportLevel: 'internal' },
+  youtube: { label: 'YouTube', supportLevel: 'browse' },
   gmail:     { label: 'Gmail',     supportLevel: 'oauth' },
   instagram: { label: 'Instagram', supportLevel: 'oauth' },
   google_drive:    { label: 'Google Drive',    supportLevel: 'oauth' },
@@ -150,4 +159,5 @@ export const PLATFORM_META = {
   linkedin:  { label: 'LinkedIn',  supportLevel: 'native_only' },
   x:         { label: 'X',         supportLevel: 'native_only' },
   signal:    { label: 'Signal',    supportLevel: 'native_only' },
+  
 }
