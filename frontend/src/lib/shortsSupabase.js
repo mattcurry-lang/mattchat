@@ -41,17 +41,16 @@ export async function listRecentShorts(userId, limit = 20) {
 
 // Fire-and-forget — call when a Short is skipped/finished so Curry
 // can learn from it. Never awaited by the UI.
-export function logShortsInteraction(userId, video, watchSeconds, { skipped = false, liked = false } = {}) {
+export function logShortsInteraction(userId, video, watchSeconds, { skipped = false, liked = false, replays = 0, shared = false } = {}) {
   supabase.from('shorts_interactions').insert({
     user_id: userId,
     video_id: video.videoId,
     category: video.category,
     watch_seconds: watchSeconds,
     duration_seconds: video.durationSeconds || 0,
-    skipped, liked,
+    skipped, liked, replays, shared,
   }).then(({ error }) => { if (error) console.error('logShortsInteraction failed:', error) })
 }
-
 export async function toggleShortsLike(userId, videoId, currentlyLiked) {
   if (currentlyLiked) {
     await supabase.from('shorts_likes').delete().eq('user_id', userId).eq('video_id', videoId)
