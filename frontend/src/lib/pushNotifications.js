@@ -13,7 +13,11 @@ export function isPushSupported() {
 
 export async function registerServiceWorker() {
   if (!isPushSupported()) return null
-  return navigator.serviceWorker.register('/sw.js')
+  await navigator.serviceWorker.register('/sw.js')
+  // .ready resolves only once a service worker is actually active and
+  // controlling this scope — register() alone doesn't guarantee that,
+  // which is what caused "no active Service Worker" on first attempt.
+  return navigator.serviceWorker.ready
 }
 
 export async function getNotificationPermissionState() {
