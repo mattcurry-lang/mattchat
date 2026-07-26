@@ -6,6 +6,7 @@ import AuthPage from './pages/AuthPage'
 import EmailFormPage from './pages/EmailFormPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import MfaChallengePage from './pages/MfaChallengePage'
+import LandingPage from './components/Landing/LandingPage'
 import './App.css'
 import Privacy from './pages/Privacy'
 import { unlockFileAudio } from './lib/mattchatSounds'
@@ -15,18 +16,11 @@ export default function App() {
   const [needsMfa, setNeedsMfa] = useState(false)
   const [aalChecked, setAalChecked] = useState(false)
 
-  // Browsers block audio until the user has interacted with the page at
-  // least once. This primes a silent play+pause on the very first
-  // click/tap anywhere in the app so later programmatic playback
-  // (notification ping, incoming-call ringtone) isn't blocked.
-useEffect(() => {
+  useEffect(() => {
     window.addEventListener('pointerdown', unlockFileAudio, { once: true })
     return () => window.removeEventListener('pointerdown', unlockFileAudio)
   }, [])
-  // A signed-in session from Supabase can still be "aal1" even when the
-  // account has a verified 2FA factor — Supabase issues the session
-  // right after password auth, then expects the app to separately
-  // enforce the step-up to aal2 via a challenge. This is that check
+
   const checkAal = async () => {
     const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
     if (!error && data) {
@@ -42,11 +36,6 @@ useEffect(() => {
       if (session) checkAal(); else setAalChecked(true)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // Supabase fires this specific event when the session came from a
-      // password-reset link — NOT from a normal sign-in. We latch this
-      // in state (not just checking the URL) because the event only
-      // fires once, right when the link is clicked; by the time the
-      // component re-renders on navigation we'd otherwise lose it.
       if (event === 'PASSWORD_RECOVERY') {
         setIsRecovery(true)
       }
@@ -66,13 +55,13 @@ useEffect(() => {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public email contact form — no login needed */}
-       <Route path="/email/:username" element={<EmailFormPage />} />
-  <Route path="/privacy" element={<Privacy />} />
+        <Route path="/email/:username" element={<EmailFormPage />} />
+        <Route path="/privacy" element={<Privacy />} />
+        {/* New visitors land here first instead of going straight to
+            the login form — "Get Started" on this page is what sends
+            them to /auth. */}
+        <Route path="/welcome" element={!session ? <LandingPage /> : <Navigate to="/" />} />
         <Route path="/auth" element={!session ? <AuthPage /> : <Navigate to="/" />} />
-        {/* Recovery session takes priority over the normal session check —
-            otherwise a recovery session (which IS a real session) would
-            fall through to ChatPage instead of letting them set a new password. */}
         <Route
           path="/reset-password"
           element={
@@ -90,7 +79,7 @@ useEffect(() => {
                 ? (needsMfa
                     ? <MfaChallengePage onVerified={() => setNeedsMfa(false)} />
                     : <ChatPage session={session} />)
-                : <Navigate to="/auth" />
+                : <Navigate to="/welcome" />
           }
         />
       </Routes>
