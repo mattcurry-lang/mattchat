@@ -24,8 +24,8 @@ self.addEventListener('push', (event) => {
   const {
     title = 'Mattchat',
     body = '',
-    icon = '/logo192.png',
-    badge = '/logo192.png',
+    icon = '/android-chrome-192x192.png',
+badge = '/android-chrome-192x192.png',
     tag,          // grouping key — e.g. conversation id, so repeated
                    // messages from the same chat replace rather than stack
     data = {},    // { url, type, conversationId, ... } — read on click
