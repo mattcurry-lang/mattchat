@@ -351,20 +351,20 @@ const youtubeId = extractYouTubeId(msg.content)
     </div>
   )
 }
-function ThreeDotMenu({ onPoll, onTask, onSchedule, onSearch, onShare, onClose }) {
+function ThreeDotMenu({ onPoll, onTask, onSchedule, onSearch, onSearchYouTube, onShare, onClose }) {
   useEffect(() => {
     const handler = (e) => { if (!e.target.closest('.threedot-wrapper')) onClose() }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [onClose])
 
-const items = [
+  const items = [
     { icon: <IconChart size={17} />, label: 'Create Poll', action: onPoll },
     { icon: <IconCheckSquare size={17} />, label: 'Task List', action: onTask },
     { icon: <IconClock size={17} />, label: 'Schedule Message', action: onSchedule },
     { icon: <IconSearch size={17} />, label: 'Search Messages', action: onSearch },
-    { icon: <IconMail size={17} />, label: 'Share Contact Link', action: onShare },
     { icon: <IconVideo size={17} />, label: 'Search YouTube', action: onSearchYouTube },
+    { icon: <IconMail size={17} />, label: 'Share Contact Link', action: onShare },
   ]
   return (
     <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, zIndex: 200, background: 'rgba(255,255,255,0.98)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow-lg)', overflow: 'hidden', animation: 'menuPop 0.18s cubic-bezier(0.34,1.56,0.64,1)', minWidth: 200 }}>
@@ -374,14 +374,13 @@ const items = [
           onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-surface-2)'}
           onMouseLeave={e => e.currentTarget.style.background = 'none'}
         >
-<span style={{ width: 24, display: 'flex', justifyContent: 'center', color: 'var(--text-secondary)' }}>{icon}</span>
+          <span style={{ width: 24, display: 'flex', justifyContent: 'center', color: 'var(--text-secondary)' }}>{icon}</span>
           {label}
         </button>
       ))}
     </div>
   )
 }
-
 function CallButtons({ onVoiceCall, onVideoCall, disabled }) {
   return (
     <>
