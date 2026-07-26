@@ -35,7 +35,7 @@ export default function ShortsVideoCard({
   onProgress, onEnded, onReplay, liked, onToggleLike,
   onOpenShare, onOpenComments, onTap,
 }) {
-  const containerRef = useRef(null)
+  const wrapperRef = useRef(null)
   const playerRef = useRef(null)
   const readyRef = useRef(false)
   const [ready, setReady] = useState(false)
@@ -43,39 +43,46 @@ export default function ShortsVideoCard({
   const [burst, setBurst] = useState(false)
   const lastTapRef = useRef(0)
   const bgColor = useDominantColor(video.thumbnailUrl)
+useEffect(() => {
+  if (!isMounted) return
+  let cancelled = false
+  let targetDiv = null
 
-  useEffect(() => {
-    if (!isMounted) return
-    let cancelled = false
-    loadYouTubeAPI().then((YT) => {
-      if (cancelled || !containerRef.current) return
-      playerRef.current = new YT.Player(containerRef.current, {
-        videoId: video.videoId,
-        playerVars: { autoplay: 0, playsinline: 1, controls: 0, loop: 1, playlist: video.videoId, rel: 0, modestbranding: 1 },
-        events: {
-          onReady: (e) => {
-            readyRef.current = true
-            setReady(true)
-            if (startPosition > 1) e.target.seekTo(startPosition, true)
-            e.target.unMute()
-          },
-          onStateChange: (e) => {
-            if (e.data === window.YT.PlayerState.ENDED) {
-              onEnded?.()
-              onReplay?.() // loop param means ENDED fires on every replay too
-            }
-          },
+  loadYouTubeAPI().then((YT) => {
+    if (cancelled || !wrapperRef.current) return
+    targetDiv = document.createElement('div')
+    targetDiv.style.width = '100%'
+    targetDiv.style.height = '100%'
+    wrapperRef.current.appendChild(targetDiv)
+
+    playerRef.current = new YT.Player(targetDiv, {
+      videoId: video.videoId,
+      playerVars: { autoplay: 0, playsinline: 1, controls: 0, loop: 1, playlist: video.videoId, rel: 0, modestbranding: 1 },
+      events: {
+        onReady: (e) => {
+          readyRef.current = true
+          setReady(true)
+          if (startPosition > 1) e.target.seekTo(startPosition, true)
+          e.target.unMute()
         },
-      })
+        onStateChange: (e) => {
+          if (e.data === window.YT.PlayerState.ENDED) {
+            onEnded?.()
+            onReplay?.()
+          }
+        },
+      },
     })
-    return () => {
-      cancelled = true
-      playerRef.current?.destroy?.()
-      playerRef.current = null
-      readyRef.current = false
-    }
-  }, [isMounted, video.videoId]) // eslint-disable-line
+  })
 
+  return () => {
+    cancelled = true
+    playerRef.current?.destroy?.()
+    playerRef.current = null
+    readyRef.current = false
+    if (wrapperRef.current) wrapperRef.current.innerHTML = ''
+  }
+}, [isMounted, video.videoId])
   useEffect(() => {
     if (!readyRef.current || !playerRef.current) return
     if (isActive) playerRef.current.playVideo?.()
@@ -139,11 +146,11 @@ export default function ShortsVideoCard({
         style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
       >
         <div style={{ width: '100%', maxWidth: 'calc(100dvh * 9 / 16)', aspectRatio: '9/16', position: 'relative' }}>
-          {isMounted ? (
-            <div ref={containerRef} style={{ width: '100%', height: '100%', pointerEvents: 'none', borderRadius: 2, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} />
-          ) : (
-            <img src={video.thumbnailUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 2 }} />
-          )}
+         {isMounted ? (
+  <div ref={wrapperRef} style={{ width: '100%', height: '100%', pointerEvents: 'none', borderRadius: 2, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} />
+) : (
+  <img src={video.thumbnailUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 2 }} />
+)}
         </div>
       </div>
 
