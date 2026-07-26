@@ -12,7 +12,6 @@ export default function ShortsPage({
   const [searchInput, setSearchInput] = useState(initialSearch || '')
   const [activeSearch, setActiveSearch] = useState(initialSearch || '')
   const [showSearchBox, setShowSearchBox] = useState(false)
-  const [muted, setMuted] = useState(true)
   const [shareTarget, setShareTarget] = useState(null)
   const [likedIds, setLikedIdsLocal] = useState(new Set())
   const startTimeRef = useRef(0)
@@ -142,7 +141,7 @@ export default function ShortsPage({
 
       {!loading && error && items.length === 0 && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f87171', fontSize: 13, padding: 24, textAlign: 'center' }}>
-          Couldn't load Shorts right now.
+          Couldn't load Shorts: {error}
         </div>
       )}
 
@@ -159,8 +158,6 @@ export default function ShortsPage({
                 video={video}
                 isActive={isActive}
                 isMounted={isMounted}
-                muted={muted}
-                onToggleMute={() => setMuted(m => !m)}
                 startPosition={isActive ? resumePosition : 0}
                 onProgress={isActive ? handleProgress : undefined}
                 onEnded={isActive ? handleEnded : undefined}
