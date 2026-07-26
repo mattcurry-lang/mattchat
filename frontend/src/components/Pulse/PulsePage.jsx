@@ -103,15 +103,33 @@ export default function PulsePage({
         ))}
 
         {(filter === 'all' || filter === 'more') && (
-          <>
-            <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', marginTop: 8, marginBottom: 2 }}>
-              More apps — coming with the Mattchat mobile app
-            </div>
-            {LOCKED_PLATFORMS.map(([key, meta]) => (
-              <PulseLockedCard key={key} app={key} label={meta.label} />
-            ))}
-          </>
-        )}
+  <>
+    <button
+      onClick={() => setShowYouTubePulse(true)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-surface-2)',
+        border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px',
+        cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%',
+      }}
+    >
+      <div style={{
+        width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg,#ff0000,#cc0000)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18,
+      }}>▶️</div>
+      <div>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>YouTube</div>
+        <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Search and browse videos</div>
+      </div>
+    </button>
+
+    <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', marginTop: 8, marginBottom: 2 }}>
+      More apps — coming with the Mattchat mobile app
+    </div>
+    {LOCKED_PLATFORMS.map(([key, meta]) => (
+      <PulseLockedCard key={key} app={key} label={meta.label} />
+    ))}
+  </>
+)}
       </div>
     </div>
   )
