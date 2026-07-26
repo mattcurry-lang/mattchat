@@ -24,7 +24,7 @@ function formatCount(n) {
 }
 
 export default function ShortsVideoCard({
-  video, isActive, isMounted, muted, onToggleMute, startPosition,
+  video, isActive, isMounted, startPosition,
   onProgress, onEnded, liked, onToggleLike, onOpenShare, onOpenComments,
 }) {
   const containerRef = useRef(null)
@@ -46,7 +46,7 @@ export default function ShortsVideoCard({
             readyRef.current = true
             setReady(true)
             if (startPosition > 1) e.target.seekTo(startPosition, true)
-            e.target[muted ? 'mute' : 'unMute']()
+            e.target.unMute() // audio follows system/browser volume, no in-app toggle
           },
           onStateChange: (e) => {
             if (e.data === window.YT.PlayerState.ENDED) onEnded?.()
@@ -72,11 +72,6 @@ export default function ShortsVideoCard({
       playerRef.current.pauseVideo?.()
     }
   }, [isActive, ready])
-
-  useEffect(() => {
-    if (!readyRef.current || !playerRef.current) return
-    playerRef.current[muted ? 'mute' : 'unMute']?.()
-  }, [muted, ready])
 
   // Report watch progress every 2s while active, for continue-watching
   // + Curry's watch-duration signal — cleared the instant it's no
@@ -113,14 +108,6 @@ export default function ShortsVideoCard({
 
       {/* Gradient scrim for legibility */}
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, transparent 18%, transparent 55%, rgba(0,0,0,0.75) 100%)', pointerEvents: 'none' }} />
-
-      {/* Mute toggle */}
-      <button
-        onClick={(e) => { e.stopPropagation(); onToggleMute() }}
-        style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: 36, height: 36, color: '#fff', fontSize: 15, cursor: 'pointer' }}
-      >
-        {muted ? '🔇' : '🔊'}
-      </button>
 
       {/* Creator / title / description */}
       <div style={{ position: 'absolute', left: 16, right: 84, bottom: 24, color: '#fff', display: 'flex', flexDirection: 'column', gap: 6 }}>
