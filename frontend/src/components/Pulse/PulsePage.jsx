@@ -12,7 +12,7 @@ const LOCKED_PLATFORMS = Object.entries(PLATFORM_META).filter(([, meta]) => meta
 
 export default function PulsePage({
   session, userId, profile, conversations, unreadCounts, getConvoName,
-  onOpenConversation, aiSummary,
+  onOpenConversation, onSelectVideo, aiSummary,
 }) {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
