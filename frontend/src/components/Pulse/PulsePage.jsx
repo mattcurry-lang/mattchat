@@ -131,6 +131,18 @@ export default function PulsePage({
   </>
 )}
       </div>
+
+      {showYouTubePulse && (
+  <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto' }}>
+    <YouTubePulsePage
+      session={session}
+      userId={userId}
+      onSelectVideo={(videoId) => { setShowYouTubePulse(false); onSelectVideo?.(videoId) }}
+      onClose={() => setShowYouTubePulse(false)}
+    />
+  </div>
+)}
+      
     </div>
   )
 }
