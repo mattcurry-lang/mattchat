@@ -833,3 +833,12 @@ export async function deleteYouTubeSearchHistoryItem(id) {
 export async function clearYouTubeSearchHistory(userId) {
   await supabase.from('youtube_search_history').delete().eq('user_id', userId)
 }
+
+export async function getNotificationPreferences(userId) {
+  const { data } = await supabase.from('notification_preferences').select('*').eq('user_id', userId).maybeSingle()
+  return data || { new_messages: true, calls: true, mentions: true, reactions: false, reminders: true, watch_together: true }
+}
+
+export async function updateNotificationPreferences(userId, patch) {
+  await supabase.from('notification_preferences').upsert({ user_id: userId, ...patch, updated_at: new Date().toISOString() })
+}
