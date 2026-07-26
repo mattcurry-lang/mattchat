@@ -795,3 +795,12 @@ export async function askYouTubeVideo(session, videoId, question) {
   })
   return res.json()
 }
+
+export async function searchYouTube(session, query, pageToken) {
+  const res = await fetch('https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/youtube-search', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, pageToken }),
+  })
+  return res.json()
+}
