@@ -78,6 +78,7 @@ import { useWatchTogether } from '../hooks/useWatchTogether'
 import WatchTogetherPlayer from '../components/WatchTogetherPlayer'
 import WatchTogetherInvite from '../components/WatchTogetherInvite'
 import YouTubeSearchModal from '../components/YouTubeSearchModal'
+import ShortsPage from '../components/Shorts/ShortsPage'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -284,6 +285,29 @@ if (msg.content?.startsWith('status_reply:')) {
     </div>
   )
 }
+
+if (msg.content?.startsWith('short:')) {
+  const [vid, t, thumb, channel] = msg.content.replace('short:', '').split('::')
+  return (
+    <div className={`msg-row ${isMe ? 'mine' : ''}`}>
+      {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
+      <div>
+        {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
+        <button
+          onClick={() => msg._onOpenShort?.(vid)}
+          style={{ display: 'block', position: 'relative', width: 160, borderRadius: 14, overflow: 'hidden', border: 'none', padding: 0, cursor: 'pointer' }}
+        >
+          <img src={thumb} alt={t} style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block' }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.85))' }} />
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 16 }}>▶</div>
+          <div style={{ position: 'absolute', left: 8, right: 8, bottom: 8, color: '#fff', fontSize: 11, fontWeight: 700, textAlign: 'left', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t}</div>
+        </button>
+        <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+        <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
+      </div>
+    </div>
+  )
+}
   if (msg.message_type === 'task') {
     return (
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
@@ -446,6 +470,8 @@ const [showWeeklyReport, setShowWeeklyReport] = useState(false)
   const [showAISettings, setShowAISettings] = useState(false)
   const [youtubePlayer, setYoutubePlayer] = useState(null) // { videoId, mini } | null
   const [showYouTubeSearch, setShowYouTubeSearch] = useState(false)
+  const [showShorts, setShowShorts] = useState(false)
+const [shortsInitialVideo, setShortsInitialVideo] = useState(null)
   // that appears AFTER a plain message has already been sent, if
   // Curry thinks it might land colder than intended. Never blocks or
   // delays sending; see runCoachCheck below.
@@ -1388,6 +1414,7 @@ const handleSend = async () => {
         if (found) { openConvo(found); setActiveTab('chats') }
       }}
       onSelectVideo={(videoId) => setYoutubePlayer({ videoId, mini: false })}
+ onOpenShorts={() => setShowShorts(true)}   // ← new prop
     />
   </div>
 )}
@@ -1632,6 +1659,14 @@ const handleSend = async () => {
     mini={activeConvo?.id !== watchTogether.session.conversation_id}
   />
 )}
+
+{showShorts && (
+  <ShortsPage
+    session={session} userId={userId} conversations={conversations}
+    getConvoName={getConvoName} initialVideoId={shortsInitialVideo}
+    onClose={() => { setShowShorts(false); setShortsInitialVideo(null) }}
+  />
+)}
           {youtubePlayer && (
   <YouTubePlayer
     videoId={youtubePlayer.videoId}
@@ -1845,6 +1880,7 @@ _onPlayYouTube: (videoId) => setYoutubePlayer({ videoId, mini: false }),
 _onWatchTogether: (videoId) => {
   watchTogether.inviteToWatch(videoId).catch((e) => alert('Could not start Watch Together: ' + e.message))
 },
+     _onOpenShort: (videoId) => { setShortsInitialVideo(videoId); setShowShorts(true) }, 
   }}
   isMe={isMine}
   isRead={!!readMap[msg.id]}
