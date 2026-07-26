@@ -3,10 +3,11 @@ import PulseSummaryCard from './PulseSummaryCard'
 import PulseFilterBar from './PulseFilterBar'
 import PulseActivityCard from './PulseActivityCard'
 import PulseLockedCard from './PulseLockedCard'
-import { PLATFORM_META } from './PulseIcons'
+import { PLATFORM_META, AppIcon } from './PulseIcons'
 import { usePulseData, usePulseSettings } from '../../hooks/usePulseData'
 import { getPulsePlugin } from '../../lib/pulsePlugins'
 import YouTubePulsePage from './YouTubePulsePage'
+
 
 const LOCKED_PLATFORMS = Object.entries(PLATFORM_META).filter(([, meta]) => meta.supportLevel === 'native_only')
 
@@ -112,10 +113,7 @@ export default function PulsePage({
         cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%',
       }}
     >
-      <div style={{
-        width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg,#ff0000,#cc0000)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18,
-      }}>▶️</div>
+    <AppIcon.youtube size={40} />
       <div>
         <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>YouTube</div>
         <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Search and browse videos</div>
