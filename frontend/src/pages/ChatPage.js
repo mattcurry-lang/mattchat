@@ -1374,7 +1374,7 @@ const handleSend = async () => {
               </div>
             </div>
           )}
-            {activeTab === 'pulse' && (
+{activeTab === 'pulse' && (
   <div style={{ height: '100%', overflowY: 'auto' }}>
     <PulsePage
       session={session}
@@ -1387,6 +1387,7 @@ const handleSend = async () => {
         const found = conversations.find(c => c.id === convoId)
         if (found) { openConvo(found); setActiveTab('chats') }
       }}
+      onSelectVideo={(videoId) => setYoutubePlayer({ videoId, mini: false })}
     />
   </div>
 )}
