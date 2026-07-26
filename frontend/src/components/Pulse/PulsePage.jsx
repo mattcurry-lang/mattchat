@@ -7,6 +7,7 @@ import { PLATFORM_META, AppIcon } from './PulseIcons'
 import { usePulseData, usePulseSettings } from '../../hooks/usePulseData'
 import { getPulsePlugin } from '../../lib/pulsePlugins'
 import YouTubePulsePage from './YouTubePulsePage'
+import ShortsPage from 'components/Shorts/ShortsPage'
 
 
 const LOCKED_PLATFORMS = Object.entries(PLATFORM_META).filter(([, meta]) => meta.supportLevel === 'native_only')
@@ -17,6 +18,7 @@ export default function PulsePage({
 }) {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [showShorts, setShowShorts] = useState(false)
   const [showYouTubePulse, setShowYouTubePulse] = useState(false)
   const { privacyMode, setPrivacyMode } = usePulseSettings(userId)
   const { items, loading, error, reload } = usePulseData(session, { conversations, unreadCounts, getConvoName })
@@ -106,6 +108,21 @@ export default function PulsePage({
         {(filter === 'all' || filter === 'more') && (
   <>
     <button
+  onClick={() => setShowShorts(true)}
+  style={{
+    display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-surface-2)',
+    border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px',
+    cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%',
+  }}
+>
+  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg,#fe2c55,#25f4ee)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📱</div>
+  <div>
+    <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>Shorts</div>
+    <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Swipe through trending videos</div>
+  </div>
+</button>
+    
+    <button
       onClick={() => setShowYouTubePulse(true)}
       style={{
         display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-surface-2)',
@@ -130,6 +147,13 @@ export default function PulsePage({
 )}
       </div>
 
+{showShorts && (
+  <ShortsPage
+    session={session} userId={userId} conversations={conversations}
+    getConvoName={getConvoName} onClose={() => setShowShorts(false)}
+  />
+)}
+      
       {showYouTubePulse && (
   <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto' }}>
     <YouTubePulsePage
