@@ -330,8 +330,7 @@ const youtubeId = extractYouTubeId(msg.content)
       <div>
         {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
         {youtubeId ? (
-          <YouTubeCard videoId={youtubeId} onPlay={msg._onPlayYouTube} session={session} />
-        ) : (
+         <YouTubeCard videoId={youtubeId} onPlay={msg._onPlayYouTube} onWatchTogether={msg._onWatchTogether} session={session} />
           <div className={`msg-bubble ${msg.is_email ? 'email-msg' : ''} ${isMe && isRead ? 'read' : ''}`}>
             {msg.forwarded && <div className="forwarded-tag">➡️ Forwarded</div>}
             {msg.reply_to_message_id && msg._quotedMessage && (
@@ -1830,12 +1829,9 @@ const handleSend = async () => {
     ...msg,
     _currentUserId: userId,
     _quotedMessage: msg.reply_to_message_id ? findMessageById(msg.reply_to_message_id) : null,
-_onPlayYouTube: (videoId) => {
-  if (activeConvo?.id && !activeConvo.isCurryAI) {
-    watchTogether.inviteToWatch(videoId).catch((e) => alert('Could not start Watch Together: ' + e.message))
-    return
-  }
-  setYoutubePlayer({ videoId, mini: false })
+_onPlayYouTube: (videoId) => setYoutubePlayer({ videoId, mini: false }),
+_onWatchTogether: (videoId) => {
+  watchTogether.inviteToWatch(videoId).catch((e) => alert('Could not start Watch Together: ' + e.message))
 },
   }}
   isMe={isMine}
