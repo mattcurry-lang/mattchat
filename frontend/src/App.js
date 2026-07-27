@@ -1,88 +1,222 @@
 import React, { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
+
 import ChatPage from './pages/ChatPage'
 import AuthPage from './pages/AuthPage'
 import EmailFormPage from './pages/EmailFormPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import MfaChallengePage from './pages/MfaChallengePage'
 import LandingPage from './components/Landing/LandingPage'
-import './App.css'
+
 import Privacy from './pages/Privacy'
+import Terms from './pages/Terms'
+
+import './App.css'
 import { unlockFileAudio } from './lib/mattchatSounds'
+
+
 export default function App() {
+
   const [session, setSession] = useState(undefined)
   const [isRecovery, setIsRecovery] = useState(false)
   const [needsMfa, setNeedsMfa] = useState(false)
   const [aalChecked, setAalChecked] = useState(false)
 
+
   useEffect(() => {
     window.addEventListener('pointerdown', unlockFileAudio, { once: true })
-    return () => window.removeEventListener('pointerdown', unlockFileAudio)
+
+    return () => {
+      window.removeEventListener('pointerdown', unlockFileAudio)
+    }
   }, [])
 
+
   const checkAal = async () => {
-    const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+
+    const { data, error } =
+      await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+
     if (!error && data) {
-      setNeedsMfa(data.nextLevel === 'aal2' && data.currentLevel !== data.nextLevel)
+      setNeedsMfa(
+        data.nextLevel === 'aal2' &&
+        data.currentLevel !== data.nextLevel
+      )
     } else {
       setNeedsMfa(false)
     }
+
     setAalChecked(true)
   }
+
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      if (session) checkAal(); else setAalChecked(true)
-    })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsRecovery(true)
+
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+
+        setSession(session)
+
+        if (session) {
+          checkAal()
+        } else {
+          setAalChecked(true)
+        }
+
+      })
+
+
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+
+        if (event === 'PASSWORD_RECOVERY') {
+          setIsRecovery(true)
+        }
+
+        setSession(session)
+        setAalChecked(false)
+
+        if (session) {
+          checkAal()
+        } else {
+          setAalChecked(true)
+        }
+
       }
-      setSession(session)
-      setAalChecked(false)
-      if (session) checkAal(); else setAalChecked(true)
-    })
+    )
+
+
     return () => subscription.unsubscribe()
+
   }, [])
+
+
+
   if (session === undefined || !aalChecked) {
+
     return (
-      <div className="splash">
-        <img src="/logo.png" alt="Mattchat" className="splash-logo-img" />
+      <div>
+        Loading...
       </div>
     )
+
   }
+
+
+
   return (
+
     <BrowserRouter>
+
       <Routes>
-        <Route path="/email/:username" element={<EmailFormPage />} />
-        <Route path="/privacy" element={<Privacy />} />
-        {/* New visitors land here first instead of going straight to
-            the login form — "Get Started" on this page is what sends
-            them to /auth. */}
-        <Route path="/welcome" element={!session ? <LandingPage /> : <Navigate to="/" />} />
-        <Route path="/auth" element={!session ? <AuthPage /> : <Navigate to="/" />} />
+
+
+        {/* Email profile links */}
+        <Route
+          path="/email/:username"
+          element={<EmailFormPage />}
+        />
+
+
+        {/* Legal pages */}
+        <Route
+          path="/privacy"
+          element={<Privacy />}
+        />
+
+        <Route
+          path="/terms"
+          element={<Terms />}
+        />
+
+
+        {/* Landing page */}
+        <Route
+          path="/welcome"
+          element={
+            !session
+            ? <LandingPage />
+            : <Navigate to="/" />
+          }
+        />
+
+
+        {/* Authentication */}
+        <Route
+          path="/auth"
+          element={
+            !session
+            ? <AuthPage />
+            : <Navigate to="/" />
+          }
+        />
+
+
+        {/* Password reset */}
         <Route
           path="/reset-password"
           element={
             isRecovery
-              ? <ResetPasswordPage onDone={() => setIsRecovery(false)} />
-              : <Navigate to={session ? '/' : '/auth'} />
+            ? (
+              <ResetPasswordPage
+                onDone={() => setIsRecovery(false)}
+              />
+            )
+            : (
+              <Navigate
+                to={session ? "/" : "/auth"}
+              />
+            )
           }
         />
+
+
+        {/* Main app */}
         <Route
           path="/*"
           element={
             isRecovery
-              ? <Navigate to="/reset-password" />
-              : session
-                ? (needsMfa
-                    ? <MfaChallengePage onVerified={() => setNeedsMfa(false)} />
-                    : <ChatPage session={session} />)
-                : <Navigate to="/welcome" />
+            ?
+            <ResetPasswordPage
+              onDone={() => setIsRecovery(false)}
+            />
+
+            :
+
+            session
+
+            ?
+
+            (
+              needsMfa
+
+              ?
+
+              <MfaChallengePage
+                onVerified={() => setNeedsMfa(false)}
+              />
+
+              :
+
+              <ChatPage />
+
+            )
+
+            :
+
+            <Navigate to="/welcome" />
+
           }
         />
+
+
       </Routes>
+
     </BrowserRouter>
+
   )
+
 }
