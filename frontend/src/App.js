@@ -33,11 +33,15 @@ export default function App() {
   }, [])
 
 
-  const checkAal = async () => {
+ const checkAal = async (currentSession) => {
+  if (!currentSession?.user) {
+    setNeedsMfa(false)
+    setAalChecked(true)
+    return
+  }
 
-    const { data, error } =
-      await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-
+  try {
+    const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
     if (!error && data) {
       setNeedsMfa(
         data.nextLevel === 'aal2' &&
@@ -46,48 +50,47 @@ export default function App() {
     } else {
       setNeedsMfa(false)
     }
-
-    setAalChecked(true)
+  } catch (e) {
+    console.error('checkAal failed:', e)
+    setNeedsMfa(false)
   }
 
+  setAalChecked(true)
+}
 
   useEffect(() => {
 
     supabase.auth.getSession()
-      .then(({ data: { session } }) => {
+  .then(({ data: { session } }) => {
+    setSession(session)
 
-        setSession(session)
-
-        if (session) {
-          checkAal()
-        } else {
-          setAalChecked(true)
-        }
-
-      })
+    if (session) {
+      checkAal(session)   // ← pass session in
+    } else {
+      setAalChecked(true)
+    }
+  })
 
 
-    const {
-      data: { subscription }
-    } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+   const {
+  data: { subscription }
+} = supabase.auth.onAuthStateChange(
+  (event, session) => {
 
-        if (event === 'PASSWORD_RECOVERY') {
-          setIsRecovery(true)
-        }
+    if (event === 'PASSWORD_RECOVERY') {
+      setIsRecovery(true)
+    }
 
-        setSession(session)
-        setAalChecked(false)
+    setSession(session)
+    setAalChecked(false)
 
-        if (session) {
-          checkAal()
-        } else {
-          setAalChecked(true)
-        }
-
-      }
-    )
-
+    if (session) {
+      checkAal(session)   // ← pass session in
+    } else {
+      setAalChecked(true)
+    }
+  }
+)
 
     return () => subscription.unsubscribe()
 
