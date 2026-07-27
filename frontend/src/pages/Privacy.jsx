@@ -1,176 +1,281 @@
 import React from "react";
 
-const styles = {
-  page: {
-    minHeight: "100vh",
-    background:
-      "linear-gradient(135deg, #120F25 0%, #1B1736 45%, #2B1F5F 100%)",
-    color: "#F8FAFC",
-    fontFamily: "Inter, Arial, sans-serif",
-    padding: "60px 20px",
-  },
-  card: {
-    maxWidth: "1000px",
-    margin: "0 auto",
-    background: "rgba(255,255,255,0.08)",
-    backdropFilter: "blur(18px)",
-    WebkitBackdropFilter: "blur(18px)",
-    border: "1px solid rgba(255,255,255,0.12)",
-    borderRadius: "24px",
-    padding: "50px",
-    boxShadow: "0 20px 60px rgba(0,0,0,.35)",
-  },
-  h1: {
-    color: "#A855F7",
-    fontSize: "2.5rem",
-    marginBottom: "10px",
-  },
-  updated: {
-    color: "#CBD5E1",
-    marginBottom: "35px",
-  },
-  h2: {
-    color: "#C084FC",
-    marginTop: "35px",
-    marginBottom: "12px",
-  },
-  p: {
-    color: "#E2E8F0",
-    lineHeight: 1.8,
-  },
-  li: {
-    marginBottom: "10px",
-    color: "#E2E8F0",
-    lineHeight: 1.8,
-  },
-};
-
 export default function Privacy() {
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <h1 style={styles.h1}>Privacy Policy</h1>
+    <div className="legal-page">
 
-        <p style={styles.updated}>
-          <strong>Last Updated:</strong> July 27, 2026
-        </p>
+      <div className="legal-container">
 
-        <p style={styles.p}>
-          Welcome to <strong>Mattchat</strong>. Your privacy matters to us.
-          This Privacy Policy explains how we collect, use, protect, and
-          manage your information when you use Mattchat and its AI-powered
-          services.
-        </p>
+        <header className="legal-header">
+          <h1>Mattchat</h1>
+          <p>Privacy Policy</p>
+        </header>
 
-        <h2 style={styles.h2}>1. Information We Collect</h2>
 
-        <ul>
-          <li style={styles.li}>Email address</li>
-          <li style={styles.li}>Name and profile information</li>
-          <li style={styles.li}>Profile photo</li>
-          <li style={styles.li}>Authentication information</li>
-          <li style={styles.li}>Messages you choose to store</li>
-          <li style={styles.li}>AI conversations</li>
-          <li style={styles.li}>Uploaded files and documents</li>
-          <li style={styles.li}>Device and browser information</li>
-          <li style={styles.li}>IP address and diagnostic logs</li>
-          <li style={styles.li}>Notification preferences</li>
-        </ul>
+        <main className="legal-card">
 
-        <h2 style={styles.h2}>2. Connected Services</h2>
+          <h2>Privacy Policy</h2>
 
-        <p style={styles.p}>
-          Mattchat may integrate with services such as Google, GitHub,
-          Pinterest, Spotify, TikTok, YouTube, and other supported providers.
-          We only access information that you explicitly authorize through
-          each provider's official authentication system.
-        </p>
+          <p className="updated">
+            Last Updated: July 27, 2026
+          </p>
 
-        <h2 style={styles.h2}>3. How We Use Your Information</h2>
 
-        <ul>
-          <li style={styles.li}>Provide Mattchat services</li>
-          <li style={styles.li}>Authenticate your account</li>
-          <li style={styles.li}>Power AI features</li>
-          <li style={styles.li}>Synchronize connected accounts</li>
-          <li style={styles.li}>Improve application performance</li>
-          <li style={styles.li}>Improve security</li>
-          <li style={styles.li}>Detect abuse and fraud</li>
-          <li style={styles.li}>Develop new features</li>
-        </ul>
+          <p>
+            Welcome to <strong>Mattchat</strong>. We respect your privacy and
+            are committed to protecting your personal information. This Privacy
+            Policy explains how we collect, use, and protect your information
+            when you use Mattchat.
+          </p>
 
-        <h2 style={styles.h2}>4. AI Processing</h2>
 
-        <p style={styles.p}>
-          Mattchat includes AI-powered features that may summarize content,
-          analyze documents, answer questions, translate text, and assist
-          with productivity tasks. Content submitted to AI features is
-          processed only to provide the requested functionality.
-        </p>
+          <h3>1. Information We Collect</h3>
 
-        <h2 style={styles.h2}>5. Cookies & Local Storage</h2>
+          <ul>
+            <li>Email address</li>
+            <li>Name and profile information</li>
+            <li>Profile picture</li>
+            <li>Messages you choose to store</li>
+            <li>AI conversations</li>
+            <li>Uploaded files and documents</li>
+            <li>Connected account information</li>
+            <li>Device and browser information</li>
+          </ul>
 
-        <p style={styles.p}>
-          Mattchat may use cookies, local storage, and similar technologies
-          to maintain login sessions, remember preferences, improve security,
-          and enhance performance.
-        </p>
 
-        <h2 style={styles.h2}>6. Data Sharing</h2>
+          <h3>2. Connected Services</h3>
 
-        <p style={styles.p}>
-          We do not sell your personal information. Information is shared
-          only when necessary to provide Mattchat services, comply with legal
-          obligations, protect our users, or with your explicit consent.
-        </p>
+          <p>
+            Mattchat may connect with services including Google, GitHub,
+            Pinterest, Spotify, TikTok, YouTube, and other supported platforms.
+            We only access information that you authorize.
+          </p>
 
-        <h2 style={styles.h2}>7. Data Retention</h2>
 
-        <p style={styles.p}>
-          We retain your information only as long as necessary to provide our
-          services, comply with legal obligations, resolve disputes, and
-          enforce our agreements.
-        </p>
+          <h3>3. How We Use Your Information</h3>
 
-        <h2 style={styles.h2}>8. Your Rights</h2>
+          <ul>
+            <li>Provide Mattchat services</li>
+            <li>Authenticate users</li>
+            <li>Enable AI features</li>
+            <li>Improve performance</li>
+            <li>Maintain security</li>
+            <li>Develop new features</li>
+          </ul>
 
-        <ul>
-          <li style={styles.li}>Access your information</li>
-          <li style={styles.li}>Update your information</li>
-          <li style={styles.li}>Delete your account</li>
-          <li style={styles.li}>Disconnect connected services</li>
-          <li style={styles.li}>Request deletion of stored information</li>
-        </ul>
 
-        <h2 style={styles.h2}>9. Security</h2>
+          <h3>4. AI Processing</h3>
 
-        <p style={styles.p}>
-          We use industry-standard technical and organizational measures to
-          protect your information. However, no internet transmission or
-          storage method is completely secure.
-        </p>
+          <p>
+            Mattchat uses artificial intelligence to provide features such as
+            summarization, assistance, translation, analysis, and productivity
+            tools. Information submitted to AI features is processed only to
+            provide the requested service.
+          </p>
 
-        <h2 style={styles.h2}>10. Children's Privacy</h2>
 
-        <p style={styles.p}>
-          Mattchat is not intended for children under the minimum age
-          required by applicable law. We do not knowingly collect personal
-          information from children.
-        </p>
+          <h3>5. Data Security</h3>
 
-        <h2 style={styles.h2}>11. Changes to this Policy</h2>
+          <p>
+            We use reasonable security measures to protect your information.
+            However, no online service can guarantee complete security.
+          </p>
 
-        <p style={styles.p}>
-          We may update this Privacy Policy from time to time. Changes become
-          effective when published on this page.
-        </p>
 
-        <h2 style={styles.h2}>12. Contact Us</h2>
+          <h3>6. Data Sharing</h3>
 
-        <p style={styles.p}>
-          Email: <strong>mattchat.app@gmail.com</strong>
-        </p>
+          <p>
+            We do not sell your personal information. Information may only be
+            shared with trusted service providers required to operate Mattchat,
+            comply with legal requirements, or when you provide permission.
+          </p>
+
+
+          <h3>7. Your Rights</h3>
+
+          <ul>
+            <li>Request access to your information</li>
+            <li>Request deletion of your account</li>
+            <li>Disconnect connected services</li>
+            <li>Update your information</li>
+          </ul>
+
+
+          <h3>8. Changes To This Policy</h3>
+
+          <p>
+            We may update this Privacy Policy periodically. Updates will be
+            reflected by changing the Last Updated date.
+          </p>
+
+
+          <h3>9. Contact</h3>
+
+          <p>
+            Email:
+            <br />
+            <strong>mattchat.app@gmail.com</strong>
+          </p>
+
+
+        </main>
+
       </div>
+
+
+      <style>{`
+
+        html,
+        body,
+        #root {
+          min-height:100%;
+          overflow-y:auto;
+          overflow-x:hidden;
+        }
+
+
+        .legal-page {
+
+          min-height:100vh;
+          height:auto;
+
+          background:
+          linear-gradient(
+          135deg,
+          #120F25,
+          #1B1736,
+          #2B1F5F
+          );
+
+          padding:40px 20px;
+
+          color:white;
+
+          font-family:
+          Inter,
+          Arial,
+          sans-serif;
+
+        }
+
+
+
+        .legal-container {
+
+          max-width:1000px;
+          margin:auto;
+
+        }
+
+
+
+        .legal-header {
+
+          text-align:center;
+          margin-bottom:30px;
+
+        }
+
+
+        .legal-header h1 {
+
+          color:#A855F7;
+          font-size:42px;
+
+          margin:0;
+
+        }
+
+
+        .legal-header p {
+
+          color:#CBD5E1;
+          font-size:18px;
+
+        }
+
+
+
+        .legal-card {
+
+          background:
+          rgba(255,255,255,0.08);
+
+          backdrop-filter:
+          blur(20px);
+
+          border:
+          1px solid rgba(255,255,255,0.15);
+
+
+          border-radius:25px;
+
+          padding:45px;
+
+          box-shadow:
+          0 20px 60px rgba(0,0,0,.35);
+
+
+          line-height:1.8;
+
+        }
+
+
+
+        .legal-card h2 {
+
+          color:#C084FC;
+
+          font-size:32px;
+
+        }
+
+
+        .legal-card h3 {
+
+          color:#A855F7;
+
+          margin-top:35px;
+
+        }
+
+
+        .legal-card p,
+        .legal-card li {
+
+          color:#E2E8F0;
+
+        }
+
+
+        .updated {
+
+          color:#94A3B8!important;
+
+        }
+
+
+
+        @media(max-width:700px){
+
+          .legal-card{
+
+            padding:25px;
+
+          }
+
+          .legal-header h1{
+
+            font-size:32px;
+
+          }
+
+        }
+
+
+      `}</style>
+
+
     </div>
   );
 }
