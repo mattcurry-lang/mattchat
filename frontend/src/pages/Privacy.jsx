@@ -73,7 +73,7 @@ export default function Privacy() {
         <h2>Contact</h2>
 
         <p>
-          Email: mattchat.app@gmail.com
+          Email: mattchat.app.org@gmail.com
         </p>
       </div>
     </div>
