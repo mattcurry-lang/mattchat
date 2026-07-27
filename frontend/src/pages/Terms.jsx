@@ -1,154 +1,345 @@
 import React from "react";
 
-const styles = {
-  page: {
-    minHeight: "100vh",
-    background:
-      "linear-gradient(135deg, #120F25 0%, #1B1736 45%, #2B1F5F 100%)",
-    color: "#F8FAFC",
-    fontFamily: "Inter, Arial, sans-serif",
-    padding: "60px 20px",
-  },
-  card: {
-    maxWidth: "1000px",
-    margin: "0 auto",
-    background: "rgba(255,255,255,0.08)",
-    backdropFilter: "blur(18px)",
-    WebkitBackdropFilter: "blur(18px)",
-    border: "1px solid rgba(255,255,255,0.12)",
-    borderRadius: "24px",
-    padding: "50px",
-    boxShadow: "0 20px 60px rgba(0,0,0,.35)",
-  },
-  h1: {
-    color: "#A855F7",
-    fontSize: "2.5rem",
-  },
-  updated: {
-    color: "#CBD5E1",
-    marginBottom: "35px",
-  },
-  h2: {
-    color: "#C084FC",
-    marginTop: "35px",
-  },
-  p: {
-    lineHeight: 1.8,
-    color: "#E2E8F0",
-  },
-  li: {
-    lineHeight: 1.8,
-    color: "#E2E8F0",
-    marginBottom: "10px",
-  },
-};
-
 export default function Terms() {
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <h1 style={styles.h1}>Terms of Service</h1>
+    <div className="legal-page">
 
-        <p style={styles.updated}>
-          <strong>Last Updated:</strong> July 27, 2026
-        </p>
+      <div className="legal-container">
 
-        <p style={styles.p}>
-          These Terms of Service govern your use of Mattchat. By accessing or
-          using Mattchat, you agree to these Terms.
-        </p>
+        <header className="legal-header">
+          <h1>Mattchat</h1>
+          <p>Terms of Service</p>
+        </header>
 
-        <h2 style={styles.h2}>1. Eligibility</h2>
 
-        <p style={styles.p}>
-          You must comply with applicable laws and be legally eligible to use
-          this service in your jurisdiction.
-        </p>
+        <main className="legal-card">
 
-        <h2 style={styles.h2}>2. Your Account</h2>
+          <h2>Terms of Service</h2>
 
-        <ul>
-          <li style={styles.li}>Keep your login credentials secure.</li>
-          <li style={styles.li}>
-            You are responsible for activity under your account.
-          </li>
-          <li style={styles.li}>
-            Notify us immediately of unauthorized access.
-          </li>
-        </ul>
+          <p className="updated">
+            Last Updated: July 27, 2026
+          </p>
 
-        <h2 style={styles.h2}>3. Acceptable Use</h2>
 
-        <ul>
-          <li style={styles.li}>Follow all applicable laws.</li>
-          <li style={styles.li}>Do not harass other users.</li>
-          <li style={styles.li}>Do not upload malicious software.</li>
-          <li style={styles.li}>Do not misuse AI features.</li>
-          <li style={styles.li}>
-            Respect the terms of connected third-party platforms.
-          </li>
-        </ul>
+          <p>
+            Welcome to <strong>Mattchat</strong>. These Terms of Service
+            explain the rules and conditions for using Mattchat and its
+            AI-powered features.
+          </p>
 
-        <h2 style={styles.h2}>4. AI Services</h2>
 
-        <p style={styles.p}>
-          Mattchat includes AI-powered capabilities. AI-generated responses
-          may contain errors or inaccuracies and should not be relied upon as
-          professional advice.
-        </p>
+          <p>
+            By accessing or using Mattchat, you agree to these Terms. If you
+            do not agree with these Terms, please do not use the service.
+          </p>
 
-        <h2 style={styles.h2}>5. Third-Party Integrations</h2>
 
-        <p style={styles.p}>
-          Mattchat may integrate with services including Google, GitHub,
-          Spotify, Pinterest, TikTok, YouTube, and others. Your use of those
-          services is also governed by their own terms and policies.
-        </p>
+          <h3>1. Eligibility</h3>
 
-        <h2 style={styles.h2}>6. Intellectual Property</h2>
+          <p>
+            You must be legally allowed to use online services in your
+            location and comply with all applicable laws and regulations.
+          </p>
 
-        <p style={styles.p}>
-          Mattchat, including its branding, software, design, and features,
-          is protected by intellectual property laws. You retain ownership of
-          content you create and upload.
-        </p>
 
-        <h2 style={styles.h2}>7. Service Availability</h2>
+          <h3>2. Creating an Account</h3>
 
-        <p style={styles.p}>
-          Mattchat may be updated, modified, or discontinued without prior
-          notice. We do not guarantee uninterrupted availability.
-        </p>
+          <p>
+            When creating an account, you agree to provide accurate
+            information and keep your account credentials secure.
+          </p>
 
-        <h2 style={styles.h2}>8. Limitation of Liability</h2>
+          <ul>
+            <li>You are responsible for activity under your account.</li>
+            <li>
+              You should notify us if you suspect unauthorized access.
+            </li>
+            <li>
+              You must not share your account in a way that compromises
+              security.
+            </li>
+          </ul>
 
-        <p style={styles.p}>
-          To the maximum extent permitted by law, Mattchat shall not be liable
-          for indirect, incidental, or consequential damages arising from the
-          use of the service.
-        </p>
 
-        <h2 style={styles.h2}>9. Termination</h2>
+          <h3>3. Acceptable Use</h3>
 
-        <p style={styles.p}>
-          We may suspend or terminate accounts that violate these Terms or
-          applicable laws. Users may delete their accounts at any time.
-        </p>
+          <p>
+            When using Mattchat, you agree not to:
+          </p>
 
-        <h2 style={styles.h2}>10. Changes</h2>
+          <ul>
+            <li>Use the service for illegal activities.</li>
+            <li>Attempt unauthorized access to systems.</li>
+            <li>Upload malicious files or software.</li>
+            <li>Abuse, harass, or harm other users.</li>
+            <li>Misuse AI-generated content.</li>
+            <li>Violate third-party platform policies.</li>
+          </ul>
 
-        <p style={styles.p}>
-          These Terms may be updated periodically. Continued use of Mattchat
-          after changes are published constitutes acceptance of the updated
-          Terms.
-        </p>
 
-        <h2 style={styles.h2}>11. Contact</h2>
+          <h3>4. AI Features</h3>
 
-        <p style={styles.p}>
-          Email: <strong>mattchat.app@gmail.com</strong>
-        </p>
+          <p>
+            Mattchat includes AI-powered features such as Curry AI, content
+            analysis, summaries, translations, and productivity assistance.
+          </p>
+
+          <p>
+            AI-generated responses may not always be accurate. Users should
+            verify important information before relying on AI-generated
+            content.
+          </p>
+
+
+          <h3>5. Third-Party Integrations</h3>
+
+          <p>
+            Mattchat may integrate with third-party services including
+            Google, GitHub, TikTok, YouTube, Pinterest, Spotify, and other
+            supported platforms.
+          </p>
+
+          <p>
+            Your use of those services is also subject to their own terms,
+            privacy policies, and rules.
+          </p>
+
+
+          <h3>6. User Content</h3>
+
+          <p>
+            You retain ownership of content you create, upload, or share
+            through Mattchat.
+          </p>
+
+          <p>
+            You are responsible for ensuring that your content does not
+            violate any laws, copyrights, or third-party rights.
+          </p>
+
+
+          <h3>7. Intellectual Property</h3>
+
+          <p>
+            Mattchat, including its software, branding, designs, features,
+            and technology, belongs to Mattchat and is protected by
+            applicable intellectual property laws.
+          </p>
+
+
+          <h3>8. Service Availability</h3>
+
+          <p>
+            We continuously improve Mattchat and may update, modify, suspend,
+            or discontinue certain features when necessary.
+          </p>
+
+          <p>
+            We do not guarantee that the service will always be available
+            without interruptions.
+          </p>
+
+
+          <h3>9. Privacy</h3>
+
+          <p>
+            Your use of Mattchat is also governed by our Privacy Policy,
+            which explains how we collect and protect your information.
+          </p>
+
+
+          <h3>10. Account Termination</h3>
+
+          <p>
+            We may restrict or terminate accounts that violate these Terms,
+            harm other users, or misuse Mattchat services.
+          </p>
+
+          <p>
+            Users may stop using Mattchat or request account deletion at any
+            time.
+          </p>
+
+
+          <h3>11. Limitation of Liability</h3>
+
+          <p>
+            To the maximum extent permitted by law, Mattchat is not
+            responsible for indirect damages, losses, or issues resulting
+            from the use of the service.
+          </p>
+
+
+          <h3>12. Changes To These Terms</h3>
+
+          <p>
+            We may update these Terms from time to time. Continued use of
+            Mattchat after changes are published means you accept the
+            updated Terms.
+          </p>
+
+
+          <h3>13. Contact</h3>
+
+          <p>
+            For questions regarding these Terms, contact:
+            <br />
+            <strong>mattchat.app@gmail.com</strong>
+          </p>
+
+
+        </main>
+
+
       </div>
+
+
+      <style>{`
+
+        html,
+        body,
+        #root {
+          min-height:100%;
+          overflow-y:auto;
+          overflow-x:hidden;
+        }
+
+
+        .legal-page {
+
+          min-height:100vh;
+          height:auto;
+
+          background:
+          linear-gradient(
+          135deg,
+          #120F25,
+          #1B1736,
+          #2B1F5F
+          );
+
+          padding:40px 20px;
+
+          color:white;
+
+          font-family:
+          Inter,
+          Arial,
+          sans-serif;
+
+        }
+
+
+        .legal-container {
+
+          max-width:1000px;
+          margin:auto;
+
+        }
+
+
+        .legal-header {
+
+          text-align:center;
+          margin-bottom:30px;
+
+        }
+
+
+        .legal-header h1 {
+
+          color:#A855F7;
+          font-size:42px;
+          margin:0;
+
+        }
+
+
+        .legal-header p {
+
+          color:#CBD5E1;
+          font-size:18px;
+
+        }
+
+
+        .legal-card {
+
+          background:
+          rgba(255,255,255,0.08);
+
+          backdrop-filter:
+          blur(20px);
+
+          border:
+          1px solid rgba(255,255,255,0.15);
+
+
+          border-radius:25px;
+
+          padding:45px;
+
+          box-shadow:
+          0 20px 60px rgba(0,0,0,.35);
+
+
+          line-height:1.8;
+
+        }
+
+
+        .legal-card h2 {
+
+          color:#C084FC;
+          font-size:32px;
+
+        }
+
+
+        .legal-card h3 {
+
+          color:#A855F7;
+          margin-top:35px;
+
+        }
+
+
+        .legal-card p,
+        .legal-card li {
+
+          color:#E2E8F0;
+
+        }
+
+
+        .updated {
+
+          color:#94A3B8!important;
+
+        }
+
+
+
+        @media(max-width:700px){
+
+          .legal-card{
+
+            padding:25px;
+
+          }
+
+
+          .legal-header h1{
+
+            font-size:32px;
+
+          }
+
+        }
+
+      `}</style>
+
+
     </div>
   );
 }
