@@ -663,6 +663,33 @@ useEffect(() => {
     const cleanUrl = window.location.pathname + (params.toString() ? `?${params}` : '')
     window.history.replaceState({}, '', cleanUrl)
   }, [loadEmailAccounts])
+
+  useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  const status = params.get('tiktok_connect')
+  if (!status) return
+
+  if (status === 'success') {
+    const username = params.get('username')
+    playSound('spark')
+    alert(`TikTok connected${username ? `: @${username}` : ''} ✓`)
+    window.dispatchEvent(new CustomEvent('tiktok-connected'))
+  } else if (status === 'denied') {
+    alert('TikTok connection was cancelled.')
+  } else if (status === 'expired') {
+    playSound('warning')
+    alert('That connection attempt expired — please try "Connect TikTok" again.')
+  } else {
+    playSound('warning')
+    alert('Could not connect TikTok. Please try again.')
+  }
+
+  params.delete('tiktok_connect')
+  params.delete('username')
+  const cleanUrl = window.location.pathname + (params.toString() ? `?${params}` : '')
+  window.history.replaceState({}, '', cleanUrl)
+}, [])
+        
 useEffect(() => {
   const params = new URLSearchParams(window.location.search)
   const status = params.get('pinterest_connect')
