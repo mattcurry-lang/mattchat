@@ -653,6 +653,45 @@ export async function setAvatarFromUrl(userId, imageUrl) {
   if (error) throw error
 }
 
+// ── TikTok ────────────────────────────────────────────
+export const connectTikTok = async (session) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/tiktok-oauth-start`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  const data = await res.json()
+  if (!data.url) throw new Error(data.error || 'Could not start the TikTok connection')
+  window.location.href = data.url
+}
+
+export const disconnectTikTok = async (session) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/tiktok-disconnect`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  const data = await res.json()
+  if (!data.ok) throw new Error(data.error || 'Could not disconnect TikTok')
+}
+
+export const getTikTokAccount = async (userId) => {
+  const { data } = await supabase
+    .from('connected_accounts_public')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('provider', 'tiktok')
+    .maybeSingle()
+  return data
+}
+
+// Single proxy call into tiktok-api — action is 'profile' | 'videos' | 'curry_context'
+export const callTikTokApi = async (session, action, params = {}) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/tiktok-api`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, params }),
+  })
+  return res.json()
+}
+
 export async function updateProfileDetails(userId, { bio, organization, currentlyStudying, interests }) {
   const { error } = await supabase
     .from('profiles')
