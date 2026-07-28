@@ -7,11 +7,14 @@ import {
   connectGoogleDrive, listGoogleDriveAccounts, disconnectGoogleDriveAccount,
   connectGoogleCalendar, listGoogleCalendarAccounts, disconnectGoogleCalendarAccount,
 } from '../../lib/supabase'
+import TikTokView from './TikTokView'
+import { useTikTokConnection } from '../../hooks/useTikTokConnection'
 
 // Drop this into the profile page:
 //   <ConnectedAppsSection session={session} userId={userId} />
 export default function ConnectedAppsSection({ session, userId }) {
   const ig = useInstagramConnection(session, userId)
+const tiktok = useTikTokConnection(session, userId)
   const [openService, setOpenService] = useState(null) // 'instagram' | 'google_drive' | 'google_calendar' | null
   const [connectError, setConnectError] = useState(null)
 
@@ -54,6 +57,14 @@ export default function ConnectedAppsSection({ session, userId }) {
       setConnectError('Could not connect Instagram. Please try again.')
     }
   }
+  const handleConnectTikTok = async () => {
+  setConnectError(null)
+  try {
+    await tiktok.connect() // redirects the page
+  } catch (e) {
+    setConnectError('Could not connect TikTok. Please try again.')
+  }
+}
 
   const handleConnectDrive = async () => {
     if (connectingDrive) return
@@ -124,21 +135,30 @@ export default function ConnectedAppsSection({ session, userId }) {
       connected: calendarAccounts.length > 0,
       username: calendarAccounts[0]?.email_address,
     },
-    { id: 'tiktok', label: 'TikTok', icon: '🎵', connected: false, comingSoon: true },
+    {
+  id: 'tiktok',
+  label: 'TikTok',
+  icon: '🎵',
+  connected: tiktok.status === 'connected',
+  username: tiktok.account?.username,
+  avatarUrl: tiktok.account?.avatar_url,
+},
     { id: 'youtube', label: 'YouTube', icon: '▶️', connected: false, comingSoon: true },
     { id: 'x', label: 'X', icon: '𝕏', connected: false, comingSoon: true },
   ]
 
-  const onConnectFor = {
-    instagram: handleConnectInstagram,
-    google_drive: handleConnectDrive,
-    google_calendar: handleConnectCalendar,
-  }
-  const busyFor = {
-    instagram: ig.connecting,
-    google_drive: connectingDrive,
-    google_calendar: connectingCalendar,
-  }
+ const onConnectFor = {
+  instagram: handleConnectInstagram,
+  google_drive: handleConnectDrive,
+  google_calendar: handleConnectCalendar,
+  tiktok: handleConnectTikTok,
+}
+const busyFor = {
+  instagram: ig.connecting,
+  google_drive: connectingDrive,
+  google_calendar: connectingCalendar,
+  tiktok: tiktok.connecting,
+}
 
   if (openService === 'instagram') {
     return (
@@ -152,6 +172,19 @@ export default function ConnectedAppsSection({ session, userId }) {
       />
     )
   }
+
+  if (openService === 'tiktok') {
+  return (
+    <TikTokView
+      session={session}
+      account={tiktok.account}
+      status={tiktok.status}
+      onDisconnect={tiktok.disconnect}
+      disconnecting={tiktok.disconnecting}
+      onClose={() => setOpenService(null)}
+    />
+  )
+}
 
   // Drive/Calendar don't have a dedicated full-page view yet (no data
   // browsing built for them in Pulse beyond the plugin itself) — so
