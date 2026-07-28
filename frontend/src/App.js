@@ -245,5 +245,4 @@ if (session === undefined || !aalChecked) {
     </BrowserRouter>
 
   )
-
 }
