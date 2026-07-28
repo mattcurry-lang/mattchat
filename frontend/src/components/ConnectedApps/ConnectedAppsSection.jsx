@@ -10,7 +10,7 @@ import {
 import TikTokView from './TikTokView'
 import { useTikTokConnection } from '../../hooks/useTikTokConnection'
 
-// Drop this into the profile page:
+// Drop this into the profile page
 //   <ConnectedAppsSection session={session} userId={userId} />
 export default function ConnectedAppsSection({ session, userId }) {
   const ig = useInstagramConnection(session, userId)
