@@ -98,16 +98,34 @@ export default function App() {
 
 
 
-  if (session === undefined || !aalChecked) {
-
-    return (
-      <div>
-        Loading...
+if (session === undefined || !aalChecked) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center', gap: 16,
+      background: 'linear-gradient(180deg,#0f0f1a 0%,#1a1a2e 100%)',
+    }}>
+      <img
+        src="/logo.png"
+        alt="Mattchat"
+        style={{ width: 96, height: 96, animation: 'splashPulse 1.8s ease-in-out infinite' }}
+      />
+      <div style={{
+        fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em',
+        background: 'linear-gradient(135deg,#667eea,#764ba2)',
+        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+      }}>
+        Mattchat
       </div>
-    )
-
-  }
-
+      <style>{`
+        @keyframes splashPulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.08); opacity: 0.75; }
+        }
+      `}</style>
+    </div>
+  )
+}
 
 
   return (
