@@ -9,7 +9,6 @@ import { getPulsePlugin } from '../../lib/pulsePlugins'
 import YouTubePulsePage from './YouTubePulsePage'
 import ShortsPage from '../Shorts/ShortsPage'
 
-
 const LOCKED_PLATFORMS = Object.entries(PLATFORM_META).filter(([, meta]) => meta.supportLevel === 'native_only')
 
 export default function PulsePage({
@@ -106,68 +105,68 @@ export default function PulsePage({
         ))}
 
         {(filter === 'all' || filter === 'more') && (
-  <>
-    <button
-  onClick={() => setShowShorts(true)}
-  style={{
-    display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-surface-2)',
-    border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px',
-    cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%',
-  }}
->
-  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg,#fe2c55,#25f4ee)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="6" y="2" width="12" height="20" rx="2" /><path d="M11 18h2" />
-</svg>
- </div>
-    <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>Shorts</div>
-    <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Swipe through trending videos</div>
-  </div>
-</button>
-    
-    <button
-      onClick={() => setShowYouTubePulse(true)}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-surface-2)',
-        border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px',
-        cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%',
-      }}
-    >
-    <AppIcon.youtube size={40} />
-      <div>
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>YouTube</div>
-        <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Search and browse videos</div>
-      </div>
-    </button>
+          <>
+            <button
+              onClick={() => setShowShorts(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-surface-2)',
+                border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px',
+                cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%',
+              }}
+            >
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg,#fe2c55,#25f4ee)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="6" y="2" width="12" height="20" rx="2" /><path d="M11 18h2" />
+                </svg>
+              </div>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>Shorts</div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Swipe through trending videos</div>
+              </div>
+            </button>
 
-    <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', marginTop: 8, marginBottom: 2 }}>
-      More apps — coming with the Mattchat mobile app
-    </div>
-    {LOCKED_PLATFORMS.map(([key, meta]) => (
-      <PulseLockedCard key={key} app={key} label={meta.label} />
-    ))}
-  </>
-)}
+            <button
+              onClick={() => setShowYouTubePulse(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-surface-2)',
+                border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px',
+                cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%',
+              }}
+            >
+              <AppIcon.youtube size={40} />
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>YouTube</div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Search and browse videos</div>
+              </div>
+            </button>
+
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', marginTop: 8, marginBottom: 2 }}>
+              More apps — coming with the Mattchat mobile app
+            </div>
+            {LOCKED_PLATFORMS.map(([key, meta]) => (
+              <PulseLockedCard key={key} app={key} label={meta.label} />
+            ))}
+          </>
+        )}
       </div>
 
-{showShorts && (
-  <ShortsPage
-    session={session} userId={userId} conversations={conversations}
-    getConvoName={getConvoName} onClose={() => setShowShorts(false)}
-  />
-)}
-      
+      {showShorts && (
+        <ShortsPage
+          session={session} userId={userId} conversations={conversations}
+          getConvoName={getConvoName} onClose={() => setShowShorts(false)}
+        />
+      )}
+
       {showYouTubePulse && (
-  <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto' }}>
-    <YouTubePulsePage
-      session={session}
-      userId={userId}
-      onSelectVideo={(videoId) => { setShowYouTubePulse(false); onSelectVideo?.(videoId) }}
-      onClose={() => setShowYouTubePulse(false)}
-    />
-  </div>
-)}
-      
+        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto' }}>
+          <YouTubePulsePage
+            session={session}
+            userId={userId}
+            onSelectVideo={(videoId) => { setShowYouTubePulse(false); onSelectVideo?.(videoId) }}
+            onClose={() => setShowYouTubePulse(false)}
+          />
+        </div>
+      )}
     </div>
   )
 }
