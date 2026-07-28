@@ -811,7 +811,7 @@ export async function askDocument(session, documentId, question) {
 }
 
 export async function getWeeklyReport(session) {
-+  const res = await fetch(`${supabaseUrl}/functions/v1/weekly-report`, {
+ const res = await fetch(`${supabaseUrl}/functions/v1/weekly-report`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
   return res.json()
