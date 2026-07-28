@@ -45,23 +45,23 @@ export default function IncomingCallModal({ callerName, callType, onAnswer, onDe
 
         {/* Pre-answer controls — bluetooth picker + start-muted toggle */}
         <div style={styles.preRow}>
-          <button style={styles.preBtn} onClick={pickBluetoothDevice} title="Choose audio output">
+          <button style={styles.preBtn} onClick={pickBluetoothDevice} title="Choose audio output" aria-label="Choose audio output">
             <IconBluetooth size={18} />
           </button>
           <button
             style={{ ...styles.preBtn, ...(startMuted ? styles.preBtnActive : {}) }}
             onClick={() => setStartMuted(v => !v)}
-            title={startMuted ? 'Will join muted' : 'Join with mic on'}
+           aria-label={startMuted ? 'Will join muted' : 'Join with microphone on'}
           >
             <IconMic size={18} />
           </button>
         </div>
 
         <div style={styles.btnRow}>
-          <button style={styles.declineBtn} onClick={onDecline} title="Decline">
+          <button style={styles.declineBtn} onClick={onDecline} title="Decline" aria-label="Decline call">
             <IconPhone size={26} style={{ transform: 'rotate(135deg)' }} />
           </button>
-          <button style={styles.answerBtn} onClick={() => onAnswer(startMuted)} title="Answer">
+          <button style={styles.answerBtn} onClick={() => onAnswer(startMuted)} title="Answer" aria-label="Answer call">
             <IconPhone size={26} />
           </button>
         </div>
