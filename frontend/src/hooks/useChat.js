@@ -134,15 +134,27 @@ export function useChat(conversationId, currentUserId) {
 
     try {
       await sendMsg(conversationId, currentUserId, trimmed)
-      if (isEmailConvo) {
-        await supabase.functions.invoke('send-email', {
-          body: { conversationId, senderId: currentUserId, content: trimmed },
-        })
-      }
+      
     } catch (e) {
       console.error('sendMessage failed:', e)
       setMessages(prev => prev.map(m => m.id === tempId ? { ...m, _status: 'failed' } : m))
     }
+
+       return
+  }
+
+    if (isEmailConvo) {
+      try {
+        await supabase.functions.invoke('send-email', {
+          body: { conversationId, senderId: currentUserId, content: trimmed },
+        })
+      } catch (e) {
+        // The Mattchat message itself was already sent successfully —
+        // an email-forwarding failure shouldn't flip the bubble to
+        // "failed" and invite the user to resend a message that's
+        // already there.
+        console.error('send-email invoke failed:', e)
+      }
   }, [conversationId, currentUserId, isEmailConvo])
 
   const broadcastTyping = useCallback((isTyping) => {
