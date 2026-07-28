@@ -45,8 +45,16 @@ export function IconPhoneOff({ size = 18, ...props }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
       <path d="M10.7 7.5c0 1.1.2 2.2.5 3.2M13.9 15.8c1 .3 2 .5 3.1.5.6 0 1 .4 1 1V20c0 .6-.4 1-1 1a17 17 0 0 1-8.4-2.7M6.1 6.1C4.9 5 4 3.6 4 3.6" />
-      <path d="M4 4c0 6 4 12.5 9.6 15.4" strokeOpacity="0" />
       <line x1="2" y1="2" x2="22" y2="22" />
+    </svg>
+  )
+}
+
+export function IconSettings({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.5-2-3.4-2.4.7a7.7 7.7 0 0 0-1.7-1L15 3h-4l-.3 2.8a7.7 7.7 0 0 0-1.7 1l-2.4-.7-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2 1.5 2 3.4 2.4-.7c.5.4 1.1.75 1.7 1L11 21h4l.3-2.8c.6-.25 1.2-.6 1.7-1l2.4.7 2-3.4-2-1.5Z" />
     </svg>
   )
 }
