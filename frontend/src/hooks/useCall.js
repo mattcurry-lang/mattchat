@@ -116,6 +116,7 @@ const checkForActiveCall = useCallback(() => {
 
   useEffect(() => {
     if (!userId) return
+    checkForActiveCall()
 
     const handleInsert = (payload) => {
       console.log('[useCall] INSERT received:', payload.new.initiated_by, 'me:', userId)
