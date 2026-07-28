@@ -71,6 +71,12 @@ export default function App() {
     }
   })
 
+    .catch((err) => {
+   console.error('getSession failed:', err)
+     setSession(null)
+     setAalChecked(true)
+   })
+
 
    const {
   data: { subscription }
