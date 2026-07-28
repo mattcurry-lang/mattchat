@@ -4,7 +4,7 @@ import React from 'react'
  * Small hand-built icon set — no external dependency, so it drops
  * straight into the existing project. Every icon inherits color via
  * `currentColor`, so it automatically matches whatever color the
- * surrounding button already has (including hover/active states).
+ * surrounding button already has (including hover/active states)
  */
 
 const base = {
