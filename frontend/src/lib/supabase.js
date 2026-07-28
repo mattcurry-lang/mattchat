@@ -802,7 +802,7 @@ export async function listDocumentAnalyses(userId) {
 }
 
 export async function askDocument(session, documentId, question) {
-  const res = await fetch('https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/document-ask', {
+  const res = await fetch(`${supabaseUrl}/functions/v1/document-ask`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ documentId, question }),
@@ -811,14 +811,14 @@ export async function askDocument(session, documentId, question) {
 }
 
 export async function getWeeklyReport(session) {
-  const res = await fetch('https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/weekly-report', {
++  const res = await fetch(`${supabaseUrl}/functions/v1/weekly-report`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
   return res.json()
 }
 
 export async function analyzeYouTubeVideo(session, videoId) {
-  const res = await fetch('https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/youtube-analyze', {
+ const res = await fetch(`${supabaseUrl}/functions/v1/youtube-analyze`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ videoId }),
@@ -827,7 +827,7 @@ export async function analyzeYouTubeVideo(session, videoId) {
 }
 
 export async function askYouTubeVideo(session, videoId, question) {
-  const res = await fetch('https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/youtube-ask', {
+const res = await fetch(`${supabaseUrl}/functions/v1/youtube-ask`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ videoId, question }),
@@ -836,7 +836,7 @@ export async function askYouTubeVideo(session, videoId, question) {
 }
 
 export async function searchYouTube(session, query, pageToken) {
-  const res = await fetch('https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/youtube-search', {
+const res = await fetch(`${supabaseUrl}/functions/v1/youtube-search`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, pageToken }),
