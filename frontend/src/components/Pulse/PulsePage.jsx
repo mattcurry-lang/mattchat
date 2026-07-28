@@ -115,8 +115,11 @@ export default function PulsePage({
     cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%',
   }}
 >
-  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg,#fe2c55,#25f4ee)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📱</div>
-  <div>
+  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg,#fe2c55,#25f4ee)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="6" y="2" width="12" height="20" rx="2" /><path d="M11 18h2" />
+</svg>
+ </div>
     <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>Shorts</div>
     <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Swipe through trending videos</div>
   </div>
