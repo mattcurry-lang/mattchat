@@ -13,7 +13,7 @@ import { useTikTokConnection } from '../../hooks/useTikTokConnection'
 // Drop this into the profile page:
 //   <ConnectedAppsSection session={session} userId={userId} />
 export default function ConnectedAppsSection({ session, userId }) {
-  const ig = useInstagramConnection(session, userId)
+ const ig = useInstagramConnection(session, userId)
 const tiktok = useTikTokConnection(session, userId)
   const [openService, setOpenService] = useState(null) // 'instagram' | 'google_drive' | 'google_calendar' | null
   const [connectError, setConnectError] = useState(null)
@@ -38,16 +38,19 @@ const tiktok = useTikTokConnection(session, userId)
   // These fire from ChatPage's redirect-handling effects once Google
   // sends the browser back — refreshes the list in place instead of
   // requiring a manual reopen of this panel.
-  useEffect(() => {
-    const onDrive = () => loadDrive()
-    const onCalendar = () => loadCalendar()
-    window.addEventListener('google-drive-connected', onDrive)
-    window.addEventListener('google-calendar-connected', onCalendar)
-    return () => {
-      window.removeEventListener('google-drive-connected', onDrive)
-      window.removeEventListener('google-calendar-connected', onCalendar)
-    }
-  }, [loadDrive, loadCalendar])
+ useEffect(() => {
+  const onDrive = () => loadDrive()
+  const onCalendar = () => loadCalendar()
+  const onTikTok = () => tiktok.refreshStatus()
+  window.addEventListener('google-drive-connected', onDrive)
+  window.addEventListener('google-calendar-connected', onCalendar)
+  window.addEventListener('tiktok-connected', onTikTok)
+  return () => {
+    window.removeEventListener('google-drive-connected', onDrive)
+    window.removeEventListener('google-calendar-connected', onCalendar)
+    window.removeEventListener('tiktok-connected', onTikTok)
+  }
+}, [loadDrive, loadCalendar, tiktok]))
 
   const handleConnectInstagram = async () => {
     setConnectError(null)
