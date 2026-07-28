@@ -13,8 +13,8 @@ import { useTikTokConnection } from '../../hooks/useTikTokConnection'
 // Drop this into the profile page:
 //   <ConnectedAppsSection session={session} userId={userId} />
 export default function ConnectedAppsSection({ session, userId }) {
- const ig = useInstagramConnection(session, userId)
-const tiktok = useTikTokConnection(session, userId)
+  const ig = useInstagramConnection(session, userId)
+  const tiktok = useTikTokConnection(session, userId)
   const [openService, setOpenService] = useState(null) // 'instagram' | 'google_drive' | 'google_calendar' | null
   const [connectError, setConnectError] = useState(null)
 
@@ -28,6 +28,7 @@ const tiktok = useTikTokConnection(session, userId)
   const loadDrive = useCallback(async () => {
     try { setDriveAccounts(await listGoogleDriveAccounts(session)) } catch (e) { console.error('listGoogleDriveAccounts failed:', e) }
   }, [session])
+
   const loadCalendar = useCallback(async () => {
     try { setCalendarAccounts(await listGoogleCalendarAccounts(session)) } catch (e) { console.error('listGoogleCalendarAccounts failed:', e) }
   }, [session])
@@ -38,19 +39,19 @@ const tiktok = useTikTokConnection(session, userId)
   // These fire from ChatPage's redirect-handling effects once Google
   // sends the browser back — refreshes the list in place instead of
   // requiring a manual reopen of this panel.
- useEffect(() => {
-  const onDrive = () => loadDrive()
-  const onCalendar = () => loadCalendar()
-  const onTikTok = () => tiktok.refreshStatus()
-  window.addEventListener('google-drive-connected', onDrive)
-  window.addEventListener('google-calendar-connected', onCalendar)
-  window.addEventListener('tiktok-connected', onTikTok)
-  return () => {
-    window.removeEventListener('google-drive-connected', onDrive)
-    window.removeEventListener('google-calendar-connected', onCalendar)
-    window.removeEventListener('tiktok-connected', onTikTok)
-  }
-}, [loadDrive, loadCalendar, tiktok])
+  useEffect(() => {
+    const onDrive = () => loadDrive()
+    const onCalendar = () => loadCalendar()
+    const onTikTok = () => tiktok.refreshStatus()
+    window.addEventListener('google-drive-connected', onDrive)
+    window.addEventListener('google-calendar-connected', onCalendar)
+    window.addEventListener('tiktok-connected', onTikTok)
+    return () => {
+      window.removeEventListener('google-drive-connected', onDrive)
+      window.removeEventListener('google-calendar-connected', onCalendar)
+      window.removeEventListener('tiktok-connected', onTikTok)
+    }
+  }, [loadDrive, loadCalendar, tiktok])
 
   const handleConnectInstagram = async () => {
     setConnectError(null)
@@ -60,14 +61,15 @@ const tiktok = useTikTokConnection(session, userId)
       setConnectError('Could not connect Instagram. Please try again.')
     }
   }
+
   const handleConnectTikTok = async () => {
-  setConnectError(null)
-  try {
-    await tiktok.connect() // redirects the page
-  } catch (e) {
-    setConnectError('Could not connect TikTok. Please try again.')
+    setConnectError(null)
+    try {
+      await tiktok.connect() // redirects the page
+    } catch (e) {
+      setConnectError('Could not connect TikTok. Please try again.')
+    }
   }
-}
 
   const handleConnectDrive = async () => {
     if (connectingDrive) return
@@ -139,29 +141,30 @@ const tiktok = useTikTokConnection(session, userId)
       username: calendarAccounts[0]?.email_address,
     },
     {
-  id: 'tiktok',
-  label: 'TikTok',
-  icon: '🎵',
-  connected: tiktok.status === 'connected',
-  username: tiktok.account?.username,
-  avatarUrl: tiktok.account?.avatar_url,
-},
+      id: 'tiktok',
+      label: 'TikTok',
+      icon: '🎵',
+      connected: tiktok.status === 'connected',
+      username: tiktok.account?.username,
+      avatarUrl: tiktok.account?.avatar_url,
+    },
     { id: 'youtube', label: 'YouTube', icon: '▶️', connected: false, comingSoon: true },
     { id: 'x', label: 'X', icon: '𝕏', connected: false, comingSoon: true },
   ]
 
- const onConnectFor = {
-  instagram: handleConnectInstagram,
-  google_drive: handleConnectDrive,
-  google_calendar: handleConnectCalendar,
-  tiktok: handleConnectTikTok,
-}
-const busyFor = {
-  instagram: ig.connecting,
-  google_drive: connectingDrive,
-  google_calendar: connectingCalendar,
-  tiktok: tiktok.connecting,
-}
+  const onConnectFor = {
+    instagram: handleConnectInstagram,
+    google_drive: handleConnectDrive,
+    google_calendar: handleConnectCalendar,
+    tiktok: handleConnectTikTok,
+  }
+
+  const busyFor = {
+    instagram: ig.connecting,
+    google_drive: connectingDrive,
+    google_calendar: connectingCalendar,
+    tiktok: tiktok.connecting,
+  }
 
   if (openService === 'instagram') {
     return (
@@ -177,22 +180,18 @@ const busyFor = {
   }
 
   if (openService === 'tiktok') {
-  return (
-    <TikTokView
-      session={session}
-      account={tiktok.account}
-      status={tiktok.status}
-      onDisconnect={tiktok.disconnect}
-      disconnecting={tiktok.disconnecting}
-      onClose={() => setOpenService(null)}
-    />
-  )
-}
+    return (
+      <TikTokView
+        session={session}
+        account={tiktok.account}
+        status={tiktok.status}
+        onDisconnect={tiktok.disconnect}
+        disconnecting={tiktok.disconnecting}
+        onClose={() => setOpenService(null)}
+      />
+    )
+  }
 
-  // Drive/Calendar don't have a dedicated full-page view yet (no data
-  // browsing built for them in Pulse beyond the plugin itself) — so
-  // "opening" one just expands a small inline account list with a
-  // disconnect action, rather than navigating to a new screen.
   if (openService === 'google_drive' || openService === 'google_calendar') {
     const isDrive = openService === 'google_drive'
     const accounts = isDrive ? driveAccounts : calendarAccounts
