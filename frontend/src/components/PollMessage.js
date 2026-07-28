@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { subscribeToChannel } from '../lib/realtimeManager'
 
 export default function PollMessage({ message, currentUserId }) {
   const [poll, setPoll] = useState(null)
@@ -8,40 +9,54 @@ export default function PollMessage({ message, currentUserId }) {
   const [myVotes, setMyVotes] = useState([]) // option ids I voted for
   const [voting, setVoting] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
 
   // ── load poll data ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!message.poll_id) return
     loadPoll()
-
-    // realtime: update votes live
-    const channel = supabase
-      .channel(`poll:${message.poll_id}`)
-      .on('postgres_changes', {
+ const unsubscribe = subscribeToChannel(
+      `poll-votes:${message.poll_id}`,
+      (channel, emit) => channel.on('postgres_changes', {
         event: '*', schema: 'public', table: 'poll_votes',
-        filter: `poll_id=eq.${message.poll_id}`
-      }, () => loadVotes())
-      .subscribe()
-
-    return () => supabase.removeChannel(channel)
+        filter: `poll_id=eq.${message.poll_id}`,
+      }, (payload) => emit('change', payload)),
+      {
+        onEvent: loadVotes,
+        // If the poll failed to load earlier (or a drop caused us to
+        // miss votes), a reconnect re-fetches everything from scratch
+        // instead of leaving the card permanently blank.
+        onResync: loadPoll,
+      }
+    )
+    return unsubscribe
+    
   }, [message.poll_id])
 
-  const loadPoll = async () => {
-    const [{ data: pollData }, { data: optData }] = await Promise.all([
-      supabase.from('polls').select('*').eq('id', message.poll_id).single(),
-      supabase.from('poll_options').select('*').eq('poll_id', message.poll_id).order('position'),
-    ])
-    setPoll(pollData)
-    setOptions(optData || [])
-    await loadVotes()
-    setLoading(false)
+setError(false)
+    try {
+      const [{ data: pollData, error: pollErr }, { data: optData, error: optErr }] = await Promise.all([
+        supabase.from('polls').select('*').eq('id', message.poll_id).single(),
+        supabase.from('poll_options').select('*').eq('poll_id', message.poll_id).order('position'),
+      ])
+      if (pollErr) throw pollErr
+      if (optErr) throw optErr
+      setPoll(pollData)
+      setOptions(optData || [])
+      await loadVotes()
+    } catch (err) {
+      console.error('loadPoll failed:', err)
+      setError(true)
+    }
+   setLoading(false)
   }
 
   const loadVotes = async () => {
-    const { data } = await supabase
+    const { data, error: votesErr } = await supabase
       .from('poll_votes')
       .select('*')
       .eq('poll_id', message.poll_id)
+    if (votesErr) { console.error('loadVotes failed:', votesErr); return }
     setVotes(data || [])
     setMyVotes((data || []).filter(v => v.user_id === currentUserId).map(v => v.option_id))
   }
@@ -82,6 +97,14 @@ export default function PollMessage({ message, currentUserId }) {
   }
 
   if (loading) return <div style={s.loading}>Loading poll…</div>
+if (error) {
+   return (
+      <div style={s.wrap}>
+        <div style={s.errorText}>Couldn't load this poll.</div>
+        <button style={s.retryBtn} onClick={() => { setLoading(true); loadPoll() }}>Retry</button>
+      </div>
+    )
+  }
   if (!poll) return null
 
   const totalVotes = votes.length
@@ -115,7 +138,7 @@ export default function PollMessage({ message, currentUserId }) {
             </div>
             {/* progress bar */}
             <div style={s.track}>
-              <div style={{ ...s.fill, width: `${pct}%`, background: voted ? '#7C6FF7' : 'rgba(255,255,255,0.2)' }} />
+              <div style={{ ...s.fill, width: `${pct}%`, background: voted ? 'var(--brand)' : 'rgba(255,255,255,0.2)' }} />
             </div>
             <div style={s.optionVotes}>{optVotes} {optVotes === 1 ? 'vote' : 'votes'}</div>
           </button>
@@ -134,24 +157,26 @@ export default function PollMessage({ message, currentUserId }) {
 
 const s = {
   wrap: {
-    background: '#1e1b4b', borderRadius: 16, padding: '14px 16px',
+   background: 'var(--bg-surface-2)', border: '1px solid var(--border)', borderRadius: 16, padding: '14px 16px',
     maxWidth: 300, minWidth: 220,
   },
-  question: { fontSize: 15, fontWeight: 600, color: '#fff', marginBottom: 4, lineHeight: 1.4 },
-  hint: { fontSize: 11, color: '#888', marginBottom: 10 },
+ question: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4, lineHeight: 1.4 },
+ hint: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 },
   option: {
     display: 'block', width: '100%', background: 'rgba(255,255,255,0.05)',
     border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10,
     padding: '10px 12px', marginBottom: 8, cursor: 'pointer',
     textAlign: 'left', transition: 'border-color 0.15s',
   },
-  optionVoted: { borderColor: '#7C6FF7', background: 'rgba(124,111,247,0.12)' },
+  optionVoted: { borderColor: 'var(--brand)', background: 'var(--brand-soft)' },
   optionTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  optionText: { fontSize: 13, color: '#fff', fontWeight: 500 },
-  optionPct: { fontSize: 12, color: '#aaa', flexShrink: 0 },
+  optionText: { fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 },
+ optionPct: { fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 },
   track: { height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden', marginBottom: 4 },
   fill: { height: '100%', borderRadius: 2, transition: 'width 0.3s ease' },
-  optionVotes: { fontSize: 11, color: '#666' },
-  footer: { display: 'flex', gap: 8, fontSize: 11, color: '#666', marginTop: 4, flexWrap: 'wrap' },
-  loading: { color: '#666', fontSize: 13, padding: 12 },
-}
+optionVotes: { fontSize: 11, color: 'var(--text-muted)' },
+  footer: { display: 'flex', gap: 8, fontSize: 11, color: 'var(--text-muted)', marginTop: 4, flexWrap: 'wrap' },
+  loading: { color: 'var(--text-muted)', fontSize: 13, padding: 12 },
+  errorText: { color: '#f87171', fontSize: 12.5, marginBottom: 8 },
+ retryBtn: { background: 'var(--brand-soft)', border: '1px solid var(--brand)', borderRadius: 8, color: 'var(--brand)', fontSize: 12.5, fontWeight: 700, padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit' },
+ }
