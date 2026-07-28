@@ -48,7 +48,7 @@ setError(false)
       console.error('loadPoll failed:', err)
       setError(true)
     }
-   setLoading(false)
+    setLoading(false)
   }
 
   const loadVotes = async () => {
