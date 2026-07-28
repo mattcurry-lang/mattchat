@@ -36,6 +36,29 @@ function RescheduleRow({ task, onDone }) {
   )
 }
 
+function IconCalendarSmall({ size = 12 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" />
+    </svg>
+  )
+}
+function IconTagSmall({ size = 12 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.59 13.41L11 3.83A2 2 0 0 0 9.59 3.17L4 3a1 1 0 0 0-1 1l.17 5.59a2 2 0 0 0 .66 1.41l9.58 9.58a2 2 0 0 0 2.83 0l4.35-4.35a2 2 0 0 0 0-2.82z" />
+      <circle cx="7.5" cy="7.5" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+function IconMailSmall({ size = 12 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" />
+    </svg>
+  )
+}
+
 function TaskCard({ task, onConfirm, onDismiss, onComplete, onOpenSourceEmail }) {
   const isPending = task.status === 'pending'
   const [rescheduling, setRescheduling] = useState(false)
@@ -56,10 +79,10 @@ function TaskCard({ task, onConfirm, onDismiss, onComplete, onOpenSourceEmail })
       {task.description && <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>{task.description}</div>}
 
       <div style={{ display: 'flex', gap: 10, fontSize: 11.5, color: 'var(--text-muted)' }}>
-        {task.due_date && <span>📅 {task.due_date}{task.due_time ? ` · ${task.due_time}` : ''}</span>}
-        {task.category && <span>🏷️ {task.category}</span>}
-        {task.source === 'email' && task.emails && <span>📧 from {task.emails.sender}</span>}
-      </div>
+  {task.due_date && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconCalendarSmall /> {task.due_date}{task.due_time ? ` · ${task.due_time}` : ''}</span>}
+  {task.category && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconTagSmall /> {task.category}</span>}
+  {task.source === 'email' && task.emails && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconMailSmall /> from {task.emails.sender}</span>}
+</div>
 
       {task.checklist?.length > 0 && (
         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--text-secondary)' }}>
