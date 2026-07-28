@@ -12,7 +12,7 @@ function formatCount(n) {
 
 function VideoCard({ video }) {
   return (
-    
+    <a
       href={video.shareUrl || '#'}
       target="_blank"
       rel="noopener noreferrer"
@@ -100,7 +100,7 @@ export default function TikTokView({ session, account, status, onDisconnect, dis
         )}
 
         <div style={{ position: 'relative', display: 'flex', gap: 8, marginTop: 14 }}>
-          
+          <a
             href={displayProfile?.profileUrl || displayProfile?.profile_url || '#'}
             target="_blank"
             rel="noopener noreferrer"
