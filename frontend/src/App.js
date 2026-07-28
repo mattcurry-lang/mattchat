@@ -204,7 +204,7 @@ export default function App() {
 
               :
 
-              <ChatPage />
+            <ChatPage session={session} />
 
             )
 
