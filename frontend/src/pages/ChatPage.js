@@ -30,7 +30,7 @@ import BottomNav from '../components/BottomNav'
 import {
   IconPhone, IconVideo, IconPhoneOff, IconSparkle, IconMoreVertical, IconSmile, IconMic, IconPlus, IconStatus,
   IconChart, IconCheckSquare, IconClock, IconSearch, IconMail, IconShield, IconLogOut, IconInbox, IconPin,
-  IconMessageSquare, IconHistory,IconX
+ IconMessageSquare, IconHistory, IconX, IconFolder, IconSettings, IconBell, IconCamera, IconFilm, IconTrash
 } from '../components/Icons'
 import { ReactableMessage } from '../components/MessageReactions'
 import { useStatuses } from '../hooks/useStatuses'
@@ -150,7 +150,7 @@ function GifBubble({ content }) {
   return (
     <div style={{ borderRadius: 12, overflow: 'hidden', maxWidth: 220, background: 'rgba(255,255,255,0.06)', position: 'relative' }}>
       {!loaded && (
-        <div style={{ width: 220, height: 140, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🎬</div>
+       <div style={{ width: 220, height: 140, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--dark-text-3)' }}><IconFilm size={22} /></div>
       )}
       <img src={url} alt={title} onLoad={() => setLoaded(true)} style={{ display: loaded ? 'block' : 'none', width: '100%', maxWidth: 220 }} />
       <div style={{ position: 'absolute', bottom: 4, right: 6, background: 'rgba(0,0,0,0.6)', borderRadius: 4, fontSize: 9, fontWeight: 700, color: '#fff', padding: '2px 5px' }}>GIF</div>
@@ -1370,7 +1370,7 @@ const handleSend = async () => {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
         <div className="contact-time">{c.updated_at ? formatMsgTime(c.updated_at) : ''}</div>
-        <button className="delete-chat-btn" onClick={e => { e.stopPropagation(); deleteConversation(c.id) }}>🗑️</button>
+       <button className="delete-chat-btn" onClick={e => { e.stopPropagation(); deleteConversation(c.id) }}><IconTrash size={13} /></button>
       </div>
     </div>
   )
@@ -1523,25 +1523,25 @@ const handleSend = async () => {
   onClick={() => { setShowDocuments(true); setShowProfileMenu(false) }}
   style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#c4b5fd', fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
 >
-  📄 Documents
+ <IconFolder size={14} /> Documents
 </button>
 <button
   onClick={() => { setShowWeeklyReport(true); setShowProfileMenu(false) }}
   style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#c4b5fd', fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
 >
-  📊 Weekly Report
+  <IconChart size={14} /> Weekly Report
 </button>
     <button
   onClick={() => { setShowAISettings(true); setShowProfileMenu(false) }}
   style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#c4b5fd', fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
 >
-  ⚙️ AI Settings
+  <IconSettings size={14} /> AI Settings
 </button>
     <button
   onClick={() => { setShowNotificationSettings(true); setShowProfileMenu(false) }}
   style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#c4b5fd', fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
 >
-  🔔 Notifications
+<IconBell size={14} /> Notifications
 </button>
 <button
                   onClick={() => { setShowConnectedApps(true); setShowProfileMenu(false) }}
@@ -1552,7 +1552,7 @@ const handleSend = async () => {
                     fontFamily: 'inherit', whiteSpace: 'nowrap',
                   }}
                 >
-                  📷 Connected Apps
+                   <IconCamera size={14} /> Connected Apps
                 </button>
                   
                 <button
@@ -1793,7 +1793,7 @@ const handleSend = async () => {
                 <button className="icon-btn dark" onClick={() => setShowCurryAssistant(v => !v)} title="Curry AI assistant"><IconSparkle size={16} /></button>
                 <button className="icon-btn dark" onClick={() => setShowInsights(v => !v)} title="Relationship insights"
                   style={{ color: showInsights ? '#a78bfa' : undefined, background: showInsights ? 'rgba(167,139,250,0.15)' : undefined }}>
-                  📊
+                  <IconChart size={16} />
                 </button>
                 {hasScheduled && (
                   <button onClick={() => setShowScheduledList(true)} title="View scheduled messages"
