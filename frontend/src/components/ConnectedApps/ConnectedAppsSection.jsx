@@ -50,7 +50,7 @@ const tiktok = useTikTokConnection(session, userId)
     window.removeEventListener('google-calendar-connected', onCalendar)
     window.removeEventListener('tiktok-connected', onTikTok)
   }
-}, [loadDrive, loadCalendar, tiktok]))
+}, [loadDrive, loadCalendar, tiktok])
 
   const handleConnectInstagram = async () => {
     setConnectError(null)
