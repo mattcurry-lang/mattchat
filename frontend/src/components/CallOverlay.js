@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import DailyIframe from '@daily-co/daily-js'
-import { IconMic, IconBluetooth, IconVideo, IconPause, IconUserPlus, IconKeypad } from './Icons'
+import { IconMic, IconBluetooth, IconVideo, IconPause, IconUserPlus, IconKeypad, IconPhoneOff } from './Icons'
 
 export default function CallOverlay({ roomUrl, token, callType, callerName, startMuted = false, onEnd }) {
   const callContainerRef = useRef(null)
@@ -112,29 +112,31 @@ export default function CallOverlay({ roomUrl, token, callType, callerName, star
       {/* ── icon grid: add person / hold / bluetooth, mute / end call / keypad ── */}
       <div style={styles.controls}>
         <div style={styles.controlRow}>
-          <button style={styles.smallBtn} disabled title="Add people — coming soon">
+          <button style={styles.smallBtn} disabled title="Add people — coming soon" aria-label="Add people — coming soon">
             <IconUserPlus size={20} />
           </button>
-          <button style={{ ...styles.smallBtn, ...(onHold ? styles.smallBtnActive : {}) }} onClick={toggleHold} title={onHold ? 'Resume' : 'Hold'}>
+          <button style={{ ...styles.smallBtn, ...(onHold ? styles.smallBtnActive : {}) }} onClick={toggleHold} title={onHold ? 'Resume' : 'Hold'} aria-label={onHold ? 'Resume call' : 'Hold call'}>
             <IconPause size={20} />
           </button>
-          <button style={styles.smallBtn} onClick={toggleBluetooth} title="Audio output">
+         <button style={styles.smallBtn} onClick={toggleBluetooth} title="Audio output" aria-label="Choose audio output device">
             <IconBluetooth size={20} />
           </button>
         </div>
 
         <div style={styles.controlRow}>
-          <button style={{ ...styles.smallBtn, ...(muted ? styles.smallBtnActive : {}) }} onClick={toggleMute} title={muted ? 'Unmute' : 'Mute'}>
+           <button style={{ ...styles.smallBtn, ...(muted ? styles.smallBtnActive : {}) }} onClick={toggleMute} title={muted ? 'Unmute' : 'Mute'} aria-label={muted ? 'Unmute microphone' : 'Mute microphone'}>
             <IconMic size={20} style={muted ? { opacity: 0.5 } : undefined} />
           </button>
-          <button style={styles.endBtn} onClick={handleEnd} title="End call">📵</button>
-          <button style={styles.smallBtn} disabled title="Keypad — coming soon">
+         <button style={styles.endBtn} onClick={handleEnd} title="End call" aria-label="End call">
+         <IconPhoneOff size={26} />
+         </button>
+          <button style={styles.smallBtn} disabled title="Keypad — coming soon" aria-label="Keypad — coming soon">
             <IconKeypad size={20} />
           </button>
         </div>
 
         {callType === 'video' && (
-          <button style={{ ...styles.camToggle, ...(camOff ? styles.smallBtnActive : {}) }} onClick={toggleCamera} title={camOff ? 'Turn camera on' : 'Turn camera off'}>
+         <button style={{ ...styles.camToggle, ...(camOff ? styles.smallBtnActive : {}) }} onClick={toggleCamera} title={camOff ? 'Turn camera on' : 'Turn camera off'} aria-label={camOff ? 'Turn camera on' : 'Turn camera off'}>
             <IconVideo size={18} style={camOff ? { opacity: 0.5 } : undefined} />
           </button>
         )}
@@ -179,6 +181,7 @@ const styles = {
   endBtn: {
     width: 66, height: 66, borderRadius: '50%', background: '#ef4444', border: 'none', fontSize: 26, cursor: 'pointer',
     display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(239,68,68,0.5)',
+    color: '#fff',
   },
   camToggle: {
     width: 46, height: 46, borderRadius: '50%', background: 'rgba(255,255,255,0.1)',
