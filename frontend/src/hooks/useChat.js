@@ -3,21 +3,12 @@ import { supabase, getMessages, sendMessage as sendMsg } from '../lib/supabase'
 import { playSound } from '../lib/mattchatSounds'
 import { subscribeToChannel, getChannel } from '../lib/realtimeManager'
 
-// FIX: previously subscribed to messages via THREE independent channels
-// across three hooks (useChat, useGlobalDelivery, useUnreadCounts).
-// This one is scoped to a single open conversation — still its own
-// channel (it needs low-latency typing broadcasts, which are inherently
-// per-conversation), but now goes through the shared manager so a
-// dropped connection resyncs (refetches messages) instead of silently
-// going stale, and reconnects with backoff instead of relying on
-// whatever supabase-js does by default.
-
 export function useChat(conversationId, currentUserId) {
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
   const [typing, setTyping] = useState([])
   const [isEmailConvo, setIsEmailConvo] = useState(false)
-  const typingRowActive = useRef(false) // whether we currently own a typing_status row for this convo
+  const typingRowActive = useRef(false)
 
   const channelKey = conversationId ? `messages:${conversationId}` : null
 
@@ -71,9 +62,6 @@ export function useChat(conversationId, currentUserId) {
             if (msgWithProfile.sender_id !== currentUserId) playSound('pulse')
 
             setMessages(prev => {
-              // If this is a message WE sent, it was already pushed onto
-              // the list optimistically — swap the placeholder for the
-              // real row instead of appending a second copy.
               if (msgWithProfile.sender_id === currentUserId) {
                 const matchIdx = prev.findIndex(m => m._optimistic && m.content === msgWithProfile.content)
                 if (matchIdx !== -1) {
@@ -95,8 +83,6 @@ export function useChat(conversationId, currentUserId) {
             })
           }
         },
-        // Reconnected after a drop — refetch, since any INSERT/UPDATE
-        // that happened during the gap never reached us.
         onResync: loadMessages,
       }
     )
@@ -134,14 +120,11 @@ export function useChat(conversationId, currentUserId) {
 
     try {
       await sendMsg(conversationId, currentUserId, trimmed)
-      
     } catch (e) {
       console.error('sendMessage failed:', e)
       setMessages(prev => prev.map(m => m.id === tempId ? { ...m, _status: 'failed' } : m))
+      return
     }
-
-       return
-  }
 
     if (isEmailConvo) {
       try {
@@ -149,12 +132,9 @@ export function useChat(conversationId, currentUserId) {
           body: { conversationId, senderId: currentUserId, content: trimmed },
         })
       } catch (e) {
-        // The Mattchat message itself was already sent successfully —
-        // an email-forwarding failure shouldn't flip the bubble to
-        // "failed" and invite the user to resend a message that's
-        // already there.
         console.error('send-email invoke failed:', e)
       }
+    }
   }, [conversationId, currentUserId, isEmailConvo])
 
   const broadcastTyping = useCallback((isTyping) => {
@@ -185,13 +165,6 @@ export function useChat(conversationId, currentUserId) {
   return { messages, loading, typing, sendMessage, broadcastTyping }
 }
 
-// FIX: the conversations-list channel previously listened to ALL
-// `conversations` UPDATEs and ALL `hidden_conversations` changes,
-// unfiltered — every client reloaded its full list on every OTHER
-// user's activity anywhere on the platform. Now filtered to this
-// user's actual conversation ids (conversations table) and their own
-// user_id (hidden_conversations table), and shares one channel per
-// distinct id-set via the manager instead of recreating on every load.
 export function useConversations(userId) {
   const [conversations, setConversations] = useState([])
   const [loading, setLoading] = useState(true)
@@ -220,7 +193,7 @@ export function useConversations(userId) {
 
     const hiddenIds = new Set((hiddenRows || []).map(r => r.conversation_id))
     const visibleIds = conversationIds.filter(id => !hiddenIds.has(id))
-    setConvoIds(conversationIds) // keep listening on the full membership set, not just visible ones
+    setConvoIds(conversationIds)
 
     if (visibleIds.length === 0) {
       setConversations([])
