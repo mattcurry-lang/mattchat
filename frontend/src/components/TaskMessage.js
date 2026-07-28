@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { subscribeToChannel } from '../lib/realtimeManager'
 
 export default function TaskMessage({ message, currentUserId }) {
   const [list, setList] = useState(null)
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [newTask, setNewTask] = useState('')
   const [adding, setAdding] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
@@ -14,31 +16,39 @@ export default function TaskMessage({ message, currentUserId }) {
     loadList()
 
     // realtime: update tasks live when anyone checks/adds
-    const channel = supabase
-      .channel(`tasks:${message.task_list_id}`)
-      .on('postgres_changes', {
+ const unsubscribe = subscribeToChannel(
+      `task-list:${message.task_list_id}`,
+      (channel, emit) => channel.on('postgres_changes', {
         event: '*', schema: 'public', table: 'tasks',
-        filter: `task_list_id=eq.${message.task_list_id}`
-      }, () => loadTasks())
-      .subscribe()
-
-    return () => supabase.removeChannel(channel)
+        filter: `task_list_id=eq.${message.task_list_id}`,
+      }, (payload) => emit('change', payload)),
+      { onEvent: loadTasks, onResync: loadList }
+    )
+   return unsubscribe
   }, [message.task_list_id])
 
   const loadList = async () => {
-    const { data } = await supabase
-      .from('task_lists').select('*').eq('id', message.task_list_id).single()
-    setList(data)
-    await loadTasks()
+   setError(false)
+    try {
+      const { data, error: listErr } = await supabase
+        .from('task_lists').select('*').eq('id', message.task_list_id).single()
+      if (listErr) throw listErr
+      setList(data)
+      await loadTasks()
+    } catch (err) {
+      console.error('loadList failed:', err)
+      setError(true)
+    }
     setLoading(false)
   }
 
   const loadTasks = async () => {
-    const { data } = await supabase
+  const { data, error: tasksErr } = await supabase
       .from('tasks')
       .select('*, created_by_profile:profiles!tasks_created_by_fkey(username), assigned_profile:profiles!tasks_assigned_to_fkey(username)')
       .eq('task_list_id', message.task_list_id)
       .order('position')
+    if (tasksErr) { console.error('loadTasks failed:', tasksErr); return }
     setTasks(data || [])
   }
 
@@ -73,6 +83,14 @@ export default function TaskMessage({ message, currentUserId }) {
   }
 
   if (loading) return <div style={s.loading}>Loading tasks…</div>
+  if (error) {
+   return (
+      <div style={s.wrap}>
+        <div style={s.errorText}>Couldn't load this task list.</div>
+        <button style={s.retryBtn} onClick={() => { setLoading(true); loadList() }}>Retry</button>
+      </div>
+    )
+  }
   if (!list) return null
 
   const done = tasks.filter(t => t.completed).length
@@ -136,14 +154,15 @@ export default function TaskMessage({ message, currentUserId }) {
 
 const s = {
   wrap: {
-    background: '#1e1b4b', borderRadius: 16, padding: '14px 16px',
+    background: 'var(--bg-surface-2)', border: '1px solid var(--border)', borderRadius: 16, padding: '14px 16px',
     maxWidth: 300, minWidth: 220,
   },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  listTitle: { fontSize: 15, fontWeight: 600, color: '#fff' },
+  listTitle: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' },
+ progress: { fontSize: 12, color: 'var(--text-muted)', background: 'rgba(255,255,255,0.07)', padding: '2px 8px', borderRadius: 99 },
   progress: { fontSize: 12, color: '#888', background: 'rgba(255,255,255,0.07)', padding: '2px 8px', borderRadius: 99 },
   track: { height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, marginBottom: 12, overflow: 'hidden' },
-  fill: { height: '100%', background: '#7C6FF7', borderRadius: 2, transition: 'width 0.3s ease' },
+fill: { height: '100%', background: 'var(--brand)', borderRadius: 2, transition: 'width 0.3s ease' },
   taskList: { display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 10 },
   taskRow: {
     display: 'flex', alignItems: 'center', gap: 10,
@@ -156,23 +175,25 @@ const s = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 11, color: '#fff', flexShrink: 0, transition: 'all 0.15s',
   },
-  checkDone: { background: '#7C6FF7', borderColor: '#7C6FF7' },
-  taskText: { fontSize: 13, color: '#ddd', lineHeight: 1.4, transition: 'all 0.15s' },
-  taskDone: { color: '#555', textDecoration: 'line-through' },
+ checkDone: { background: 'var(--brand)', borderColor: 'var(--brand)' },
+  taskText: { fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.4, transition: 'all 0.15s' },
+ taskDone: { color: 'var(--text-muted)', textDecoration: 'line-through' },
   addRow: { display: 'flex', gap: 6, marginTop: 4 },
   addInput: {
     flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(124,111,247,0.4)',
     borderRadius: 8, padding: '7px 10px', color: '#fff', fontSize: 13, outline: 'none',
   },
   addConfirm: {
-    background: '#7C6FF7', border: 'none', borderRadius: 8,
+    background: 'var(--brand)', border: 'none', borderRadius: 8,
     color: '#fff', padding: '7px 12px', cursor: 'pointer', fontSize: 14,
   },
   addBtn: {
-    background: 'none', border: 'none', color: '#7C6FF7',
+   background: 'none', border: 'none', color: 'var(--brand)',
     fontSize: 12, cursor: 'pointer', padding: '4px 0',
     textAlign: 'left',
   },
-  allDone: { fontSize: 12, color: '#7C6FF7', marginTop: 6, textAlign: 'center' },
-  loading: { color: '#666', fontSize: 13, padding: 12 },
+ allDone: { fontSize: 12, color: 'var(--brand)', marginTop: 6, textAlign: 'center' },
+ loading: { color: 'var(--text-muted)', fontSize: 13, padding: 12 },
+  errorText: { color: '#f87171', fontSize: 12.5, marginBottom: 8 },
+ retryBtn: { background: 'var(--brand-soft)', border: '1px solid var(--brand)', borderRadius: 8, color: 'var(--brand)', fontSize: 12.5, fontWeight: 700, padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit' },
 }
