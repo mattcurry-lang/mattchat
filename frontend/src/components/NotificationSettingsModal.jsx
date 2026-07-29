@@ -6,7 +6,7 @@ import { IconX } from './Icons'
 function Toggle({ checked, onChange, label }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
-      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{label}</div>
+     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--dark-text)' }}>{label}</div>
       <button onClick={() => onChange(!checked)} style={{ width: 42, height: 24, borderRadius: 20, border: 'none', cursor: 'pointer', background: checked ? 'linear-gradient(135deg,#667eea,#764ba2)' : 'var(--bg-surface-2)', position: 'relative', flexShrink: 0 }}>
         <span style={{ position: 'absolute', top: 2, left: checked ? 20 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
       </button>
@@ -56,10 +56,10 @@ export default function NotificationSettingsModal({ userId, onClose }) {
 
   return (
     <div className="profile-menu-overlay" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-surface-1, #14141f)', borderRadius: 20, padding: 20, width: 'min(460px, 92vw)', maxHeight: '85vh', overflowY: 'auto', border: '1px solid var(--border)' }}>
+     <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-surface-1)', borderRadius: 20, padding: 20, width: 'min(460px, 92vw)', maxHeight: '85vh', overflowY: 'auto', border: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Notifications</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><IconX size={16} /></button>
+           <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--dark-text)', margin: 0 }}>Notifications</h3>
+         <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--dark-text-2)', cursor: 'pointer' }}><IconX size={16} /></button>
         </div>
 
         {!isPushSupported() && (
