@@ -24,7 +24,7 @@ export default function FloatingCurryOrb({ onActivate, hidden }) {
       style={{
         position: 'fixed',
         right: 20,
-       bottom: 156 // sits just above the bottom nav bar — mirrored to the
+       bottom: 156 ,// sits just above the bottom nav bar — mirrored to the
                     // opposite corner from BottomNav's new-chat FAB
                     // (.fab-new-chat, right:20/bottom:90 in App.css) so the
                   // two floating controls never overlap // sits just above the bottom nav bar
