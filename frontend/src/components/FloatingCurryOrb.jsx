@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useState } from 'react'
+import { IconSparkle } from './Icons'
 
 // Floating glowing AI orb — sits bottom-right, above BottomNav. Tap
 // opens Curry's voice mode directly (skips the chat list + typing).
@@ -22,8 +24,11 @@ export default function FloatingCurryOrb({ onActivate, hidden }) {
       title="Talk to Curry"
       style={{
         position: 'fixed',
-        right: 20,
-        bottom: 84, // sits just above the bottom nav bar
+         left: 20,
+        bottom: 84, // sits just above the bottom nav bar — mirrored to the
+                    // opposite corner from BottomNav's new-chat FAB
+                    // (.fab-new-chat, right:20/bottom:90 in App.css) so the
+                  // two floating controls never overlap // sits just above the bottom nav bar
         width: 56,
         height: 56,
         borderRadius: '50%',
@@ -41,7 +46,9 @@ export default function FloatingCurryOrb({ onActivate, hidden }) {
         animation: 'orbFloatPulse 3s ease-in-out infinite',
       }}
     >
-      <span style={{ fontSize: 22, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' }}>✨</span>
+     <span style={{ display: 'flex', color: '#fff', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' }}>
+     <IconSparkle size={22} />
+      </span>
       <div style={ring1} />
       <div style={ring2} />
     </button>
