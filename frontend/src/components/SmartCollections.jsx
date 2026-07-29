@@ -120,8 +120,8 @@ const s = {
   row: { display: 'flex', gap: 6, overflowX: 'auto', padding: '2px 16px 10px', scrollbarWidth: 'none' },
   tab: {
     display: 'flex', alignItems: 'center', flexShrink: 0,
-    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: 16, color: '#9ca3af', fontSize: 12.5, fontWeight: 600,
+   background: 'var(--bg-surface-1)', border: '1px solid var(--border)',
+   borderRadius: 16, color: 'var(--dark-text-2)', fontSize: 12.5, fontWeight: 600,
     padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
   },
   tabActive: {
