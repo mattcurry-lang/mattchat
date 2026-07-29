@@ -51,6 +51,7 @@
   --dark-header:   #17152a;
   --dark-card:     #1b1930;
   --dark-card-2:   #221f3b;
+  --bg-surface-1:  var(--dark-card);
   --dark-border:   rgba(255,255,255,0.08);
   --dark-text:     #ffffff;
   --dark-text-2:   rgba(255,255,255,0.55);
