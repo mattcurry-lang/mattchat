@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
 import Avatar from './Avatar'
 import { computeReplyTimeLabel } from '../lib/supabase'
+import { IconX, IconClock, IconSparkle } from './Icons'
 
 // AVATAR_CATEGORIES lives here too so ProfileCard and setup flows agree
 // on the same label/emoji set.
@@ -58,12 +59,12 @@ export default function ProfileCard({
         style={{ alignItems: 'center', textAlign: 'center', maxWidth: 380 }}
       >
         <button
-          onClick={onClose}
-          style={{ alignSelf: 'flex-end', background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 16, cursor: 'pointer', padding: 4 }}
+         onClick={onClose}
+          style={{ alignSelf: 'flex-end', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex' }}
+          aria-label="Close"
         >
-          ✕
+          <IconX size={16} />
         </button>
-
         <Avatar name={targetProfile.username} photoUrl={targetProfile.avatar_url} size={96} />
 
         <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', marginTop: 8 }}>
@@ -98,7 +99,7 @@ export default function ProfileCard({
 
         {replyLabel && (
           <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
-            ⏱ {replyLabel}
+           <IconClock size={12} /> {replyLabel}
           </div>
         )}
 
@@ -129,8 +130,8 @@ export default function ProfileCard({
             style={{ width: '100%', marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
             onClick={askCurry}
           >
-            ✨ Ask Curry about {targetProfile.username}
-          </button>
+           <IconSparkle size={14} /> Ask Curry about {targetProfile.username}
+           </button>
         )}
       </div>
     </div>
