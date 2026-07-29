@@ -201,6 +201,8 @@ export const getMessages = async (conversationId) => {
       deleted_for_everyone,
       created_at,
       profiles!messages_sender_id_fkey(username, avatar_url)
+       poll_id,
+    task_list_id,
     `)
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true })
