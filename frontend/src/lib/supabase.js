@@ -191,6 +191,8 @@ export const getMessages = async (conversationId) => {
       content,
       is_email,
       message_type,
+      poll_id,
+      task_list_id,
       audio_url,
       audio_duration,
       transcript,
@@ -200,9 +202,7 @@ export const getMessages = async (conversationId) => {
       forwarded,
       deleted_for_everyone,
       created_at,
-      profiles!messages_sender_id_fkey(username, avatar_url)
-       poll_id,
-    task_list_id,
+     profiles!messages_sender_id_fkey(username, avatar_url)
     `)
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true })
