@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { IconClock, IconX } from './Icons'
 
 export default function ScheduleMessageModal({ conversationId, senderId, onClose }) {
   const [content, setContent]   = useState('')
@@ -34,8 +35,9 @@ export default function ScheduleMessageModal({ conversationId, senderId, onClose
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose(false)}>
       <div className="modal-panel">
         <div className="modal-header">
-          <span className="modal-title">🕐 Schedule Message</span>
-          <button className="modal-close" onClick={() => onClose(false)}>✕</button>
+          <span className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><IconClock size={15} /> Schedule Message</span>
+        <button className="modal-close" onClick={() => onClose(false)} aria-label="Close"><IconX size={13} /></button>
+         </div>
         </div>
 
         <textarea
