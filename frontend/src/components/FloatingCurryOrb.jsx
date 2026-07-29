@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useState } from 'react'
 import { IconSparkle } from './Icons'
 
 // Floating glowing AI orb — sits bottom-right, above BottomNav. Tap
