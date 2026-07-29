@@ -3,7 +3,7 @@ import {
   getStatusViewers, deleteStatus, getStatusMediaUrl,
   toggleStatusReaction, getStatusReactions, replyToStatus,
 } from '../lib/supabase'
-import { IconX, IconTrash } from './Icons'
+import { IconX, IconTrash, IconEye, IconHeart, IconSend } from './Icons'
 
 // Only used for text/image statuses — video statuses drive their own
 // progress off real playback time instead (see handleVideoTimeUpdate),
@@ -27,6 +27,7 @@ export default function StatusViewer({ group, isMine, currentUserId, onClose, on
   const [replyText, setReplyText] = useState('')
   const [replySending, setReplySending] = useState(false)
   const [replySent, setReplySent] = useState(false)
+  const [showViewersList, setShowViewersList] = useState(false)
   const rafRef = useRef(null)
   const startRef = useRef(null)
   const lastTapRef = useRef(0)
@@ -51,6 +52,7 @@ export default function StatusViewer({ group, isMine, currentUserId, onClose, on
     startRef.current = null
     setReplyText('')
     setReplySent(false)
+     setShowViewersList(false)
     onViewed?.(current.id)
     if (isMine) getStatusViewers(current.id).then(setViewers)
   }, [current, isMine, onViewed])
@@ -260,11 +262,29 @@ export default function StatusViewer({ group, isMine, currentUserId, onClose, on
       {isMine ? (
         <div className="status-viewer-footer status-viewer-footer-mine">
           {viewers.length > 0 && (
-            <div>👁 {viewers.length} view{viewers.length !== 1 ? 's' : ''}</div>
+           <button
+              onClick={() => setShowViewersList(v => !v)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit', padding: 0 }}
+            >
+              <IconEye size={14} /> {viewers.length} view{viewers.length !== 1 ? 's' : ''}
+            </button>
+          )}
+          {showViewersList && viewers.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 140, overflowY: 'auto', paddingTop: 4 }}>
+              {viewers.map(v => (
+                <div key={v.viewer_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12.5 }}>
+                  <span style={{ color: '#fff', fontWeight: 600 }}>{v.profiles?.username || 'Someone'}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.55)' }}>
+                    {new Date(v.viewed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              ))}
+          </div>
           )}
           {reactions.length > 0 && (
             <div className="status-reactions-summary">
               ❤️ {reactions.length} like{reactions.length !== 1 ? 's' : ''}
+              <IconHeart size={12} filled style={{ color: '#f87171', verticalAlign: -1 }} /> {reactions.length} like{reactions.length !== 1 ? 's' : ''}
               {reactions.slice(0, 3).map(r => r.profiles?.username).filter(Boolean).length > 0 && (
                 <span className="status-reactions-names">
                   {' '}— {reactions.slice(0, 3).map(r => r.profiles?.username).filter(Boolean).join(', ')}
@@ -280,8 +300,10 @@ export default function StatusViewer({ group, isMine, currentUserId, onClose, on
             className={`status-like-btn ${liked ? 'liked' : ''}`}
             onClick={handleLikeButton}
             title={liked ? 'Unlike' : 'Like'}
+            aria-label={liked ? 'Unlike' : 'Like'}
+          style={{ color: liked ? '#f87171' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            {liked ? '❤️' : '🤍'}
+            <IconHeart size={22} filled={liked} />
           </button>
           <input
             className="status-reply-input"
@@ -295,8 +317,9 @@ export default function StatusViewer({ group, isMine, currentUserId, onClose, on
             className="status-reply-send"
             onClick={handleSendReply}
             disabled={!replyText.trim() || replySending}
+            aria-label="Send reply"
           >
-            ➤
+         <IconSend size={16} />
           </button>
         </div>
       )}
