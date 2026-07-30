@@ -18,9 +18,14 @@ async function callGemini(prompt: string, options: GenerateOptions): Promise<Gen
   for (const img of images) {
     finalParts.push({ inline_data: { mime_type: img.mimeType, data: img.data } })
   }
+
+  if (options.fileUri) {
+   finalParts.push({ file_data: { mime_type: options.fileUri.mimeType, file_uri: options.fileUri.uri } })
+ }
   contents.push({ role: 'user', parts: finalParts })
 
   const requestBody: any = { contents, generationConfig: { temperature, maxOutputTokens: 1200 } }
+  if (options.responseFormatJson) requestBody.generationConfig.responseMimeType = 'application/json'
   if (useSearch) requestBody.tools = [{ google_search: {} }]
 
   let response: Response
