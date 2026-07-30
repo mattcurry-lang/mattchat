@@ -37,7 +37,6 @@ export default function ScheduleMessageModal({ conversationId, senderId, onClose
     if (err) return setError('Failed to schedule. Try again.')
     onClose(true)
   }
-
   // Format date preview safely
   const previewDate =
     date && time ? new Date(`${date}T${time.length === 5 ? time + ':00' : time}`) : null
