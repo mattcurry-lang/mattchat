@@ -3,6 +3,7 @@ import Avatar from './Avatar'
 import { uploadAvatar, skipProfileSetup, setAvatarCategory, updateProfileDetails } from '../lib/supabase'
 import PinterestPicker from './PinterestPicker'
 import { AVATAR_CATEGORIES } from './ProfileCard'
+import { IconCamera } from './Icons'
 
 export default function ProfileSetupModal({ session, userId, username, onComplete, onClose, allowDismiss = false }) {
   const [step, setStep] = useState('category') // 'category' | 'bio' | 'method' | 'pinterest'
@@ -150,11 +151,11 @@ export default function ProfileSetupModal({ session, userId, username, onComplet
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFilePicked} style={{ display: 'none' }} />
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', marginTop: 8 }}>
-              <button className="btn-primary" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
-                🖼️ Upload from device
+              <button className="btn-primary" disabled={uploading} onClick={() => fileInputRef.current?.click()} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <IconCamera size={16} /> Upload from device
               </button>
-              <button className="btn-primary" disabled={uploading} style={{ background: 'linear-gradient(135deg,#e60023,#ad081b)' }} onClick={() => setStep('pinterest')}>
-                📌 Choose from Pinterest
+              <button className="btn-primary" disabled={uploading} style={{ background: 'linear-gradient(135deg,#e60023,#ad081b)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }} onClick={() => setStep('pinterest')}>
+                Choose from Pinterest
               </button>
               <button className="btn-ghost" disabled={uploading} onClick={handleSkip}>
                 Skip for now
