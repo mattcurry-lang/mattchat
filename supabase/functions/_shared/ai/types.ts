@@ -18,10 +18,12 @@ export interface GenerateOptions {
   history?: HistoryMessage[]
   temperature?: number
   useSearch?: boolean        // Gemini-only capability (Google Search grounding)
-  images?: InlineImage[]     // vision/document tasks — Gemini-only for now
+  images?: InlineImage[] // vision/document tasks — Gemini-only for now
+  fileUri?: { mimeType: string; uri: string }  // for Gemini's file_data (e.g. YouTube URL)
   taskType?: TaskType
   timeoutMs?: number
   forceProvider?: string     // escape hatch — bypass routing entirely
+  responseFormatJson?: boolean  // maps to generationConfig.responseMimeType
 }
 
 export interface GenerateResult {
