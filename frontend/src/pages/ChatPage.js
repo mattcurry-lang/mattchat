@@ -1719,9 +1719,10 @@ const handleSend = async () => {
     onClose={() => { setShowShorts(false); setShortsInitialVideo(null) }}
   />
 )}
-          {youtubePlayer && (
+   {youtubePlayer && (
   <YouTubePlayer
     videoId={youtubePlayer.videoId}
+    startSeconds={youtubePlayer.startSeconds}
     mini={youtubePlayer.mini}
     onClose={() => setYoutubePlayer(null)}
     onExpand={() => setYoutubePlayer(p => ({ ...p, mini: !p.mini }))}
@@ -1927,7 +1928,7 @@ const handleSend = async () => {
     ...msg,
     _currentUserId: userId,
     _quotedMessage: msg.reply_to_message_id ? findMessageById(msg.reply_to_message_id) : null,
-_onPlayYouTube: (videoId) => setYoutubePlayer({ videoId, mini: false }),
+_onPlayYouTube: (videoId, startSeconds) => setYoutubePlayer({ videoId, mini: false, startSeconds }),
 _onWatchTogether: (videoId) => {
   watchTogether.inviteToWatch(videoId).catch((e) => alert('Could not start Watch Together: ' + e.message))
 },
