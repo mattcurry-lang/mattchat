@@ -475,6 +475,7 @@ const [showWeeklyReport, setShowWeeklyReport] = useState(false)
   const [showShorts, setShowShorts] = useState(false)
 const [shortsInitialVideo, setShortsInitialVideo] = useState(null)
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)
+const [curryPrefill, setCurryPrefill] = useState(null)
   // that appears AFTER a plain message has already been sent, if
   // Curry thinks it might land colder than intended. Never blocks or
   // delays sending; see runCoachCheck below.
@@ -1693,7 +1694,7 @@ const handleSend = async () => {
   onOpenCurry={() => setActiveConvo(CURRY_AI_CONTACT)}
   onOpenTasks={() => setShowTasksPage(true)}
   onOpenConversation={openConversationById}
-  onAskCurry={(text) => { setActiveConvo(CURRY_AI_CONTACT) /* prefill wiring is the same gap noted in ProfileCard's onAskCurry */ }}
+  onAskCurry={(text) => { setCurryPrefill(text); setActiveConvo(CURRY_AI_CONTACT) }}
 />
           
       <FloatingCurryOrb
@@ -1727,20 +1728,14 @@ const handleSend = async () => {
   />
 )}
 {profileCardTarget && (
-  <ProfileCard
-    targetProfile={profileCardTarget}
-    myProfile={profile}
-    messages={messages}
-    currentUserId={userId}
-    onClose={() => setProfileCardTarget(null)}
-    onAskCurry={(question) => {
-      setActiveConvo(CURRY_AI_CONTACT)
-      // AICommandBar / CurryAIChat would need a prefill prop to actually
-      // send this automatically — for now this opens Curry so the user
-      // can paste/ask it themselves. Wire a prefill prop through
-      // CurryAIChat if you want it fully automatic.
-    }}
-  />
+<ProfileCard
+  targetProfile={profileCardTarget}
+  myProfile={profile}
+  messages={messages}
+  currentUserId={userId}
+  onClose={() => setProfileCardTarget(null)}
+  onAskCurry={(question) => { setCurryPrefill(question); setActiveConvo(CURRY_AI_CONTACT) }}
+/>
 )}
       {/* ── WELCOME PANE — desktop only. Fills the space next to the
            sidebar when no conversation is open. Hidden on narrow
@@ -1767,7 +1762,12 @@ const handleSend = async () => {
                 <div className="chat-header-sub" style={{ color: '#a78bfa' }}>Always learning, always here</div>
               </div>
             </div>
-            <CurryAIChat session={session} onOpenConversation={openConversationById} />
+           <CurryAIChat
+  session={session}
+  onOpenConversation={openConversationById}
+  initialMessage={curryPrefill}
+  onInitialMessageSent={() => setCurryPrefill(null)}
+/>
           </div>
         ) : (
           <div className="chat-area">
