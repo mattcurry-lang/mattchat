@@ -365,7 +365,7 @@ function DailyBrief({ session, onAskQuestion }) {
 
 
 // ── Main Curry AI Chat ────────────────────────────────────────
-export default function CurryAIChat({ session, onOpenConversation }) {
+export default function CurryAIChat({ session, onOpenConversation, initialMessage, onInitialMessageSent }) {
   const [messages, setMessages] = useState([
     { role: 'assistant', content: `Hey! I'm Curry AI — your personal companion inside Mattchat.\n\nI can send messages, schedule them, summarize chats, translate, create polls & tasks, draft emails, and answer anything.\n\nShare a chat with me from its menu and I'll start noticing patterns, moods, and things worth suggesting — like a friend would.` }
   ])
@@ -375,13 +375,16 @@ export default function CurryAIChat({ session, onOpenConversation }) {
   const [voiceMode, setVoiceMode] = useState(false)
     const [showMemoryVault, setShowMemoryVault] = useState(false)
   const messagesEndRef = useRef(null)
+  const [historyLoaded, setHistoryLoaded] = useState(false)
+const sentInitialRef = useRef(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, voiceMode])
 
-  useEffect(() => {
-    async function loadHistory() {
+useEffect(() => {
+  async function loadHistory() {
+    try {
       const { data } = await supabase
         .from('curry_ai_messages')
         .select('role, content, created_at')
@@ -394,10 +397,26 @@ export default function CurryAIChat({ session, onOpenConversation }) {
           ...data.map(m => ({ role: m.role, content: m.content }))
         ])
       }
+    } finally {
+      // Set regardless of success/failure — an initialMessage should
+      // still send even if history loading itself errors out.
+      setHistoryLoaded(true)
     }
-    loadHistory()
-  }, [])
+  }
+  loadHistory()
+}, [])
 
+// NEW effect — auto-sends a prefilled question once history has
+// settled, so it can't be clobbered by the history load's wholesale
+// setMessages() landing after the send. sentInitialRef guards against
+// re-firing the same text on re-renders.
+useEffect(() => {
+  if (!historyLoaded || !initialMessage) return
+  if (sentInitialRef.current === initialMessage) return
+  sentInitialRef.current = initialMessage
+  sendMessage(initialMessage)
+  onInitialMessageSent?.()
+}, [historyLoaded, initialMessage])
   async function sendMessage(overrideText) {
     const userMsg = (overrideText ?? input).trim()
     if (!userMsg || loading) return
