@@ -882,3 +882,47 @@ export async function getNotificationPreferences(userId) {
 export async function updateNotificationPreferences(userId, patch) {
   await supabase.from('notification_preferences').upsert({ user_id: userId, ...patch, updated_at: new Date().toISOString() })
 }
+
+// ── Email Workspace (gmail-actions) ────────────────────────
+async function callGmailActions(session, payload) {
+  const res = await fetch(`${supabaseUrl}/functions/v1/gmail-actions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  return res.json()
+}
+
+export async function listEmails(session, { category, unreadOnly, archived, cursor } = {}) {
+  const data = await callGmailActions(session, { type: 'list', category, unreadOnly, archived, cursor })
+  return data.ok ? data.emails : []
+}
+
+export async function searchEmails(session, query) {
+  const data = await callGmailActions(session, { type: 'search', query })
+  return data.ok ? data.emails : []
+}
+
+export async function archiveEmail(session, emailId) {
+  return callGmailActions(session, { type: 'archive', emailId })
+}
+
+export async function unarchiveEmail(session, emailId) {
+  return callGmailActions(session, { type: 'unarchive', emailId })
+}
+
+export async function deleteEmail(session, emailId) {
+  return callGmailActions(session, { type: 'delete', emailId })
+}
+
+export async function markEmailRead(session, emailId, unread = false) {
+  return callGmailActions(session, { type: unread ? 'mark_unread' : 'mark_read', emailId })
+}
+
+export async function replyToEmail(session, emailId, body, asDraft = false) {
+  return callGmailActions(session, { type: asDraft ? 'draft_reply' : 'reply', emailId, body })
+}
+
+export async function forwardEmail(session, emailId, to, note) {
+  return callGmailActions(session, { type: 'forward', emailId, to, note })
+}
