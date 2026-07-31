@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { listDocumentAnalyses, askDocument } from '../../lib/supabase'
+import FlashcardDeck from '../FlashcardDeck'
+import QuizRunner from '../QuizRunner'
+import { IconClock, IconBarChart, IconMapPin, IconUser } from '../Icons'
 
 function DocumentCard({ doc, session }) {
   const [expanded, setExpanded] = useState(false)
