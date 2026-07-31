@@ -117,7 +117,7 @@ function DateDivider({ date }) {
 }
 
 // Shows "Delivered" under a sent message. Once the other person has
-// opened the chat and read it (tracked by useMessageStatus/readMap),
+// opened the chat and read it (tracked by useMessageStatus/readMap)
 // this stays silent and the bubble itself gets a purple outline
 // instead — see the `.read` class applied to .msg-bubble below.
 function MessageStatus({ isMe, isRead, isDelivered }) {
