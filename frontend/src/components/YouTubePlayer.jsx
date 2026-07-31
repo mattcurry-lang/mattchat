@@ -24,18 +24,17 @@ export default function YouTubePlayer({ videoId, mini, onClose, onExpand }) {
   useEffect(() => {
     let cancelled = false
     if (currentVideoId.current === videoId && playerRef.current) return
-
     loadYouTubeAPI().then((YT) => {
       if (cancelled || !containerRef.current) return
       playerRef.current?.destroy?.()
       playerRef.current = new YT.Player(containerRef.current, {
         videoId,
-        playerVars: { autoplay: 1, playsinline: 1 },
+        playerVars: { autoplay: 1, playsinline: 1, start: startSeconds || 0 },
       })
       currentVideoId.current = videoId
     })
     return () => { cancelled = true }
-  }, [videoId])
+  }, [videoId, startSeconds])
 
   useEffect(() => () => playerRef.current?.destroy?.(), [])
 
