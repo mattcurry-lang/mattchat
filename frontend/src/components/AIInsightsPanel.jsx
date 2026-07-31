@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { callCurryAI } from './CurryAI'
 import {
   IconX, IconSparkle, IconCheckSquare, IconClock, IconMessageSquare, IconMusic, IconFilm,
-  IconBook, IconHeart, IconMail, IconChevronLeft, IconChevronRight, IconPin,
+  IconBook, IconHeart, IconMail, IconPin,
 } from './Icons'
 
 // ── Category → icon + accent color ─────────────────────────────
@@ -23,6 +23,22 @@ const PRIORITY_ORDER = { critical: 0, important: 1, normal: 2, silent: 3 }
 function todayKey() {
   return new Date().toISOString().split('T')[0]
 }
+
+function IconChevronLeft({ size = 14, style }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={style}>
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  )
+}
+function IconChevronRight({ size = 14, style }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={style}>
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  )
+}
+
 function loadDismissed() {
   try {
     const raw = localStorage.getItem(`curry_insights_dismissed_${todayKey()}`)
