@@ -43,7 +43,7 @@ import NewCallModal from '../components/NewCallModal'
 import AICommandBar from '../components/AICommandBar'
 import FloatingCurryOrb from '../components/FloatingCurryOrb'
 import MessageActionsMenu, { useMessageLongPress } from '../components/MessageActionsMenu'
-import PromotedDailyBrief from '../components/PromotedDailyBrief'
+import AIInsightsPanel from '../components/AIInsightsPanel'
 import SmartCollections, { useConvoTags, filterByCollection } from '../components/SmartCollections'
 import SmartReplyPreview, { useSmartReplyCache } from '../components/SmartReplyPreview'
 import RelationshipInsights from '../components/RelationshipInsights'
@@ -1267,21 +1267,14 @@ const handleSend = async () => {
           )}
         </div>
 
-        {activeTab === 'chats' && (
-          <div style={{ position: 'relative' }}>
-            <PromotedDailyBrief
-              session={session}
-              onAskQuestion={() => {}}
-              onOpenCurry={() => setActiveConvo(CURRY_AI_CONTACT)}
-            />
-            <TodaysTimeline
-              userId={userId}
-              totalUnread={totalUnread}
-              conversations={conversations}
-              sharedConvoIds={sharedConvoIds}
-            />
-          </div>
-        )}
+       {activeTab === 'chats' && (
+  <TodaysTimeline
+    userId={userId}
+    totalUnread={totalUnread}
+    conversations={conversations}
+    sharedConvoIds={sharedConvoIds}
+  />
+)}
 
         {/* ── LIST CARD ── */}
         <div className="list-card">
@@ -1695,6 +1688,14 @@ const handleSend = async () => {
         />
       </div>
 
+<AIInsightsPanel
+  session={session}
+  onOpenCurry={() => setActiveConvo(CURRY_AI_CONTACT)}
+  onOpenTasks={() => setShowTasksPage(true)}
+  onOpenConversation={openConversationById}
+  onAskCurry={(text) => { setActiveConvo(CURRY_AI_CONTACT) /* prefill wiring is the same gap noted in ProfileCard's onAskCurry */ }}
+/>
+          
       <FloatingCurryOrb
         hidden={!!activeConvo}
         onActivate={() => setActiveConvo(CURRY_AI_CONTACT)}
