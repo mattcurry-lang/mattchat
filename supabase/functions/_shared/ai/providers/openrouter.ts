@@ -1,3 +1,4 @@
+// openrouter.ts
 import { AIProvider, GenerateOptions } from '../types.ts'
 import { openAICompatibleGenerate } from './_openaiCompatible.ts'
 
@@ -7,10 +8,12 @@ const MODEL = 'meta-llama/llama-3.1-8b-instruct:free'
 export const openrouterProvider: AIProvider = {
   name: 'openrouter',
   supportsVision: false,
+  supportsJsonMode: false, // free-tier model here doesn't reliably honor response_format — rely on prompt + fence-stripping instead
   isAvailable: () => !!OPENROUTER_API_KEY,
   generate: (prompt: string, options: GenerateOptions) =>
     openAICompatibleGenerate(
       'openrouter', 'https://openrouter.ai/api/v1/chat/completions', OPENROUTER_API_KEY!, MODEL, prompt, options,
+      { supportsJsonMode: false },
       { 'HTTP-Referer': 'https://mattchat-nine.vercel.app', 'X-Title': 'Mattchat' }
     ),
 }
