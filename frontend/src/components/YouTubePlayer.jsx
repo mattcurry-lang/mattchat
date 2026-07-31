@@ -13,7 +13,7 @@ function loadYouTubeAPI() {
   return apiLoadPromise
 }
 
-export default function YouTubePlayer({ videoId, mini, onClose, onExpand }) {
+export default function YouTubePlayer({ videoId, startSeconds, mini, onClose, onExpand }) {
   const containerRef = useRef(null)
   const playerRef = useRef(null)
   const currentVideoId = useRef(null)
