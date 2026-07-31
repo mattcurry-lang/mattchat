@@ -1,6 +1,7 @@
 export type TaskType =
   | 'chat' | 'coding' | 'quick' | 'general_reasoning'
-  | 'email_summary' | 'document_analysis' | 'image_understanding' | 'vision'
+  | 'email_summary' | 'document_analysis' | 'video_analysis'
+  | 'image_understanding' | 'vision'
   | 'unknown'
 
 export interface HistoryMessage {
@@ -17,13 +18,14 @@ export interface GenerateOptions {
   systemPrompt?: string
   history?: HistoryMessage[]
   temperature?: number
-  useSearch?: boolean        // Gemini-only capability (Google Search grounding)
-  images?: InlineImage[] // vision/document tasks — Gemini-only for now
-  fileUri?: { mimeType: string; uri: string }  // for Gemini's file_data (e.g. YouTube URL)
+  useSearch?: boolean
+  images?: InlineImage[]     // base64 inline_data — PDFs, DOCX, PPTX, photos
+  fileUri?: string           // e.g. a YouTube URL, for Gemini's file_data
+  jsonMode?: boolean         // ask the provider to return raw JSON, no fences
+  maxTokens?: number
   taskType?: TaskType
   timeoutMs?: number
-  forceProvider?: string     // escape hatch — bypass routing entirely
-  responseFormatJson?: boolean  // maps to generationConfig.responseMimeType
+  forceProvider?: string
 }
 
 export interface GenerateResult {
@@ -31,8 +33,6 @@ export interface GenerateResult {
   provider: string
 }
 
-// Providers throw this so the router can tell retryable failures
-// (rate limits, timeouts, 5xx) apart from permanent ones (bad request).
 export class ProviderError extends Error {
   status?: number
   constructor(message: string, status?: number) {
@@ -45,6 +45,7 @@ export class ProviderError extends Error {
 export interface AIProvider {
   name: string
   supportsVision: boolean
-  isAvailable(): boolean
+  supportsJsonMode: boolean
   generate(prompt: string, options: GenerateOptions): Promise<GenerateResult>
+  isAvailable(): boolean
 }
