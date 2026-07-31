@@ -804,10 +804,10 @@ export async function listDocumentAnalyses(userId) {
 }
 
 export async function askDocument(session, documentId, question) {
-  const res = await fetch(`${supabaseUrl}/functions/v1/document-ask`, {
+  const res = await fetch(`${supabaseUrl}/functions/v1/curry-ai`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ documentId, question }),
+    body: JSON.stringify({ type: 'document_ask', documentId, question }),
   })
   return res.json()
 }
@@ -820,19 +820,18 @@ export async function getWeeklyReport(session) {
 }
 
 export async function analyzeYouTubeVideo(session, videoId) {
- const res = await fetch(`${supabaseUrl}/functions/v1/youtube-analyze`, {
+ const res = await fetch(`${supabaseUrl}/functions/v1/curry-ai`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ videoId }),
+    body: JSON.stringify({ type: 'youtube_analyze', videoId }),
   })
   return res.json()
 }
-
 export async function askYouTubeVideo(session, videoId, question) {
-const res = await fetch(`${supabaseUrl}/functions/v1/youtube-ask`, {
+const res = await fetch(`${supabaseUrl}/functions/v1/curry-ai`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ videoId, question }),
+    body: JSON.stringify({ type: 'youtube_ask', videoId, question }),
   })
   return res.json()
 }
