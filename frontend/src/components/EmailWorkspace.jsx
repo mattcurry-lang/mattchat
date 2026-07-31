@@ -4,6 +4,7 @@ import {
   markEmailRead, replyToEmail, forwardEmail,
 } from '../lib/supabase'
 import { IconX } from './Icons'
+import { IconX, IconReply, IconForward, IconTrash, IconFolder, IconSearch, IconInbox } from './Icons'
 
 const CATEGORY_CHIPS = [
   { key: null, label: 'All' },
@@ -124,10 +125,18 @@ function EmailDetail({ email, session, onClose, onChanged }) {
         </div>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button style={s.actionBtn} disabled={busy} onClick={() => setMode(mode === 'reply' ? null : 'reply')}>↩ Reply</button>
-          <button style={s.actionBtn} disabled={busy} onClick={() => setMode(mode === 'forward' ? null : 'forward')}>➡ Forward</button>
-          <button style={s.actionBtn} disabled={busy} onClick={handleArchive}>{email.is_archived ? '📥 Unarchive' : '🗄 Archive'}</button>
-          <button style={{ ...s.actionBtn, color: '#f87171', borderColor: 'rgba(248,113,113,0.3)' }} disabled={busy} onClick={handleDelete}>🗑 Delete</button>
+          <button style={s.actionBtn} disabled={busy} onClick={() => setMode(mode === 'reply' ? null : 'reply')}>
+  <IconReply size={13} /> Reply
+</button>
+<button style={s.actionBtn} disabled={busy} onClick={() => setMode(mode === 'forward' ? null : 'forward')}>
+  <IconForward size={13} /> Forward
+</button>
+<button style={s.actionBtn} disabled={busy} onClick={handleArchive}>
+  {email.is_archived ? <><IconInbox size={13} /> Unarchive</> : <><IconFolder size={13} /> Archive</>}
+</button>
+<button style={{ ...s.actionBtn, color: '#f87171', borderColor: 'rgba(248,113,113,0.3)' }} disabled={busy} onClick={handleDelete}>
+  <IconTrash size={13} /> Delete
+</button>
         </div>
 
         {mode === 'reply' && (
@@ -213,7 +222,7 @@ export default function EmailWorkspace({ session }) {
           placeholder="Search mail…"
           style={s.input}
         />
-        <button type="submit" style={s.secondaryBtn}>🔍</button>
+       <button type="submit" style={s.secondaryBtn}><IconSearch size={14} /></button>
         {searchQuery && (
           <button type="button" style={s.secondaryBtn} onClick={() => { setSearchQuery(''); setSearchInput('') }}>
             <IconX size={14} />
