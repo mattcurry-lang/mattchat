@@ -81,6 +81,7 @@ import YouTubeSearchModal from '../components/YouTubeSearchModal'
 import ShortsPage from '../components/Shorts/ShortsPage'
 import NotificationSettingsModal from '../components/NotificationSettingsModal'
 import { listenForNotificationActions } from '../lib/pushNotifications'
+import EmailWorkspace from '../components/EmailWorkspace'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -476,6 +477,7 @@ const [showWeeklyReport, setShowWeeklyReport] = useState(false)
 const [shortsInitialVideo, setShortsInitialVideo] = useState(null)
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)
 const [curryPrefill, setCurryPrefill] = useState(null)
+  const [showEmailWorkspace, setShowEmailWorkspace] = useState(false)
   // that appears AFTER a plain message has already been sent, if
   // Curry thinks it might land colder than intended. Never blocks or
   // delays sending; see runCoachCheck below.
@@ -1513,6 +1515,14 @@ const handleSend = async () => {
 >
   <IconCheckSquare size={14} /> AI Tasks
 </button>
+ 
+  <button
+  onClick={() => { setShowEmailWorkspace(true); setShowProfileMenu(false) }}
+  style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#c4b5fd', fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+>
+  <IconInbox size={14} /> Email Workspace
+</button>
+  
   <button
   onClick={() => { setShowDocuments(true); setShowProfileMenu(false) }}
   style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#c4b5fd', fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
@@ -1575,6 +1585,18 @@ const handleSend = async () => {
     onComplete={(patch) => { setProfile(p => ({ ...p, ...patch })); setShowProfileSetup(false) }}
     onClose={() => setShowProfileSetup(false)}
   />
+)}
+
+{showEmailWorkspace && (
+  <div className="profile-menu-overlay" onClick={() => setShowEmailWorkspace(false)}>
+    <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-surface-1, #14141f)', borderRadius: 20, padding: 0, width: 'min(560px, 94vw)', maxHeight: '85vh', overflowY: 'auto', border: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 0' }}>
+        <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Email Workspace</h3>
+        <button onClick={() => setShowEmailWorkspace(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16 }}><IconX size={16} /></button>
+      </div>
+      <EmailWorkspace session={session} />
+    </div>
+  </div>
 )}
 
 {showDocuments && (
