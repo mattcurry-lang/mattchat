@@ -44,25 +44,8 @@ export default function PromotedDailyBrief({ session, onAskQuestion, onOpenCurry
   const [loading, setLoading] = useState(true)
   const [collapsed, setCollapsed] = useState(false)
   const [weather, setWeather] = useState(null)
-  const [academicBrief, setAcademicBrief] = useState(null)
-
-useEffect(() => {
-  let cancelled = false
-  async function loadAcademicBrief() {
-    try {
-      const res = await fetch('https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/daily-brief', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      })
-      const data = await res.json()
-      if (!cancelled && data.ok) setAcademicBrief(data.brief)
-    } catch (e) {
-      console.error('Academic daily brief failed:', e)
-    }
-  }
-  loadAcademicBrief()
-  return () => { cancelled = true }
-}, [session])
-  
+ 
+ 
   useEffect(() => {
     let cancelled = false
     async function load() {
@@ -158,34 +141,30 @@ useEffect(() => {
         </div>
       )}
 
-      {academicBrief && (academicBrief.schedule?.length > 0 || academicBrief.dueSoon?.length > 0 || academicBrief.overdue?.length > 0) && (
+  {brief.academic && (brief.academic.schedule?.length > 0 || brief.academic.dueSoon?.length > 0 || brief.academic.overdue?.length > 0) && (
   <div style={s.academicSection}>
-    {academicBrief.summary && <div style={s.academicSummary}>{academicBrief.summary}</div>}
-
-    {academicBrief.overdue?.length > 0 && (
+    {brief.academic.summary && <div style={s.academicSummary}>{brief.academic.summary}</div>}
+    {brief.academic.overdue?.length > 0 && (
       <div style={s.academicRow}>
         <span style={{ color: '#f87171', fontWeight: 700 }}>⚠ Overdue:</span>{' '}
-        {academicBrief.overdue.map(t => t.title).join(', ')}
+        {brief.academic.overdue.map(t => t.title).join(', ')}
       </div>
     )}
-
-    {academicBrief.dueSoon?.length > 0 && (
+    {brief.academic.dueSoon?.length > 0 && (
       <div style={s.academicRow}>
         <span style={{ color: '#fbbf24', fontWeight: 700 }}>Due soon:</span>{' '}
-        {academicBrief.dueSoon.map(t => `${t.title} (${t.due_date})`).join(', ')}
+        {brief.academic.dueSoon.map(t => `${t.title} (${t.due_date})`).join(', ')}
       </div>
     )}
-
-    {academicBrief.schedule?.length > 0 && (
+    {brief.academic.schedule?.length > 0 && (
       <div style={s.academicRow}>
         <span style={{ color: '#a78bfa', fontWeight: 700 }}>Today's sessions:</span>{' '}
-        {academicBrief.schedule.map(s => `${s.ai_tasks?.title || 'Session'} at ${new Date(s.start_time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`).join(', ')}
+        {brief.academic.schedule.map(s => `${s.ai_tasks?.title || 'Session'} at ${new Date(s.start_time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`).join(', ')}
       </div>
     )}
-
-    {academicBrief.highlights?.length > 0 && (
+    {brief.academic.highlights?.length > 0 && (
       <ul style={{ margin: '4px 0 0', paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {academicBrief.highlights.map((h, i) => <li key={i} style={{ fontSize: 12.5, color: 'var(--dark-text-2)' }}>{h}</li>)}
+        {brief.academic.highlights.map((h, i) => <li key={i} style={{ fontSize: 12.5, color: 'var(--dark-text-2)' }}>{h}</li>)}
       </ul>
     )}
   </div>
