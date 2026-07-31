@@ -3,7 +3,7 @@ import {
   listEmails, searchEmails, archiveEmail, unarchiveEmail, deleteEmail,
   markEmailRead, replyToEmail, forwardEmail,
 } from '../lib/supabase'
-import { IconX } from './Icons'
+ 
 import { IconX, IconReply, IconForward, IconTrash, IconFolder, IconSearch, IconInbox } from './Icons'
 
 const CATEGORY_CHIPS = [
