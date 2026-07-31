@@ -746,7 +746,10 @@ export function computeReplyTimeLabel(messages, otherUserId, currentUserId) {
 
 // ── Tasks (AI-generated + manual) ─────────────────────────
 export async function listTasks(userId, { status } = {}) {
-  let query = supabase.from('ai_tasks').select('*, emails:source_email_id(subject, sender, body_text)').eq('user_id', userId).order('due_date', { ascending: true, nullsFirst: false })
+  let query = supabase.from('ai_tasks')
+  .select('*, emails:source_email_id(subject, sender, body_text), document_analyses:source_document_id(file_name, concise_summary)')
+  .eq('user_id', userId)
+  .order('due_date', { ascending: true, nullsFirst: false })
   if (status) query = query.eq('status', status)
   const { data, error } = await query
   if (error) throw error
