@@ -374,7 +374,7 @@ function TestimonialsSection() {
   return (
     <section className="mc-section">
       <Eyebrow>PEOPLE ON MATTCHAT</Eyebrow>
-      <h2 className="mc-h2">Trusted by people who talk for a living.</h2>
+      <h2 className="mc-h2">Designed for students, creators, teams, and professionals.</h2>
       <div className="mc-testimonial-grid">
         {TESTIMONIALS.map((t) => (
           <GlassCard key={t.name} className="mc-testimonial">
