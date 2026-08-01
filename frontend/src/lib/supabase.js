@@ -952,11 +952,11 @@ export async function removeTaskFromCalendar(session, taskId) {
   return callCalendarActions(session, { type: 'remove', taskId })
 }
 
-export async function findStudySpot(session, { lat, lng, mode } = {}) {
+export async function findStudySpot(session, { lat, lng, mode, purpose } = {}) {
   const res = await fetch(`${supabaseUrl}/functions/v1/find-study-spot`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lat, lng, mode }),
+    body: JSON.stringify({ lat, lng, mode, purpose }),
   })
   return res.json()
 }
@@ -967,4 +967,13 @@ export async function setDefaultStudyLocation(userId, { lat, lng, label }) {
     .update({ study_location_lat: lat, study_location_lng: lng, study_location_label: label })
     .eq('id', userId)
   if (error) throw error
+}
+
+export async function geocodeLocation(session, query) {
+  const res = await fetch(`${supabaseUrl}/functions/v1/find-study-spot`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'geocode', query }),
+  })
+  return res.json()
 }
