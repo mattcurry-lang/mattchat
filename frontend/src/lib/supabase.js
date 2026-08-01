@@ -929,3 +929,25 @@ export async function replyToEmail(session, emailId, body, asDraft = false) {
 export async function forwardEmail(session, emailId, to, note) {
   return callGmailActions(session, { type: 'forward', emailId, to, note })
 }
+
+// ── Calendar push (calendar-actions) ────────────────────────
+async function callCalendarActions(session, payload) {
+  const res = await fetch(`${supabaseUrl}/functions/v1/calendar-actions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  return res.json()
+}
+
+export async function pushTaskToCalendar(session, taskId) {
+  return callCalendarActions(session, { type: 'push', taskId })
+}
+
+export async function updateTaskOnCalendar(session, taskId) {
+  return callCalendarActions(session, { type: 'update', taskId })
+}
+
+export async function removeTaskFromCalendar(session, taskId) {
+  return callCalendarActions(session, { type: 'remove', taskId })
+}
