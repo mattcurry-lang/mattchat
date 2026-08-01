@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useTasks } from '../../hooks/useTasks'
-import { confirmTask, dismissTask, completeTask, updateTask } from '../../lib/supabase'
+import { confirmTask, dismissTask, completeTask, updateTask, findStudySpot, pushTaskToCalendar } from '../../lib/supabase'
 
 const PRIORITY_COLOR = { urgent: '#ef4444', high: '#f59e0b', medium: '#a78bfa', low: '#6b7280' }
 
@@ -22,17 +22,17 @@ function RescheduleRow({ task, onDone }) {
 
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
-      <input 
-        type="date" 
-        value={date} 
+      <input
+        type="date"
+        value={date}
         onChange={(e) => setDate(e.target.value)}
-        style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--text-primary)', fontSize: 11.5, fontFamily: 'inherit' }} 
+        style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--text-primary)', fontSize: 11.5, fontFamily: 'inherit' }}
       />
-      <input 
-        type="time" 
-        value={time} 
+      <input
+        type="time"
+        value={time}
         onChange={(e) => setTime(e.target.value)}
-        style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--text-primary)', fontSize: 11.5, fontFamily: 'inherit' }} 
+        style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--text-primary)', fontSize: 11.5, fontFamily: 'inherit' }}
       />
       <button onClick={save} disabled={saving} style={{ background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 11, fontWeight: 700, padding: '6px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
         {saving ? '…' : 'Save'}
@@ -69,9 +69,25 @@ function IconMailSmall({ size = 12 }) {
   )
 }
 
-function TaskCard({ task, onConfirm, onDismiss, onComplete, onOpenSourceEmail, onPushToCalendar }) {
+function TaskCard({ task, onConfirm, onDismiss, onComplete, onOpenSourceEmail, onPushToCalendar, onFindStudySpot }) {
   const isPending = task.status === 'pending'
   const [rescheduling, setRescheduling] = useState(false)
+  const [pushingToCalendar, setPushingToCalendar] = useState(false)
+  const [findingSpot, setFindingSpot] = useState(false)
+
+  const isStudyCategory = task.category === 'assignment' || task.category === 'exam'
+
+  const handlePushToCalendar = async () => {
+    setPushingToCalendar(true)
+    await onPushToCalendar?.(task.id)
+    setPushingToCalendar(false)
+  }
+
+  const handleFindSpot = async () => {
+    setFindingSpot(true)
+    await onFindStudySpot?.(task)
+    setFindingSpot(false)
+  }
 
   return (
     <div style={{
@@ -88,7 +104,7 @@ function TaskCard({ task, onConfirm, onDismiss, onComplete, onOpenSourceEmail, o
 
       {task.description && <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>{task.description}</div>}
 
-      <div style={{ display: 'flex', gap: 10, fontSize: 11.5, color: 'var(--text-muted)' }}>
+      <div style={{ display: 'flex', gap: 10, fontSize: 11.5, color: 'var(--text-muted)', flexWrap: 'wrap' }}>
         {task.due_date && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconCalendarSmall /> {task.due_date}{task.due_time ? ` · ${task.due_time}` : ''}</span>}
         {task.category && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconTagSmall /> {task.category}</span>}
         {task.source === 'email' && task.emails && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconMailSmall /> from {task.emails.sender}</span>}
@@ -101,11 +117,21 @@ function TaskCard({ task, onConfirm, onDismiss, onComplete, onOpenSourceEmail, o
       )}
 
       {task.status !== 'completed' && (
-        task.calendar_event_id ? (
-          <span style={{ fontSize: 10.5, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 4 }}>✓ On Calendar</span>
-        ) : (
-          <button onClick={() => onPushToCalendar?.(task.id)} style={btnStyle('transparent', true)}>Add to Calendar</button>
-        )
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {task.calendar_event_id ? (
+            <span style={{ fontSize: 10.5, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 4 }}>✓ On Calendar</span>
+          ) : (
+            <button onClick={handlePushToCalendar} disabled={pushingToCalendar} style={btnStyle('transparent', true)}>
+              {pushingToCalendar ? 'Adding…' : 'Add to Calendar'}
+            </button>
+          )}
+
+          {isStudyCategory && (
+            <button onClick={handleFindSpot} disabled={findingSpot} style={btnStyle('transparent', true)}>
+              {findingSpot ? 'Finding…' : '📍 Find a place to study'}
+            </button>
+          )}
+        </div>
       )}
 
       {rescheduling && <RescheduleRow task={task} onDone={() => setRescheduling(false)} />}
@@ -145,7 +171,19 @@ function StudySpotModal({ task, data, onClose }) {
       </div>
     )
   }
-  const { recommended, route } = data
+
+  if (data.spots?.length === 0) {
+    return (
+      <div className="profile-menu-overlay" onClick={onClose}>
+        <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-surface-1)', borderRadius: 16, padding: 20, width: 'min(360px,90vw)' }}>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{data.message || 'No quiet study spots found nearby.'}</div>
+          <button onClick={onClose} style={{ marginTop: 12, ...btnStyle('#667eea') }}>Close</button>
+        </div>
+      </div>
+    )
+  }
+
+  const { recommended, route, alternatives } = data
   const mins = route ? Math.round(route.durationSeconds / 60) : null
 
   return (
@@ -159,15 +197,27 @@ function StudySpotModal({ task, data, onClose }) {
           {recommended.openingHours && <span>🕐 {recommended.openingHours}</span>}
           {mins != null && <span>🚶 {mins} min ({(route.distanceMeters / 1000).toFixed(1)} km)</span>}
         </div>
-        
-        <a 
+
+        <a
           href={`https://www.google.com/maps/dir/?api=1&destination=${recommended.lat},${recommended.lng}`}
-          target="_blank" 
+          target="_blank"
           rel="noopener noreferrer"
           style={{ ...btnStyle('#667eea'), textAlign: 'center', textDecoration: 'none' }}
         >
           Open path in Maps
         </a>
+
+        {alternatives?.length > 0 && (
+          <div style={{ marginTop: 4 }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>Other options nearby</div>
+            {alternatives.map((a, i) => (
+              <div key={i} style={{ fontSize: 11.5, color: 'var(--text-secondary)', padding: '2px 0' }}>
+                {a.name} <span style={{ color: 'var(--text-muted)' }}>· {a.type}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         <button onClick={onClose} style={btnStyle('transparent', true)}>Close</button>
       </div>
     </div>
@@ -182,17 +232,66 @@ function btnStyle(bg, ghost = false) {
   }
 }
 
-export default function TasksPage({ userId }) {
+export default function TasksPage({ userId, session }) {
   const { pendingConfirmation, active, completed, loading, reload } = useTasks(userId)
+  const [studySpotResult, setStudySpotResult] = useState(null) // { task, data } | null
 
   const handle = (fn) => async (taskId) => { await fn(taskId); reload() }
   const onConfirm = handle(confirmTask)
   const onDismiss = handle(dismissTask)
   const onComplete = handle(completeTask)
 
-  const onPushToCalendar = (taskId) => {
-    console.log('Push task to calendar:', taskId)
-    // Add your calendar logic/API call here
+  // Pushes a confirmed task onto the user's real Google Calendar via
+  // calendar-actions. Surfaces a clear message if the account needs
+  // to be reconnected with write access (old readonly-scope tokens).
+  const onPushToCalendar = async (taskId) => {
+    if (!session) {
+      alert('Session not available — please refresh and try again.')
+      return
+    }
+    try {
+      const res = await pushTaskToCalendar(session, taskId)
+      if (!res.ok) {
+        alert(res.error || 'Could not add this to your calendar.')
+        return
+      }
+      reload()
+    } catch (e) {
+      console.error('pushTaskToCalendar failed:', e)
+      alert('Could not add this to your calendar.')
+    }
+  }
+
+  // Tries live browser geolocation first; falls through silently to
+  // the user's stored default study location (set in settings) if
+  // permission is denied, unavailable, or times out.
+  const onFindStudySpot = async (task) => {
+    if (!session) {
+      setStudySpotResult({ task, data: { ok: false, error: 'Session not available — please refresh and try again.' } })
+      return
+    }
+
+    let coords = null
+    try {
+      coords = await new Promise((resolve, reject) => {
+        if (!navigator.geolocation) return reject()
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          () => reject(),
+          { timeout: 5000 }
+        )
+      })
+    } catch {
+      // fall through to stored default handled server-side
+    }
+
+    try {
+      const result = await findStudySpot(session, coords || {})
+      setStudySpotResult({ task, data: result })
+    } catch (e) {
+      console.error('findStudySpot failed:', e)
+      setStudySpotResult({ task, data: { ok: false, error: 'Could not reach the study spot finder right now.' } })
+    }
   }
 
   const onOpenSourceEmail = (task) => {
@@ -211,14 +310,15 @@ export default function TasksPage({ userId }) {
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {pendingConfirmation.map(t => (
-              <TaskCard 
-                key={t.id} 
-                task={t} 
-                onConfirm={onConfirm} 
-                onDismiss={onDismiss} 
-                onComplete={onComplete} 
-                onOpenSourceEmail={onOpenSourceEmail} 
+              <TaskCard
+                key={t.id}
+                task={t}
+                onConfirm={onConfirm}
+                onDismiss={onDismiss}
+                onComplete={onComplete}
+                onOpenSourceEmail={onOpenSourceEmail}
                 onPushToCalendar={onPushToCalendar}
+                onFindStudySpot={onFindStudySpot}
               />
             ))}
           </div>
@@ -234,14 +334,15 @@ export default function TasksPage({ userId }) {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {active.map(t => (
-              <TaskCard 
-                key={t.id} 
-                task={t} 
-                onConfirm={onConfirm} 
-                onDismiss={onDismiss} 
-                onComplete={onComplete} 
+              <TaskCard
+                key={t.id}
+                task={t}
+                onConfirm={onConfirm}
+                onDismiss={onDismiss}
+                onComplete={onComplete}
                 onOpenSourceEmail={onOpenSourceEmail}
                 onPushToCalendar={onPushToCalendar}
+                onFindStudySpot={onFindStudySpot}
               />
             ))}
           </div>
@@ -255,18 +356,27 @@ export default function TasksPage({ userId }) {
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {completed.map(t => (
-              <TaskCard 
-                key={t.id} 
-                task={t} 
-                onConfirm={onConfirm} 
-                onDismiss={onDismiss} 
-                onComplete={onComplete} 
+              <TaskCard
+                key={t.id}
+                task={t}
+                onConfirm={onConfirm}
+                onDismiss={onDismiss}
+                onComplete={onComplete}
                 onOpenSourceEmail={onOpenSourceEmail}
                 onPushToCalendar={onPushToCalendar}
+                onFindStudySpot={onFindStudySpot}
               />
             ))}
           </div>
         </section>
+      )}
+
+      {studySpotResult && (
+        <StudySpotModal
+          task={studySpotResult.task}
+          data={studySpotResult.data}
+          onClose={() => setStudySpotResult(null)}
+        />
       )}
     </div>
   )
