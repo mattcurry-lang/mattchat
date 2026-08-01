@@ -75,6 +75,9 @@ function TaskCard({ task, onConfirm, onDismiss, onComplete, onOpenSourceEmail, o
   const [pushingToCalendar, setPushingToCalendar] = useState(false)
   const [findingSpot, setFindingSpot] = useState(false)
 
+const isSchedulable = ['assignment', 'exam', 'meeting', 'event', 'job_interview'].includes(task.category)
+const purpose = (task.category === 'meeting' || task.category === 'event' || task.category === 'job_interview') ? 'meeting' : 'study'
+
   const isStudyCategory = task.category === 'assignment' || task.category === 'exam'
 
   const handlePushToCalendar = async () => {
@@ -265,34 +268,52 @@ export default function TasksPage({ userId, session }) {
   // Tries live browser geolocation first; falls through silently to
   // the user's stored default study location (set in settings) if
   // permission is denied, unavailable, or times out.
-  const onFindStudySpot = async (task) => {
-    if (!session) {
-      setStudySpotResult({ task, data: { ok: false, error: 'Session not available — please refresh and try again.' } })
+const onFindPlace = async (task, purpose) => {
+  if (!session) {
+    setStudySpotResult({ task, data: { ok: false, error: 'Session not available — please refresh and try again.' } })
+    return
+  }
+
+  // Ask for real location — don't silently skip to a stored default.
+  let coords = null
+  let permissionDenied = false
+
+  if (navigator.geolocation) {
+    coords = await new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        (err) => { permissionDenied = err.code === err.PERMISSION_DENIED; resolve(null) },
+        { timeout: 8000, enableHighAccuracy: true }
+      )
+    })
+  }
+
+  if (!coords) {
+    // Ask the user directly instead of guessing — real address input,
+    // geocoded via Nominatim, rather than falling through silently.
+    const manualAddress = window.prompt(
+      permissionDenied
+        ? "Location access was denied. Type your city, campus, or address so I can search near you:"
+        : "Couldn't get your location automatically. Type your city, campus, or address:"
+    )
+    if (!manualAddress || !manualAddress.trim()) return // user cancelled — don't search blind
+
+    const geo = await geocodeLocation(session, manualAddress.trim())
+    if (!geo.ok) {
+      setStudySpotResult({ task, data: { ok: false, error: "Couldn't find that location — try being more specific." } })
       return
     }
-
-    let coords = null
-    try {
-      coords = await new Promise((resolve, reject) => {
-        if (!navigator.geolocation) return reject()
-        navigator.geolocation.getCurrentPosition(
-          (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-          () => reject(),
-          { timeout: 5000 }
-        )
-      })
-    } catch {
-      // fall through to stored default handled server-side
-    }
-
-    try {
-      const result = await findStudySpot(session, coords || {})
-      setStudySpotResult({ task, data: result })
-    } catch (e) {
-      console.error('findStudySpot failed:', e)
-      setStudySpotResult({ task, data: { ok: false, error: 'Could not reach the study spot finder right now.' } })
-    }
+    coords = { lat: geo.place.lat, lng: geo.place.lng }
   }
+
+  try {
+    const result = await findStudySpot(session, { ...coords, purpose })
+    setStudySpotResult({ task, data: result })
+  } catch (e) {
+    console.error('findStudySpot failed:', e)
+    setStudySpotResult({ task, data: { ok: false, error: 'Could not reach the place finder right now.' } })
+  }
+}
 
   const onOpenSourceEmail = (task) => {
     const email = task.emails
@@ -370,7 +391,12 @@ export default function TasksPage({ userId, session }) {
           </div>
         </section>
       )}
-
+{isSchedulable && task.status !== 'completed' && (
+  <button onClick={() => onFindPlace?.(task, purpose)} disabled={findingSpot} style={btnStyle('transparent', true)}>
+    {findingSpot ? 'Finding…' : purpose === 'meeting' ? '📍 Find a place to meet' : '📍 Find a place to study'}
+  </button>
+)}
+      
       {studySpotResult && (
         <StudySpotModal
           task={studySpotResult.task}
