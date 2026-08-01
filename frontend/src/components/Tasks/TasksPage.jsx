@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useTasks } from '../../hooks/useTasks'
-import { confirmTask, dismissTask, completeTask, updateTask, findStudySpot, pushTaskToCalendar } from '../../lib/supabase'
+import { confirmTask, dismissTask, completeTask, updateTask, findStudySpot, pushTaskToCalendar, geocodeLocation } from '../../lib/supabase'
 
 const PRIORITY_COLOR = { urgent: '#ef4444', high: '#f59e0b', medium: '#a78bfa', low: '#6b7280' }
 
@@ -69,16 +69,17 @@ function IconMailSmall({ size = 12 }) {
   )
 }
 
-function TaskCard({ task, onConfirm, onDismiss, onComplete, onOpenSourceEmail, onPushToCalendar, onFindStudySpot }) {
+function TaskCard({ task, onConfirm, onDismiss, onComplete, onOpenSourceEmail, onPushToCalendar, onFindPlace }) {
   const isPending = task.status === 'pending'
   const [rescheduling, setRescheduling] = useState(false)
   const [pushingToCalendar, setPushingToCalendar] = useState(false)
   const [findingSpot, setFindingSpot] = useState(false)
 
-const isSchedulable = ['assignment', 'exam', 'meeting', 'event', 'job_interview'].includes(task.category)
-const purpose = (task.category === 'meeting' || task.category === 'event' || task.category === 'job_interview') ? 'meeting' : 'study'
-
-  const isStudyCategory = task.category === 'assignment' || task.category === 'exam'
+  // Study-type categories get a library/cafe/coworking search; meeting-type
+  // categories get a cafe/restaurant/coworking search. Anything else gets
+  // no button at all — a receipt or OTP has nowhere to "go do it."
+  const isSchedulable = ['assignment', 'exam', 'meeting', 'event', 'job_interview'].includes(task.category)
+  const purpose = ['meeting', 'event', 'job_interview'].includes(task.category) ? 'meeting' : 'study'
 
   const handlePushToCalendar = async () => {
     setPushingToCalendar(true)
@@ -86,9 +87,9 @@ const purpose = (task.category === 'meeting' || task.category === 'event' || tas
     setPushingToCalendar(false)
   }
 
-  const handleFindSpot = async () => {
+  const handleFindPlace = async () => {
     setFindingSpot(true)
-    await onFindStudySpot?.(task)
+    await onFindPlace?.(task, purpose)
     setFindingSpot(false)
   }
 
@@ -129,9 +130,9 @@ const purpose = (task.category === 'meeting' || task.category === 'event' || tas
             </button>
           )}
 
-          {isStudyCategory && (
-            <button onClick={handleFindSpot} disabled={findingSpot} style={btnStyle('transparent', true)}>
-              {findingSpot ? 'Finding…' : '📍 Find a place to study'}
+          {isSchedulable && (
+            <button onClick={handleFindPlace} disabled={findingSpot} style={btnStyle('transparent', true)}>
+              {findingSpot ? 'Finding…' : purpose === 'meeting' ? '📍 Find a place to meet' : '📍 Find a place to study'}
             </button>
           )}
         </div>
@@ -168,7 +169,7 @@ function StudySpotModal({ task, data, onClose }) {
     return (
       <div className="profile-menu-overlay" onClick={onClose}>
         <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-surface-1)', borderRadius: 16, padding: 20, width: 'min(360px,90vw)' }}>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{data?.error || 'Could not find a study spot right now.'}</div>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{data?.error || 'Could not find a place right now.'}</div>
           <button onClick={onClose} style={{ marginTop: 12, ...btnStyle('#667eea') }}>Close</button>
         </div>
       </div>
@@ -179,7 +180,7 @@ function StudySpotModal({ task, data, onClose }) {
     return (
       <div className="profile-menu-overlay" onClick={onClose}>
         <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-surface-1)', borderRadius: 16, padding: 20, width: 'min(360px,90vw)' }}>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{data.message || 'No quiet study spots found nearby.'}</div>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{data.message || 'No spots found nearby.'}</div>
           <button onClick={onClose} style={{ marginTop: 12, ...btnStyle('#667eea') }}>Close</button>
         </div>
       </div>
@@ -198,7 +199,9 @@ function StudySpotModal({ task, data, onClose }) {
         {recommended.address && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{recommended.address}</div>}
         <div style={{ display: 'flex', gap: 10, fontSize: 12, flexWrap: 'wrap' }}>
           {recommended.openingHours && <span>🕐 {recommended.openingHours}</span>}
-          {mins != null && <span>🚶 {mins} min ({(route.distanceMeters / 1000).toFixed(1)} km)</span>}
+          {mins != null && (
+            <span>🚶 {mins} min{route.estimated ? ' (estimated)' : ''} ({(route.distanceMeters / 1000).toFixed(1)} km)</span>
+          )}
         </div>
 
         <a
@@ -265,55 +268,61 @@ export default function TasksPage({ userId, session }) {
     }
   }
 
-  // Tries live browser geolocation first; falls through silently to
-  // the user's stored default study location (set in settings) if
-  // permission is denied, unavailable, or times out.
-const onFindPlace = async (task, purpose) => {
-  if (!session) {
-    setStudySpotResult({ task, data: { ok: false, error: 'Session not available — please refresh and try again.' } })
-    return
-  }
-
-  // Ask for real location — don't silently skip to a stored default.
-  let coords = null
-  let permissionDenied = false
-
-  if (navigator.geolocation) {
-    coords = await new Promise((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        (err) => { permissionDenied = err.code === err.PERMISSION_DENIED; resolve(null) },
-        { timeout: 8000, enableHighAccuracy: true }
-      )
-    })
-  }
-
-  if (!coords) {
-    // Ask the user directly instead of guessing — real address input,
-    // geocoded via Nominatim, rather than falling through silently.
-    const manualAddress = window.prompt(
-      permissionDenied
-        ? "Location access was denied. Type your city, campus, or address so I can search near you:"
-        : "Couldn't get your location automatically. Type your city, campus, or address:"
-    )
-    if (!manualAddress || !manualAddress.trim()) return // user cancelled — don't search blind
-
-    const geo = await geocodeLocation(session, manualAddress.trim())
-    if (!geo.ok) {
-      setStudySpotResult({ task, data: { ok: false, error: "Couldn't find that location — try being more specific." } })
+  // Asks for real location every time rather than guessing — tries
+  // live browser geolocation first, and if that's denied/unavailable,
+  // prompts the user to type a city/campus/address which gets geocoded
+  // server-side via Nominatim. Never searches on a silently-assumed
+  // location. purpose is 'study' (library/cafe/coworking/bookstore) or
+  // 'meeting' (cafe/restaurant/coworking/community centre).
+  const onFindPlace = async (task, purpose) => {
+    if (!session) {
+      setStudySpotResult({ task, data: { ok: false, error: 'Session not available — please refresh and try again.' } })
       return
     }
-    coords = { lat: geo.place.lat, lng: geo.place.lng }
-  }
 
-  try {
-    const result = await findStudySpot(session, { ...coords, purpose })
-    setStudySpotResult({ task, data: result })
-  } catch (e) {
-    console.error('findStudySpot failed:', e)
-    setStudySpotResult({ task, data: { ok: false, error: 'Could not reach the place finder right now.' } })
+    let coords = null
+    let permissionDenied = false
+
+    if (navigator.geolocation) {
+      coords = await new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          (err) => { permissionDenied = err.code === err.PERMISSION_DENIED; resolve(null) },
+          { timeout: 8000, enableHighAccuracy: true }
+        )
+      })
+    }
+
+    if (!coords) {
+      const manualAddress = window.prompt(
+        permissionDenied
+          ? 'Location access was denied. Type your city, campus, or address so I can search near you:'
+          : "Couldn't get your location automatically. Type your city, campus, or address:"
+      )
+      if (!manualAddress || !manualAddress.trim()) return // user cancelled — don't search blind
+
+      try {
+        const geo = await geocodeLocation(session, manualAddress.trim())
+        if (!geo.ok) {
+          setStudySpotResult({ task, data: { ok: false, error: "Couldn't find that location — try being more specific." } })
+          return
+        }
+        coords = { lat: geo.place.lat, lng: geo.place.lng }
+      } catch (e) {
+        console.error('geocodeLocation failed:', e)
+        setStudySpotResult({ task, data: { ok: false, error: "Couldn't look up that location right now." } })
+        return
+      }
+    }
+
+    try {
+      const result = await findStudySpot(session, { ...coords, purpose })
+      setStudySpotResult({ task, data: result })
+    } catch (e) {
+      console.error('findStudySpot failed:', e)
+      setStudySpotResult({ task, data: { ok: false, error: 'Could not reach the place finder right now.' } })
+    }
   }
-}
 
   const onOpenSourceEmail = (task) => {
     const email = task.emails
@@ -339,7 +348,7 @@ const onFindPlace = async (task, purpose) => {
                 onComplete={onComplete}
                 onOpenSourceEmail={onOpenSourceEmail}
                 onPushToCalendar={onPushToCalendar}
-                onFindStudySpot={onFindStudySpot}
+                onFindPlace={onFindPlace}
               />
             ))}
           </div>
@@ -363,7 +372,7 @@ const onFindPlace = async (task, purpose) => {
                 onComplete={onComplete}
                 onOpenSourceEmail={onOpenSourceEmail}
                 onPushToCalendar={onPushToCalendar}
-                onFindStudySpot={onFindStudySpot}
+                onFindPlace={onFindPlace}
               />
             ))}
           </div>
@@ -385,18 +394,13 @@ const onFindPlace = async (task, purpose) => {
                 onComplete={onComplete}
                 onOpenSourceEmail={onOpenSourceEmail}
                 onPushToCalendar={onPushToCalendar}
-                onFindStudySpot={onFindStudySpot}
+                onFindPlace={onFindPlace}
               />
             ))}
           </div>
         </section>
       )}
-{isSchedulable && task.status !== 'completed' && (
-  <button onClick={() => onFindPlace?.(task, purpose)} disabled={findingSpot} style={btnStyle('transparent', true)}>
-    {findingSpot ? 'Finding…' : purpose === 'meeting' ? '📍 Find a place to meet' : '📍 Find a place to study'}
-  </button>
-)}
-      
+
       {studySpotResult && (
         <StudySpotModal
           task={studySpotResult.task}
