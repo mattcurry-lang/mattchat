@@ -1631,7 +1631,7 @@ const handleSend = async () => {
           <IconX size={16} />
         </button>
       </div>
-      <TasksPage userId={userId} />
+      <TasksPage userId={userId} session={session} />
     </div>
   </div>
 )}
