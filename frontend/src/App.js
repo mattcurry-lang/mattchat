@@ -161,14 +161,14 @@ if (session === undefined || !aalChecked) {
 
 
         {/* Landing page */}
-        <Route
-          path="/welcome"
-          element={
-            !session
-            ? <LandingPage />
-            : <Navigate to="/" />
-          }
-        />
+      <Route
+  path="/"
+  element={
+    session
+      ? <ChatPage session={session} />
+      : <LandingPage />
+  }
+/>
 
 
         {/* Authentication */}
@@ -199,7 +199,14 @@ if (session === undefined || !aalChecked) {
             )
           }
         />
-
+<Route
+    path="/app"
+    element={
+        session
+        ? <ChatPage session={session}/>
+        : <Navigate to="/" />
+    }
+/>
 
         {/* Main app */}
         <Route
