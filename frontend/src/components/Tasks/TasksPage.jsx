@@ -124,6 +124,42 @@ function TaskCard({ task, onConfirm, onDismiss, onComplete, onOpenSourceEmail })
   )
 }
 
+function StudySpotModal({ task, data, onClose }) {
+  if (!data?.ok) {
+    return (
+      <div className="profile-menu-overlay" onClick={onClose}>
+        <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-surface-1)', borderRadius: 16, padding: 20, width: 'min(360px,90vw)' }}>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{data?.error || 'Could not find a study spot right now.'}</div>
+          <button onClick={onClose} style={{ marginTop: 12, ...btnStyle('#667eea') }}>Close</button>
+        </div>
+      </div>
+    )
+  }
+  const { recommended, route } = data
+  const mins = route ? Math.round(route.durationSeconds / 60) : null
+
+  return (
+    <div className="profile-menu-overlay" onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-surface-1)', borderRadius: 16, padding: 20, width: 'min(400px,92vw)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa' }}>For "{task.title}"</div>
+        <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>{recommended.name}</div>
+        <div style={{ fontSize: 11.5, color: '#a78bfa', fontWeight: 700 }}>{recommended.type}</div>
+        {recommended.address && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{recommended.address}</div>}
+        <div style={{ display: 'flex', gap: 10, fontSize: 12, flexWrap: 'wrap' }}>
+          {recommended.openingHours && <span>🕐 {recommended.openingHours}</span>}
+          {mins != null && <span>🚶 {mins} min ({(route.distanceMeters / 1000).toFixed(1)} km)</span>}
+        </div>
+        
+          href={`https://www.google.com/maps/dir/?api=1&destination=${recommended.lat},${recommended.lng}`}
+          target="_blank" rel="noopener noreferrer"
+          style={{ ...btnStyle('#667eea'), textAlign: 'center', textDecoration: 'none' }}
+        >Open path in Maps</a>
+        <button onClick={onClose} style={btnStyle('transparent', true)}>Close</button>
+      </div>
+    </div>
+  )
+}
+
 function btnStyle(bg, ghost = false) {
   return {
     background: ghost ? 'none' : bg, border: ghost ? '1px solid var(--border)' : 'none',
