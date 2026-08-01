@@ -90,6 +90,14 @@ function TaskCard({ task, onConfirm, onDismiss, onComplete, onOpenSourceEmail })
         </ul>
       )}
 
+      {task.status !== 'completed' && (
+  task.calendar_event_id ? (
+    <span style={{ fontSize: 10.5, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 4 }}>✓ On Calendar</span>
+  ) : (
+    <button onClick={() => onPushToCalendar(task.id)} style={btnStyle('transparent', true)}>Add to Calendar</button>
+  )
+)}
+
       {rescheduling && <RescheduleRow task={task} onDone={() => setRescheduling(false)} />}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
