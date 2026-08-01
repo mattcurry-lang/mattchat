@@ -22,10 +22,18 @@ function RescheduleRow({ task, onDone }) {
 
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
-      <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-        style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--text-primary)', fontSize: 11.5, fontFamily: 'inherit' }} />
-      <input type="time" value={time} onChange={(e) => setTime(e.target.value)}
-        style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--text-primary)', fontSize: 11.5, fontFamily: 'inherit' }} />
+      <input 
+        type="date" 
+        value={date} 
+        onChange={(e) => setDate(e.target.value)}
+        style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--text-primary)', fontSize: 11.5, fontFamily: 'inherit' }} 
+      />
+      <input 
+        type="time" 
+        value={time} 
+        onChange={(e) => setTime(e.target.value)}
+        style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--text-primary)', fontSize: 11.5, fontFamily: 'inherit' }} 
+      />
       <button onClick={save} disabled={saving} style={{ background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 11, fontWeight: 700, padding: '6px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
         {saving ? '…' : 'Save'}
       </button>
@@ -43,6 +51,7 @@ function IconCalendarSmall({ size = 12 }) {
     </svg>
   )
 }
+
 function IconTagSmall({ size = 12 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -51,6 +60,7 @@ function IconTagSmall({ size = 12 }) {
     </svg>
   )
 }
+
 function IconMailSmall({ size = 12 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -59,7 +69,7 @@ function IconMailSmall({ size = 12 }) {
   )
 }
 
-function TaskCard({ task, onConfirm, onDismiss, onComplete, onOpenSourceEmail }) {
+function TaskCard({ task, onConfirm, onDismiss, onComplete, onOpenSourceEmail, onPushToCalendar }) {
   const isPending = task.status === 'pending'
   const [rescheduling, setRescheduling] = useState(false)
 
@@ -79,10 +89,10 @@ function TaskCard({ task, onConfirm, onDismiss, onComplete, onOpenSourceEmail })
       {task.description && <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>{task.description}</div>}
 
       <div style={{ display: 'flex', gap: 10, fontSize: 11.5, color: 'var(--text-muted)' }}>
-  {task.due_date && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconCalendarSmall /> {task.due_date}{task.due_time ? ` · ${task.due_time}` : ''}</span>}
-  {task.category && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconTagSmall /> {task.category}</span>}
-  {task.source === 'email' && task.emails && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconMailSmall /> from {task.emails.sender}</span>}
-</div>
+        {task.due_date && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconCalendarSmall /> {task.due_date}{task.due_time ? ` · ${task.due_time}` : ''}</span>}
+        {task.category && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconTagSmall /> {task.category}</span>}
+        {task.source === 'email' && task.emails && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconMailSmall /> from {task.emails.sender}</span>}
+      </div>
 
       {task.checklist?.length > 0 && (
         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--text-secondary)' }}>
@@ -91,12 +101,12 @@ function TaskCard({ task, onConfirm, onDismiss, onComplete, onOpenSourceEmail })
       )}
 
       {task.status !== 'completed' && (
-  task.calendar_event_id ? (
-    <span style={{ fontSize: 10.5, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 4 }}>✓ On Calendar</span>
-  ) : (
-    <button onClick={() => onPushToCalendar(task.id)} style={btnStyle('transparent', true)}>Add to Calendar</button>
-  )
-)}
+        task.calendar_event_id ? (
+          <span style={{ fontSize: 10.5, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 4 }}>✓ On Calendar</span>
+        ) : (
+          <button onClick={() => onPushToCalendar?.(task.id)} style={btnStyle('transparent', true)}>Add to Calendar</button>
+        )
+      )}
 
       {rescheduling && <RescheduleRow task={task} onDone={() => setRescheduling(false)} />}
 
@@ -150,10 +160,14 @@ function StudySpotModal({ task, data, onClose }) {
           {mins != null && <span>🚶 {mins} min ({(route.distanceMeters / 1000).toFixed(1)} km)</span>}
         </div>
         
+        <a 
           href={`https://www.google.com/maps/dir/?api=1&destination=${recommended.lat},${recommended.lng}`}
-          target="_blank" rel="noopener noreferrer"
+          target="_blank" 
+          rel="noopener noreferrer"
           style={{ ...btnStyle('#667eea'), textAlign: 'center', textDecoration: 'none' }}
-        >Open path in Maps</a>
+        >
+          Open path in Maps
+        </a>
         <button onClick={onClose} style={btnStyle('transparent', true)}>Close</button>
       </div>
     </div>
@@ -176,9 +190,11 @@ export default function TasksPage({ userId }) {
   const onDismiss = handle(dismissTask)
   const onComplete = handle(completeTask)
 
-  // Simple v1: since we don't have a full email-reading UI yet, this
-  // just alerts with the subject/sender — swap for a real modal/view
-  // once an email detail screen exists elsewhere in the app.
+  const onPushToCalendar = (taskId) => {
+    console.log('Push task to calendar:', taskId)
+    // Add your calendar logic/API call here
+  }
+
   const onOpenSourceEmail = (task) => {
     const email = task.emails
     alert(email ? `From: ${email.sender}\nSubject: ${email.subject}` : 'Original email not found.')
@@ -194,7 +210,17 @@ export default function TasksPage({ userId }) {
             Needs your confirmation ({pendingConfirmation.length})
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {pendingConfirmation.map(t => <TaskCard key={t.id} task={t} onConfirm={onConfirm} onDismiss={onDismiss} onComplete={onComplete} onOpenSourceEmail={onOpenSourceEmail} />)}
+            {pendingConfirmation.map(t => (
+              <TaskCard 
+                key={t.id} 
+                task={t} 
+                onConfirm={onConfirm} 
+                onDismiss={onDismiss} 
+                onComplete={onComplete} 
+                onOpenSourceEmail={onOpenSourceEmail} 
+                onPushToCalendar={onPushToCalendar}
+              />
+            ))}
           </div>
         </section>
       )}
@@ -207,7 +233,17 @@ export default function TasksPage({ userId }) {
           <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Nothing active — you're caught up.</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {active.map(t => <TaskCard key={t.id} task={t} onConfirm={onConfirm} onDismiss={onDismiss} onComplete={onComplete} onOpenSourceEmail={onOpenSourceEmail} />)}
+            {active.map(t => (
+              <TaskCard 
+                key={t.id} 
+                task={t} 
+                onConfirm={onConfirm} 
+                onDismiss={onDismiss} 
+                onComplete={onComplete} 
+                onOpenSourceEmail={onOpenSourceEmail}
+                onPushToCalendar={onPushToCalendar}
+              />
+            ))}
           </div>
         )}
       </section>
@@ -217,6 +253,19 @@ export default function TasksPage({ userId }) {
           <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-muted)', marginBottom: 8 }}>
             Completed ({completed.length})
           </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {completed.map(t => (
+              <TaskCard 
+                key={t.id} 
+                task={t} 
+                onConfirm={onConfirm} 
+                onDismiss={onDismiss} 
+                onComplete={onComplete} 
+                onOpenSourceEmail={onOpenSourceEmail}
+                onPushToCalendar={onPushToCalendar}
+              />
+            ))}
+          </div>
         </section>
       )}
     </div>
