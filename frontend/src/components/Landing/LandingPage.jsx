@@ -477,10 +477,23 @@ export default function LandingPage() {
 
      
 
-      <footer className="mc-footer">
-        <span>© {new Date().getFullYear()} Mattchat</span>
-      </footer>
+     <footer className="mc-footer">
 
+<span>
+© {new Date().getFullYear()} Mattchat
+</span>
+
+<div>
+<a href="/privacy">
+Privacy
+</a>
+
+<a href="/terms">
+Terms
+</a>
+</div>
+
+</footer>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap');
 
