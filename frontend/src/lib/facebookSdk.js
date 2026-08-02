@@ -1,26 +1,30 @@
-// lib/facebookSdk.js
+// lib/facebookSdk.js — DIAGNOSTIC BUILD
 //
-// Loads the Facebook JS SDK exactly once and initializes it with
-// Mattchat's Meta App ID.
-//
-// IMPORTANT gotcha this file guards against: `window.FB` becomes
-// truthy as soon as the SDK script finishes *parsing* — but FB.init()
-// doesn't actually run until `window.fbAsyncInit` fires a moment
-// later. Checking `if (window.FB)` as a "ready" signal is a race:
-// FB.login() can get called on a half-initialized SDK, which throws
-// "FB.login() called before FB.init()." We track readiness explicitly
-// with `window.__mattchatFbInitialized` instead of trusting FB's mere
-// existence.
-//
-// Requires <div id="fb-root"></div> to exist somewhere in index.html.
+// Same as before, but with explicit checks that fail loudly and
+// specifically instead of letting Meta's generic "FB.login() called
+// before FB.init()" error mask the real cause. Once we've confirmed
+// what's actually wrong, we can strip the console.debug lines back out.
 
 let sdkReadyPromise = null
 
 export function loadFacebookSdk(appId) {
+  if (!appId) {
+    console.error('[whatsapp] loadFacebookSdk called with a falsy appId:', appId)
+    return Promise.reject(new Error('Missing Meta App ID — check the whatsapp-oauth-start response.'))
+  }
+
+  if (!document.getElementById('fb-root')) {
+    console.error('[whatsapp] <div id="fb-root"></div> is missing from the page. Add it to index.html <body>.')
+    return Promise.reject(new Error('Missing <div id="fb-root"></div> in index.html — required by the Facebook SDK.'))
+  }
+
   if (sdkReadyPromise) return sdkReadyPromise
+
+  console.debug('[whatsapp] loadFacebookSdk starting, appId:', appId)
 
   sdkReadyPromise = new Promise((resolve, reject) => {
     const finishInit = () => {
+      console.debug('[whatsapp] fbAsyncInit fired, calling FB.init()')
       window.FB.init({
         appId,
         autoLogAppEvents: true,
@@ -28,23 +32,19 @@ export function loadFacebookSdk(appId) {
         version: 'v21.0',
       })
       window.__mattchatFbInitialized = true
+      console.debug('[whatsapp] FB.init() complete, SDK ready')
       resolve(window.FB)
     }
 
-    // Already fully initialized from an earlier call in this tab
-    // (e.g. a previous connect attempt) — safe to reuse immediately.
     if (window.FB && window.__mattchatFbInitialized) {
+      console.debug('[whatsapp] FB already initialized, reusing')
       resolve(window.FB)
       return
     }
 
     const existingScript = document.getElementById('facebook-jssdk')
     if (existingScript) {
-      // The script tag is already in the page (common with React's
-      // dev-mode double-render), so DON'T insert a second one — Meta
-      // only calls fbAsyncInit once per script load. Just hook our
-      // resolver onto it the same way a fresh load would, instead of
-      // silently returning and leaving this promise unresolved.
+      console.debug('[whatsapp] facebook-jssdk script tag already present, attaching fbAsyncInit')
       window.fbAsyncInit = finishInit
       return
     }
@@ -58,9 +58,10 @@ export function loadFacebookSdk(appId) {
     script.defer = true
     script.crossOrigin = 'anonymous'
     script.onerror = () => {
-      sdkReadyPromise = null // allow a retry on the next connect attempt
-      reject(new Error('Could not load the Facebook SDK'))
+      sdkReadyPromise = null
+      reject(new Error('Could not load the Facebook SDK (network/script error).'))
     }
+    console.debug('[whatsapp] inserting facebook-jssdk script tag')
     document.body.appendChild(script)
   })
 
