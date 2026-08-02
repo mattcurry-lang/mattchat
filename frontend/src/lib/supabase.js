@@ -977,3 +977,58 @@ export async function geocodeLocation(session, query) {
   })
   return res.json()
 }
+
+// ── WhatsApp (Embedded Signup — different shape than other providers) ──
+// Unlike connectGmail/connectPinterest/connectTikTok, this is NOT a
+// page redirect. startWhatsAppSignup just returns config the FB.login()
+// popup needs; completeWhatsAppSignup is called with what that popup
+// hands back. See hooks/useWhatsAppConnection.js for the full flow.
+export const startWhatsAppSignup = async (session) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/whatsapp-oauth-start`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  const data = await res.json()
+  if (!data.ok) throw new Error(data.error || 'Could not start the WhatsApp connection')
+  return data // { ok, state, appId, configId }
+}
+
+export const completeWhatsAppSignup = async (session, { state, code, wabaId, phoneNumberId }) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/whatsapp-oauth-callback`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ state, code, wabaId, phoneNumberId }),
+  })
+  const data = await res.json()
+  if (!data.ok) throw new Error(data.error || 'Could not complete the WhatsApp connection')
+  return data
+}
+
+export const disconnectWhatsApp = async (session) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/whatsapp-disconnect`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  const data = await res.json()
+  if (!data.ok) throw new Error(data.error || 'Could not disconnect WhatsApp')
+}
+
+export const getWhatsAppAccount = async (userId) => {
+  const { data } = await supabase
+    .from('connected_accounts_public')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('provider', 'whatsapp')
+    .maybeSingle()
+  return data
+}
+
+// Single proxy call into whatsapp-api — action is 'list_conversations' |
+// 'list_messages' | 'send_text' | 'mark_read' | 'get_media_url'
+export const callWhatsAppApi = async (session, action, params = {}) => {
+  const res = await fetch(`${supabaseUrl}/functions/v1/whatsapp-api`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, params }),
+  })
+  return res.json()
+}
