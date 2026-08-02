@@ -8,6 +8,7 @@
 /* ── Design Tokens ─────────────────────────────────────── */
 :root {
   --brand:        #6c63ff;
+   color-scheme: light dark;
   --brand-deep:   #4f46e5;
   --brand-light:  #a78bfa;
   --brand-soft:   rgba(108,99,255,0.1);
@@ -950,6 +951,7 @@ color: var(--dark-text);
 .attach-btn:hover { background: rgba(255,255,255,0.08); transform: scale(1.08); }
 
 .input-area textarea {
+   color-scheme: light dark;
   flex: 1; resize: none;
   border: none; border-radius: 22px;
   padding: 10px 16px;
