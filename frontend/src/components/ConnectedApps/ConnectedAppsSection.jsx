@@ -9,13 +9,16 @@ import {
 } from '../../lib/supabase'
 import TikTokView from './TikTokView'
 import { useTikTokConnection } from '../../hooks/useTikTokConnection'
+import WhatsAppView from './WhatsAppView'
+import { useWhatsAppConnection } from '../../hooks/useWhatsAppConnection'
 
 // Drop this into the profile page
 //   <ConnectedAppsSection session={session} userId={userId} />
 export default function ConnectedAppsSection({ session, userId }) {
   const ig = useInstagramConnection(session, userId)
   const tiktok = useTikTokConnection(session, userId)
-  const [openService, setOpenService] = useState(null) // 'instagram' | 'google_drive' | 'google_calendar' | null
+  const whatsapp = useWhatsAppConnection(session, userId)
+  const [openService, setOpenService] = useState(null) // 'instagram' | 'whatsapp' | 'google_drive' | 'google_calendar' | null
   const [connectError, setConnectError] = useState(null)
 
   const [driveAccounts, setDriveAccounts] = useState([])
@@ -38,7 +41,9 @@ export default function ConnectedAppsSection({ session, userId }) {
 
   // These fire from ChatPage's redirect-handling effects once Google
   // sends the browser back — refreshes the list in place instead of
-  // requiring a manual reopen of this panel.
+  // requiring a manual reopen of this panel. WhatsApp doesn't need an
+  // entry here since its connect() resolves in-place (no redirect) —
+  // see useWhatsAppConnection, which calls refreshStatus() itself.
   useEffect(() => {
     const onDrive = () => loadDrive()
     const onCalendar = () => loadCalendar()
@@ -68,6 +73,15 @@ export default function ConnectedAppsSection({ session, userId }) {
       await tiktok.connect() // redirects the page
     } catch (e) {
       setConnectError('Could not connect TikTok. Please try again.')
+    }
+  }
+
+  const handleConnectWhatsApp = async () => {
+    setConnectError(null)
+    try {
+      await whatsapp.connect() // opens the FB.login popup, resolves in place — no redirect
+    } catch (e) {
+      setConnectError(e.message || 'Could not connect WhatsApp. Please try again.')
     }
   }
 
@@ -119,6 +133,13 @@ export default function ConnectedAppsSection({ session, userId }) {
 
   const services = [
     {
+      id: 'whatsapp',
+      label: 'WhatsApp',
+      icon: '💬',
+      connected: whatsapp.status === 'connected',
+      username: whatsapp.account?.username,
+    },
+    {
       id: 'instagram',
       label: 'Instagram',
       icon: '📷',
@@ -153,6 +174,7 @@ export default function ConnectedAppsSection({ session, userId }) {
   ]
 
   const onConnectFor = {
+    whatsapp: handleConnectWhatsApp,
     instagram: handleConnectInstagram,
     google_drive: handleConnectDrive,
     google_calendar: handleConnectCalendar,
@@ -160,10 +182,24 @@ export default function ConnectedAppsSection({ session, userId }) {
   }
 
   const busyFor = {
+    whatsapp: whatsapp.connecting,
     instagram: ig.connecting,
     google_drive: connectingDrive,
     google_calendar: connectingCalendar,
     tiktok: tiktok.connecting,
+  }
+
+  if (openService === 'whatsapp') {
+    return (
+      <WhatsAppView
+        session={session}
+        account={whatsapp.account}
+        status={whatsapp.status}
+        onDisconnect={whatsapp.disconnect}
+        disconnecting={whatsapp.disconnecting}
+        onClose={() => setOpenService(null)}
+      />
+    )
   }
 
   if (openService === 'instagram') {
