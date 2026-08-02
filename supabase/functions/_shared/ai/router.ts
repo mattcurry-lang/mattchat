@@ -3,26 +3,32 @@ import { groqProvider } from './providers/groq.ts'
 import { openrouterProvider } from './providers/openrouter.ts'
 import { cerebrasProvider } from './providers/cerebras.ts'
 import { AIProvider, GenerateOptions, GenerateResult, ProviderError, TaskType } from './types.ts'
+import { mistralProvider } from './providers/mistral.ts'
+import { nvidiaProvider } from './providers/nvidia.ts'
+import { cloudflareProvider } from './providers/cloudflare.ts'
 
 const REGISTRY: Record<string, AIProvider> = {
   gemini: geminiProvider,
   groq: groqProvider,
   openrouter: openrouterProvider,
   cerebras: cerebrasProvider,
+  mistral: mistralProvider,
+  nvidia: nvidiaProvider,
+  cloudflare: cloudflareProvider,
 }
 
 // Order matters: first available + capable provider wins.
 const ROUTING: Record<TaskType, string[]> = {
-  chat: ['groq', 'gemini', 'openrouter', 'cerebras'],
-  coding: ['groq', 'gemini', 'openrouter', 'cerebras'],
-  quick: ['groq', 'gemini', 'openrouter', 'cerebras'],
-  general_reasoning: ['groq', 'gemini', 'openrouter', 'cerebras'],
-  email_summary: ['groq', 'gemini', 'openrouter', 'cerebras'],
-  document_analysis: ['gemini'],   // needs native file input — only Gemini can do this here
-  video_analysis: ['gemini'],      // needs file_data (YouTube URL) — Gemini only
+  chat: ['groq', 'gemini', 'openrouter', 'cerebras', 'mistral', 'nvidia', 'cloudflare'],
+  coding: ['groq', 'gemini', 'openrouter', 'cerebras', 'mistral', 'nvidia', 'cloudflare'],
+  quick: ['groq', 'gemini', 'openrouter', 'cerebras', 'mistral', 'nvidia', 'cloudflare'],
+  general_reasoning: ['groq', 'gemini', 'openrouter', 'cerebras', 'mistral', 'nvidia', 'cloudflare'],
+  email_summary: ['gemini', 'groq', 'openrouter', 'cerebras', 'mistral', 'nvidia', 'cloudflare'],
+  document_analysis: ['gemini'], // stays Gemini-only — vision/file input, others can't do this
   image_understanding: ['gemini'],
+  video_analysis: ['gemini'],
   vision: ['gemini'],
-  unknown: ['groq', 'gemini', 'openrouter', 'cerebras'],
+  unknown: ['groq', 'gemini', 'openrouter', 'cerebras', 'mistral', 'nvidia', 'cloudflare'],
 }
 
 // Slow task types get more room before we give up on a provider.
