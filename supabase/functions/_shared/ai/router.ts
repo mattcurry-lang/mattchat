@@ -19,16 +19,16 @@ const REGISTRY: Record<string, AIProvider> = {
 
 // Order matters: first available + capable provider wins.
 const ROUTING: Record<TaskType, string[]> = {
-  chat: ['groq', 'gemini', 'openrouter', 'cerebras', 'mistral', 'nvidia', 'cloudflare'],
-  coding: ['groq', 'gemini', 'openrouter', 'cerebras', 'mistral', 'nvidia', 'cloudflare'],
-  quick: ['groq', 'gemini', 'openrouter', 'cerebras', 'mistral', 'nvidia', 'cloudflare'],
-  general_reasoning: ['groq', 'gemini', 'openrouter', 'cerebras', 'mistral', 'nvidia', 'cloudflare'],
-  email_summary: ['gemini', 'groq', 'openrouter', 'cerebras', 'mistral', 'nvidia', 'cloudflare'],
-  document_analysis: ['gemini'], // stays Gemini-only — vision/file input, others can't do this
+  chat: ['groq', 'gemini', 'openrouter', 'cerebras'],
+  coding: ['groq', 'gemini', 'openrouter', 'cerebras'],
+  quick: ['groq', 'gemini', 'openrouter', 'cerebras'],
+  general_reasoning: ['groq', 'gemini', 'openrouter', 'cerebras'],
+  email_summary: ['gemini', 'groq', 'openrouter', 'cerebras'],
+  document_analysis: ['gemini'],
   image_understanding: ['gemini'],
-  video_analysis: ['gemini'],
   vision: ['gemini'],
-  unknown: ['groq', 'gemini', 'openrouter', 'cerebras', 'mistral', 'nvidia', 'cloudflare'],
+  video_analysis: ['gemini'],   // ← ADD THIS — Gemini is the only provider that can accept fileUri
+  unknown: ['groq', 'gemini', 'openrouter', 'cerebras'],
 }
 
 // Slow task types get more room before we give up on a provider.
