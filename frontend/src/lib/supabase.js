@@ -1053,3 +1053,58 @@ export async function changeAiPlan(session, plan) {
   })
   return res.json()
 }
+
+
+// ── Additions/changes for lib/supabase.js ──────────────────────────
+// Merge these into your existing file. Assumes `supabase` (the client
+// instance) and `supabaseUrl` are already defined/exported in this
+// file, same as they must be for the existing getAiQuota to work.
+
+// If your getAiQuota already maps get_or_reset_ai_quota's response,
+// make sure it includes billing_interval -> billingInterval, e.g.:
+//
+// export async function getAiQuota(userId) {
+//   const { data, error } = await supabase.rpc('get_or_reset_ai_quota', { p_user_id: userId })
+//   if (error) throw error
+//   return {
+//     allowed: data.tokens_used < data.monthly_token_limit,
+//     tokensUsed: data.tokens_used,
+//     monthlyLimit: data.monthly_token_limit,
+//     remainingTokens: Math.max(0, data.monthly_token_limit - data.tokens_used),
+//     plan: data.plan,
+//     resetDate: data.reset_date,
+//     billingInterval: data.billing_interval, // <-- add this line
+//   }
+// }
+
+async function authedFetch(path, body) {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Not signed in')
+
+  const res = await fetch(`${supabaseUrl}/functions/v1/${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || {}),
+  })
+  const json = await res.json()
+  if (!res.ok || !json.ok) throw new Error(json.error || `Request to ${path} failed`)
+  return json
+}
+
+// interval: 'monthly' | 'annual'. Returns { url } — redirect the
+// browser to it to reach Stripe Checkout.
+export async function startCheckout(interval) {
+  return authedFetch('create-checkout-session', { interval })
+}
+
+// Returns { url } for Stripe's hosted Customer Portal — lets an
+// existing Pro subscriber update their card, switch interval, or cancel.
+export async function openBillingPortal() {
+  return authedFetch('create-billing-portal-session')
+}
+
+// Only 'free' is accepted now — upgrading to 'pro' must go through
+// startCheckout() so real payment happens first.
+export async function changeAiPlan(plan) {
+  return authedFetch('change-ai-plan', { plan })
+}
