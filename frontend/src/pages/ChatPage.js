@@ -82,6 +82,7 @@ import ShortsPage from '../components/Shorts/ShortsPage'
 import NotificationSettingsModal from '../components/NotificationSettingsModal'
 import { listenForNotificationActions } from '../lib/pushNotifications'
 import EmailWorkspace from '../components/EmailWorkspace'
+import WhatsAppPage from '../components/WhatsApp/WhatsAppPage'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of a
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -478,6 +479,7 @@ const [shortsInitialVideo, setShortsInitialVideo] = useState(null)
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)
 const [curryPrefill, setCurryPrefill] = useState(null)
   const [showEmailWorkspace, setShowEmailWorkspace] = useState(false)
+  const [showWhatsApp, setShowWhatsApp] = useState(false)
   // that appears AFTER a plain message has already been sent, if
   // Curry thinks it might land colder than intended. Never blocks or
   // delays sending; see runCoachCheck below.
@@ -1188,6 +1190,10 @@ const handleSend = async () => {
     )}
   </button>
 
+    <button className="top-header-search-btn" onClick={() => setShowWhatsApp(true)} title="WhatsApp">
+  💬
+</button>
+    
   <button
     className="top-header-search-btn"
     onClick={() => (heyCurryListening ? stopHeyCurry() : startHeyCurry())}
@@ -1201,6 +1207,8 @@ const handleSend = async () => {
     </svg>
   </button>
 </div>
+
+
 
           {/* FIX (bug #2): this AICommandBar + SpotifyMiniPlayer block used to
               be duplicated verbatim right after this comment (two identical
@@ -1371,6 +1379,10 @@ const handleSend = async () => {
     </div>
   )
 })}
+
+{showWhatsApp && (
+  <WhatsAppPage session={session} userId={userId} onClose={() => setShowWhatsApp(false)} />
+)}
 
                 {!convLoading && filtered.length === 0 && (
                   <div className="empty-state">
