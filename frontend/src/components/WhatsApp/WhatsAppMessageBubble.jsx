@@ -11,7 +11,7 @@ function formatMsgTime(ts) {
 // Double-tick status indicator, WhatsApp's own visual language kept
 // intentionally recognizable — just recolored to fit Mattchat's
 // purple accent instead of WhatsApp's blue, per the "familiar but
-// blended in" brief.
+// blended in" brief
 function StatusTicks({ status }) {
   if (status === 'failed') {
     return <span style={{ color: '#f87171', fontSize: 11 }} title="Failed to send">⚠</span>
