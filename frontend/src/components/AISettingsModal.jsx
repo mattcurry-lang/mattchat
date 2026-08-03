@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { getAiSettings, updateAiSettings } from '../lib/supabase'
 import { IconX } from './Icons'
+import AIUsageCard from './AIUsageCard'
 
 const LABEL_OPTIONS = ['INBOX', 'IMPORTANT', 'CATEGORY_UPDATES', 'CATEGORY_PROMOTIONS']
 
@@ -61,6 +62,13 @@ export default function AISettingsModal({ userId, onClose }) {
           <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>AI Settings</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><IconX size={16} /></button>
         </div>
+
+        {/* Usage card — first thing shown, since "how much do I have left"
+            is usually the first question someone opening this modal has. */}
+        <div style={{ margin: '14px 0' }}>
+          <AIUsageCard userId={userId} />
+        </div>
+
         <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginBottom: 12 }}>
           Control what Curry's AI is allowed to do automatically. Turning something off stops future automation — it never deletes what's already there.
         </div>
