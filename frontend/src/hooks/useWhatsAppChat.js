@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { callWhatsAppApi } from '../lib/supabase'
 import { subscribeToChannel } from '../lib/realtimeManager'
 
-// Mirrors useChat's shape ({ messages, loading, sendMessage }) for a
+// Mirrors useChat's shape ({ messages, loading, sendMessage }) for 
 // single WhatsApp conversation. Sending goes through whatsapp-api
 // (which itself calls the Graph API and inserts the outbound row) —
 // there's no optimistic local insert here yet, since Cloud API sends
