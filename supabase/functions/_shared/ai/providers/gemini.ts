@@ -1,8 +1,3 @@
-import { AIProvider, GenerateOptions, GenerateResult, ProviderError } from '../types.ts'
-
-const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`
-
 async function callGemini(prompt: string, options: GenerateOptions): Promise<GenerateResult> {
   const { systemPrompt = '', history = [], temperature = 0.8, useSearch = false, images = [], fileUri, jsonMode = false, maxTokens = 2000 } = options
 
@@ -45,13 +40,13 @@ async function callGemini(prompt: string, options: GenerateOptions): Promise<Gen
 
   const data = await response.json()
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
-  return { text, provider: 'gemini' }
-}
 
-export const geminiProvider: AIProvider = {
-  name: 'gemini',
-  supportsVision: true,
-  supportsJsonMode: true,
-  isAvailable: () => !!GEMINI_API_KEY,
-  generate: callGemini,
+  // --- UPDATE PLACED HERE ---
+  const usage = data.usageMetadata ? {
+    promptTokens: data.usageMetadata.promptTokenCount || 0,
+    completionTokens: data.usageMetadata.candidatesTokenCount || 0,
+    totalTokens: data.usageMetadata.totalTokenCount || 0,
+  } : undefined
+
+  return { text, provider: 'gemini', usage }
 }
