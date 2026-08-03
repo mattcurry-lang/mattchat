@@ -50,10 +50,18 @@ export async function checkUserQuota(userId: string): Promise<QuotaStatus> {
  * one per internal AI call — matters for handlers like `daily_insight`
  * that make 3+ AI calls in a single request.
  */
-export async function incrementUsage(userId: string, totalTokens: number): Promise<void> {
-  if (!totalTokens || totalTokens <= 0) return
-  const { error } = await supabase.rpc('increment_ai_usage', { p_user_id: userId, p_tokens: Math.round(totalTokens) })
-  if (error) console.error('incrementUsage failed:', error) // never throw — a usage-logging failure must not fail the user's real response
+export async function incrementUsage(userId: string, totalTokens: number): Promise<QuotaStatus | null> {
+  if (!totalTokens || totalTokens <= 0) return null
+  const { data, error } = await supabase.rpc('increment_ai_usage', { p_user_id: userId, p_tokens: Math.round(totalTokens) })
+  if (error || !data) { console.error('incrementUsage failed:', error); return null }
+  return {
+    allowed: data.tokens_used < data.monthly_token_limit,
+    tokensUsed: data.tokens_used,
+    monthlyLimit: data.monthly_token_limit,
+    remainingTokens: Math.max(0, data.monthly_token_limit - data.tokens_used),
+    plan: data.plan,
+    resetDate: data.reset_date,
+  }
 }
 
 export async function getRemainingTokens(userId: string): Promise<number> {
