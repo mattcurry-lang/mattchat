@@ -1044,3 +1044,12 @@ export async function getAiQuota(userId) {
     resetDate: data.reset_date,
   }
 }
+
+export async function changeAiPlan(session, plan) {
+  const res = await fetch(`${supabaseUrl}/functions/v1/change-ai-plan`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plan }),
+  })
+  return res.json()
+}
