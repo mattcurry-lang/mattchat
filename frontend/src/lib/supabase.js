@@ -1032,3 +1032,15 @@ export const callWhatsAppApi = async (session, action, params = {}) => {
   })
   return res.json()
 }
+
+export async function getAiQuota(userId) {
+  const { data, error } = await supabase.rpc('get_or_reset_ai_quota', { p_user_id: userId })
+  if (error) throw error
+  return {
+    plan: data.plan,
+    tokensUsed: data.tokens_used,
+    monthlyLimit: data.monthly_token_limit,
+    remainingTokens: Math.max(0, data.monthly_token_limit - data.tokens_used),
+    resetDate: data.reset_date,
+  }
+}
