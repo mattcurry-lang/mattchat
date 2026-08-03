@@ -1191,9 +1191,7 @@ const handleSend = async () => {
     )}
   </button>
 
-  <button className="top-header-search-btn" onClick={() => setShowWhatsApp(true)} title="WhatsApp">
-  <WhatsAppIcon size={16} />
-</button>
+ 
   <button
     className="top-header-search-btn"
     onClick={() => (heyCurryListening ? stopHeyCurry() : startHeyCurry())}
@@ -1663,6 +1661,11 @@ const handleSend = async () => {
           </div>
         )}
 {showAISettings && <AISettingsModal userId={userId} onClose={() => setShowAISettings(false)} />}
+
+ <button className="top-header-search-btn" onClick={() => setShowWhatsApp(true)} title="WhatsApp">
+  <WhatsAppIcon size={16} />
+</button>
+
 {showInstagramFull && (
   <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto' }}>
     <div style={{ maxWidth: 640, margin: '0 auto', padding: 16 }}>
