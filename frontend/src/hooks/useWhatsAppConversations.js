@@ -4,7 +4,7 @@ import { subscribeToChannel } from '../lib/realtimeManager'
 
 // Mirrors useConversations' shape ({ conversations, loading, reload })
 // but sources from whatsapp_conversations via the whatsapp-api proxy
-// instead of the native conversations table — WhatsApp threads are a
+// instead of the native conversations table — WhatsApp threads are 
 // separate data source entirely, not mixed into Mattchat's own chat
 // list.
 export function useWhatsAppConversations(session, userId) {
