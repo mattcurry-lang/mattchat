@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react'
 import { format, isToday, isYesterday } from 'date-fns'
 import Avatar from '../Avatar'
 import { IconX, IconSearch } from '../Icons'
+import WhatsAppIcon from '../icons/WhatsAppIcon'
 import { useWhatsAppConversations } from '../../hooks/useWhatsAppConversations'
 import { useWhatsAppChat } from '../../hooks/useWhatsAppChat'
 import WhatsAppMessageBubble from './WhatsAppMessageBubble'
@@ -189,10 +190,10 @@ export default function WhatsAppPage({ session, userId, onClose }) {
             style={{
               width: 34, height: 34, borderRadius: 10, flexShrink: 0,
               background: 'linear-gradient(135deg,#667eea,#764ba2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 16,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
             }}
           >
-            💬
+            <WhatsAppIcon size={18} />
           </div>
           <h2 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', margin: 0, flex: 1 }}>WhatsApp</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
@@ -231,7 +232,7 @@ export default function WhatsAppPage({ session, userId, onClose }) {
           <ConversationThread session={session} convo={activeConvo} userId={userId} onBack={() => setActiveId(null)} />
         ) : (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 10 }}>
-            <div style={{ fontSize: 40 }}>💬</div>
+            <WhatsAppIcon size={44} style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
             <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>Select a conversation to start messaging</div>
           </div>
         )}
