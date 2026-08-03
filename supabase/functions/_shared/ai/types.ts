@@ -28,9 +28,15 @@ export interface GenerateOptions {
   forceProvider?: string
 }
 
+ 
 export interface GenerateResult {
   text: string
   provider: string
+  usage?: {
+    promptTokens: number
+    completionTokens: number
+    totalTokens: number
+  }
 }
 
 export class ProviderError extends Error {
