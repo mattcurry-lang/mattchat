@@ -1045,15 +1045,9 @@ export async function getAiQuota(userId) {
   }
 }
 
-export async function changeAiPlan(session, plan) {
-  const res = await fetch(`${supabaseUrl}/functions/v1/change-ai-plan`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ plan }),
-  })
-  return res.json()
+export async function changeAiPlan(plan) {
+  return authedFetch('change-ai-plan', { plan })
 }
-
 
 // ── Additions/changes for lib/supabase.js ──────────────────────────
 // Merge these into your existing file. Assumes `supabase` (the client
@@ -1103,8 +1097,4 @@ export async function openBillingPortal() {
   return authedFetch('create-billing-portal-session')
 }
 
-// Only 'free' is accepted now — upgrading to 'pro' must go through
-// startCheckout() so real payment happens first.
-export async function changeAiPlan(plan) {
-  return authedFetch('change-ai-plan', { plan })
-}
+ 
