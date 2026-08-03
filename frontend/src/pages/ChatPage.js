@@ -83,6 +83,7 @@ import NotificationSettingsModal from '../components/NotificationSettingsModal'
 import { listenForNotificationActions } from '../lib/pushNotifications'
 import EmailWorkspace from '../components/EmailWorkspace'
 import WhatsAppPage from '../components/WhatsApp/WhatsAppPage'
+import WhatsAppIcon from '../components/icons/WhatsAppIcon'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -1190,10 +1191,9 @@ const handleSend = async () => {
     )}
   </button>
 
-    <button className="top-header-search-btn" onClick={() => setShowWhatsApp(true)} title="WhatsApp">
-  💬
+  <button className="top-header-search-btn" onClick={() => setShowWhatsApp(true)} title="WhatsApp">
+  <WhatsAppIcon size={16} />
 </button>
-    
   <button
     className="top-header-search-btn"
     onClick={() => (heyCurryListening ? stopHeyCurry() : startHeyCurry())}
