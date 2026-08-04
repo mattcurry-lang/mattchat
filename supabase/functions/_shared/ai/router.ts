@@ -27,7 +27,7 @@ const ROUTING: Record<TaskType, string[]> = {
   document_analysis: ['gemini'],
   image_understanding: ['gemini'],
   vision: ['gemini'],
-  video_analysis: ['gemini'],   // ← ADD THIS — Gemini is the only provider that can accept fileUri
+  video_analysis: ['gemini'],
   unknown: ['groq', 'gemini', 'openrouter', 'cerebras'],
 }
 
@@ -41,6 +41,15 @@ const TIMEOUTS: Partial<Record<TaskType, number>> = {
 
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504])
 
+// Rotates which provider a call starts at, so concurrent calls (e.g. three
+// agents firing at once via Promise.all) don't all pile onto the same
+// provider and trip its per-minute rate limit simultaneously.
+let rotationCounter = 0
+function nextRotationOffset(): number {
+  rotationCounter = (rotationCounter + 1) % 997 // arbitrary large prime, just avoids overflow
+  return rotationCounter
+}
+
 function isRetryable(err: unknown): boolean {
   if (err instanceof ProviderError) {
     if (err.status && RETRYABLE_STATUSES.has(err.status)) return true
@@ -48,6 +57,19 @@ function isRetryable(err: unknown): boolean {
     return false // e.g. 400 bad request — retrying won't help
   }
   return true
+}
+
+// Rate limits (429) clear after a short window — retrying instantly just
+// re-hits the same window. Backoff with jitter gives it room to clear.
+// Non-rate-limit retryable errors (5xx/timeouts) get a shorter, fixed delay.
+function retryDelayMs(err: unknown): number {
+  const status = err instanceof ProviderError ? err.status : undefined
+  if (status === 429) return 400 + Math.floor(Math.random() * 400) // 400–800ms
+  return 150
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, providerName: string): Promise<T> {
@@ -67,12 +89,19 @@ function pickProviders(taskType: TaskType, needsVision: boolean, needsSearch: bo
   }
 
   const order = ROUTING[taskType] || ROUTING.unknown
-  return order
+  const filtered = order
     .map((name) => REGISTRY[name])
     .filter((p): p is AIProvider => !!p)
     .filter((p) => p.isAvailable())
     .filter((p) => !needsVision || p.supportsVision)
     .filter((p) => !needsSearch || p.name === 'gemini') // only Gemini does search grounding here
+
+  if (filtered.length <= 1) return filtered
+
+  // Rotate the starting point so concurrent calls spread across providers
+  // instead of all starting at index 0 at the same instant.
+  const offset = nextRotationOffset() % filtered.length
+  return [...filtered.slice(offset), ...filtered.slice(0, offset)]
 }
 
 export async function generateAI(prompt: string, options: GenerateOptions = {}): Promise<GenerateResult> {
@@ -97,9 +126,13 @@ export async function generateAI(prompt: string, options: GenerateOptions = {}):
       } catch (err) {
         lastError = err
         const status = err instanceof ProviderError ? err.status : undefined
-        const reason = status === 429 ? 'quota exceeded' : status ? `error ${status}` : 'failed/timed out'
-        console.log(`AI Router: ${provider.name} ${reason}${attempt === 0 && isRetryable(err) ? ' — retrying once' : ' — moving to next provider'}`)
-        if (attempt === 0 && isRetryable(err)) continue
+        const reason = status === 429 ? 'rate limited' : status ? `error ${status}` : 'failed/timed out'
+        const retryable = attempt === 0 && isRetryable(err)
+        console.log(`AI Router: ${provider.name} ${reason}${retryable ? ' — retrying after backoff' : ' — moving to next provider'}`)
+        if (retryable) {
+          await sleep(retryDelayMs(err))
+          continue
+        }
         break
       }
     }
