@@ -84,6 +84,7 @@ import { listenForNotificationActions } from '../lib/pushNotifications'
 import EmailWorkspace from '../components/EmailWorkspace'
 import WhatsAppPage from '../components/WhatsApp/WhatsAppPage'
 import WhatsAppIcon from '../components/icons/WhatsAppIcon'
+import AdminAnnouncements from '../components/AdminAnnouncements'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -442,6 +443,7 @@ export default function ChatPage({ session }) {
   const [showProfileSetup, setShowProfileSetup] = useState(false)
   const [show2FA, setShow2FA] = useState(false)
   const [profile, setProfile]           = useState(null)
+  const [profileLoaded, setProfileLoaded] = useState(false)
   const [showVoice, setShowVoice]       = useState(false)
   const [showPoll, setShowPoll]         = useState(false)
   const [showTask, setShowTask]         = useState(false)
@@ -481,6 +483,8 @@ const [shortsInitialVideo, setShortsInitialVideo] = useState(null)
 const [curryPrefill, setCurryPrefill] = useState(null)
   const [showEmailWorkspace, setShowEmailWorkspace] = useState(false)
   const [showWhatsApp, setShowWhatsApp] = useState(false)
+  const [showAnnouncements, setShowAnnouncements] = useState(false)
+  
   // that appears AFTER a plain message has already been sent, if
   // Curry thinks it might land colder than intended. Never blocks or
   // delays sending; see runCoachCheck below.
@@ -615,6 +619,7 @@ useEffect(() => {
 useEffect(() => {
   supabase.from('profiles').select('*').eq('id', userId).single().then(({ data }) => {
     setProfile(data)
+    setProfileLoaded(true)
     if (data && !data.profile_setup_completed) setShowProfileSetup(true)
   })
 }, [userId])
@@ -1551,6 +1556,22 @@ const handleSend = async () => {
 >
   <IconSettings size={14} /> AI Settings
 </button>
+
+  {profileLoaded && profile?.is_admin && (
+  <button
+    onClick={() => { setShowAnnouncements(true); setShowProfileMenu(false) }}
+    style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)',
+      borderRadius: 10, color: '#c4b5fd', fontSize: 12.5, fontWeight: 700,
+      padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+      animation: 'adminBtnFadeIn 0.25s ease',
+    }}
+  >
+    <IconMail size={14} /> Announcements
+  </button>
+)}
+  
     <button
   onClick={() => { setShowNotificationSettings(true); setShowProfileMenu(false) }}
   style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#c4b5fd', fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
@@ -1581,6 +1602,12 @@ const handleSend = async () => {
                   <IconShield size={14} /> Two-factor authentication
                 </button>
                 <button className="profile-menu-signout" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={signOut}><IconLogOut size={14} /> Sign out</button>
+                  <style>{`
+  @keyframes adminBtnFadeIn {
+    from { opacity: 0; transform: translateY(-2px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+`}</style>
               </div>
             </div>
           </div>
@@ -1607,6 +1634,9 @@ const handleSend = async () => {
       <EmailWorkspace session={session} />
     </div>
   </div>
+)}
+{showAnnouncements && (
+  <AdminAnnouncements session={session} profile={profile} onClose={() => setShowAnnouncements(false)} />
 )}
 
 {showDocuments && (
