@@ -1097,4 +1097,22 @@ export async function openBillingPortal() {
   return authedFetch('create-billing-portal-session')
 }
 
- 
+ // Calls the send-announcement edge function. Pass onlyEmails to retry
+// a specific failed recipient without re-sending to everyone.
+export async function sendAnnouncement(session, { subject, message, testMode = false, onlyEmails = null }) {
+  const { data, error } = await supabase.functions.invoke('send-announcement', {
+    body: { subject, message, testMode, onlyEmails },
+  })
+  if (error) {
+    let detail = error.message
+    try {
+      const ctx = error.context
+      if (ctx && typeof ctx.json === 'function') {
+        const parsed = await ctx.json()
+        detail = parsed?.error || detail
+      }
+    } catch {}
+    throw new Error(detail)
+  }
+  return data
+}
