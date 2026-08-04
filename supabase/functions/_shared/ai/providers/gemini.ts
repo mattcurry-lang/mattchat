@@ -55,3 +55,11 @@ async function callGemini(prompt: string, options: GenerateOptions): Promise<Gen
 
   return { text, provider: 'gemini', usage }
 }
+
+export const geminiProvider: AIProvider = {
+  name: 'gemini',
+  supportsVision: true,
+  supportsJsonMode: true,
+  generate: callGemini,
+  isAvailable: () => !!GEMINI_API_KEY,
+}
