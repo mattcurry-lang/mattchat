@@ -20,13 +20,22 @@ export default function StartConversationModal({ video, conversations, getConvoN
   const send = async () => {
     if (selected.size === 0 || sending) return
     setSending(true)
-    const shortContent = `short:${video.videoId}::${video.title}::${video.thumbnailUrl}::${video.channelTitle}`
+    // JSON payload, not a delimited string — a title or channel name
+    // containing "::" used to silently corrupt the old short:a::b::c::d
+    // format. message_type: 'short' also means MessageBubble doesn't
+    // need to sniff message content to know how to render it.
+    const shortContent = JSON.stringify({
+      videoId: video.videoId,
+      title: video.title,
+      thumbnailUrl: video.thumbnailUrl,
+      channelTitle: video.channelTitle,
+    })
     try {
       await Promise.all(Array.from(selected).map(async (convoId) => {
         if (message.trim()) {
           await supabase.from('messages').insert({ conversation_id: convoId, sender_id: currentUserId, content: message.trim(), message_type: 'text' })
         }
-        await supabase.from('messages').insert({ conversation_id: convoId, sender_id: currentUserId, content: shortContent, message_type: 'text' })
+        await supabase.from('messages').insert({ conversation_id: convoId, sender_id: currentUserId, content: shortContent, message_type: 'short' })
         await supabase.from('conversations').update({ updated_at: new Date().toISOString(), last_message: '📱 Short' }).eq('id', convoId)
       }))
       logShortsInteraction(currentUserId, video, 0, { shared: true })
