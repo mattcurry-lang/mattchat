@@ -34,6 +34,7 @@ export default function ShortsVideoCard({
   video, isActive, isMounted, startPosition,
   onProgress, onEnded, onReplay, liked, onToggleLike,
   onOpenShare, onOpenComments, onTap,
+  muted, onToggleMute,
 }) {
   const wrapperRef = useRef(null)
   const playerRef = useRef(null)
@@ -43,51 +44,73 @@ export default function ShortsVideoCard({
   const [burst, setBurst] = useState(false)
   const lastTapRef = useRef(0)
   const bgColor = useDominantColor(video.thumbnailUrl)
-useEffect(() => {
-  if (!isMounted) return
-  let cancelled = false
-  let targetDiv = null
 
-  loadYouTubeAPI().then((YT) => {
-    if (cancelled || !wrapperRef.current) return
-    targetDiv = document.createElement('div')
-    targetDiv.style.width = '100%'
-    targetDiv.style.height = '100%'
-    wrapperRef.current.appendChild(targetDiv)
+  useEffect(() => {
+    if (!isMounted) return
+    let cancelled = false
+    let targetDiv = null
 
-    playerRef.current = new YT.Player(targetDiv, {
-      videoId: video.videoId,
-      playerVars: { autoplay: 0, playsinline: 1, controls: 0, loop: 1, playlist: video.videoId, rel: 0, modestbranding: 1 },
-      events: {
-        onReady: (e) => {
-          readyRef.current = true
-          setReady(true)
-          if (startPosition > 1) e.target.seekTo(startPosition, true)
-          e.target.unMute()
+    loadYouTubeAPI().then((YT) => {
+      if (cancelled || !wrapperRef.current) return
+      targetDiv = document.createElement('div')
+      targetDiv.style.width = '100%'
+      targetDiv.style.height = '100%'
+      wrapperRef.current.appendChild(targetDiv)
+
+      playerRef.current = new YT.Player(targetDiv, {
+        videoId: video.videoId,
+        playerVars: { autoplay: 0, playsinline: 1, controls: 0, loop: 1, playlist: video.videoId, rel: 0, modestbranding: 1 },
+        events: {
+          onReady: (e) => {
+            readyRef.current = true
+            setReady(true)
+            if (startPosition > 1) e.target.seekTo(startPosition, true)
+            // Always start muted, regardless of the user's saved
+            // preference. Browsers block unmuted autoplay without a
+            // prior user gesture, and this onReady fires as part of
+            // player initialization, not as a gesture — starting
+            // muted is what guarantees the video actually plays. The
+            // effect below reconciles to the real `muted` prop
+            // immediately after, which succeeds because by then the
+            // user has (or hasn't) already tapped the mute toggle,
+            // and toggling IS a gesture.
+            e.target.mute()
+          },
+          onStateChange: (e) => {
+            if (e.data === window.YT.PlayerState.ENDED) {
+              onEnded?.()
+              onReplay?.()
+            }
+          },
         },
-        onStateChange: (e) => {
-          if (e.data === window.YT.PlayerState.ENDED) {
-            onEnded?.()
-            onReplay?.()
-          }
-        },
-      },
+      })
     })
-  })
 
-  return () => {
-    cancelled = true
-    playerRef.current?.destroy?.()
-    playerRef.current = null
-    readyRef.current = false
-    if (wrapperRef.current) wrapperRef.current.innerHTML = ''
-  }
-}, [isMounted, video.videoId])
+    return () => {
+      cancelled = true
+      playerRef.current?.destroy?.()
+      playerRef.current = null
+      readyRef.current = false
+      if (wrapperRef.current) wrapperRef.current.innerHTML = ''
+    }
+  }, [isMounted, video.videoId]) // eslint-disable-line
+
   useEffect(() => {
     if (!readyRef.current || !playerRef.current) return
     if (isActive) playerRef.current.playVideo?.()
     else playerRef.current.pauseVideo?.()
   }, [isActive, ready])
+
+  // Reconciles the player's actual mute state to the shared `muted`
+  // prop. This only ever un-mutes as a *result* of the user tapping
+  // the mute button (a real gesture upstream in ShortsPage), never as
+  // a side effect of mounting — that distinction is what keeps this
+  // compliant with browser autoplay policy instead of fighting it.
+  useEffect(() => {
+    if (!ready || !playerRef.current) return
+    if (muted) playerRef.current.mute?.()
+    else playerRef.current.unMute?.()
+  }, [muted, ready])
 
   useEffect(() => {
     if (!isActive) return
@@ -107,7 +130,6 @@ useEffect(() => {
   const handleTapVideo = useCallback(() => {
     const now = Date.now()
     if (now - lastTapRef.current < 280) {
-      // Double tap → like (only fires once per pair, ignores the pause toggle)
       lastTapRef.current = 0
       if (!liked) onToggleLike()
       triggerLikeBurst()
@@ -115,7 +137,7 @@ useEffect(() => {
     }
     lastTapRef.current = now
     setTimeout(() => {
-      if (Date.now() - lastTapRef.current < 280) return // was consumed by the double-tap branch
+      if (Date.now() - lastTapRef.current < 280) return
       if (!readyRef.current) { onTap?.(); return }
       const state = playerRef.current.getPlayerState()
       if (state === window.YT.PlayerState.PLAYING) playerRef.current.pauseVideo()
@@ -130,9 +152,6 @@ useEffect(() => {
       scrollSnapAlign: 'start', scrollSnapStop: 'always', overflow: 'hidden',
       background: bgColor, transition: 'background 0.6s ease',
     }}>
-      {/* Blurred, scaled backdrop sampled from the video itself — this
-          is what replaces the flat black bars either side of a
-          9:16-ish-but-not-exact clip. */}
       <div style={{
         position: 'absolute', inset: -20, backgroundImage: `url(${video.thumbnailUrl})`,
         backgroundSize: 'cover', backgroundPosition: 'center',
@@ -140,21 +159,19 @@ useEffect(() => {
       }} />
       <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg, ${bgColor}55, transparent 30%, transparent 65%, ${bgColor}dd)` }} />
 
-      {/* Foreground player — contained, never cropped */}
       <div
         onClick={handleTapVideo}
         style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
       >
         <div style={{ width: '100%', maxWidth: 'calc(100dvh * 9 / 16)', aspectRatio: '9/16', position: 'relative' }}>
-         {isMounted ? (
-  <div ref={wrapperRef} style={{ width: '100%', height: '100%', pointerEvents: 'none', borderRadius: 2, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} />
-) : (
-  <img src={video.thumbnailUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 2 }} />
-)}
+          {isMounted ? (
+            <div ref={wrapperRef} style={{ width: '100%', height: '100%', pointerEvents: 'none', borderRadius: 2, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} />
+          ) : (
+            <img src={video.thumbnailUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 2 }} />
+          )}
         </div>
       </div>
 
-      {/* Double-tap heart burst */}
       {burst && (
         <div style={{
           position: 'absolute', top: '42%', left: '50%', transform: 'translate(-50%,-50%)',
@@ -162,7 +179,25 @@ useEffect(() => {
         }}>❤️</div>
       )}
 
-      {/* Creator / title — glass caption card */}
+      {/* Mute toggle — only rendered on the active card so there's
+          exactly one visible control, but the `muted` state itself is
+          shared across all cards via ShortsPage so the preference
+          carries through as the user scrolls. */}
+      {isActive && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleMute?.() }}
+          style={{
+            position: 'absolute', top: 14, right: 14, zIndex: 4,
+            background: 'rgba(20,20,30,0.45)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+            border: '1px solid rgba(255,255,255,0.16)', borderRadius: '50%', width: 34, height: 34,
+            color: '#fff', fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+          title={muted ? 'Unmute' : 'Mute'}
+        >
+          {muted ? '🔇' : '🔊'}
+        </button>
+      )}
+
       <div style={{
         position: 'absolute', left: 14, right: 84, bottom: 28, color: '#fff',
         display: 'flex', flexDirection: 'column', gap: 7, padding: '12px 14px',
@@ -178,7 +213,6 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Action rail — glass pills */}
       <div style={{ position: 'absolute', right: 10, bottom: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
         <button onClick={(e) => { e.stopPropagation(); onToggleLike(); if (!liked) triggerLikeBurst() }} style={railBtnStyle}>
           <span style={{ fontSize: 24, display: 'block', transition: 'transform 0.2s cubic-bezier(0.34,1.56,0.64,1)', transform: liked ? 'scale(1.15)' : 'scale(1)' }}>
