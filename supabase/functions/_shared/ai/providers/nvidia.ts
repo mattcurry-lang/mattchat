@@ -9,6 +9,7 @@ const MODEL = 'meta/llama-3.1-8b-instruct'
 export const nvidiaProvider: AIProvider = {
   name: 'nvidia',
   supportsVision: false,
+  supportsJsonMode: false,
   isAvailable: () => !!NVIDIA_API_KEY,
   generate: (prompt: string, options: GenerateOptions) =>
     openAICompatibleGenerate('nvidia', 'https://integrate.api.nvidia.com/v1/chat/completions', NVIDIA_API_KEY!, MODEL, prompt, options),
