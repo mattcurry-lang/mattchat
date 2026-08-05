@@ -2,7 +2,15 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { fetchShortsFeed, getLikedShortIds } from '../lib/shortsSupabase'
 
 const FETCH_AHEAD_THRESHOLD = 4
-const KEEP_WINDOW = 6
+
+// How many real <YT.Player> instances stay mounted around the active
+// card. Kept deliberately tight — each mounted player is a live
+// iframe + YouTube's own JS runtime, not a cheap DOM node. 1 back / 1
+// forward gives instant transitions in either scroll direction while
+// capping concurrent players at 3. Everything outside this range
+// falls back to a static <img> poster in ShortsVideoCard.
+const PLAYER_BACK = 1
+const PLAYER_FORWARD = 1
 
 export function useShorts(session, userId, { category, query, forYou }) {
   const [items, setItems] = useState([])
@@ -16,13 +24,6 @@ export function useShorts(session, userId, { category, query, forYou }) {
   const pageToken = useRef(null)
   const fetchingRef = useRef(false)
   const seenIds = useRef(new Set())
-
-  // Bumped on every reset() — a fetch started under an older requestId
-  // is stale by the time it resolves and must never touch state. This
-  // is what fixes the "switch category twice fast" bug where a slow
-  // response from the FIRST category could land after the SECOND
-  // category's fetch already started, silently splicing wrong-category
-  // videos into the feed.
   const requestId = useRef(0)
 
   const reset = useCallback(() => {
@@ -41,13 +42,6 @@ export function useShorts(session, userId, { category, query, forYou }) {
         category, query, forYou, pageToken: isInitial ? null : pageToken.current,
       })
 
-      // The world may have moved on while this request was in flight
-      // (user switched category/search). Drop the response entirely
-      // rather than merge it — reset() already cleared items/seenIds
-      // for the new request, so applying this one would corrupt state
-      // and also leave fetchingRef stuck if we return before the
-      // finally-equivalent below. We still fall through to the
-      // finally block to clear fetchingRef/loading flags correctly.
       if (myRequestId !== requestId.current) {
         fetchingRef.current = false
         setLoading(false)
@@ -62,8 +56,6 @@ export function useShorts(session, userId, { category, query, forYou }) {
       if (data.preferredCategories) setPreferredCategories(data.preferredCategories)
       const ids = fresh.map(v => v.videoId)
       getLikedShortIds(userId, ids).then(liked => {
-        // Same guard on the follow-up like-status fetch — it resolves
-        // independently and can straggle in after a category switch too.
         if (myRequestId !== requestId.current) return
         setLikedIds(prev => new Set([...prev, ...liked]))
       })
@@ -87,8 +79,8 @@ export function useShorts(session, userId, { category, query, forYou }) {
     }
   }, [activeIndex, items.length, loadBatch])
 
-  const windowStart = Math.max(0, activeIndex - 2)
-  const windowEnd = Math.min(items.length, activeIndex + KEEP_WINDOW)
+  const windowStart = Math.max(0, activeIndex - PLAYER_BACK)
+  const windowEnd = Math.min(items.length, activeIndex + PLAYER_FORWARD + 1)
 
   return {
     items, activeIndex, setActiveIndex, loading, loadingMore, error,
