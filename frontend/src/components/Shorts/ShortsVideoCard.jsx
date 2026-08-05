@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react'
 import { useDominantColor } from '../../hooks/useDominantColor'
 
 let apiLoadPromise = null
-function loadYouTubeAPI() {
+export function loadYouTubeAPI() {
   if (window.YT && window.YT.Player) return Promise.resolve(window.YT)
   if (apiLoadPromise) return apiLoadPromise
   apiLoadPromise = new Promise((resolve) => {
