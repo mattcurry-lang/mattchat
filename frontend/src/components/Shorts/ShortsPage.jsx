@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react'
+import React, { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react'
 import ShortsVideoCard from './ShortsVideoCard'
 import ShortsCategoryBar from './ShortsCategoryBar'
 import CollectionsRail from './CollectionsRail'
@@ -9,10 +9,6 @@ import { saveShortsProgress, getShortsProgress, logShortsInteraction, toggleShor
 
 const MUTE_STORAGE_KEY = 'mattchat_shorts_muted'
 
-// Reads the saved mute preference once, synchronously, so the very
-// first card doesn't flash from "muted" to "unmuted" (or vice versa)
-// after mount. Defaults to muted=true, which matches what every card
-// starts as anyway (browser autoplay policy — see ShortsVideoCard).
 function getInitialMuted() {
   try {
     const saved = localStorage.getItem(MUTE_STORAGE_KEY)
@@ -36,11 +32,13 @@ export default function ShortsPage({
   const replaysRef = useRef(0)
   const containerRef = useRef(null)
   const jumpedToInitialRef = useRef(false)
+  const lastHandledTrimId = useRef(null)
   const { chromeVisible, wake } = useAutoHideChrome()
 
   const {
     items, activeIndex, setActiveIndex, loading, loadingMore, error,
     windowStart, windowEnd, likedIds: hookLikedIds, setLikedIds, preferredCategories,
+    trimEvent,
   } = useShorts(session, userId, {
     category: activeSearch ? null : category,
     query: activeSearch || null,
@@ -57,6 +55,20 @@ export default function ShortsPage({
       requestAnimationFrame(() => containerRef.current?.children[idx]?.scrollIntoView({ behavior: 'instant' }))
     }
   }, [items, initialVideoId])
+
+  // Compensates scrollTop after the hook trims scrolled-past items
+  // from the front of the array, so the removal is invisible to the
+  // user instead of causing a visible jump forward. Runs in
+  // useLayoutEffect so the correction happens before the browser
+  // paints the shorter list.
+  useLayoutEffect(() => {
+    if (!trimEvent || trimEvent.id === lastHandledTrimId.current) return
+    lastHandledTrimId.current = trimEvent.id
+    const container = containerRef.current
+    if (!container) return
+    const cardHeight = container.clientHeight
+    container.scrollTop -= trimEvent.count * cardHeight
+  }, [trimEvent])
 
   useEffect(() => {
     const container = containerRef.current
@@ -185,7 +197,21 @@ export default function ShortsPage({
           const isMounted = i >= windowStart && i < windowEnd
           const isActive = i === activeIndex
           return (
-            <div key={video.videoId} data-index={i} style={{ scrollSnapAlign: 'start' }}>
+            <div
+              key={video.videoId}
+              data-index={i}
+              style={{
+                scrollSnapAlign: 'start',
+                // Lets the browser skip layout/paint/style work for
+                // cards that are off-screen, without unmounting them —
+                // this is what keeps a long scroll session's render
+                // cost bounded even before the front-trim in useShorts
+                // kicks in. containIntrinsicSize gives it a size hint
+                // so scrollbar/layout math stays correct while skipped.
+                contentVisibility: 'auto',
+                containIntrinsicSize: '100vw 100dvh',
+              }}
+            >
               <ShortsVideoCard
                 video={video}
                 isActive={isActive}
