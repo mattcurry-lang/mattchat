@@ -1,11 +1,28 @@
 import React, { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react'
-import ShortsVideoCard from './ShortsVideoCard'
+import ShortsVideoCard, { loadYouTubeAPI } from './ShortsVideoCard'
 import ShortsCategoryBar from './ShortsCategoryBar'
 import CollectionsRail from './CollectionsRail'
 import StartConversationModal from './StartConversationModal'
 import { useShorts } from '../../hooks/useShorts'
 import { useAutoHideChrome } from '../../hooks/useAutoHideChrome'
 import { saveShortsProgress, getShortsProgress, logShortsInteraction, toggleShortsLike } from '../../lib/shortsSupabase'
+
+// Warms the browser's connection to YouTube's domains the instant
+// Shorts opens, before any card has mounted or even fetched. DNS +
+// TLS handshake is a fixed cost that would otherwise happen lazily on
+// the first player's first request — doing it here overlaps it with
+// the initial feed fetch instead of stacking after it.
+function preconnectYouTube() {
+  const hosts = ['https://www.youtube.com', 'https://i.ytimg.com', 'https://s.ytimg.com']
+  hosts.forEach((href) => {
+    if (document.querySelector(`link[rel="preconnect"][href="${href}"]`)) return
+    const link = document.createElement('link')
+    link.rel = 'preconnect'
+    link.href = href
+    link.crossOrigin = 'anonymous'
+    document.head.appendChild(link)
+  })
+}
 
 const MUTE_STORAGE_KEY = 'mattchat_shorts_muted'
 
@@ -34,6 +51,11 @@ export default function ShortsPage({
   const jumpedToInitialRef = useRef(false)
   const lastHandledTrimId = useRef(null)
   const { chromeVisible, wake } = useAutoHideChrome()
+
+  // Fire both preloads once, synchronously on mount — before the feed
+  // fetch even resolves, well before the first card would otherwise
+  // trigger loadYouTubeAPI() itself on mount.
+  useEffect(() => { preconnectYouTube(); loadYouTubeAPI() }, [])
 
   const {
     items, activeIndex, setActiveIndex, loading, loadingMore, error,
