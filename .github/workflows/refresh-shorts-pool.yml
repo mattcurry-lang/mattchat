@@ -10,7 +10,7 @@ jobs:
     steps:
       - name: Call refresh-shorts-pool
         run: |
-          curl -sf -X POST \
+          curl -s -i -X POST \
             "${{ secrets.SUPABASE_URL }}/functions/v1/refresh-shorts-pool" \
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json"
