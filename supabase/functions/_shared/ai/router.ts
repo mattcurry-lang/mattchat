@@ -19,16 +19,16 @@ const REGISTRY: Record<string, AIProvider> = {
 
 // Order matters: first available + capable provider wins.
 const ROUTING: Record<TaskType, string[]> = {
-  chat: ['groq', 'gemini', 'openrouter', 'cerebras'],
-  coding: ['groq', 'gemini', 'openrouter', 'cerebras'],
-  quick: ['groq', 'gemini', 'openrouter', 'cerebras'],
-  general_reasoning: ['groq', 'gemini', 'openrouter', 'cerebras'],
-  email_summary: ['gemini', 'groq', 'openrouter', 'cerebras'],
+  chat: ['groq', 'gemini', 'openrouter', 'cerebras', 'mistral', 'nvidia', 'cloudflare'],
+  coding: ['groq', 'gemini', 'openrouter', 'cerebras', 'mistral', 'nvidia', 'cloudflare'],
+  quick: ['groq', 'gemini', 'openrouter', 'cerebras', 'mistral', 'nvidia', 'cloudflare'],
+  general_reasoning: ['groq', 'gemini', 'openrouter', 'cerebras', 'mistral', 'nvidia', 'cloudflare'],
+  email_summary: ['gemini', 'groq', 'openrouter', 'cerebras', 'mistral', 'nvidia', 'cloudflare'],
   document_analysis: ['gemini'],
   image_understanding: ['gemini'],
   vision: ['gemini'],
   video_analysis: ['gemini'],
-  unknown: ['groq', 'gemini', 'openrouter', 'cerebras'],
+  unknown: ['groq', 'gemini', 'openrouter', 'cerebras', 'mistral', 'nvidia', 'cloudflare'],
 }
 
 // Slow task types get more room before we give up on a provider.
@@ -46,25 +46,22 @@ const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504])
 // provider and trip its per-minute rate limit simultaneously.
 let rotationCounter = 0
 function nextRotationOffset(): number {
-  rotationCounter = (rotationCounter + 1) % 997 // arbitrary large prime, just avoids overflow
+  rotationCounter = (rotationCounter + 1) % 997
   return rotationCounter
 }
 
 function isRetryable(err: unknown): boolean {
   if (err instanceof ProviderError) {
     if (err.status && RETRYABLE_STATUSES.has(err.status)) return true
-    if (!err.status) return true // network/timeout errors — worth one retry
-    return false // e.g. 400 bad request — retrying won't help
+    if (!err.status) return true
+    return false
   }
   return true
 }
 
-// Rate limits (429) clear after a short window — retrying instantly just
-// re-hits the same window. Backoff with jitter gives it room to clear.
-// Non-rate-limit retryable errors (5xx/timeouts) get a shorter, fixed delay.
 function retryDelayMs(err: unknown): number {
   const status = err instanceof ProviderError ? err.status : undefined
-  if (status === 429) return 400 + Math.floor(Math.random() * 400) // 400–800ms
+  if (status === 429) return 400 + Math.floor(Math.random() * 400)
   return 150
 }
 
@@ -94,12 +91,10 @@ function pickProviders(taskType: TaskType, needsVision: boolean, needsSearch: bo
     .filter((p): p is AIProvider => !!p)
     .filter((p) => p.isAvailable())
     .filter((p) => !needsVision || p.supportsVision)
-    .filter((p) => !needsSearch || p.name === 'gemini') // only Gemini does search grounding here
+    .filter((p) => !needsSearch || p.name === 'gemini')
 
   if (filtered.length <= 1) return filtered
 
-  // Rotate the starting point so concurrent calls spread across providers
-  // instead of all starting at index 0 at the same instant.
   const offset = nextRotationOffset() % filtered.length
   return [...filtered.slice(offset), ...filtered.slice(0, offset)]
 }
