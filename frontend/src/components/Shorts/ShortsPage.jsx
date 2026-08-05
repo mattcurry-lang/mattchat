@@ -7,6 +7,21 @@ import { useShorts } from '../../hooks/useShorts'
 import { useAutoHideChrome } from '../../hooks/useAutoHideChrome'
 import { saveShortsProgress, getShortsProgress, logShortsInteraction, toggleShortsLike } from '../../lib/shortsSupabase'
 
+const MUTE_STORAGE_KEY = 'mattchat_shorts_muted'
+
+// Reads the saved mute preference once, synchronously, so the very
+// first card doesn't flash from "muted" to "unmuted" (or vice versa)
+// after mount. Defaults to muted=true, which matches what every card
+// starts as anyway (browser autoplay policy — see ShortsVideoCard).
+function getInitialMuted() {
+  try {
+    const saved = localStorage.getItem(MUTE_STORAGE_KEY)
+    return saved === null ? true : saved === 'true'
+  } catch {
+    return true
+  }
+}
+
 export default function ShortsPage({
   session, userId, conversations, getConvoName, onClose, initialVideoId, initialSearch,
 }) {
@@ -16,6 +31,7 @@ export default function ShortsPage({
   const [showSearchBox, setShowSearchBox] = useState(false)
   const [shareTarget, setShareTarget] = useState(null)
   const [likedIds, setLikedIdsLocal] = useState(new Set())
+  const [muted, setMuted] = useState(getInitialMuted)
   const startTimeRef = useRef(0)
   const replaysRef = useRef(0)
   const containerRef = useRef(null)
@@ -93,6 +109,14 @@ export default function ShortsPage({
     if (nowLiked) logShortsInteraction(userId, video, startTimeRef.current, { liked: true })
   }, [likedIds, userId, setLikedIds])
 
+  const handleToggleMute = useCallback(() => {
+    setMuted(prev => {
+      const next = !prev
+      try { localStorage.setItem(MUTE_STORAGE_KEY, String(next)) } catch { /* storage unavailable — preference just won't persist */ }
+      return next
+    })
+  }, [])
+
   const runSearch = () => {
     if (!searchInput.trim()) return
     setActiveSearch(searchInput.trim())
@@ -104,7 +128,6 @@ export default function ShortsPage({
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 700, background: '#0a0a0f' }} onMouseMove={wake} onTouchStart={wake}>
-      {/* Chrome: header + search + categories + collections — all fade together */}
       <div style={{ opacity: chromeVisible ? 1 : 0, transition: 'opacity 0.4s ease', pointerEvents: chromeVisible ? 'auto' : 'none' }}>
         <div style={{
           position: 'absolute', top: 0, left: 0, right: 0, zIndex: 6, display: 'flex', alignItems: 'center', gap: 8,
@@ -174,6 +197,8 @@ export default function ShortsPage({
                 liked={likedIds.has(video.videoId)}
                 onToggleLike={() => handleToggleLike(video)}
                 onOpenShare={() => setShareTarget(video)}
+                muted={muted}
+                onToggleMute={handleToggleMute}
               />
             </div>
           )
