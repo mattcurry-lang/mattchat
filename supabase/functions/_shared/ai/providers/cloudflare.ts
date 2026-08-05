@@ -15,6 +15,7 @@ const ENDPOINT = CLOUDFLARE_ACCOUNT_ID
 export const cloudflareProvider: AIProvider = {
   name: 'cloudflare',
   supportsVision: false,
+  supportsJsonMode: false,
   isAvailable: () => !!CLOUDFLARE_API_TOKEN && !!CLOUDFLARE_ACCOUNT_ID,
   generate: (prompt: string, options: GenerateOptions) =>
     openAICompatibleGenerate('cloudflare', ENDPOINT, CLOUDFLARE_API_TOKEN!, MODEL, prompt, options),
