@@ -292,8 +292,42 @@ if (msg.content?.startsWith('status_reply:')) {
   )
 }
 
-if (msg.content?.startsWith('short:')) {
-  const [vid, t, thumb, channel] = msg.content.replace('short:', '').split('::')
+// Handles both the new message_type === 'short' JSON payload and, for
+// backward compatibility, any message sent before the migration under
+// the old 'short:videoId::title::thumb::channel' text encoding — those
+// rows already exist in the DB and still need to render correctly.
+if (msg.message_type === 'short' || msg.content?.startsWith('short:')) {
+  let vid, t, thumb, channel
+  if (msg.message_type === 'short') {
+    try {
+      const parsed = JSON.parse(msg.content)
+      vid = parsed.videoId; t = parsed.title; thumb = parsed.thumbnailUrl; channel = parsed.channelTitle
+    } catch {
+      // Malformed JSON shouldn't be possible for new sends, but a
+      // parse failure here should degrade to nothing rather than throw
+      // and take down the whole message list.
+      vid = null
+    }
+  } else {
+    // Legacy path — old delimited-string format, still fragile against
+    // titles containing "::", but only reachable for messages that
+    // predate the migration.
+    ;[vid, t, thumb, channel] = msg.content.replace('short:', '').split('::')
+  }
+
+  if (!vid) {
+    return (
+      <div className={`msg-row ${isMe ? 'mine' : ''}`}>
+        {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
+        <div>
+          {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
+          <div className="msg-bubble deleted-msg">🚫 Couldn't load this Short</div>
+          <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={`msg-row ${isMe ? 'mine' : ''}`}>
       {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
