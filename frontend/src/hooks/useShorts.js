@@ -3,14 +3,21 @@ import { fetchShortsFeed, getLikedShortIds } from '../lib/shortsSupabase'
 
 const FETCH_AHEAD_THRESHOLD = 4
 
-// How many real <YT.Player> instances stay mounted around the active
-// card. Kept deliberately tight — each mounted player is a live
-// iframe + YouTube's own JS runtime, not a cheap DOM node. 1 back / 1
-// forward gives instant transitions in either scroll direction while
-// capping concurrent players at 3. Everything outside this range
-// falls back to a static <img> poster in ShortsVideoCard.
+// Real <YT.Player> mount window — see the earlier note on why this is
+// tight (1 back / 1 forward, 3 concurrent players max).
 const PLAYER_BACK = 1
 const PLAYER_FORWARD = 1
+
+// Once the fetched-items array grows past this, trim scrolled-past
+// items off the front so a long session doesn't accumulate an
+// unbounded DOM/memory footprint. TRIM_TARGET is where it lands after
+// trimming. TRIM_SAFETY_BUFFER is how far behind the active card an
+// item must be before it's eligible for removal — this must stay
+// comfortably larger than PLAYER_BACK so trimming never touches
+// anything currently mounted.
+const MAX_ITEMS_IN_MEMORY = 60
+const TRIM_TARGET = 40
+const TRIM_SAFETY_BUFFER = 20
 
 export function useShorts(session, userId, { category, query, forYou }) {
   const [items, setItems] = useState([])
@@ -20,6 +27,11 @@ export function useShorts(session, userId, { category, query, forYou }) {
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState(null)
   const [preferredCategories, setPreferredCategories] = useState([])
+  // Bumped every time a trim happens, carrying how many items were
+  // removed. ShortsPage watches this to compensate the scroll
+  // container's scrollTop by the same amount, so trimming never causes
+  // a visible jump.
+  const [trimEvent, setTrimEvent] = useState(null) // { count, id } | null
 
   const pageToken = useRef(null)
   const fetchingRef = useRef(false)
@@ -29,6 +41,7 @@ export function useShorts(session, userId, { category, query, forYou }) {
   const reset = useCallback(() => {
     requestId.current += 1
     setItems([]); setActiveIndex(0); pageToken.current = null; seenIds.current = new Set()
+    setTrimEvent(null)
   }, [])
 
   const loadBatch = useCallback(async (isInitial) => {
@@ -79,6 +92,23 @@ export function useShorts(session, userId, { category, query, forYou }) {
     }
   }, [activeIndex, items.length, loadBatch])
 
+  // Front-trim: only fires once the array is actually large AND the
+  // user has scrolled far enough past the old items that removing them
+  // won't touch the player window or anything about to enter it.
+  useEffect(() => {
+    if (items.length <= MAX_ITEMS_IN_MEMORY) return
+    const trimCount = items.length - TRIM_TARGET
+    if (trimCount <= 0) return
+    if (activeIndex - trimCount < TRIM_SAFETY_BUFFER + PLAYER_BACK) return // not far enough ahead yet — wait
+
+    setItems(prev => prev.slice(trimCount))
+    setActiveIndex(prev => prev - trimCount)
+    setTrimEvent({ count: trimCount, id: Date.now() })
+    // seenIds and pageToken are untouched — they track fetch/dedup
+    // state, not display state, so trimming what's rendered has no
+    // effect on pagination correctness.
+  }, [items.length, activeIndex])
+
   const windowStart = Math.max(0, activeIndex - PLAYER_BACK)
   const windowEnd = Math.min(items.length, activeIndex + PLAYER_FORWARD + 1)
 
@@ -86,5 +116,6 @@ export function useShorts(session, userId, { category, query, forYou }) {
     items, activeIndex, setActiveIndex, loading, loadingMore, error,
     windowStart, windowEnd, likedIds, setLikedIds, preferredCategories,
     hasMore: !!pageToken.current || fetchingRef.current,
+    trimEvent,
   }
 }
