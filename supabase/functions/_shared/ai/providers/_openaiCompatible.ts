@@ -7,7 +7,7 @@ export async function openAICompatibleGenerate(
   model: string,
   prompt: string,
   options: GenerateOptions,
-  capabilities: { supportsJsonMode: boolean },
+  capabilities: { supportsJsonMode: boolean } = { supportsJsonMode: false },
   extraHeaders: Record<string, string> = {}
 ): Promise<GenerateResult> {
   const { systemPrompt = '', history = [], temperature = 0.8, jsonMode = false, maxTokens = 2000 } = options
@@ -42,7 +42,6 @@ export async function openAICompatibleGenerate(
   const data = await response.json()
   const text = data.choices?.[0]?.message?.content || ''
 
-   
   const usage = data.usage ? {
     promptTokens: data.usage.prompt_tokens || 0,
     completionTokens: data.usage.completion_tokens || 0,
