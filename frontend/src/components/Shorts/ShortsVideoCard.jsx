@@ -167,7 +167,13 @@ export default function ShortsVideoCard({
           {isMounted ? (
             <div ref={wrapperRef} style={{ width: '100%', height: '100%', pointerEvents: 'none', borderRadius: 2, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} />
           ) : (
-            <img src={video.thumbnailUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 2 }} />
+           <img
+  src={video.thumbnailUrl}
+  alt=""
+  loading="lazy"
+  decoding="async"
+  style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 2 }}
+/>
           )}
         </div>
       </div>
