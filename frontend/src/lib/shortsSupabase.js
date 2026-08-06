@@ -66,3 +66,64 @@ export async function getLikedShortIds(userId, videoIds) {
     .eq('user_id', userId).in('video_id', videoIds)
   return new Set((data || []).map(r => r.video_id))
 }
+
+export async function getFollowedChannelIds(userId, channelIds) {
+  if (!channelIds || channelIds.length === 0) return new Set()
+  const { data } = await supabase
+    .from('shorts_followed_channels')
+    .select('channel_id')
+    .eq('user_id', userId)
+    .in('channel_id', channelIds)
+  return new Set((data || []).map(r => r.channel_id))
+}
+
+export async function toggleFollowChannel(userId, channelId, channelTitle, isFollowing) {
+  if (isFollowing) {
+    await supabase.from('shorts_followed_channels').delete().eq('user_id', userId).eq('channel_id', channelId)
+    return false
+  }
+  await supabase.from('shorts_followed_channels')
+    .upsert({ user_id: userId, channel_id: channelId, channel_title: channelTitle }, { onConflict: 'user_id,channel_id' })
+  return true
+}
+
+export async function getRepostedIds(userId, videoIds) {
+  if (!videoIds || videoIds.length === 0) return new Set()
+  const { data } = await supabase
+    .from('shorts_reposts')
+    .select('video_id')
+    .eq('user_id', userId)
+    .in('video_id', videoIds)
+  return new Set((data || []).map(r => r.video_id))
+}
+
+export async function toggleRepost(userId, video, isReposted) {
+  if (isReposted) {
+    await supabase.from('shorts_reposts').delete().eq('user_id', userId).eq('video_id', video.videoId)
+    return false
+  }
+  await supabase.from('shorts_reposts').upsert({
+    user_id: userId, video_id: video.videoId, video_title: video.title,
+    thumbnail_url: video.thumbnailUrl, channel_title: video.channelTitle,
+  }, { onConflict: 'user_id,video_id' })
+  return true
+}
+
+export async function getSavedIds(userId, videoIds) {
+  if (!videoIds || videoIds.length === 0) return new Set()
+  const { data } = await supabase
+    .from('shorts_saves')
+    .select('video_id')
+    .eq('user_id', userId)
+    .in('video_id', videoIds)
+  return new Set((data || []).map(r => r.video_id))
+}
+
+export async function toggleSave(userId, videoId, isSaved) {
+  if (isSaved) {
+    await supabase.from('shorts_saves').delete().eq('user_id', userId).eq('video_id', videoId)
+    return false
+  }
+  await supabase.from('shorts_saves').upsert({ user_id: userId, video_id: videoId }, { onConflict: 'user_id,video_id' })
+  return true
+}
