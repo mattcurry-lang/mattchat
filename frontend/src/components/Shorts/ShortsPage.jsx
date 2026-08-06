@@ -57,26 +57,6 @@ export default function ShortsPage({
   const fetchedChannelsRef = useRef(new Set()) // channel ids already checked for follow
   const { chromeVisible, wake } = useAutoHideChrome()
 
-  // Fetches follow/repost/save status only for videos not already
-  // checked — same incremental pattern loadBatch uses for likedIds,
-  // so scrolling further never re-queries what's already known.
-  useEffect(() => {
-    const newItems = items.filter(v => !fetchedMetaRef.current.has(v.videoId))
-    if (newItems.length === 0) return
-    newItems.forEach(v => fetchedMetaRef.current.add(v.videoId))
-
-    const videoIds = newItems.map(v => v.videoId)
-    getRepostedIds(userId, videoIds).then(ids => setRepostedIds(prev => new Set([...prev, ...ids])))
-    getSavedIds(userId, videoIds).then(ids => setSavedIds(prev => new Set([...prev, ...ids])))
-
-    const newChannelIds = [...new Set(newItems.map(v => v.channelId).filter(Boolean))]
-      .filter(id => !fetchedChannelsRef.current.has(id))
-    if (newChannelIds.length > 0) {
-      newChannelIds.forEach(id => fetchedChannelsRef.current.add(id))
-      getFollowedChannelIds(userId, newChannelIds).then(ids => setFollowedChannelIds(prev => new Set([...prev, ...ids])))
-    }
-  }, [items, userId])
-
   // Fire both preloads once, synchronously on mount — before the feed
   // fetch even resolves, well before the first card would otherwise
   // trigger loadYouTubeAPI() itself on mount.
@@ -93,6 +73,30 @@ export default function ShortsPage({
   })
 
   useEffect(() => { setLikedIdsLocal(hookLikedIds) }, [hookLikedIds])
+
+  // Fetches follow/repost/save status only for videos not already
+  // checked — same incremental pattern loadBatch uses for likedIds,
+  // so scrolling further never re-queries what's already known.
+  // Placed AFTER the useShorts() call above, not before — it reads
+  // `items`, which useShorts returns, so it must come after that
+  // const is actually declared or `items` is referenced before
+  // initialization (this was the exact bug in the previous version).
+  useEffect(() => {
+    const newItems = items.filter(v => !fetchedMetaRef.current.has(v.videoId))
+    if (newItems.length === 0) return
+    newItems.forEach(v => fetchedMetaRef.current.add(v.videoId))
+
+    const videoIds = newItems.map(v => v.videoId)
+    getRepostedIds(userId, videoIds).then(ids => setRepostedIds(prev => new Set([...prev, ...ids])))
+    getSavedIds(userId, videoIds).then(ids => setSavedIds(prev => new Set([...prev, ...ids])))
+
+    const newChannelIds = [...new Set(newItems.map(v => v.channelId).filter(Boolean))]
+      .filter(id => !fetchedChannelsRef.current.has(id))
+    if (newChannelIds.length > 0) {
+      newChannelIds.forEach(id => fetchedChannelsRef.current.add(id))
+      getFollowedChannelIds(userId, newChannelIds).then(ids => setFollowedChannelIds(prev => new Set([...prev, ...ids])))
+    }
+  }, [items, userId])
 
   useEffect(() => {
     if (jumpedToInitialRef.current || !initialVideoId || items.length === 0) return
