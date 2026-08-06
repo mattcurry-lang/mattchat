@@ -5,7 +5,7 @@ import CollectionsRail from './CollectionsRail'
 import StartConversationModal from './StartConversationModal'
 import { useShorts } from '../../hooks/useShorts'
 import { useAutoHideChrome } from '../../hooks/useAutoHideChrome'
-import { saveShortsProgress, getShortsProgress, logShortsInteraction, toggleShortsLike } from '../../lib/shortsSupabase'
+import { saveShortsProgress, getShortsProgress, logShortsInteraction, toggleShortsLike, getFollowedChannelIds, toggleFollowChannel, getRepostedIds, toggleRepost, getSavedIds, toggleSave } from '../../lib/shortsSupabase'
 
 // Warms the browser's connection to YouTube's domains the instant
 // Shorts opens, before any card has mounted or even fetched. DNS +
@@ -50,7 +50,32 @@ export default function ShortsPage({
   const containerRef = useRef(null)
   const jumpedToInitialRef = useRef(false)
   const lastHandledTrimId = useRef(null)
+  const [followedChannelIds, setFollowedChannelIds] = useState(new Set())
+  const [repostedIds, setRepostedIds] = useState(new Set())
+  const [savedIds, setSavedIds] = useState(new Set())
+  const fetchedMetaRef = useRef(new Set())    // video ids already checked for repost/save
+  const fetchedChannelsRef = useRef(new Set()) // channel ids already checked for follow
   const { chromeVisible, wake } = useAutoHideChrome()
+
+  // Fetches follow/repost/save status only for videos not already
+  // checked — same incremental pattern loadBatch uses for likedIds,
+  // so scrolling further never re-queries what's already known.
+  useEffect(() => {
+    const newItems = items.filter(v => !fetchedMetaRef.current.has(v.videoId))
+    if (newItems.length === 0) return
+    newItems.forEach(v => fetchedMetaRef.current.add(v.videoId))
+
+    const videoIds = newItems.map(v => v.videoId)
+    getRepostedIds(userId, videoIds).then(ids => setRepostedIds(prev => new Set([...prev, ...ids])))
+    getSavedIds(userId, videoIds).then(ids => setSavedIds(prev => new Set([...prev, ...ids])))
+
+    const newChannelIds = [...new Set(newItems.map(v => v.channelId).filter(Boolean))]
+      .filter(id => !fetchedChannelsRef.current.has(id))
+    if (newChannelIds.length > 0) {
+      newChannelIds.forEach(id => fetchedChannelsRef.current.add(id))
+      getFollowedChannelIds(userId, newChannelIds).then(ids => setFollowedChannelIds(prev => new Set([...prev, ...ids])))
+    }
+  }, [items, userId])
 
   // Fire both preloads once, synchronously on mount — before the feed
   // fetch even resolves, well before the first card would otherwise
@@ -151,6 +176,37 @@ export default function ShortsPage({
     })
   }, [])
 
+  const handleToggleFollow = useCallback(async (video) => {
+    if (!video.channelId) return // pool item predates the channelId migration — nothing to key the follow on
+    const isFollowing = followedChannelIds.has(video.channelId)
+    const nowFollowing = await toggleFollowChannel(userId, video.channelId, video.channelTitle, isFollowing)
+    setFollowedChannelIds(prev => {
+      const next = new Set(prev)
+      nowFollowing ? next.add(video.channelId) : next.delete(video.channelId)
+      return next
+    })
+  }, [followedChannelIds, userId])
+
+  const handleToggleRepost = useCallback(async (video) => {
+    const isReposted = repostedIds.has(video.videoId)
+    const nowReposted = await toggleRepost(userId, video, isReposted)
+    setRepostedIds(prev => {
+      const next = new Set(prev)
+      nowReposted ? next.add(video.videoId) : next.delete(video.videoId)
+      return next
+    })
+  }, [repostedIds, userId])
+
+  const handleToggleSave = useCallback(async (video) => {
+    const isSaved = savedIds.has(video.videoId)
+    const nowSaved = await toggleSave(userId, video.videoId, isSaved)
+    setSavedIds(prev => {
+      const next = new Set(prev)
+      nowSaved ? next.add(video.videoId) : next.delete(video.videoId)
+      return next
+    })
+  }, [savedIds, userId])
+
   const runSearch = () => {
     if (!searchInput.trim()) return
     setActiveSearch(searchInput.trim())
@@ -247,6 +303,12 @@ export default function ShortsPage({
                 onOpenShare={() => setShareTarget(video)}
                 muted={muted}
                 onToggleMute={handleToggleMute}
+                following={video.channelId ? followedChannelIds.has(video.channelId) : false}
+                onToggleFollow={() => handleToggleFollow(video)}
+                reposted={repostedIds.has(video.videoId)}
+                onToggleRepost={() => handleToggleRepost(video)}
+                saved={savedIds.has(video.videoId)}
+                onToggleSave={() => handleToggleSave(video)}
               />
             </div>
           )
