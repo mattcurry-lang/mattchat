@@ -41,6 +41,7 @@ export default function ShortsVideoCard({
   onProgress, onEnded, onReplay, liked, onToggleLike,
   onOpenShare, onOpenComments, onTap,
   muted, onToggleMute,
+  following, onToggleFollow, reposted, onToggleRepost, saved, onToggleSave,
 }) {
   const wrapperRef = useRef(null)
   const playerRef = useRef(null)
@@ -49,9 +50,6 @@ export default function ShortsVideoCard({
   const progressTimer = useRef(null)
   const [burst, setBurst] = useState(false)
   const lastTapRef = useRef(0)
-  const [following, setFollowing] = useState(false) // visual only — see note in chat
-  const [reposted, setReposted] = useState(false)   // visual only — see note in chat
-  const [saved, setSaved] = useState(false)          // visual only — see note in chat
   const bgColor = useDominantColor(video.thumbnailUrl)
 
   useEffect(() => {
@@ -207,7 +205,7 @@ export default function ShortsVideoCard({
           {video.channelTitle}
         </span>
         <button
-          onClick={(e) => { e.stopPropagation(); setFollowing(v => !v) }}
+          onClick={(e) => { e.stopPropagation(); onToggleFollow?.() }}
           style={{
             background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit',
             fontSize: 13.5, fontWeight: 700, color: following ? 'rgba(255,255,255,0.55)' : '#5eb1ff',
@@ -259,11 +257,11 @@ export default function ShortsVideoCard({
           <span style={{ fontSize: 25, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.6))' }}>💬</span>
           <span style={railLabelStyle}>Comment</span>
         </button>
-        <button onClick={(e) => { e.stopPropagation(); setReposted(v => !v) }} style={railBtnStyle}>
+        <button onClick={(e) => { e.stopPropagation(); onToggleRepost?.() }} style={railBtnStyle}>
           <span style={{ fontSize: 25, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.6))', color: reposted ? '#5eb1ff' : '#fff' }}>🔁</span>
           <span style={railLabelStyle}>Repost</span>
         </button>
-        <button onClick={(e) => { e.stopPropagation(); setSaved(v => !v) }} style={railBtnStyle}>
+        <button onClick={(e) => { e.stopPropagation(); onToggleSave?.() }} style={railBtnStyle}>
           <span style={{ fontSize: 24, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.6))' }}>{saved ? '🔖' : '📑'}</span>
         </button>
         <button onClick={(e) => { e.stopPropagation(); onOpenShare() }} style={railBtnStyle}>
