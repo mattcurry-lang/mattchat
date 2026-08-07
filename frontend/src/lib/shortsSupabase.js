@@ -127,3 +127,35 @@ export async function toggleSave(userId, videoId, isSaved) {
   await supabase.from('shorts_saves').upsert({ user_id: userId, video_id: videoId }, { onConflict: 'user_id,video_id' })
   return true
 }
+
+export async function getComments(videoId) {
+  const { data, error } = await supabase
+    .from('shorts_comments')
+    .select('id, text, created_at, user_id, profiles(username, avatar_url)')
+    .eq('video_id', videoId)
+    .order('created_at', { ascending: false })
+  if (error) { console.error('getComments failed:', error); return [] }
+  return data || []
+}
+
+export async function postComment(userId, videoId, text) {
+  const { data, error } = await supabase
+    .from('shorts_comments')
+    .insert({ video_id: videoId, user_id: userId, text })
+    .select('id, text, created_at, user_id, profiles(username, avatar_url)')
+    .single()
+  if (error) { console.error('postComment failed:', error); return null }
+  return data
+}
+
+export async function getCommentCounts(videoIds) {
+  if (!videoIds || videoIds.length === 0) return {}
+  const { data, error } = await supabase
+    .from('shorts_comments')
+    .select('video_id')
+    .in('video_id', videoIds)
+  if (error) { console.error('getCommentCounts failed:', error); return {} }
+  const counts = {}
+  ;(data || []).forEach(row => { counts[row.video_id] = (counts[row.video_id] || 0) + 1 })
+  return counts
+}
