@@ -5,9 +5,10 @@
   "dependencies": {
     "@daily-co/daily-js": "^0.65.0",
     "@supabase/supabase-js": "2.49.7",
-   "framer-motion": "^11.0.0",
-  "react": "^18.2.0",
-  "react-dom": "^18.2.0",
+    "framer-motion": "^11.0.0",
+    "lucide-react": "^0.383.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.0",
     "react-scripts": "5.0.1",
     "date-fns": "^3.0.0"
