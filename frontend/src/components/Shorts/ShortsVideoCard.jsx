@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react'
+import { Heart, MessageCircle, Repeat2, Bookmark, Send, Volume2, VolumeX } from 'lucide-react'
 import { useDominantColor } from '../../hooks/useDominantColor'
 import { useIsDesktop } from '../../hooks/useIsDesktop'
 
@@ -38,7 +39,7 @@ function haptic(pattern = 10) {
 }
 
 export default function ShortsVideoCard({
-  video, isActive, isMounted, startPosition,
+  video, isActive, isMounted,
   onProgress, onEnded, onReplay, liked, onToggleLike,
   onOpenShare, onOpenComments, onTap,
   muted, onToggleMute,
@@ -73,7 +74,10 @@ export default function ShortsVideoCard({
           onReady: (e) => {
             readyRef.current = true
             setReady(true)
-            if (startPosition > 1) e.target.seekTo(startPosition, true)
+            // Always starts at 0 — no resume-to-last-position. A short
+            // always beginning from wherever you previously stopped
+            // made replays and re-scrolls feel repetitive rather than
+            // helpful, so this intentionally does NOT seek anywhere.
             e.target.mute() // always start muted — see mute-reconciliation effect below for why
           },
           onStateChange: (e) => {
@@ -162,21 +166,23 @@ export default function ShortsVideoCard({
       {burst && (
         <div style={{
           position: 'absolute', top: '42%', left: '50%', transform: 'translate(-50%,-50%)',
-          fontSize: 90, pointerEvents: 'none', animation: 'shortsHeartBurst 0.7s ease forwards',
-        }}>❤️</div>
+          pointerEvents: 'none', animation: 'shortsHeartBurst 0.7s ease forwards',
+        }}>
+          <Heart size={90} fill="#ff3b5c" color="#ff3b5c" strokeWidth={0} />
+        </div>
       )}
       {isActive && (
         <button
           onClick={(e) => { e.stopPropagation(); onToggleMute?.() }}
           style={{
             position: 'absolute', right: 12, bottom: 12, zIndex: 4,
-            background: 'none', border: 'none', color: '#fff', fontSize: 18,
+            background: 'none', border: 'none', color: '#fff',
             cursor: 'pointer', filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.7))',
             display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28,
           }}
           title={muted ? 'Unmute' : 'Mute'}
         >
-          {muted ? '🔇' : '🔊'}
+          {muted ? <VolumeX size={19} strokeWidth={2} /> : <Volume2 size={19} strokeWidth={2} />}
         </button>
       )}
     </>
@@ -185,21 +191,22 @@ export default function ShortsVideoCard({
   const railButtons = (railStyle, labelStyle, iconShadow) => (
     <>
       <button onClick={(e) => { e.stopPropagation(); onToggleLike(); if (!liked) triggerLikeBurst() }} style={railStyle}>
-        <span style={{ fontSize: 27, display: 'block', transition: 'transform 0.2s cubic-bezier(0.34,1.56,0.64,1)', transform: liked ? 'scale(1.15)' : 'scale(1)', filter: iconShadow }}>
-          {liked ? '❤️' : '🤍'}
-        </span>
+        <Heart
+          size={27} strokeWidth={2} fill={liked ? '#ff3b5c' : 'none'} color={liked ? '#ff3b5c' : '#fff'}
+          style={{ transition: 'transform 0.2s cubic-bezier(0.34,1.56,0.64,1)', transform: liked ? 'scale(1.15)' : 'scale(1)', filter: iconShadow }}
+        />
         <span style={labelStyle}>{formatCount((video.viewCount || 0) % 999_999)}</span>
       </button>
       <button onClick={(e) => { e.stopPropagation(); onOpenComments?.() }} style={railStyle}>
-        <span style={{ fontSize: 25, filter: iconShadow }}>💬</span>
+        <MessageCircle size={25} strokeWidth={2} color="#fff" style={{ filter: iconShadow }} />
         <span style={labelStyle}>{formatCount(21)}</span>
       </button>
       <button onClick={(e) => { e.stopPropagation(); onToggleRepost?.() }} style={railStyle}>
-        <span style={{ fontSize: 25, filter: iconShadow, color: reposted ? '#5eb1ff' : '#fff' }}>🔁</span>
+        <Repeat2 size={27} strokeWidth={2.2} color={reposted ? '#5eb1ff' : '#fff'} style={{ filter: iconShadow }} />
         <span style={labelStyle}>Repost</span>
       </button>
       <button onClick={(e) => { e.stopPropagation(); onToggleSave?.() }} style={railStyle}>
-        <span style={{ fontSize: 24, filter: iconShadow }}>{saved ? '🔖' : '📑'}</span>
+        <Bookmark size={24} strokeWidth={2} fill={saved ? '#fff' : 'none'} color="#fff" style={{ filter: iconShadow }} />
       </button>
       {/* Send-to-chat is Mattchat's own core feature (sharing a Short
           straight into a conversation) and has no Instagram Reels
@@ -207,7 +214,7 @@ export default function ShortsVideoCard({
           even though it means the rail has one more icon than the
           reference. */}
       <button onClick={(e) => { e.stopPropagation(); onOpenShare() }} style={railStyle}>
-        <span style={{ fontSize: 25, filter: iconShadow }}>➤</span>
+        <Send size={24} strokeWidth={2} color="#fff" style={{ filter: iconShadow }} />
         <span style={labelStyle}>Send</span>
       </button>
     </>
