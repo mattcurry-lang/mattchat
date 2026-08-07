@@ -1,12 +1,17 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { fetchShortsFeed, getLikedShortIds } from '../lib/shortsSupabase'
 
-const FETCH_AHEAD_THRESHOLD = 4
+const FETCH_AHEAD_THRESHOLD = 8 // must stay > PLAYER_FORWARD, or the fetch fires after mounting has already caught up to the fetched data
 
-// Real <YT.Player> mount window — see the earlier note on why this is
-// tight (1 back / 1 forward, 3 concurrent players max).
+// Real <YT.Player> mount window. Widened to 5 forward on request, to
+// have the next 5 videos already buffering before the user swipes to
+// them (eliminates the loading state on forward scroll). This trades
+// back part of the memory optimization from earlier — up to 6
+// concurrent YouTube iframes now (1 back + active + 5 forward)
+// instead of 3. Backward stays at 1 since re-watching the previous
+// video is far more common than jumping several back.
 const PLAYER_BACK = 1
-const PLAYER_FORWARD = 1
+const PLAYER_FORWARD = 5
 
 // Once the fetched-items array grows past this, trim scrolled-past
 // items off the front so a long session doesn't accumulate an
@@ -15,8 +20,8 @@ const PLAYER_FORWARD = 1
 // item must be before it's eligible for removal — this must stay
 // comfortably larger than PLAYER_BACK so trimming never touches
 // anything currently mounted.
-const MAX_ITEMS_IN_MEMORY = 60
-const TRIM_TARGET = 40
+const MAX_ITEMS_IN_MEMORY = 80
+const TRIM_TARGET = 50
 const TRIM_SAFETY_BUFFER = 20
 
 export function useShorts(session, userId, { category, query, forYou }) {
