@@ -1,11 +1,10 @@
 import React, { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react'
+import { Search as SearchIcon, X as XIcon, ArrowLeft, WifiOff } from 'lucide-react'
 import ShortsVideoCard, { loadYouTubeAPI } from './ShortsVideoCard'
-import ShortsCategoryBar from './ShortsCategoryBar'
-import CollectionsRail from './CollectionsRail'
 import StartConversationModal from './StartConversationModal'
 import { useShorts } from '../../hooks/useShorts'
 import { useAutoHideChrome } from '../../hooks/useAutoHideChrome'
-import { saveShortsProgress, getShortsProgress, logShortsInteraction, toggleShortsLike, getFollowedChannelIds, toggleFollowChannel, getRepostedIds, toggleRepost, getSavedIds, toggleSave } from '../../lib/shortsSupabase'
+import { saveShortsProgress, logShortsInteraction, toggleShortsLike, getFollowedChannelIds, toggleFollowChannel, getRepostedIds, toggleRepost, getSavedIds, toggleSave } from '../../lib/shortsSupabase'
 
 // Warms the browser's connection to YouTube's domains the instant
 // Shorts opens, before any card has mounted or even fetched. DNS +
@@ -38,7 +37,11 @@ function getInitialMuted() {
 export default function ShortsPage({
   session, userId, conversations, getConvoName, onClose, initialVideoId, initialSearch,
 }) {
-  const [category, setCategory] = useState(initialSearch ? null : 'trending')
+  // Category switching UI was removed for a cleaner top chrome — the
+  // feed now always runs on the personalized "For You" ranking unless
+  // the user explicitly searches. If category browsing needs to come
+  // back later, it's a small addition (a filter icon opening a sheet),
+  // not a rebuild — the underlying useShorts category param still works.
   const [searchInput, setSearchInput] = useState(initialSearch || '')
   const [activeSearch, setActiveSearch] = useState(initialSearch || '')
   const [showSearchBox, setShowSearchBox] = useState(false)
@@ -64,12 +67,12 @@ export default function ShortsPage({
 
   const {
     items, activeIndex, setActiveIndex, loading, loadingMore, error,
-    windowStart, windowEnd, likedIds: hookLikedIds, setLikedIds, preferredCategories,
+    windowStart, windowEnd, likedIds: hookLikedIds, setLikedIds,
     trimEvent,
   } = useShorts(session, userId, {
-    category: activeSearch ? null : category,
+    category: activeSearch ? null : 'trending',
     query: activeSearch || null,
-    forYou: category === 'forYou',
+    forYou: !activeSearch,
   })
 
   useEffect(() => { setLikedIdsLocal(hookLikedIds) }, [hookLikedIds])
@@ -146,13 +149,6 @@ export default function ShortsPage({
     return () => observer.disconnect()
   }, [items.length]) // eslint-disable-line
 
-  const [resumePosition, setResumePosition] = useState(0)
-  useEffect(() => {
-    const video = items[activeIndex]
-    if (!video) return
-    getShortsProgress(userId, video.videoId).then(setResumePosition)
-  }, [activeIndex, items, userId])
-
   const handleProgress = useCallback((seconds) => {
     startTimeRef.current = seconds
     const video = items[activeIndex]
@@ -214,11 +210,8 @@ export default function ShortsPage({
   const runSearch = () => {
     if (!searchInput.trim()) return
     setActiveSearch(searchInput.trim())
-    setCategory(null)
     setShowSearchBox(false)
   }
-
-  const openCollection = (cat) => { setCategory(cat); setActiveSearch('') }
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 700, background: '#0a0a0f' }} onMouseMove={wake} onTouchStart={wake}>
@@ -227,12 +220,12 @@ export default function ShortsPage({
           position: 'absolute', top: 0, left: 0, right: 0, zIndex: 6, display: 'flex', alignItems: 'center', gap: 8,
           padding: '14px 16px 8px', background: 'linear-gradient(180deg, rgba(0,0,0,0.55), transparent)',
         }}>
-          <button onClick={onClose} style={headerBtnStyle}>←</button>
+          <button onClick={onClose} style={headerBtnStyle}><ArrowLeft size={18} color="#fff" /></button>
           <div style={{ flex: 1, fontSize: 16, fontWeight: 800, color: '#fff', letterSpacing: -0.2 }}>Shorts</div>
-          <button onClick={() => setShowSearchBox(v => !v)} style={headerBtnStyle}>🔍</button>
+          <button onClick={() => setShowSearchBox(v => !v)} style={headerBtnStyle}><SearchIcon size={17} color="#fff" /></button>
         </div>
 
-        {showSearchBox ? (
+        {showSearchBox && (
           <div style={{ position: 'absolute', top: 58, left: 16, right: 16, zIndex: 6, display: 'flex', gap: 8 }}>
             <input
               autoFocus value={searchInput} onChange={(e) => setSearchInput(e.target.value)}
@@ -242,20 +235,12 @@ export default function ShortsPage({
             />
             <button onClick={runSearch} style={{ ...headerBtnStyle, width: 'auto', padding: '0 16px', borderRadius: 14 }}>Go</button>
           </div>
-        ) : (
-          <>
-            <ShortsCategoryBar
-              active={activeSearch ? null : category}
-              onChange={(c) => { setCategory(c); setActiveSearch('') }}
-              visible={chromeVisible}
-            />
-            <CollectionsRail preferredCategories={preferredCategories} onSelect={openCollection} visible={chromeVisible} />
-          </>
         )}
 
         {activeSearch && (
-          <div style={{ position: 'absolute', top: 60, left: 16, zIndex: 6, background: 'rgba(255,255,255,0.95)', color: '#0f0f1a', borderRadius: 20, padding: '6px 12px', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-            "{activeSearch}" <span onClick={() => { setActiveSearch(''); setCategory('trending') }} style={{ cursor: 'pointer' }}>✕</span>
+          <div style={{ position: 'absolute', top: 60, left: 16, zIndex: 6, background: 'rgba(255,255,255,0.95)', color: '#0f0f1a', borderRadius: 20, padding: '6px 12px', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+            "{activeSearch}"
+            <XIcon size={13} style={{ cursor: 'pointer' }} onClick={() => setActiveSearch('')} />
           </div>
         )}
       </div>
@@ -264,10 +249,10 @@ export default function ShortsPage({
 
       {!loading && error && items.length === 0 && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', justifyContent: 'center', color: '#fff', padding: 24, textAlign: 'center' }}>
-          <div style={{ fontSize: 32 }}>📡</div>
+          <WifiOff size={30} color="rgba(255,255,255,0.7)" />
           <div style={{ fontSize: 13.5, fontWeight: 700 }}>Couldn't load Shorts right now</div>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{error}</div>
-          <button onClick={() => setCategory((c) => c)} style={{ marginTop: 4, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 20, color: '#fff', fontSize: 12, fontWeight: 700, padding: '8px 18px', cursor: 'pointer', fontFamily: 'inherit' }}>Retry</button>
+          <button onClick={() => window.location.reload()} style={{ marginTop: 4, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 20, color: '#fff', fontSize: 12, fontWeight: 700, padding: '8px 18px', cursor: 'pointer', fontFamily: 'inherit' }}>Retry</button>
         </div>
       )}
 
@@ -298,7 +283,6 @@ export default function ShortsPage({
                 video={video}
                 isActive={isActive}
                 isMounted={isMounted}
-                startPosition={isActive ? resumePosition : 0}
                 onProgress={isActive ? handleProgress : undefined}
                 onReplay={isActive ? handleReplay : undefined}
                 onTap={wake}
