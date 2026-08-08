@@ -1,10 +1,11 @@
 import React, { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react'
 import { Search as SearchIcon, X as XIcon, ArrowLeft, WifiOff } from 'lucide-react'
 import ShortsVideoCard, { loadYouTubeAPI } from './ShortsVideoCard'
+import ShortsCommentsSheet from './ShortsCommentsSheet'
 import StartConversationModal from './StartConversationModal'
 import { useShorts } from '../../hooks/useShorts'
 import { useAutoHideChrome } from '../../hooks/useAutoHideChrome'
-import { saveShortsProgress, logShortsInteraction, toggleShortsLike, getFollowedChannelIds, toggleFollowChannel, getRepostedIds, toggleRepost, getSavedIds, toggleSave } from '../../lib/shortsSupabase'
+import { saveShortsProgress, logShortsInteraction, toggleShortsLike, getFollowedChannelIds, toggleFollowChannel, getRepostedIds, toggleRepost, getSavedIds, toggleSave, getCommentCounts } from '../../lib/shortsSupabase'
 
 // Warms the browser's connection to YouTube's domains the instant
 // Shorts opens, before any card has mounted or even fetched. DNS +
@@ -46,6 +47,8 @@ export default function ShortsPage({
   const [activeSearch, setActiveSearch] = useState(initialSearch || '')
   const [showSearchBox, setShowSearchBox] = useState(false)
   const [shareTarget, setShareTarget] = useState(null)
+  const [commentTarget, setCommentTarget] = useState(null)
+  const [commentCounts, setCommentCounts] = useState({})
   const [likedIds, setLikedIdsLocal] = useState(new Set())
   const [muted, setMuted] = useState(getInitialMuted)
   const startTimeRef = useRef(0)
@@ -92,6 +95,7 @@ export default function ShortsPage({
     const videoIds = newItems.map(v => v.videoId)
     getRepostedIds(userId, videoIds).then(ids => setRepostedIds(prev => new Set([...prev, ...ids])))
     getSavedIds(userId, videoIds).then(ids => setSavedIds(prev => new Set([...prev, ...ids])))
+    getCommentCounts(videoIds).then(counts => setCommentCounts(prev => ({ ...prev, ...counts })))
 
     const newChannelIds = [...new Set(newItems.map(v => v.channelId).filter(Boolean))]
       .filter(id => !fetchedChannelsRef.current.has(id))
@@ -289,6 +293,8 @@ export default function ShortsPage({
                 liked={likedIds.has(video.videoId)}
                 onToggleLike={() => handleToggleLike(video)}
                 onOpenShare={() => setShareTarget(video)}
+                onOpenComments={() => setCommentTarget(video)}
+                commentCount={commentCounts[video.videoId] || 0}
                 muted={muted}
                 onToggleMute={handleToggleMute}
                 following={video.channelId ? followedChannelIds.has(video.channelId) : false}
@@ -311,6 +317,17 @@ export default function ShortsPage({
           getConvoName={getConvoName}
           currentUserId={userId}
           onClose={() => setShareTarget(null)}
+        />
+      )}
+
+      {commentTarget && (
+        <ShortsCommentsSheet
+          video={commentTarget}
+          userId={userId}
+          onClose={() => setCommentTarget(null)}
+          onCommentPosted={() => setCommentCounts(prev => ({
+            ...prev, [commentTarget.videoId]: (prev[commentTarget.videoId] || 0) + 1,
+          }))}
         />
       )}
     </div>
