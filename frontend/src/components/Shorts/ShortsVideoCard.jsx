@@ -41,7 +41,7 @@ function haptic(pattern = 10) {
 export default function ShortsVideoCard({
   video, isActive, isMounted,
   onProgress, onEnded, onReplay, liked, onToggleLike,
-  onOpenShare, onOpenComments, onTap,
+  onOpenShare, onOpenComments, commentCount, onTap,
   muted, onToggleMute,
   following, onToggleFollow, reposted, onToggleRepost, saved, onToggleSave,
 }) {
@@ -199,7 +199,7 @@ export default function ShortsVideoCard({
       </button>
       <button onClick={(e) => { e.stopPropagation(); onOpenComments?.() }} style={railStyle}>
         <MessageCircle size={25} strokeWidth={2} color="#fff" style={{ filter: iconShadow }} />
-        <span style={labelStyle}>{formatCount(21)}</span>
+        <span style={labelStyle}>{formatCount(commentCount || 0)}</span>
       </button>
       <button onClick={(e) => { e.stopPropagation(); onToggleRepost?.() }} style={railStyle}>
         <Repeat2 size={27} strokeWidth={2.2} color={reposted ? '#5eb1ff' : '#fff'} style={{ filter: iconShadow }} />
@@ -265,12 +265,20 @@ export default function ShortsVideoCard({
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         background: '#0a0a0f', gap: 16,
       }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 22 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 26 }}>
           <div
             onClick={handleTapVideo}
             style={{
-              position: 'relative', width: 340, maxWidth: '80vw', maxHeight: '74vh', aspectRatio: '9/16',
-              borderRadius: 12, overflow: 'hidden', cursor: 'pointer', background: bgColor,
+              position: 'relative', width: 420, maxWidth: '82vw', maxHeight: '78vh', aspectRatio: '9/16',
+              borderRadius: 16, overflow: 'hidden', cursor: 'pointer', background: bgColor,
+              border: '1px solid rgba(255,255,255,0.14)',
+              // Glassmorphic glow: a soft colored halo picked up from the
+              // video's own dominant color (so it feels tied to the
+              // content, not a generic effect), plus a gentle pulse for
+              // the "futuristic" feel. The border above is the glass
+              // edge; this box-shadow is the glow behind it.
+              boxShadow: `0 0 1px rgba(255,255,255,0.3), 0 0 40px 4px ${bgColor}66, 0 0 90px 18px ${bgColor}33, 0 20px 60px rgba(0,0,0,0.5)`,
+              animation: 'shortsCardGlow 4s ease-in-out infinite',
               transition: 'background 0.6s ease',
             }}
           >
@@ -280,7 +288,7 @@ export default function ShortsVideoCard({
             {railButtons(desktopRailBtnStyle, desktopRailLabelStyle, 'none')}
           </div>
         </div>
-        <div style={{ width: 340, maxWidth: '80vw' }}>
+        <div style={{ width: 420, maxWidth: '82vw' }}>
           {creatorAndCaption('#fff', '#5eb1ff')}
         </div>
         <style>{`
@@ -289,6 +297,10 @@ export default function ShortsVideoCard({
             25%  { opacity: 1; transform: translate(-50%,-50%) scale(1.15); }
             40%  { transform: translate(-50%,-50%) scale(0.95); }
             100% { opacity: 0; transform: translate(-50%,-50%) scale(1.3); }
+          }
+          @keyframes shortsCardGlow {
+            0%, 100% { filter: brightness(1); }
+            50%      { filter: brightness(1.08); }
           }
         `}</style>
       </div>
