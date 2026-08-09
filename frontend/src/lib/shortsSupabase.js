@@ -159,3 +159,31 @@ export async function getCommentCounts(videoIds) {
   ;(data || []).forEach(row => { counts[row.video_id] = (counts[row.video_id] || 0) + 1 })
   return counts
 }
+
+// If your project already has an env var for the Supabase functions
+// base URL (check src/lib/supabase.js for how the existing calls to
+// youtube-shorts-feed, refresh-shorts-pool etc. build their URL),
+// use that instead of this hardcoded constant so there's only one
+// place to update if the project ever changes. Hardcoded here since
+// that existing pattern wasn't available to check against.
+const SUPABASE_FUNCTIONS_URL = 'https://bqerkvywgxoioocbkxif.supabase.co/functions/v1'
+
+export async function getYouTubeConnectionStatus(userId) {
+  const { data } = await supabase.from('youtube_connections').select('user_id').eq('user_id', userId).maybeSingle()
+  return !!data
+}
+
+export async function startYouTubeConnect(session) {
+  const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/youtube-oauth-start`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  const data = await res.json()
+  if (data.ok) window.location.href = data.authUrl
+}
+
+export async function syncYouTubeSubscriptions(session) {
+  const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/sync-youtube-subscriptions`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  return res.json()
+}
