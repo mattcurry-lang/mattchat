@@ -6,6 +6,8 @@ import StartConversationModal from './StartConversationModal'
 import { useShorts } from '../../hooks/useShorts'
 import { useAutoHideChrome } from '../../hooks/useAutoHideChrome'
 import { saveShortsProgress, logShortsInteraction, toggleShortsLike, getFollowedChannelIds, toggleFollowChannel, getRepostedIds, toggleRepost, getSavedIds, toggleSave, getCommentCounts } from '../../lib/shortsSupabase'
+import ConnectYouTubeBanner from './ConnectYouTubeBanner'
+import { getYouTubeConnectionStatus, syncYouTubeSubscriptions } from '../../lib/shortsSupabase'
 
 // Warms the browser's connection to YouTube's domains the instant
 // Shorts opens, before any card has mounted or even fetched. DNS +
@@ -62,10 +64,27 @@ export default function ShortsPage({
   const fetchedMetaRef = useRef(new Set())    // video ids already checked for repost/save
   const fetchedChannelsRef = useRef(new Set()) // channel ids already checked for follow
   const { chromeVisible, wake } = useAutoHideChrome()
+  const [youtubeConnected, setYoutubeConnected] = useState(true) // default true so the banner doesn't flash before the check resolves
+const [showYtBanner, setShowYtBanner] = useState(true)
 
   // Fire both preloads once, synchronously on mount — before the feed
   // fetch even resolves, well before the first card would otherwise
   // trigger loadYouTubeAPI() itself on mount.
+useEffect(() => {
+  getYouTubeConnectionStatus(userId).then(setYoutubeConnected)
+}, [userId])
+
+// One-time: after Google redirects back with ?youtube_connect=success,
+// sync subscriptions immediately so the personalized feed has data to
+// draw from right away instead of waiting for some other trigger.
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('youtube_connect') === 'success') {
+    syncYouTubeSubscriptions(session).then(() => setYoutubeConnected(true))
+    window.history.replaceState({}, '', window.location.pathname) // strip the query param so a refresh doesn't re-trigger this
+  }
+}, [session])
+  
   useEffect(() => { preconnectYouTube(); loadYouTubeAPI() }, [])
 
   const {
@@ -241,6 +260,12 @@ export default function ShortsPage({
           </div>
         )}
 
+{!youtubeConnected && showYtBanner && (
+  <div style={{ position: 'absolute', top: 58, left: 16, right: 16, zIndex: 6 }}>
+    <ConnectYouTubeBanner session={session} onClose={() => setShowYtBanner(false)} />
+  </div>
+)}
+        
         {activeSearch && (
           <div style={{ position: 'absolute', top: 60, left: 16, zIndex: 6, background: 'rgba(255,255,255,0.95)', color: '#0f0f1a', borderRadius: 20, padding: '6px 12px', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
             "{activeSearch}"
