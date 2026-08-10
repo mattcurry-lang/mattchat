@@ -94,16 +94,33 @@ const AUTO_CONTEXT_GAP_DAYS = 2    // quiet period before showing "last spoke" c
 
 // Turns a raw message content string into a short, human-friendly
 // preview for the chat list — so encoded/tagged formats (sticker
-// gif:, status_reply:, call logs) never leak their raw syntax into
-// the sidebar the way status_reply's URL-encoded caption was
+// gif:, status_reply:, call logs, shorts) never leak their raw syntax
+// into the sidebar the way status_reply's URL-encoded caption was.
+// FIX: shorts previously fell through to `return content`, which
+// printed either the raw legacy "short:videoId::title::..." string
+// or, for the newer message_type:'short' JSON payload, the raw JSON
+// blob straight into the chat list row.
 function getMessagePreview(content) {
   if (!content) return 'No messages yet'
   if (content.startsWith('sticker:')) {
     const emoji = content.replace('sticker:', '').split(':')[0] || '😊'
     return `${emoji} Sticker`
   }
-if (content.startsWith('gif:')) return 'GIF'
+  if (content.startsWith('gif:')) return 'GIF'
   if (content.startsWith('call_log:') || content.startsWith('missed_call:')) return 'Call'
+  if (content.startsWith('short:')) return '📹 Short'
+  // Newer format: message_type === 'short' stores a JSON payload as the
+  // message content, so conversations.last_message ends up being that
+  // JSON string. Detect it structurally (starts with "{" and carries a
+  // videoId) since message_type itself isn't available on last_message.
+  if (content.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(content)
+      if (parsed.videoId) return '📹 Short'
+    } catch {
+      // not a short payload — fall through to returning raw content
+    }
+  }
   return content
 }
 
@@ -1403,6 +1420,10 @@ const handleSend = async () => {
               ) : (c.last_message?.startsWith('call_log:') || c.last_message?.startsWith('missed_call:')) ? (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <IconPhone size={11} /> Call
+                </span>
+              ) : (c.last_message?.startsWith('short:') || (c.last_message?.startsWith('{') && c.last_message.includes('"videoId"'))) ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <IconFilm size={11} /> Short
                 </span>
               ) : getMessagePreview(c.last_message)}
             </div>
