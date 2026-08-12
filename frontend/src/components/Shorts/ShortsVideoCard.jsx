@@ -32,6 +32,26 @@ function formatCount(n) {
   return String(n)
 }
 
+// Handles both '#rrggbb' and 'rgb(r,g,b)' — useDominantColor can return
+// either depending on how it samples, and string-concatenating an alpha
+// suffix onto an rgb() string produces invalid CSS that gets silently
+// dropped, which is why the glow was invisible.
+function toRgba(color, alpha) {
+  if (!color) return `rgba(102,126,234,${alpha})`
+  if (color.startsWith('#')) {
+    const hex = color.replace('#', '')
+    const full = hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex
+    const n = parseInt(full, 16)
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`
+  }
+  const m = color.match(/rgba?\(([^)]+)\)/)
+  if (m) {
+    const [r, g, b] = m[1].split(',').map(s => s.trim())
+    return `rgba(${r},${g},${b},${alpha})`
+  }
+  return color
+}
+
 function haptic(pattern = 10) {
   if (typeof navigator !== 'undefined' && navigator.vibrate) {
     try { navigator.vibrate(pattern) } catch { /* unsupported — no-op */ }
@@ -277,7 +297,7 @@ export default function ShortsVideoCard({
               // content, not a generic effect), plus a gentle pulse for
               // the "futuristic" feel. The border above is the glass
               // edge; this box-shadow is the glow behind it.
-              boxShadow: `0 0 1px rgba(255,255,255,0.3), 0 0 40px 4px ${bgColor}66, 0 0 90px 18px ${bgColor}33, 0 20px 60px rgba(0,0,0,0.5)`,
+             boxShadow: `0 0 1px rgba(255,255,255,0.3), 0 0 40px 4px ${toRgba(bgColor, 0.4)}, 0 0 90px 18px ${toRgba(bgColor, 0.2)}, 0 20px 60px rgba(0,0,0,0.5)`,
               animation: 'shortsCardGlow 4s ease-in-out infinite',
               transition: 'background 0.6s ease',
             }}
@@ -327,7 +347,12 @@ export default function ShortsVideoCard({
         onClick={handleTapVideo}
         style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
       >
-        <div style={{ width: '100%', maxWidth: 'calc(100dvh * 9 / 16)', aspectRatio: '9/16', position: 'relative' }}>
+        <div style={{
+  width: '100%', maxWidth: 'calc(100dvh * 9 / 16)', aspectRatio: '9/16', position: 'relative',
+  borderRadius: 16, overflow: 'hidden',
+  boxShadow: `0 0 1px rgba(255,255,255,0.25), 0 0 50px 6px ${toRgba(bgColor, 0.45)}, 0 0 100px 20px ${toRgba(bgColor, 0.25)}`,
+  animation: 'shortsCardGlow 4s ease-in-out infinite',
+}}>
           {videoSurface}
         </div>
       </div>
