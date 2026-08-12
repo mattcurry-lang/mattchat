@@ -286,7 +286,7 @@ export default function ShortsVideoCard({
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         background: '#0a0a0f', gap: 16,
       }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 26 }}>
+       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div
             onClick={handleTapVideo}
             style={{
