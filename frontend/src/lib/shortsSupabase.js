@@ -1,8 +1,8 @@
 import { supabase } from './supabase'
 
-export async function fetchShortsFeed(session, { category, query, pageToken, forYou } = {}) {
+export async function fetchShortsFeed(session, { category, query, pageToken, forYou, excludeIds } = {}) {
   const { data, error } = await supabase.functions.invoke('youtube-shorts-feed', {
-    body: { category, query, pageToken, forYou },
+    body: { category, query, pageToken, forYou, excludeIds },
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
   if (error) throw error
@@ -160,12 +160,6 @@ export async function getCommentCounts(videoIds) {
   return counts
 }
 
-// If your project already has an env var for the Supabase functions
-// base URL (check src/lib/supabase.js for how the existing calls to
-// youtube-shorts-feed, refresh-shorts-pool etc. build their URL),
-// use that instead of this hardcoded constant so there's only one
-// place to update if the project ever changes. Hardcoded here since
-// that existing pattern wasn't available to check against.
 const SUPABASE_FUNCTIONS_URL = 'https://bqerkvywgxoioocbkxif.supabase.co/functions/v1'
 
 export async function getYouTubeConnectionStatus(userId) {
