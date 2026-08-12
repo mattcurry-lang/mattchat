@@ -1,149 +1,249 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
-import { fetchShortsFeed, getLikedShortIds } from '../lib/shortsSupabase'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { supabase, getMessages, sendMessage as sendMsg } from '../lib/supabase'
+import { playSound } from '../lib/mattchatSounds'
+import { subscribeToChannel, getChannel } from '../lib/realtimeManager'
 
-const FETCH_AHEAD_THRESHOLD = 8 // must stay > PLAYER_FORWARD, or the fetch fires after mounting has already caught up to the fetched data
-
-// Real <YT.Player> mount window. Widened to 5 forward on request, to
-// have the next 5 videos already buffering before the user swipes to
-// them (eliminates the loading state on forward scroll). This trades
-// back part of the memory optimization from earlier — up to 6
-// concurrent YouTube iframes now (1 back + active + 5 forward)
-// instead of 3. Backward stays at 1 since re-watching the previous
-// video is far more common than jumping several back.
-const PLAYER_BACK = 1
-const PLAYER_FORWARD = 5
-
-// Once the fetched-items array grows past this, trim scrolled-past
-// items off the front so a long session doesn't accumulate an
-// unbounded DOM/memory footprint. TRIM_TARGET is where it lands after
-// trimming. TRIM_SAFETY_BUFFER is how far behind the active card an
-// item must be before it's eligible for removal — this must stay
-// comfortably larger than PLAYER_BACK so trimming never touches
-// anything currently mounted.
-const MAX_ITEMS_IN_MEMORY = 80
-const TRIM_TARGET = 50
-const TRIM_SAFETY_BUFFER = 20
-
-export function useShorts(session, userId, { category, query, forYou, pinnedVideo }) {
-  const [items, setItems] = useState([])
-  const [likedIds, setLikedIds] = useState(new Set())
-  const [activeIndex, setActiveIndex] = useState(0)
+export function useChat(conversationId, currentUserId) {
+  const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [error, setError] = useState(null)
-  const [preferredCategories, setPreferredCategories] = useState([])
-  // Bumped every time a trim happens, carrying how many items were
-  // removed. ShortsPage watches this to compensate the scroll
-  // container's scrollTop by the same amount, so trimming never causes
-  // a visible jump.
-  const [trimEvent, setTrimEvent] = useState(null) // { count, id } | null
+  const [typing, setTyping] = useState([])
+  const [isEmailConvo, setIsEmailConvo] = useState(false)
+  const typingRowActive = useRef(false)
 
-  const pageToken = useRef(null)
-  const fetchingRef = useRef(false)
-  const seenIds = useRef(new Set())
-  const requestId = useRef(0)
+  const channelKey = conversationId ? `messages:${conversationId}` : null
 
-  // Video to guarantee is present (e.g. one shared into a chat) —
-  // captured once on mount so it survives across this hook's re-renders,
-  // and consumed (set to null) the first time it's actually spliced in,
-  // so a later search/category change doesn't keep re-pinning it.
-  const pinnedRef = useRef(pinnedVideo || null)
+  const loadMessages = useCallback(() => {
+    if (!conversationId) return
+    setLoading(true)
+    getMessages(conversationId).then(data => {
+      setMessages(data || [])
+      setLoading(false)
+    })
+  }, [conversationId])
 
-  const reset = useCallback(() => {
-    requestId.current += 1
-    setItems([]); setActiveIndex(0); pageToken.current = null; seenIds.current = new Set()
-    setTrimEvent(null)
-  }, [])
+  useEffect(() => {
+    if (!conversationId) return
+    typingRowActive.current = false
+    loadMessages()
 
-  const loadBatch = useCallback(async (isInitial) => {
-    if (fetchingRef.current) return
-    fetchingRef.current = true
-    const myRequestId = requestId.current
-    isInitial ? setLoading(true) : setLoadingMore(true)
-    setError(null)
+    supabase
+      .from('conversations')
+      .select('email_sender')
+      .eq('id', conversationId)
+      .single()
+      .then(({ data }) => setIsEmailConvo(!!data?.email_sender))
+  }, [conversationId, loadMessages])
+
+  useEffect(() => {
+    if (!channelKey) return
+
+    const unsubscribe = subscribeToChannel(
+      channelKey,
+      (channel, emit) => channel
+        .on('postgres_changes', {
+          event: 'INSERT', schema: 'public', table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        }, (payload) => emit('insert', payload))
+        .on('postgres_changes', {
+          event: 'UPDATE', schema: 'public', table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        }, (payload) => emit('update', payload))
+        .on('broadcast', { event: 'typing' }, ({ payload }) => emit('typing', payload)),
+      {
+        onEvent: async (type, payload) => {
+          if (type === 'insert') {
+            const { data: msgWithProfile } = await supabase
+              .from('messages')
+              .select('*, profiles!messages_sender_id_fkey(username, avatar_url)')
+              .eq('id', payload.new.id)
+              .single()
+            if (!msgWithProfile) return
+
+            if (msgWithProfile.sender_id !== currentUserId) playSound('pulse')
+
+            setMessages(prev => {
+              if (msgWithProfile.sender_id === currentUserId) {
+                const matchIdx = prev.findIndex(m => m._optimistic && m.content === msgWithProfile.content)
+                if (matchIdx !== -1) {
+                  const next = [...prev]
+                  next[matchIdx] = msgWithProfile
+                  return next
+                }
+              }
+              if (prev.some(m => m.id === msgWithProfile.id)) return prev
+              return [...prev, msgWithProfile]
+            })
+          } else if (type === 'update') {
+            setMessages(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new } : m))
+          } else if (type === 'typing') {
+            if (payload.user_id === currentUserId) return
+            setTyping(prev => {
+              if (payload.is_typing) return prev.includes(payload.user_id) ? prev : [...prev, payload.user_id]
+              return prev.filter(id => id !== payload.user_id)
+            })
+          }
+        },
+        onResync: loadMessages,
+      }
+    )
+
+    return () => {
+      if (typingRowActive.current && currentUserId) {
+        typingRowActive.current = false
+        supabase.from('typing_status')
+          .delete()
+          .eq('conversation_id', conversationId)
+          .eq('user_id', currentUserId)
+          .then(({ error }) => { if (error) console.error('[useChat] typing_status cleanup failed:', error) })
+      }
+      unsubscribe()
+    }
+  }, [channelKey, conversationId, currentUserId, loadMessages])
+
+  const sendMessage = useCallback(async (content) => {
+    if (!conversationId || !currentUserId || !content.trim()) return
+    const trimmed = content.trim()
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+    const optimisticMsg = {
+      id: tempId,
+      conversation_id: conversationId,
+      sender_id: currentUserId,
+      content: trimmed,
+      message_type: 'text',
+      created_at: new Date().toISOString(),
+      profiles: null,
+      _optimistic: true,
+      _status: 'sending',
+    }
+    setMessages(prev => [...prev, optimisticMsg])
+
     try {
-      const data = await fetchShortsFeed(session, {
-        category, query, forYou, pageToken: isInitial ? null : pageToken.current,
-      })
-
-      if (myRequestId !== requestId.current) {
-        fetchingRef.current = false
-        setLoading(false)
-        setLoadingMore(false)
-        return
-      }
-
-      if (!data.ok) throw new Error(data.error || 'Failed to load Shorts')
-      const fresh = data.items.filter(v => !seenIds.current.has(v.videoId))
-      fresh.forEach(v => seenIds.current.add(v.videoId))
-      pageToken.current = data.nextPageToken
-      if (data.preferredCategories) setPreferredCategories(data.preferredCategories)
-      const ids = fresh.map(v => v.videoId)
-      getLikedShortIds(userId, ids).then(liked => {
-        if (myRequestId !== requestId.current) return
-        setLikedIds(prev => new Set([...prev, ...liked]))
-      })
-      setItems(prev => {
-        if (!isInitial) return [...prev, ...fresh]
-        // First batch of a session: if there's a pinned video (shared
-        // into a chat, opened from a message bubble, etc.), it goes at
-        // index 0 regardless of whether the feed API happened to
-        // return it — that's what guarantees "open the short you were
-        // sent" actually shows that video instead of whatever the
-        // trending/For You pool served up. Dedup against whatever the
-        // feed also returned so it's never shown twice.
-        if (pinnedRef.current) {
-          const pinned = pinnedRef.current
-          pinnedRef.current = null // only pin once per hook lifetime
-          seenIds.current.add(pinned.videoId)
-          const rest = fresh.filter(v => v.videoId !== pinned.videoId)
-          return [pinned, ...rest]
-        }
-        return fresh
-      })
+      await sendMsg(conversationId, currentUserId, trimmed)
     } catch (e) {
-      if (myRequestId === requestId.current) {
-        console.error('Shorts loadBatch failed:', e)
-        setError(e.message)
+      console.error('sendMessage failed:', e)
+      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, _status: 'failed' } : m))
+      return
+    }
+
+    if (isEmailConvo) {
+      try {
+        await supabase.functions.invoke('send-email', {
+          body: { conversationId, senderId: currentUserId, content: trimmed },
+        })
+      } catch (e) {
+        console.error('send-email invoke failed:', e)
       }
     }
-    fetchingRef.current = false
-    setLoading(false)
-    setLoadingMore(false)
-  }, [session, userId, category, query, forYou])
+  }, [conversationId, currentUserId, isEmailConvo])
 
-  useEffect(() => { reset(); loadBatch(true) }, [category, query, forYou]) // eslint-disable-line
-
-  useEffect(() => {
-    if (items.length - activeIndex <= FETCH_AHEAD_THRESHOLD && pageToken.current && !fetchingRef.current) {
-      loadBatch(false)
+  const broadcastTyping = useCallback((isTyping) => {
+    if (channelKey) {
+      getChannel(channelKey)?.send({
+        type: 'broadcast', event: 'typing',
+        payload: { user_id: currentUserId, is_typing: isTyping },
+      })
     }
-  }, [activeIndex, items.length, loadBatch])
 
-  // Front-trim: only fires once the array is actually large AND the
-  // user has scrolled far enough past the old items that removing them
-  // won't touch the player window or anything about to enter it.
+    if (!conversationId || !currentUserId) return
+
+    if (isTyping && !typingRowActive.current) {
+      typingRowActive.current = true
+      supabase.from('typing_status')
+        .upsert({ conversation_id: conversationId, user_id: currentUserId, updated_at: new Date().toISOString() })
+        .then(({ error }) => { if (error) console.error('[useChat] typing_status upsert failed:', error) })
+    } else if (!isTyping && typingRowActive.current) {
+      typingRowActive.current = false
+      supabase.from('typing_status')
+        .delete()
+        .eq('conversation_id', conversationId)
+        .eq('user_id', currentUserId)
+        .then(({ error }) => { if (error) console.error('[useChat] typing_status delete failed:', error) })
+    }
+  }, [currentUserId, conversationId, channelKey])
+
+  return { messages, loading, typing, sendMessage, broadcastTyping }
+}
+
+export function useConversations(userId) {
+  const [conversations, setConversations] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [convoIds, setConvoIds] = useState([])
+
+  const load = useCallback(async () => {
+    if (!userId) return
+
+    const { data: memberRows } = await supabase
+      .from('conversation_members')
+      .select('conversation_id')
+      .eq('user_id', userId)
+
+    const conversationIds = memberRows?.map(r => r.conversation_id) || []
+    if (conversationIds.length === 0) {
+      setConversations([])
+      setConvoIds([])
+      setLoading(false)
+      return
+    }
+
+    const { data: hiddenRows } = await supabase
+      .from('hidden_conversations')
+      .select('conversation_id')
+      .eq('user_id', userId)
+
+    const hiddenIds = new Set((hiddenRows || []).map(r => r.conversation_id))
+    const visibleIds = conversationIds.filter(id => !hiddenIds.has(id))
+    setConvoIds(conversationIds)
+
+    if (visibleIds.length === 0) {
+      setConversations([])
+      setLoading(false)
+      return
+    }
+
+    const { data } = await supabase
+      .from('conversations')
+      .select(`
+        id, updated_at, last_message, is_group, name, email_sender,
+        conversation_members(
+          user_id,
+          profiles(id, username, email, avatar_url)
+        )
+      `)
+      .in('id', visibleIds)
+      .order('updated_at', { ascending: false })
+
+    setConversations(data || [])
+    setLoading(false)
+  }, [userId])
+
+  useEffect(() => { load() }, [load])
+
+  const idsKey = convoIds.slice().sort().join(',')
+
   useEffect(() => {
-    if (items.length <= MAX_ITEMS_IN_MEMORY) return
-    const trimCount = items.length - TRIM_TARGET
-    if (trimCount <= 0) return
-    if (activeIndex - trimCount < TRIM_SAFETY_BUFFER + PLAYER_BACK) return // not far enough ahead yet — wait
+    if (!userId || !convoIds.length) return
 
-    setItems(prev => prev.slice(trimCount))
-    setActiveIndex(prev => prev - trimCount)
-    setTrimEvent({ count: trimCount, id: Date.now() })
-    // seenIds and pageToken are untouched — they track fetch/dedup
-    // state, not display state, so trimming what's rendered has no
-    // effect on pagination correctness.
-  }, [items.length, activeIndex])
+    const unsubConvos = subscribeToChannel(
+      `conversations:${userId}:${idsKey}`,
+      (channel, emit) => channel.on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'conversations',
+        filter: `id=in.(${convoIds.join(',')})`,
+      }, (payload) => emit('update', payload)),
+      { onEvent: load, onResync: load }
+    )
 
-  const windowStart = Math.max(0, activeIndex - PLAYER_BACK)
-  const windowEnd = Math.min(items.length, activeIndex + PLAYER_FORWARD + 1)
+    const unsubHidden = subscribeToChannel(
+      `hidden_conversations:${userId}`,
+      (channel, emit) => channel.on('postgres_changes', {
+        event: '*', schema: 'public', table: 'hidden_conversations',
+        filter: `user_id=eq.${userId}`,
+      }, (payload) => emit('change', payload)),
+      { onEvent: load, onResync: load }
+    )
 
-  return {
-    items, activeIndex, setActiveIndex, loading, loadingMore, error,
-    windowStart, windowEnd, likedIds, setLikedIds, preferredCategories,
-    hasMore: !!pageToken.current || fetchingRef.current,
-    trimEvent,
-  }
+    return () => { unsubConvos(); unsubHidden() }
+  }, [userId, idsKey, convoIds, load])
+
+  return { conversations, loading, reload: load }
 }
