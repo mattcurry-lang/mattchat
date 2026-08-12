@@ -38,7 +38,7 @@ function getInitialMuted() {
 }
 
 export default function ShortsPage({
-  session, userId, conversations, getConvoName, onClose, initialVideoId, initialSearch,
+  session, userId, conversations, getConvoName, onClose, initialVideo, initialSearch,
 }) {
   // Category switching UI was removed for a cleaner top chrome — the
   // feed now always runs on the personalized "For You" ranking unless
@@ -56,8 +56,6 @@ export default function ShortsPage({
   const startTimeRef = useRef(0)
   const replaysRef = useRef(0)
   const containerRef = useRef(null)
-  const jumpedToInitialRef = useRef(false)
-  const lastHandledTrimId = useRef(null)
   const [followedChannelIds, setFollowedChannelIds] = useState(new Set())
   const [repostedIds, setRepostedIds] = useState(new Set())
   const [savedIds, setSavedIds] = useState(new Set())
@@ -95,6 +93,13 @@ useEffect(() => {
     category: activeSearch ? null : 'trending',
     query: activeSearch || null,
     forYou: !activeSearch,
+    // Guarantees `initialVideo` (e.g. a Short opened from a chat
+    // message) is present at items[0] on the first load — see
+    // useShorts.js. Previously this page tried to *find* the video
+    // inside whatever the feed API returned, which almost never
+    // contained it, so opening a shared Short silently landed on a
+    // random trending video instead.
+    pinnedVideo: initialVideo || null,
   })
 
   useEffect(() => { setLikedIdsLocal(hookLikedIds) }, [hookLikedIds])
@@ -124,20 +129,12 @@ useEffect(() => {
     }
   }, [items, userId])
 
-  useEffect(() => {
-    if (jumpedToInitialRef.current || !initialVideoId || items.length === 0) return
-    const idx = items.findIndex(v => v.videoId === initialVideoId)
-    if (idx !== -1) {
-      jumpedToInitialRef.current = true
-      requestAnimationFrame(() => containerRef.current?.children[idx]?.scrollIntoView({ behavior: 'instant' }))
-    }
-  }, [items, initialVideoId])
-
   // Compensates scrollTop after the hook trims scrolled-past items
   // from the front of the array, so the removal is invisible to the
   // user instead of causing a visible jump forward. Runs in
   // useLayoutEffect so the correction happens before the browser
   // paints the shorter list.
+  const lastHandledTrimId = useRef(null)
   useLayoutEffect(() => {
     if (!trimEvent || trimEvent.id === lastHandledTrimId.current) return
     lastHandledTrimId.current = trimEvent.id
