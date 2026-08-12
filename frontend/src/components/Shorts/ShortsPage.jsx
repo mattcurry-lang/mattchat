@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react'
-import { Search as SearchIcon, X as XIcon, ArrowLeft, WifiOff } from 'lucide-react'
+import { Search as SearchIcon, X as XIcon, ArrowLeft, WifiOff, ChevronUp, ChevronDown } from 'lucide-react'
 import ShortsVideoCard, { loadYouTubeAPI } from './ShortsVideoCard'
 import ShortsCommentsSheet from './ShortsCommentsSheet'
 import StartConversationModal from './StartConversationModal'
