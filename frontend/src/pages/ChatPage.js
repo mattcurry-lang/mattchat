@@ -351,7 +351,7 @@ if (msg.message_type === 'short' || msg.content?.startsWith('short:')) {
       <div>
         {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
         <button
-          onClick={() => msg._onOpenShort?.(vid)}
+          onClick={() => msg._onOpenShort?.({ videoId: vid, title: t, thumbnailUrl: thumb, channelTitle: channel })}
           style={{ display: 'block', position: 'relative', width: 160, borderRadius: 14, overflow: 'hidden', border: 'none', padding: 0, cursor: 'pointer' }}
         >
           <img src={thumb} alt={t} style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block' }} />
@@ -2054,7 +2054,7 @@ _onPlayYouTube: (videoId, startSeconds) => setYoutubePlayer({ videoId, mini: fal
 _onWatchTogether: (videoId) => {
   watchTogether.inviteToWatch(videoId).catch((e) => alert('Could not start Watch Together: ' + e.message))
 },
-     _onOpenShort: (videoId) => { setShortsInitialVideo(videoId); setShowShorts(true) }, 
+   _onOpenShort: (video) => { setShortsInitialVideo(video); setShowShorts(true) },
   }}
   isMe={isMine}
   isRead={!!readMap[msg.id]}
