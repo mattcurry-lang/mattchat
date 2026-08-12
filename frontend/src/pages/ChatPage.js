@@ -529,7 +529,7 @@ const [showWeeklyReport, setShowWeeklyReport] = useState(false)
   const [youtubePlayer, setYoutubePlayer] = useState(null) // { videoId, mini } | null
   const [showYouTubeSearch, setShowYouTubeSearch] = useState(false)
   const [showShorts, setShowShorts] = useState(false)
-const [shortsInitialVideo, setShortsInitialVideo] = useState(null)
+const [shortsInitialVideo, setShortsInitialVideo] = useState(null) // now holds the full video object, not just an id
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)
 const [curryPrefill, setCurryPrefill] = useState(null)
   const [showEmailWorkspace, setShowEmailWorkspace] = useState(false)
@@ -1837,7 +1837,7 @@ const handleSend = async () => {
 {showShorts && (
   <ShortsPage
     session={session} userId={userId} conversations={conversations}
-    getConvoName={getConvoName} initialVideoId={shortsInitialVideo}
+    getConvoName={getConvoName} initialVideo={shortsInitialVideo}
     onClose={() => { setShowShorts(false); setShortsInitialVideo(null) }}
   />
 )}
