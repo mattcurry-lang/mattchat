@@ -8,6 +8,7 @@ import { useAutoHideChrome } from '../../hooks/useAutoHideChrome'
 import { saveShortsProgress, logShortsInteraction, toggleShortsLike, getFollowedChannelIds, toggleFollowChannel, getRepostedIds, toggleRepost, getSavedIds, toggleSave, getCommentCounts } from '../../lib/shortsSupabase'
 import ConnectYouTubeBanner from './ConnectYouTubeBanner'
 import { getYouTubeConnectionStatus, syncYouTubeSubscriptions } from '../../lib/shortsSupabase'
+import { useIsDesktop } from '../../hooks/useIsDesktop'
 
 // Warms the browser's connection to YouTube's domains the instant
 // Shorts opens, before any card has mounted or even fetched. DNS +
@@ -134,6 +135,26 @@ useEffect(() => {
   // user instead of causing a visible jump forward. Runs in
   // useLayoutEffect so the correction happens before the browser
   // paints the shorter list.
+  const isDesktop = useIsDesktop()
+
+const scrollToIndex = useCallback((idx) => {
+  const container = containerRef.current
+  if (!container || items.length === 0) return
+  const clamped = Math.max(0, Math.min(idx, items.length - 1))
+  container.scrollTo({ top: clamped * container.clientHeight, behavior: 'smooth' })
+}, [items.length])
+
+useEffect(() => {
+  const handleKeyDown = (e) => {
+    const tag = document.activeElement?.tagName
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return
+    if (e.key === 'ArrowUp')   { e.preventDefault(); scrollToIndex(activeIndex - 1); wake() }
+    if (e.key === 'ArrowDown') { e.preventDefault(); scrollToIndex(activeIndex + 1); wake() }
+  }
+  window.addEventListener('keydown', handleKeyDown)
+  return () => window.removeEventListener('keydown', handleKeyDown)
+}, [activeIndex, scrollToIndex, wake])
+  
   const lastHandledTrimId = useRef(null)
   useLayoutEffect(() => {
     if (!trimEvent || trimEvent.id === lastHandledTrimId.current) return
@@ -282,6 +303,36 @@ useEffect(() => {
         </div>
       )}
 
+      {isDesktop && items.length > 0 && (
+  <div style={{
+    position: 'fixed', right: 28, top: '50%', transform: 'translateY(-50%)', zIndex: 6,
+    display: 'flex', flexDirection: 'column', gap: 10,
+    opacity: chromeVisible ? 1 : 0, transition: 'opacity 0.4s ease',
+    pointerEvents: chromeVisible ? 'auto' : 'none',
+  }}>
+    <button
+      onClick={() => scrollToIndex(activeIndex - 1)}
+      disabled={activeIndex === 0}
+      title="Previous Short (↑)"
+      style={navArrowBtnStyle(activeIndex === 0)}
+      onMouseEnter={e => { if (activeIndex !== 0) e.currentTarget.style.transform = 'scale(1.1)' }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+    >
+      <ChevronUp size={20} color="#fff" strokeWidth={2.5} />
+    </button>
+    <button
+      onClick={() => scrollToIndex(activeIndex + 1)}
+      disabled={activeIndex >= items.length - 1}
+      title="Next Short (↓)"
+      style={navArrowBtnStyle(activeIndex >= items.length - 1)}
+      onMouseEnter={e => { if (activeIndex < items.length - 1) e.currentTarget.style.transform = 'scale(1.1)' }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+    >
+      <ChevronDown size={20} color="#fff" strokeWidth={2.5} />
+    </button>
+  </div>
+)}
+
       <div
         ref={containerRef}
         style={{ height: '100dvh', overflowY: 'scroll', scrollSnapType: 'y mandatory', WebkitOverflowScrolling: 'touch', scrollBehavior: 'smooth' }}
@@ -364,6 +415,15 @@ function ShortsSkeleton({ compact }) {
     </div>
   )
 }
+
+const navArrowBtnStyle = (disabled) => ({
+  background: 'rgba(20,20,30,0.55)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+  border: '1px solid rgba(255,255,255,0.18)', borderRadius: '50%', width: 42, height: 42,
+  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.3 : 1,
+  boxShadow: disabled ? 'none' : '0 4px 16px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06)',
+  transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s',
+})
 
 const headerBtnStyle = {
   background: 'rgba(20,20,30,0.45)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
