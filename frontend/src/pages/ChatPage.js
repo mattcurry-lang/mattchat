@@ -1839,6 +1839,7 @@ const handleSend = async () => {
     session={session} userId={userId} conversations={conversations}
     getConvoName={getConvoName} initialVideo={shortsInitialVideo}
     onClose={() => { setShowShorts(false); setShortsInitialVideo(null) }}
+    onNavigate={(tab) => { setShowShorts(false); setShortsInitialVideo(null); setActiveTab(tab) }}
   />
 )}
    {youtubePlayer && (
@@ -2054,7 +2055,7 @@ _onPlayYouTube: (videoId, startSeconds) => setYoutubePlayer({ videoId, mini: fal
 _onWatchTogether: (videoId) => {
   watchTogether.inviteToWatch(videoId).catch((e) => alert('Could not start Watch Together: ' + e.message))
 },
-   _onOpenShort: (video) => { setShortsInitialVideo(video); setShowShorts(true) },
+ _onOpenShort: (video) => { setShortsInitialVideo(video); setShowShorts(true) },
   }}
   isMe={isMine}
   isRead={!!readMap[msg.id]}
