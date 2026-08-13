@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react'
-import { Heart, MessageCircle, Repeat2, Bookmark, Send, Volume2, VolumeX, ChevronUp, ChevronDown } from 'lucide-react'
+import { Heart, MessageCircle, Repeat2, Bookmark, Send, Volume2, VolumeX } from 'lucide-react'
 import { useDominantColor } from '../../hooks/useDominantColor'
 import { useIsDesktop } from '../../hooks/useIsDesktop'
 
@@ -38,19 +38,18 @@ function haptic(pattern = 10) {
   }
 }
 
+// NOTE: this card intentionally has NO prev/next nav buttons — those
+// live as their own floating cluster in ShortsPage.jsx (positioned
+// fixed to the viewport, not scrolling with the card), not merged
+// into this action rail. Keeping them page-level instead of card-level
+// is deliberate: it matches the reference layout, and it means the
+// nav cluster doesn't re-mount/flicker as cards scroll past.
 export default function ShortsVideoCard({
   video, isActive, isMounted,
   onProgress, onEnded, onReplay, liked, onToggleLike,
   onOpenShare, onOpenComments, commentCount, onTap,
   muted, onToggleMute,
   following, onToggleFollow, reposted, onToggleRepost, saved, onToggleSave,
-  // Desktop prev/next navigation — merged into the same vertical
-  // column as the action rail (see render below) instead of floating
-  // as a separate control cluster, so the whole Shorts unit reads as
-  // one component. Omit these props (leave undefined) to hide the
-  // chevrons entirely, e.g. if a future mobile-desktop-hybrid layout
-  // doesn't want them.
-  onPrev, onNext, hasPrev, hasNext,
 }) {
   const wrapperRef = useRef(null)
   const playerRef = useRef(null)
@@ -258,39 +257,39 @@ export default function ShortsVideoCard({
     </>
   )
 
-  // ── Desktop: Instagram's own web client puts the creator info and
-  // caption BELOW a fixed-size rounded video card, with the action
-  // rail (and, here, the prev/next nav) beside it — not overlaid on
-  // the video. There's enough horizontal room on desktop that
-  // overlaying (the mobile approach) would just be copying a
-  // mobile-only constraint that doesn't apply here.
-  //
-  // Sizing: height is driven off the viewport (min(78vh, ...)) rather
-  // than a fixed pixel width, so the card scales sensibly across
-  // 1366×768 through 2560×1440 instead of looking tiny on a big
-  // screen or clipped on a small one. Width is derived FROM that
-  // height via the 9:16 ratio, capped at 82vw as a floor for very
-  // narrow desktop windows.
+  // ── Desktop: video card + action rail sit centered as one unit,
+  // and the creator/caption block sits directly beneath THAT unit —
+  // in normal document flow, not absolutely positioned against the
+  // full viewport. An earlier version absolutely-positioned the
+  // caption at the bottom-left of the whole screen, which looked
+  // right in isolation but drifted down into the same corner the
+  // floating desktop nav now occupies once that was added — the two
+  // started crowding each other. Keeping it in-flow, pinned to the
+  // width of the video column, keeps it clear of the nav regardless
+  // of where the nav sits.
   if (isDesktop) {
-    const cardHeight = 'min(78vh, 760px)'
-    const cardWidth = 'min(82vw, calc(min(78vh, 760px) * 9 / 16))'
+    const cardHeight = 'min(72vh, 700px)'
+    const cardWidth = 'min(80vw, calc(min(72vh, 700px) * 9 / 16))'
     return (
       <div style={{
         height: '100dvh', width: '100%', flexShrink: 0,
         scrollSnapAlign: 'start', scrollSnapStop: 'always',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        background: '#0a0a0f', gap: 16,
+        background: '#0a0a0f', gap: 14, padding: '0 0 64px', boxSizing: 'border-box',
+        // bottom padding reserves clear space above the floating
+        // bottom-left nav so this card's content never sits flush
+        // against it, regardless of exact nav height.
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
           <div style={{ position: 'relative', width: cardWidth, height: cardHeight }}>
             {/* Glow layer — a real blurred element positioned behind
                 the card, using bgColor directly rather than string-
-                concatenating an alpha suffix onto it. The previous
-                version did `${bgColor}66` in a boxShadow, which is
-                invalid CSS whenever useDominantColor returns an
-                "rgb(r,g,b)" string (as opposed to a hex string) —
-                the whole boxShadow silently got dropped by the
-                browser, which is why the glow was never visible. */}
+                concatenating an alpha suffix onto it. Concatenating
+                (e.g. `${bgColor}66`) is invalid CSS whenever
+                useDominantColor returns an "rgb(r,g,b)" string rather
+                than a hex string — the whole boxShadow silently gets
+                dropped by the browser, which is why the glow was
+                invisible before. */}
             <div style={{
               position: 'absolute', inset: -50, borderRadius: 48,
               background: bgColor, filter: 'blur(55px) saturate(1.7)',
@@ -312,24 +311,8 @@ export default function ShortsVideoCard({
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, paddingTop: 8 }}>
-            {onPrev && (
-              <button onClick={onPrev} disabled={!hasPrev} title="Previous Short (↑)" style={navBtnStyle(!hasPrev)}
-                onMouseEnter={e => { if (hasPrev) e.currentTarget.style.transform = 'scale(1.1)' }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
-              >
-                <ChevronUp size={19} color="#fff" strokeWidth={2.5} />
-              </button>
-            )}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, paddingTop: 8 }}>
             {railButtons(desktopRailBtnStyle, desktopRailLabelStyle, 'none')}
-            {onNext && (
-              <button onClick={onNext} disabled={!hasNext} title="Next Short (↓)" style={navBtnStyle(!hasNext)}
-                onMouseEnter={e => { if (hasNext) e.currentTarget.style.transform = 'scale(1.1)' }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
-              >
-                <ChevronDown size={19} color="#fff" strokeWidth={2.5} />
-              </button>
-            )}
           </div>
         </div>
 
@@ -406,10 +389,3 @@ const railBtnStyle = {
 const railLabelStyle = { fontSize: 11, fontWeight: 700, textShadow: '0 1px 3px rgba(0,0,0,0.6)' }
 const desktopRailBtnStyle = { ...railBtnStyle }
 const desktopRailLabelStyle = { fontSize: 11, fontWeight: 700, color: '#fff' }
-
-const navBtnStyle = (disabled) => ({
-  background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)',
-  borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
-  cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.25 : 1, flexShrink: 0,
-  transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s',
-})
