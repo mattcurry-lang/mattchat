@@ -82,13 +82,31 @@
     }
   }
   </script>
-
 </head>
 
 <body>
   <!-- Required for Meta/Facebook JS SDK -->
   <div id="fb-root"></div>
 
-  <div id="root"></div>
+  <!-- Content pre-rendered inside root to prevent empty HTML indexing delays -->
+  <div id="root">
+    <header>
+      <h1>Mattchat | The Intelligent Communication Platform</h1>
+    </header>
+    <main>
+      <section>
+        <p>
+          Mattchat is the intelligent communication platform that unifies conversations, email, 
+          meetings, AI assistance featuring Curry AI, and productivity into one seamless experience.
+        </p>
+      </section>
+      <footer>
+        <nav>
+          <a href="/privacy">Privacy Policy</a> | 
+          <a href="/terms">Terms of Service</a>
+        </nav>
+      </footer>
+    </main>
+  </div>
 </body>
 </html>
