@@ -1,28 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react'
-import { Heart, MessageCircle, Repeat2, Bookmark, Send, Volume2, VolumeX } from 'lucide-react'
+import { Heart, MessageCircle, Repeat2, Bookmark, Send, Volume2, VolumeX, ChevronUp, ChevronDown } from 'lucide-react'
 import { useDominantColor } from '../../hooks/useDominantColor'
 import { useIsDesktop } from '../../hooks/useIsDesktop'
-
-// Handles both '#rrggbb' and 'rgb(r,g,b)' — useDominantColor can return
-// either depending on how it samples, and string-concatenating an alpha
-// suffix onto an rgb(...) string produces invalid CSS ("rgb(1,2,3)66")
-// that the browser silently drops — which is why the glow was invisible
-// even though the code looked right.
-function toRgba(color, alpha) {
-  if (!color) return `rgba(102,126,234,${alpha})`
-  if (color.startsWith('#')) {
-    const hex = color.replace('#', '')
-    const full = hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex
-    const n = parseInt(full, 16)
-    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`
-  }
-  const m = color.match(/rgba?\(([^)]+)\)/)
-  if (m) {
-    const [r, g, b] = m[1].split(',').map(s => s.trim())
-    return `rgba(${r},${g},${b},${alpha})`
-  }
-  return color
-}
 
 let apiLoadPromise = null
 function loadYouTubeAPI() {
@@ -65,6 +44,13 @@ export default function ShortsVideoCard({
   onOpenShare, onOpenComments, commentCount, onTap,
   muted, onToggleMute,
   following, onToggleFollow, reposted, onToggleRepost, saved, onToggleSave,
+  // Desktop prev/next navigation — merged into the same vertical
+  // column as the action rail (see render below) instead of floating
+  // as a separate control cluster, so the whole Shorts unit reads as
+  // one component. Omit these props (leave undefined) to hide the
+  // chevrons entirely, e.g. if a future mobile-desktop-hybrid layout
+  // doesn't want them.
+  onPrev, onNext, hasPrev, hasNext,
 }) {
   const wrapperRef = useRef(null)
   const playerRef = useRef(null)
@@ -274,11 +260,20 @@ export default function ShortsVideoCard({
 
   // ── Desktop: Instagram's own web client puts the creator info and
   // caption BELOW a fixed-size rounded video card, with the action
-  // rail beside it — not overlaid on the video. There's enough
-  // horizontal room on desktop that overlaying (the mobile approach)
-  // would just be copying a mobile-only constraint that doesn't apply
-  // here.
+  // rail (and, here, the prev/next nav) beside it — not overlaid on
+  // the video. There's enough horizontal room on desktop that
+  // overlaying (the mobile approach) would just be copying a
+  // mobile-only constraint that doesn't apply here.
+  //
+  // Sizing: height is driven off the viewport (min(78vh, ...)) rather
+  // than a fixed pixel width, so the card scales sensibly across
+  // 1366×768 through 2560×1440 instead of looking tiny on a big
+  // screen or clipped on a small one. Width is derived FROM that
+  // height via the 9:16 ratio, capped at 82vw as a floor for very
+  // narrow desktop windows.
   if (isDesktop) {
+    const cardHeight = 'min(78vh, 760px)'
+    const cardWidth = 'min(82vw, calc(min(78vh, 760px) * 9 / 16))'
     return (
       <div style={{
         height: '100dvh', width: '100%', flexShrink: 0,
@@ -286,32 +281,62 @@ export default function ShortsVideoCard({
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         background: '#0a0a0f', gap: 16,
       }}>
-       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div
-            onClick={handleTapVideo}
-            style={{
-              position: 'relative', width: 420, maxWidth: '82vw', maxHeight: '78vh', aspectRatio: '9/16',
-              borderRadius: 16, overflow: 'hidden', cursor: 'pointer', background: bgColor,
-              border: '1px solid rgba(255,255,255,0.14)',
-              // Glassmorphic glow: a soft colored halo picked up from the
-              // video's own dominant color (so it feels tied to the
-              // content, not a generic effect), plus a gentle pulse for
-              // the "futuristic" feel. The border above is the glass
-              // edge; this box-shadow is the glow behind it.
-              boxShadow: `0 0 1px rgba(255,255,255,0.3), 0 0 40px 4px ${toRgba(bgColor, 0.4)}, 0 0 90px 18px ${toRgba(bgColor, 0.2)}, 0 20px 60px rgba(0,0,0,0.5)`,
-              animation: 'shortsCardGlow 4s ease-in-out infinite',
-              transition: 'background 0.6s ease',
-            }}
-          >
-            {videoSurface}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <div style={{ position: 'relative', width: cardWidth, height: cardHeight }}>
+            {/* Glow layer — a real blurred element positioned behind
+                the card, using bgColor directly rather than string-
+                concatenating an alpha suffix onto it. The previous
+                version did `${bgColor}66` in a boxShadow, which is
+                invalid CSS whenever useDominantColor returns an
+                "rgb(r,g,b)" string (as opposed to a hex string) —
+                the whole boxShadow silently got dropped by the
+                browser, which is why the glow was never visible. */}
+            <div style={{
+              position: 'absolute', inset: -50, borderRadius: 48,
+              background: bgColor, filter: 'blur(55px) saturate(1.7)',
+              opacity: 0.6, zIndex: 0, transition: 'background 0.6s ease',
+              animation: 'shortsCardGlowPulse 4s ease-in-out infinite',
+              pointerEvents: 'none',
+            }} />
+            <div
+              onClick={handleTapVideo}
+              style={{
+                position: 'relative', zIndex: 1, width: '100%', height: '100%',
+                borderRadius: 16, overflow: 'hidden', cursor: 'pointer', background: bgColor,
+                border: '1px solid rgba(255,255,255,0.14)',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+                transition: 'background 0.6s ease',
+              }}
+            >
+              {videoSurface}
+            </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, paddingTop: 8 }}>
+
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, paddingTop: 8 }}>
+            {onPrev && (
+              <button onClick={onPrev} disabled={!hasPrev} title="Previous Short (↑)" style={navBtnStyle(!hasPrev)}
+                onMouseEnter={e => { if (hasPrev) e.currentTarget.style.transform = 'scale(1.1)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+              >
+                <ChevronUp size={19} color="#fff" strokeWidth={2.5} />
+              </button>
+            )}
             {railButtons(desktopRailBtnStyle, desktopRailLabelStyle, 'none')}
+            {onNext && (
+              <button onClick={onNext} disabled={!hasNext} title="Next Short (↓)" style={navBtnStyle(!hasNext)}
+                onMouseEnter={e => { if (hasNext) e.currentTarget.style.transform = 'scale(1.1)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+              >
+                <ChevronDown size={19} color="#fff" strokeWidth={2.5} />
+              </button>
+            )}
           </div>
         </div>
-        <div style={{ width: 420, maxWidth: '82vw' }}>
+
+        <div style={{ width: cardWidth, position: 'relative', zIndex: 1 }}>
           {creatorAndCaption('#fff', '#5eb1ff')}
         </div>
+
         <style>{`
           @keyframes shortsHeartBurst {
             0%   { opacity: 0; transform: translate(-50%,-50%) scale(0.4); }
@@ -319,9 +344,9 @@ export default function ShortsVideoCard({
             40%  { transform: translate(-50%,-50%) scale(0.95); }
             100% { opacity: 0; transform: translate(-50%,-50%) scale(1.3); }
           }
-          @keyframes shortsCardGlow {
-            0%, 100% { filter: brightness(1); }
-            50%      { filter: brightness(1.08); }
+          @keyframes shortsCardGlowPulse {
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50%      { opacity: 0.75; transform: scale(1.04); }
           }
         `}</style>
       </div>
@@ -348,12 +373,7 @@ export default function ShortsVideoCard({
         onClick={handleTapVideo}
         style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
       >
-        <div style={{
-          width: '100%', maxWidth: 'calc(100dvh * 9 / 16)', aspectRatio: '9/16', position: 'relative',
-          borderRadius: 16, overflow: 'hidden',
-          boxShadow: `0 0 1px rgba(255,255,255,0.25), 0 0 50px 6px ${toRgba(bgColor, 0.45)}, 0 0 100px 20px ${toRgba(bgColor, 0.25)}`,
-          animation: 'shortsCardGlow 4s ease-in-out infinite',
-        }}>
+        <div style={{ width: '100%', maxWidth: 'calc(100dvh * 9 / 16)', aspectRatio: '9/16', position: 'relative' }}>
           {videoSurface}
         </div>
       </div>
@@ -373,10 +393,6 @@ export default function ShortsVideoCard({
           40%  { transform: translate(-50%,-50%) scale(0.95); }
           100% { opacity: 0; transform: translate(-50%,-50%) scale(1.3); }
         }
-        @keyframes shortsCardGlow {
-          0%, 100% { filter: brightness(1); }
-          50%      { filter: brightness(1.08); }
-        }
       `}</style>
     </div>
   )
@@ -390,3 +406,10 @@ const railBtnStyle = {
 const railLabelStyle = { fontSize: 11, fontWeight: 700, textShadow: '0 1px 3px rgba(0,0,0,0.6)' }
 const desktopRailBtnStyle = { ...railBtnStyle }
 const desktopRailLabelStyle = { fontSize: 11, fontWeight: 700, color: '#fff' }
+
+const navBtnStyle = (disabled) => ({
+  background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)',
+  borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
+  cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.25 : 1, flexShrink: 0,
+  transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s',
+})
