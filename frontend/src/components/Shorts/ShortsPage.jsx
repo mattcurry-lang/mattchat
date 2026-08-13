@@ -1,14 +1,15 @@
 import React, { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react'
-import { Search as SearchIcon, X as XIcon, ArrowLeft, WifiOff, ChevronUp, ChevronDown } from 'lucide-react'
+import { Search as SearchIcon, X as XIcon, ArrowLeft, WifiOff } from 'lucide-react'
 import ShortsVideoCard, { loadYouTubeAPI } from './ShortsVideoCard'
 import ShortsCommentsSheet from './ShortsCommentsSheet'
 import StartConversationModal from './StartConversationModal'
 import { useShorts } from '../../hooks/useShorts'
 import { useAutoHideChrome } from '../../hooks/useAutoHideChrome'
+import { useIsDesktop } from '../../hooks/useIsDesktop'
 import { saveShortsProgress, logShortsInteraction, toggleShortsLike, getFollowedChannelIds, toggleFollowChannel, getRepostedIds, toggleRepost, getSavedIds, toggleSave, getCommentCounts } from '../../lib/shortsSupabase'
 import ConnectYouTubeBanner from './ConnectYouTubeBanner'
 import { getYouTubeConnectionStatus, syncYouTubeSubscriptions } from '../../lib/shortsSupabase'
-import { useIsDesktop } from '../../hooks/useIsDesktop'
+import BottomNav from '../BottomNav'
 
 // Warms the browser's connection to YouTube's domains the instant
 // Shorts opens, before any card has mounted or even fetched. DNS +
@@ -40,6 +41,11 @@ function getInitialMuted() {
 
 export default function ShortsPage({
   session, userId, conversations, getConvoName, onClose, initialVideo, initialSearch,
+  // Called with a tab name ('chats' | 'calls' | 'pulse' | 'status') when
+  // the person taps the floating desktop nav while inside Shorts.
+  // ChatPage is responsible for closing Shorts and switching the tab —
+  // this component doesn't own that state, it just reports the intent.
+  onNavigate,
 }) {
   // Category switching UI was removed for a cleaner top chrome — the
   // feed now always runs on the personalized "For You" ranking unless
@@ -64,26 +70,27 @@ export default function ShortsPage({
   const fetchedChannelsRef = useRef(new Set()) // channel ids already checked for follow
   const { chromeVisible, wake } = useAutoHideChrome()
   const [youtubeConnected, setYoutubeConnected] = useState(true) // default true so the banner doesn't flash before the check resolves
-const [showYtBanner, setShowYtBanner] = useState(true)
+  const [showYtBanner, setShowYtBanner] = useState(true)
+  const isDesktop = useIsDesktop()
 
   // Fire both preloads once, synchronously on mount — before the feed
   // fetch even resolves, well before the first card would otherwise
   // trigger loadYouTubeAPI() itself on mount.
-useEffect(() => {
-  getYouTubeConnectionStatus(userId).then(setYoutubeConnected)
-}, [userId])
+  useEffect(() => {
+    getYouTubeConnectionStatus(userId).then(setYoutubeConnected)
+  }, [userId])
 
-// One-time: after Google redirects back with ?youtube_connect=success,
-// sync subscriptions immediately so the personalized feed has data to
-// draw from right away instead of waiting for some other trigger.
-useEffect(() => {
-  const params = new URLSearchParams(window.location.search)
-  if (params.get('youtube_connect') === 'success') {
-    syncYouTubeSubscriptions(session).then(() => setYoutubeConnected(true))
-    window.history.replaceState({}, '', window.location.pathname) // strip the query param so a refresh doesn't re-trigger this
-  }
-}, [session])
-  
+  // One-time: after Google redirects back with ?youtube_connect=success,
+  // sync subscriptions immediately so the personalized feed has data to
+  // draw from right away instead of waiting for some other trigger.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('youtube_connect') === 'success') {
+      syncYouTubeSubscriptions(session).then(() => setYoutubeConnected(true))
+      window.history.replaceState({}, '', window.location.pathname) // strip the query param so a refresh doesn't re-trigger this
+    }
+  }, [session])
+
   useEffect(() => { preconnectYouTube(); loadYouTubeAPI() }, [])
 
   const {
@@ -135,26 +142,6 @@ useEffect(() => {
   // user instead of causing a visible jump forward. Runs in
   // useLayoutEffect so the correction happens before the browser
   // paints the shorter list.
-  const isDesktop = useIsDesktop()
-
-const scrollToIndex = useCallback((idx) => {
-  const container = containerRef.current
-  if (!container || items.length === 0) return
-  const clamped = Math.max(0, Math.min(idx, items.length - 1))
-  container.scrollTo({ top: clamped * container.clientHeight, behavior: 'smooth' })
-}, [items.length])
-
-useEffect(() => {
-  const handleKeyDown = (e) => {
-    const tag = document.activeElement?.tagName
-    if (tag === 'INPUT' || tag === 'TEXTAREA') return
-    if (e.key === 'ArrowUp')   { e.preventDefault(); scrollToIndex(activeIndex - 1); wake() }
-    if (e.key === 'ArrowDown') { e.preventDefault(); scrollToIndex(activeIndex + 1); wake() }
-  }
-  window.addEventListener('keydown', handleKeyDown)
-  return () => window.removeEventListener('keydown', handleKeyDown)
-}, [activeIndex, scrollToIndex, wake])
-  
   const lastHandledTrimId = useRef(null)
   useLayoutEffect(() => {
     if (!trimEvent || trimEvent.id === lastHandledTrimId.current) return
@@ -189,6 +176,29 @@ useEffect(() => {
     Array.from(container.children).forEach((child) => observer.observe(child))
     return () => observer.disconnect()
   }, [items.length]) // eslint-disable-line
+
+  // Programmatic scroll to a given card index — used by both the
+  // desktop chevron buttons (merged into ShortsVideoCard's rail) and
+  // arrow-key navigation below. The IntersectionObserver above is
+  // what actually updates activeIndex once the scroll lands; this
+  // just drives the scroll itself.
+  const scrollToIndex = useCallback((idx) => {
+    const container = containerRef.current
+    if (!container || items.length === 0) return
+    const clamped = Math.max(0, Math.min(idx, items.length - 1))
+    container.scrollTo({ top: clamped * container.clientHeight, behavior: 'smooth' })
+  }, [items.length])
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const tag = document.activeElement?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (e.key === 'ArrowUp')   { e.preventDefault(); scrollToIndex(activeIndex - 1); wake() }
+      if (e.key === 'ArrowDown') { e.preventDefault(); scrollToIndex(activeIndex + 1); wake() }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [activeIndex, scrollToIndex, wake])
 
   const handleProgress = useCallback((seconds) => {
     startTimeRef.current = seconds
@@ -278,12 +288,12 @@ useEffect(() => {
           </div>
         )}
 
-{!youtubeConnected && showYtBanner && (
-  <div style={{ position: 'absolute', top: 58, left: 16, right: 16, zIndex: 6 }}>
-    <ConnectYouTubeBanner session={session} onClose={() => setShowYtBanner(false)} />
-  </div>
-)}
-        
+        {!youtubeConnected && showYtBanner && (
+          <div style={{ position: 'absolute', top: 58, left: 16, right: 16, zIndex: 6 }}>
+            <ConnectYouTubeBanner session={session} onClose={() => setShowYtBanner(false)} />
+          </div>
+        )}
+
         {activeSearch && (
           <div style={{ position: 'absolute', top: 60, left: 16, zIndex: 6, background: 'rgba(255,255,255,0.95)', color: '#0f0f1a', borderRadius: 20, padding: '6px 12px', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
             "{activeSearch}"
@@ -302,36 +312,6 @@ useEffect(() => {
           <button onClick={() => window.location.reload()} style={{ marginTop: 4, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 20, color: '#fff', fontSize: 12, fontWeight: 700, padding: '8px 18px', cursor: 'pointer', fontFamily: 'inherit' }}>Retry</button>
         </div>
       )}
-
-      {isDesktop && items.length > 0 && (
-  <div style={{
-    position: 'fixed', right: 28, top: '50%', transform: 'translateY(-50%)', zIndex: 6,
-    display: 'flex', flexDirection: 'column', gap: 10,
-    opacity: chromeVisible ? 1 : 0, transition: 'opacity 0.4s ease',
-    pointerEvents: chromeVisible ? 'auto' : 'none',
-  }}>
-    <button
-      onClick={() => scrollToIndex(activeIndex - 1)}
-      disabled={activeIndex === 0}
-      title="Previous Short (↑)"
-      style={navArrowBtnStyle(activeIndex === 0)}
-      onMouseEnter={e => { if (activeIndex !== 0) e.currentTarget.style.transform = 'scale(1.1)' }}
-      onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
-    >
-      <ChevronUp size={20} color="#fff" strokeWidth={2.5} />
-    </button>
-    <button
-      onClick={() => scrollToIndex(activeIndex + 1)}
-      disabled={activeIndex >= items.length - 1}
-      title="Next Short (↓)"
-      style={navArrowBtnStyle(activeIndex >= items.length - 1)}
-      onMouseEnter={e => { if (activeIndex < items.length - 1) e.currentTarget.style.transform = 'scale(1.1)' }}
-      onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
-    >
-      <ChevronDown size={20} color="#fff" strokeWidth={2.5} />
-    </button>
-  </div>
-)}
 
       <div
         ref={containerRef}
@@ -376,12 +356,32 @@ useEffect(() => {
                 onToggleRepost={() => handleToggleRepost(video)}
                 saved={savedIds.has(video.videoId)}
                 onToggleSave={() => handleToggleSave(video)}
+                onPrev={isDesktop ? () => scrollToIndex(activeIndex - 1) : undefined}
+                onNext={isDesktop ? () => scrollToIndex(activeIndex + 1) : undefined}
+                hasPrev={activeIndex > 0}
+                hasNext={activeIndex < items.length - 1}
               />
             </div>
           )
         })}
         {loadingMore && <ShortsSkeleton compact />}
       </div>
+
+      {/* Desktop-only floating nav, bottom-left, per the Instagram
+          layout reference — kept reachable while browsing Shorts
+          without a full-width bar sitting over the video/rail.
+          Hidden on mobile via the .bottom-nav-floating media query;
+          native swipe/scroll covers navigation there. activeTab is
+          hardcoded to 'pulse' since this component is only ever
+          mounted while the person is inside Shorts/Pulse. */}
+      {onNavigate && (
+        <BottomNav
+          variant="floating"
+          activeTab="pulse"
+          onTabChange={onNavigate}
+          onProfileClick={() => onNavigate('chats')}
+        />
+      )}
 
       {shareTarget && (
         <StartConversationModal
@@ -415,15 +415,6 @@ function ShortsSkeleton({ compact }) {
     </div>
   )
 }
-
-const navArrowBtnStyle = (disabled) => ({
-  background: 'rgba(20,20,30,0.55)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
-  border: '1px solid rgba(255,255,255,0.18)', borderRadius: '50%', width: 42, height: 42,
-  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.3 : 1,
-  boxShadow: disabled ? 'none' : '0 4px 16px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06)',
-  transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s',
-})
 
 const headerBtnStyle = {
   background: 'rgba(20,20,30,0.45)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
