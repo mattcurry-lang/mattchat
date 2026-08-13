@@ -24,7 +24,14 @@ const MAX_ITEMS_IN_MEMORY = 80
 const TRIM_TARGET = 50
 const TRIM_SAFETY_BUFFER = 20
 
-export function useShorts(session, userId, { category, query, forYou }) {
+// Cap on how many seen-video ids get sent to the feed function as
+// excludeIds on each request. Sending the *entire* session history
+// on every request would grow the request body unboundedly over a
+// long scroll session — the most recent 200 is more than enough to
+// break the pool's short repeat cycle without that cost.
+const MAX_EXCLUDE_IDS = 200
+
+export function useShorts(session, userId, { category, query, forYou, pinnedVideo }) {
   const [items, setItems] = useState([])
   const [likedIds, setLikedIds] = useState(new Set())
   const [activeIndex, setActiveIndex] = useState(0)
@@ -42,6 +49,7 @@ export function useShorts(session, userId, { category, query, forYou }) {
   const fetchingRef = useRef(false)
   const seenIds = useRef(new Set())
   const requestId = useRef(0)
+  const pinnedVideoIdRef = useRef(pinnedVideo?.videoId || null)
 
   const reset = useCallback(() => {
     requestId.current += 1
@@ -57,7 +65,13 @@ export function useShorts(session, userId, { category, query, forYou }) {
     setError(null)
     try {
       const data = await fetchShortsFeed(session, {
-        category, query, forYou, pageToken: isInitial ? null : pageToken.current,
+        category, query, forYou,
+        pageToken: isInitial ? null : pageToken.current,
+        // Tell the feed function what's already been shown this
+        // session so the pool stops handing back the same handful of
+        // videos on every fresh load / page. Capped so the request
+        // body doesn't grow unboundedly over a long scroll session.
+        excludeIds: Array.from(seenIds.current).slice(-MAX_EXCLUDE_IDS),
       })
 
       if (myRequestId !== requestId.current) {
@@ -68,7 +82,7 @@ export function useShorts(session, userId, { category, query, forYou }) {
       }
 
       if (!data.ok) throw new Error(data.error || 'Failed to load Shorts')
-      const fresh = data.items.filter(v => !seenIds.current.has(v.videoId))
+      let fresh = data.items.filter(v => !seenIds.current.has(v.videoId))
       fresh.forEach(v => seenIds.current.add(v.videoId))
       pageToken.current = data.nextPageToken
       if (data.preferredCategories) setPreferredCategories(data.preferredCategories)
@@ -77,7 +91,30 @@ export function useShorts(session, userId, { category, query, forYou }) {
         if (myRequestId !== requestId.current) return
         setLikedIds(prev => new Set([...prev, ...liked]))
       })
-      setItems(prev => isInitial ? fresh : [...prev, ...fresh])
+
+      setItems(prev => {
+        let next = isInitial ? fresh : [...prev, ...fresh]
+        // Guarantee a pinned video (e.g. a Short opened from a shared
+        // chat message) is present at index 0 on the first load — the
+        // feed API is essentially never going to have organically
+        // returned that exact video, so it's spliced in directly
+        // rather than searched for after the fact.
+        if (isInitial && pinnedVideoIdRef.current) {
+          const pinnedId = pinnedVideoIdRef.current
+          const alreadyPresent = next.some(v => v.videoId === pinnedId)
+          if (!alreadyPresent) {
+            seenIds.current.add(pinnedId)
+            next = [pinnedVideo, ...next]
+          } else {
+            // Already in the fetched batch somewhere else — move it
+            // to index 0 instead of duplicating it.
+            const idx = next.findIndex(v => v.videoId === pinnedId)
+            const [pinnedItem] = next.splice(idx, 1)
+            next = [pinnedItem, ...next]
+          }
+        }
+        return next
+      })
     } catch (e) {
       if (myRequestId === requestId.current) {
         console.error('Shorts loadBatch failed:', e)
@@ -87,7 +124,7 @@ export function useShorts(session, userId, { category, query, forYou }) {
     fetchingRef.current = false
     setLoading(false)
     setLoadingMore(false)
-  }, [session, userId, category, query, forYou])
+  }, [session, userId, category, query, forYou, pinnedVideo])
 
   useEffect(() => { reset(); loadBatch(true) }, [category, query, forYou]) // eslint-disable-line
 
