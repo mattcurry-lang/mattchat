@@ -6,19 +6,21 @@ import { useInstagramConnection } from '../../hooks/useInstagramConnection'
 import {
   connectGoogleDrive, listGoogleDriveAccounts, disconnectGoogleDriveAccount,
   connectGoogleCalendar, listGoogleCalendarAccounts, disconnectGoogleCalendarAccount,
+  listPinterestBoards,
 } from '../../lib/supabase'
 import TikTokView from './TikTokView'
 import { useTikTokConnection } from '../../hooks/useTikTokConnection'
 import WhatsAppView from './WhatsAppView'
 import { useWhatsAppConnection } from '../../hooks/useWhatsAppConnection'
+import PinterestPicker from '../PinterestPicker'
 
 // Drop this into the profile page
-//   <ConnectedAppsSection session={session} userId={userId} />
-export default function ConnectedAppsSection({ session, userId }) {
+//   <ConnectedAppsSection session={session} userId={userId} avatarPreference={profile?.avatar_category} onAvatarChange={(url) => ...} />
+export default function ConnectedAppsSection({ session, userId, avatarPreference, onAvatarChange }) {
   const ig = useInstagramConnection(session, userId)
   const tiktok = useTikTokConnection(session, userId)
   const whatsapp = useWhatsAppConnection(session, userId)
-  const [openService, setOpenService] = useState(null) // 'instagram' | 'whatsapp' | 'google_drive' | 'google_calendar' | null
+  const [openService, setOpenService] = useState(null) // 'instagram' | 'whatsapp' | 'google_drive' | 'google_calendar' | 'pinterest' | null
   const [connectError, setConnectError] = useState(null)
 
   const [driveAccounts, setDriveAccounts] = useState([])
@@ -27,6 +29,7 @@ export default function ConnectedAppsSection({ session, userId }) {
   const [connectingCalendar, setConnectingCalendar] = useState(false)
   const [disconnectingDrive, setDisconnectingDrive] = useState(false)
   const [disconnectingCalendar, setDisconnectingCalendar] = useState(false)
+  const [pinterestConnected, setPinterestConnected] = useState(false)
 
   const loadDrive = useCallback(async () => {
     try { setDriveAccounts(await listGoogleDriveAccounts(session)) } catch (e) { console.error('listGoogleDriveAccounts failed:', e) }
@@ -36,27 +39,38 @@ export default function ConnectedAppsSection({ session, userId }) {
     try { setCalendarAccounts(await listGoogleCalendarAccounts(session)) } catch (e) { console.error('listGoogleCalendarAccounts failed:', e) }
   }, [session])
 
+  const loadPinterest = useCallback(async () => {
+    try {
+      const data = await listPinterestBoards(session)
+      setPinterestConnected(!!data.connected)
+    } catch (e) { console.error('listPinterestBoards failed:', e) }
+  }, [session])
+
   useEffect(() => { loadDrive() }, [loadDrive])
   useEffect(() => { loadCalendar() }, [loadCalendar])
+  useEffect(() => { loadPinterest() }, [loadPinterest])
 
-  // These fire from ChatPage's redirect-handling effects once Google
-  // sends the browser back — refreshes the list in place instead of
-  // requiring a manual reopen of this panel. WhatsApp doesn't need an
+  // These fire from ChatPage's redirect-handling effects once Google/
+  // Pinterest sends the browser back — refreshes status in place instead
+  // of requiring a manual reopen of this panel. WhatsApp doesn't need an
   // entry here since its connect() resolves in-place (no redirect) —
   // see useWhatsAppConnection, which calls refreshStatus() itself.
   useEffect(() => {
     const onDrive = () => loadDrive()
     const onCalendar = () => loadCalendar()
     const onTikTok = () => tiktok.refreshStatus()
+    const onPinterest = () => loadPinterest()
     window.addEventListener('google-drive-connected', onDrive)
     window.addEventListener('google-calendar-connected', onCalendar)
     window.addEventListener('tiktok-connected', onTikTok)
+    window.addEventListener('pinterest-connected', onPinterest)
     return () => {
       window.removeEventListener('google-drive-connected', onDrive)
       window.removeEventListener('google-calendar-connected', onCalendar)
       window.removeEventListener('tiktok-connected', onTikTok)
+      window.removeEventListener('pinterest-connected', onPinterest)
     }
-  }, [loadDrive, loadCalendar, tiktok])
+  }, [loadDrive, loadCalendar, tiktok, loadPinterest])
 
   const handleConnectInstagram = async () => {
     setConnectError(null)
@@ -148,6 +162,12 @@ export default function ConnectedAppsSection({ session, userId }) {
       avatarUrl: ig.account?.avatar_url,
     },
     {
+      id: 'pinterest',
+      label: 'Pinterest',
+      icon: '📌',
+      connected: pinterestConnected,
+    },
+    {
       id: 'google_drive',
       label: 'Google Drive',
       icon: '📁',
@@ -176,6 +196,7 @@ export default function ConnectedAppsSection({ session, userId }) {
   const onConnectFor = {
     whatsapp: handleConnectWhatsApp,
     instagram: handleConnectInstagram,
+    pinterest: () => setOpenService('pinterest'),
     google_drive: handleConnectDrive,
     google_calendar: handleConnectCalendar,
     tiktok: handleConnectTikTok,
@@ -184,6 +205,7 @@ export default function ConnectedAppsSection({ session, userId }) {
   const busyFor = {
     whatsapp: whatsapp.connecting,
     instagram: ig.connecting,
+    pinterest: false,
     google_drive: connectingDrive,
     google_calendar: connectingCalendar,
     tiktok: tiktok.connecting,
@@ -225,6 +247,28 @@ export default function ConnectedAppsSection({ session, userId }) {
         disconnecting={tiktok.disconnecting}
         onClose={() => setOpenService(null)}
       />
+    )
+  }
+
+  if (openService === 'pinterest') {
+    return (
+      <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={() => setOpenService(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16, padding: 0 }}>←</button>
+          <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Pinterest</h3>
+        </div>
+        <PinterestPicker
+          session={session}
+          userId={userId}
+          preference={avatarPreference}
+          onPicked={(url) => {
+            onAvatarChange?.(url)
+            setPinterestConnected(true)
+            setOpenService(null)
+          }}
+          onBack={() => setOpenService(null)}
+        />
+      </motion.div>
     )
   }
 
