@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react'
-import { Heart, MessageCircle, Repeat2, Bookmark, Send, Volume2, VolumeX } from 'lucide-react'
+import { Heart, MessageCircle, Repeat2, Bookmark, Send, Volume2, VolumeX, ChevronUp, ChevronDown } from 'lucide-react'
 import { useDominantColor } from '../../hooks/useDominantColor'
 import { useIsDesktop } from '../../hooks/useIsDesktop'
 
@@ -19,11 +19,6 @@ function loadYouTubeAPI() {
   })
   return apiLoadPromise
 }
-// Exported so ShortsPage can kick this off the moment Shorts opens,
-// instead of waiting for the first card to mount — the API script
-// fetch + parse is the single biggest fixed cost before any video can
-// start, so starting it as early as possible is what actually moves
-// the needle on perceived load time.
 export { loadYouTubeAPI }
 
 function formatCount(n) {
@@ -38,18 +33,19 @@ function haptic(pattern = 10) {
   }
 }
 
-// NOTE: this card intentionally has NO prev/next nav buttons — those
-// live as their own floating cluster in ShortsPage.jsx (positioned
-// fixed to the viewport, not scrolling with the card), not merged
-// into this action rail. Keeping them page-level instead of card-level
-// is deliberate: it matches the reference layout, and it means the
-// nav cluster doesn't re-mount/flicker as cards scroll past.
+// Desktop prev/next nav (onPrev/onNext/hasPrev/hasNext) is rendered
+// INSIDE this card's own action-rail column — sandwiching the
+// like/comment/repost/save/send stack — not as a separate floating
+// cluster positioned against the viewport. This is what keeps the
+// whole Shorts unit (video + rail + nav) reading as one component
+// instead of two disconnected UI groups.
 export default function ShortsVideoCard({
   video, isActive, isMounted,
   onProgress, onEnded, onReplay, liked, onToggleLike,
   onOpenShare, onOpenComments, commentCount, onTap,
   muted, onToggleMute,
   following, onToggleFollow, reposted, onToggleRepost, saved, onToggleSave,
+  onPrev, onNext, hasPrev, hasNext,
 }) {
   const wrapperRef = useRef(null)
   const playerRef = useRef(null)
@@ -80,10 +76,6 @@ export default function ShortsVideoCard({
           onReady: (e) => {
             readyRef.current = true
             setReady(true)
-            // Always starts at 0 — no resume-to-last-position. A short
-            // always beginning from wherever you previously stopped
-            // made replays and re-scrolls feel repetitive rather than
-            // helpful, so this intentionally does NOT seek anywhere.
             e.target.mute() // always start muted — see mute-reconciliation effect below for why
           },
           onStateChange: (e) => {
@@ -152,8 +144,6 @@ export default function ShortsVideoCard({
     }, 290)
   }, [liked, onToggleLike, onTap, triggerLikeBurst])
 
-  // The mounted-player / poster-until-ready block is identical in both
-  // layouts, so it's factored out once here instead of duplicated.
   const videoSurface = (
     <>
       {isMounted ? (
@@ -214,11 +204,6 @@ export default function ShortsVideoCard({
       <button onClick={(e) => { e.stopPropagation(); onToggleSave?.() }} style={railStyle}>
         <Bookmark size={24} strokeWidth={2} fill={saved ? '#fff' : 'none'} color="#fff" style={{ filter: iconShadow }} />
       </button>
-      {/* Send-to-chat is Mattchat's own core feature (sharing a Short
-          straight into a conversation) and has no Instagram Reels
-          equivalent in the reference screenshots — kept deliberately
-          even though it means the rail has one more icon than the
-          reference. */}
       <button onClick={(e) => { e.stopPropagation(); onOpenShare() }} style={railStyle}>
         <Send size={24} strokeWidth={2} color="#fff" style={{ filter: iconShadow }} />
         <span style={labelStyle}>Send</span>
@@ -257,16 +242,6 @@ export default function ShortsVideoCard({
     </>
   )
 
-  // ── Desktop: video card + action rail sit centered as one unit,
-  // and the creator/caption block sits directly beneath THAT unit —
-  // in normal document flow, not absolutely positioned against the
-  // full viewport. An earlier version absolutely-positioned the
-  // caption at the bottom-left of the whole screen, which looked
-  // right in isolation but drifted down into the same corner the
-  // floating desktop nav now occupies once that was added — the two
-  // started crowding each other. Keeping it in-flow, pinned to the
-  // width of the video column, keeps it clear of the nav regardless
-  // of where the nav sits.
   if (isDesktop) {
     const cardHeight = 'min(72vh, 700px)'
     const cardWidth = 'min(80vw, calc(min(72vh, 700px) * 9 / 16))'
@@ -276,20 +251,9 @@ export default function ShortsVideoCard({
         scrollSnapAlign: 'start', scrollSnapStop: 'always',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         background: '#0a0a0f', gap: 14, padding: '0 0 64px', boxSizing: 'border-box',
-        // bottom padding reserves clear space above the floating
-        // bottom-left nav so this card's content never sits flush
-        // against it, regardless of exact nav height.
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
           <div style={{ position: 'relative', width: cardWidth, height: cardHeight }}>
-            {/* Glow layer — a real blurred element positioned behind
-                the card, using bgColor directly rather than string-
-                concatenating an alpha suffix onto it. Concatenating
-                (e.g. `${bgColor}66`) is invalid CSS whenever
-                useDominantColor returns an "rgb(r,g,b)" string rather
-                than a hex string — the whole boxShadow silently gets
-                dropped by the browser, which is why the glow was
-                invisible before. */}
             <div style={{
               position: 'absolute', inset: -50, borderRadius: 48,
               background: bgColor, filter: 'blur(55px) saturate(1.7)',
@@ -311,8 +275,26 @@ export default function ShortsVideoCard({
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, paddingTop: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, paddingTop: 8 }}>
+            {onPrev && (
+              <button
+                onClick={onPrev} disabled={!hasPrev} title="Previous Short (up)" style={navBtnStyle(!hasPrev)}
+                onMouseEnter={e => { if (hasPrev) e.currentTarget.style.transform = 'scale(1.1)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+              >
+                <ChevronUp size={19} color="#fff" strokeWidth={2.5} />
+              </button>
+            )}
             {railButtons(desktopRailBtnStyle, desktopRailLabelStyle, 'none')}
+            {onNext && (
+              <button
+                onClick={onNext} disabled={!hasNext} title="Next Short (down)" style={navBtnStyle(!hasNext)}
+                onMouseEnter={e => { if (hasNext) e.currentTarget.style.transform = 'scale(1.1)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+              >
+                <ChevronDown size={19} color="#fff" strokeWidth={2.5} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -335,18 +317,7 @@ export default function ShortsVideoCard({
       </div>
     )
   }
-<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, paddingTop: 8 }}>
-  {onPrev && (
-    <button onClick={onPrev} ...><ChevronUp .../></button>
-  )}
-  {railButtons(desktopRailBtnStyle, desktopRailLabelStyle, 'none')}
-  {onNext && (
-    <button onClick={onNext} ...><ChevronDown .../></button>
-  )}
-</div>
-  // ── Mobile: full-bleed immersive video, everything overlaid with a
-  // gradient scrim — this is the correct treatment when the video IS
-  // the screen, matching your mobile Reels reference from earlier.
+
   return (
     <div style={{
       position: 'relative', width: '100%', height: '100dvh', flexShrink: 0,
@@ -397,3 +368,10 @@ const railBtnStyle = {
 const railLabelStyle = { fontSize: 11, fontWeight: 700, textShadow: '0 1px 3px rgba(0,0,0,0.6)' }
 const desktopRailBtnStyle = { ...railBtnStyle }
 const desktopRailLabelStyle = { fontSize: 11, fontWeight: 700, color: '#fff' }
+
+const navBtnStyle = (disabled) => ({
+  background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)',
+  borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
+  cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.25 : 1, flexShrink: 0,
+  transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s',
+})
