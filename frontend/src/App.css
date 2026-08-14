@@ -122,8 +122,23 @@
   gap: 4px;
   box-shadow: 0 8px 30px rgba(0,0,0,0.4);
 }
-@media (max-width: 860px) {
-  .bottom-nav-floating { display: none; }
+
+.bottom-nav-floating .bnav-btn {
+  flex-direction: row;
+  gap: 5px;
+  padding: 8px 12px;
+}
+
+.bottom-nav-floating .bnav-label {
+  display: none; /* icon-only cluster, like Instagram's compact nav */
+}
+
+/* Hide the floating cluster on narrow/mobile screens per your own comment —
+   native swipe/scroll covers navigation there */
+@media (max-width: 640px) {
+  .bottom-nav-floating {
+    display: none;
+  }
 }
 /* Textarea glow — light mode only, matches auth-card glow language */
 [data-theme="light"] .input-area textarea {
