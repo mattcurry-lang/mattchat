@@ -164,15 +164,15 @@ export default function ProfileSetupModal({ session, userId, username, onComplet
           </>
         )}
 
-        {step === 'pinterest' && (
-          <PinterestPicker
-            session={session}
-            userId={userId}
-            category={category}
-            onPicked={handlePinterestPicked}
-            onBack={() => setStep('method')}
-          />
-        )}
+       {step === 'pinterest' && (
+  <PinterestPicker
+    session={session}
+    userId={userId}
+    preference={category}
+    onPicked={handlePinterestPicked}
+    onBack={() => setStep('method')}
+  />
+)}
       </div>
     </div>
   )
