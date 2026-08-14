@@ -1834,7 +1834,9 @@ const handleSend = async () => {
     mini={activeConvo?.id !== watchTogether.session.conversation_id}
   />
 )}
-const unreadConversationsPreview = conversations
+
+{showShorts && (
+  const unreadConversationsPreview = conversations
   .filter(c => (unreadCounts[c.id] || 0) > 0)
   .sort((a, b) => (unreadCounts[b.id] || 0) - (unreadCounts[a.id] || 0))
   .slice(0, 4)
@@ -1845,7 +1847,6 @@ const unreadConversationsPreview = conversations
     unread: unreadCounts[c.id] || 0,
   }))
 
-{showShorts && (
   <ShortsPage
     session={session} userId={userId} conversations={conversations}
     getConvoName={getConvoName} initialVideo={shortsInitialVideo}
