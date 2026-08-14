@@ -46,6 +46,17 @@ export default function ShortsPage({
   // ChatPage is responsible for closing Shorts and switching the tab —
   // this component doesn't own that state, it just reports the intent.
   onNavigate,
+  // [{ id, name, avatarUrl, unread }] for the top few conversations
+  // with unread messages, precomputed by ChatPage — kept as plain
+  // data rather than passing ChatPage's internal helper functions
+  // across, so this component doesn't need to know how avatars/names
+  // are derived.
+  unreadConversations,
+  totalUnread,
+  // Called with a conversationId when the person taps the
+  // notification banner and there's exactly one unread conversation
+  // to jump straight to. Falls back to onNavigate('chats') otherwise.
+  onOpenConversation,
 }) {
   const [searchInput, setSearchInput] = useState(initialSearch || '')
   const [activeSearch, setActiveSearch] = useState(initialSearch || '')
@@ -269,6 +280,67 @@ export default function ShortsPage({
             "{activeSearch}"
             <XIcon size={13} style={{ cursor: 'pointer' }} onClick={() => setActiveSearch('')} />
           </div>
+        )}
+
+        {/* Small glassmorphism "you have unread messages" pill,
+            top-left, below the header row. This is the ONLY way back
+            into the chat app while inside Shorts besides the explicit
+            back arrow — everything else (Curry orb, bottom nav,
+            insights panel) is intentionally hidden by ChatPage while
+            Shorts is open, so Shorts reads as its own standalone
+            surface. Hidden whenever the search box is open (same
+            screen real estate) or there's nothing unread to show. */}
+        {!showSearchBox && !activeSearch && totalUnread > 0 && unreadConversations?.length > 0 && (
+          <button
+            onClick={() => {
+              if (unreadConversations.length === 1) onOpenConversation?.(unreadConversations[0].id)
+              else onNavigate?.('chats')
+            }}
+            style={{
+              position: 'absolute', top: 60, left: 16, zIndex: 6,
+              display: 'flex', alignItems: 'center', gap: 8,
+              background: 'rgba(20,20,30,0.55)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+              border: '1px solid rgba(255,255,255,0.16)', borderRadius: 999,
+              padding: isDesktop ? '6px 14px 6px 6px' : '5px 5px',
+              cursor: 'pointer', fontFamily: 'inherit',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.35)',
+            }}
+            title={`${totalUnread} unread message${totalUnread === 1 ? '' : 's'}`}
+          >
+            <div style={{ display: 'flex' }}>
+              {unreadConversations.slice(0, 3).map((c, i) => (
+                <div
+                  key={c.id}
+                  style={{
+                    width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                    marginLeft: i === 0 ? 0 : -8,
+                    border: '2px solid rgba(20,20,30,0.9)',
+                    background: c.avatarUrl ? `url(${c.avatarUrl}) center/cover` : 'linear-gradient(135deg,#667eea,#764ba2)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 10, fontWeight: 800, color: '#fff', zIndex: 3 - i,
+                  }}
+                >
+                  {!c.avatarUrl && (c.name || '?').charAt(0).toUpperCase()}
+                </div>
+              ))}
+            </div>
+            {/* Label collapses to just the avatar stack + badge on
+                mobile — no room for text there, and the badge alone
+                communicates "something's waiting for you". */}
+            {isDesktop && (
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>
+                {unreadConversations.length === 1 ? unreadConversations[0].name : 'New messages'}
+              </span>
+            )}
+            <span style={{
+              background: '#ff3b5c', color: '#fff', fontSize: 10, fontWeight: 800,
+              borderRadius: 999, minWidth: 16, height: 16, padding: '0 4px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              marginLeft: isDesktop ? 0 : -4, marginRight: isDesktop ? 0 : 2,
+            }}>
+              {totalUnread > 9 ? '9+' : totalUnread}
+            </span>
+          </button>
         )}
       </div>
 
