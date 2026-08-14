@@ -1184,10 +1184,22 @@ const handleSend = async () => {
   // Curry AI page nudge → opening a suggested conversation from the
   // Daily Brief's reconnect nudges (Phase 3). Just reuses openConvo so
   // unread badges clear the same way as clicking it from the list.
-  const openConversationById = useCallback((convoId) => {
+ const openConversationById = useCallback((convoId) => {
     const found = conversations.find(c => c.id === convoId)
     if (found) openConvo(found)
   }, [conversations])
+
+  const unreadConversationsPreview = conversations
+    .filter(c => (unreadCounts[c.id] || 0) > 0)
+    .sort((a, b) => (unreadCounts[b.id] || 0) - (unreadCounts[a.id] || 0))
+    .slice(0, 4)
+    .map(c => ({
+      id: c.id,
+      name: getConvoName(c),
+      avatarUrl: getOtherUserAvatar(c, userId),
+      unread: unreadCounts[c.id] || 0,
+    }))
+
  return (
     <div className={`app ${activeConvo ? 'chat-open' : ''}`}>
 
@@ -1836,17 +1848,6 @@ const handleSend = async () => {
 )}
 
 {showShorts && (
-  const unreadConversationsPreview = conversations
-  .filter(c => (unreadCounts[c.id] || 0) > 0)
-  .sort((a, b) => (unreadCounts[b.id] || 0) - (unreadCounts[a.id] || 0))
-  .slice(0, 4)
-  .map(c => ({
-    id: c.id,
-    name: getConvoName(c),
-    avatarUrl: getOtherUserAvatar(c, userId),
-    unread: unreadCounts[c.id] || 0,
-  }))
-
   <ShortsPage
     session={session} userId={userId} conversations={conversations}
     getConvoName={getConvoName} initialVideo={shortsInitialVideo}
@@ -1857,7 +1858,7 @@ const handleSend = async () => {
     onOpenConversation={(convoId) => {
       setShowShorts(false); setShortsInitialVideo(null); openConversationById(convoId)
     }}
-  />
+  />  
 )}
    {youtubePlayer && (
   <YouTubePlayer
