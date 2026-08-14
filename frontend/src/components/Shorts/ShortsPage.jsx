@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react'
-import { Search as SearchIcon, X as XIcon, ArrowLeft, WifiOff } from 'lucide-react'
+import { Search as SearchIcon, X as XIcon, ArrowLeft, WifiOff, ChevronUp, ChevronDown } from 'lucide-react'
 import ShortsVideoCard, { loadYouTubeAPI } from './ShortsVideoCard'
 import ShortsCommentsSheet from './ShortsCommentsSheet'
 import StartConversationModal from './StartConversationModal'
@@ -47,11 +47,6 @@ export default function ShortsPage({
   // this component doesn't own that state, it just reports the intent.
   onNavigate,
 }) {
-  // Category switching UI was removed for a cleaner top chrome — the
-  // feed now always runs on the personalized "For You" ranking unless
-  // the user explicitly searches. If category browsing needs to come
-  // back later, it's a small addition (a filter icon opening a sheet),
-  // not a rebuild — the underlying useShorts category param still works.
   const [searchInput, setSearchInput] = useState(initialSearch || '')
   const [activeSearch, setActiveSearch] = useState(initialSearch || '')
   const [showSearchBox, setShowSearchBox] = useState(false)
@@ -66,28 +61,22 @@ export default function ShortsPage({
   const [followedChannelIds, setFollowedChannelIds] = useState(new Set())
   const [repostedIds, setRepostedIds] = useState(new Set())
   const [savedIds, setSavedIds] = useState(new Set())
-  const fetchedMetaRef = useRef(new Set())    // video ids already checked for repost/save
-  const fetchedChannelsRef = useRef(new Set()) // channel ids already checked for follow
+  const fetchedMetaRef = useRef(new Set())
+  const fetchedChannelsRef = useRef(new Set())
   const { chromeVisible, wake } = useAutoHideChrome()
-  const [youtubeConnected, setYoutubeConnected] = useState(true) // default true so the banner doesn't flash before the check resolves
+  const [youtubeConnected, setYoutubeConnected] = useState(true)
   const [showYtBanner, setShowYtBanner] = useState(true)
   const isDesktop = useIsDesktop()
 
-  // Fire both preloads once, synchronously on mount — before the feed
-  // fetch even resolves, well before the first card would otherwise
-  // trigger loadYouTubeAPI() itself on mount.
   useEffect(() => {
     getYouTubeConnectionStatus(userId).then(setYoutubeConnected)
   }, [userId])
 
-  // One-time: after Google redirects back with ?youtube_connect=success,
-  // sync subscriptions immediately so the personalized feed has data to
-  // draw from right away instead of waiting for some other trigger.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('youtube_connect') === 'success') {
       syncYouTubeSubscriptions(session).then(() => setYoutubeConnected(true))
-      window.history.replaceState({}, '', window.location.pathname) // strip the query param so a refresh doesn't re-trigger this
+      window.history.replaceState({}, '', window.location.pathname)
     }
   }, [session])
 
@@ -101,24 +90,11 @@ export default function ShortsPage({
     category: activeSearch ? null : 'trending',
     query: activeSearch || null,
     forYou: !activeSearch,
-    // Guarantees `initialVideo` (e.g. a Short opened from a chat
-    // message) is present at items[0] on the first load — see
-    // useShorts.js. Previously this page tried to *find* the video
-    // inside whatever the feed API returned, which almost never
-    // contained it, so opening a shared Short silently landed on a
-    // random trending video instead.
     pinnedVideo: initialVideo || null,
   })
 
   useEffect(() => { setLikedIdsLocal(hookLikedIds) }, [hookLikedIds])
 
-  // Fetches follow/repost/save status only for videos not already
-  // checked — same incremental pattern loadBatch uses for likedIds,
-  // so scrolling further never re-queries what's already known.
-  // Placed AFTER the useShorts() call above, not before — it reads
-  // `items`, which useShorts returns, so it must come after that
-  // const is actually declared or `items` is referenced before
-  // initialization (this was the exact bug in the previous version).
   useEffect(() => {
     const newItems = items.filter(v => !fetchedMetaRef.current.has(v.videoId))
     if (newItems.length === 0) return
@@ -137,11 +113,6 @@ export default function ShortsPage({
     }
   }, [items, userId])
 
-  // Compensates scrollTop after the hook trims scrolled-past items
-  // from the front of the array, so the removal is invisible to the
-  // user instead of causing a visible jump forward. Runs in
-  // useLayoutEffect so the correction happens before the browser
-  // paints the shorter list.
   const lastHandledTrimId = useRef(null)
   useLayoutEffect(() => {
     if (!trimEvent || trimEvent.id === lastHandledTrimId.current) return
@@ -178,10 +149,9 @@ export default function ShortsPage({
   }, [items.length]) // eslint-disable-line
 
   // Programmatic scroll to a given card index — used by both the
-  // desktop chevron buttons (merged into ShortsVideoCard's rail) and
-  // arrow-key navigation below. The IntersectionObserver above is
-  // what actually updates activeIndex once the scroll lands; this
-  // just drives the scroll itself.
+  // standalone desktop chevron cluster below and arrow-key navigation.
+  // The IntersectionObserver above is what actually updates
+  // activeIndex once the scroll lands; this just drives the scroll.
   const scrollToIndex = useCallback((idx) => {
     const container = containerRef.current
     if (!container || items.length === 0) return
@@ -228,7 +198,7 @@ export default function ShortsPage({
   }, [])
 
   const handleToggleFollow = useCallback(async (video) => {
-    if (!video.channelId) return // pool item predates the channelId migration — nothing to key the follow on
+    if (!video.channelId) return
     const isFollowing = followedChannelIds.has(video.channelId)
     const nowFollowing = await toggleFollowChannel(userId, video.channelId, video.channelTitle, isFollowing)
     setFollowedChannelIds(prev => {
@@ -326,12 +296,6 @@ export default function ShortsPage({
               data-index={i}
               style={{
                 scrollSnapAlign: 'start',
-                // Lets the browser skip layout/paint/style work for
-                // cards that are off-screen, without unmounting them —
-                // this is what keeps a long scroll session's render
-                // cost bounded even before the front-trim in useShorts
-                // kicks in. containIntrinsicSize gives it a size hint
-                // so scrollbar/layout math stays correct while skipped.
                 contentVisibility: 'auto',
                 containIntrinsicSize: '100vw 100dvh',
               }}
@@ -356,10 +320,6 @@ export default function ShortsPage({
                 onToggleRepost={() => handleToggleRepost(video)}
                 saved={savedIds.has(video.videoId)}
                 onToggleSave={() => handleToggleSave(video)}
-                onPrev={isDesktop ? () => scrollToIndex(activeIndex - 1) : undefined}
-                onNext={isDesktop ? () => scrollToIndex(activeIndex + 1) : undefined}
-                hasPrev={activeIndex > 0}
-                hasNext={activeIndex < items.length - 1}
               />
             </div>
           )
@@ -367,13 +327,47 @@ export default function ShortsPage({
         {loadingMore && <ShortsSkeleton compact />}
       </div>
 
-      {/* Desktop-only floating nav, bottom-left, per the Instagram
-          layout reference — kept reachable while browsing Shorts
-          without a full-width bar sitting over the video/rail.
-          Hidden on mobile via the .bottom-nav-floating media query;
-          native swipe/scroll covers navigation there. activeTab is
-          hardcoded to 'pulse' since this component is only ever
-          mounted while the person is inside Shorts/Pulse. */}
+      {/* Standalone floating up/down nav — fixed to the VIEWPORT, not
+          to any card, vertically centered on the whole screen, near
+          the right edge. This matches the Instagram reference exactly:
+          the chevrons sit clearly separate from the action rail, not
+          merged into it. Positioned above the Curry AI orb buttons
+          (which already occupy the bottom-right corner) with enough
+          gap that they never collide. */}
+      {isDesktop && items.length > 0 && (
+        <div style={{
+          position: 'fixed', right: 34, top: '50%', transform: 'translateY(-50%)', zIndex: 6,
+          display: 'flex', flexDirection: 'column', gap: 10,
+          opacity: chromeVisible ? 1 : 0, transition: 'opacity 0.4s ease',
+          pointerEvents: chromeVisible ? 'auto' : 'none',
+        }}>
+          <button
+            onClick={() => scrollToIndex(activeIndex - 1)}
+            disabled={activeIndex === 0}
+            title="Previous Short (↑)"
+            style={navArrowBtnStyle(activeIndex === 0)}
+            onMouseEnter={e => { if (activeIndex !== 0) e.currentTarget.style.transform = 'scale(1.1)' }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+          >
+            <ChevronUp size={20} color="#fff" strokeWidth={2.5} />
+          </button>
+          <button
+            onClick={() => scrollToIndex(activeIndex + 1)}
+            disabled={activeIndex >= items.length - 1}
+            title="Next Short (↓)"
+            style={navArrowBtnStyle(activeIndex >= items.length - 1)}
+            onMouseEnter={e => { if (activeIndex < items.length - 1) e.currentTarget.style.transform = 'scale(1.1)' }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+          >
+            <ChevronDown size={20} color="#fff" strokeWidth={2.5} />
+          </button>
+        </div>
+      )}
+
+      {/* Desktop-only floating chat nav, bottom-left — kept reachable
+          while browsing Shorts without a full-width bar over the
+          video/rail. Hidden on mobile; native swipe/scroll covers
+          navigation there. */}
       {onNavigate && (
         <BottomNav
           variant="floating"
@@ -421,3 +415,12 @@ const headerBtnStyle = {
   border: '1px solid rgba(255,255,255,0.16)', borderRadius: '50%', width: 34, height: 34, color: '#fff',
   fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
 }
+
+const navArrowBtnStyle = (disabled) => ({
+  background: 'rgba(20,20,30,0.55)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+  border: '1px solid rgba(255,255,255,0.18)', borderRadius: '50%', width: 42, height: 42,
+  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.3 : 1,
+  boxShadow: disabled ? 'none' : '0 4px 16px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06)',
+  transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s',
+})
