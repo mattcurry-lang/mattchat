@@ -1810,7 +1810,7 @@ const handleSend = async () => {
           onProfileClick={() => setShowProfileMenu(v => !v)}
         />
       </div>
-
+{!showShorts && (
 <AIInsightsPanel
   session={session}
   onOpenCurry={() => setActiveConvo(CURRY_AI_CONTACT)}
@@ -1818,11 +1818,12 @@ const handleSend = async () => {
   onOpenConversation={openConversationById}
   onAskCurry={(text) => { setCurryPrefill(text); setActiveConvo(CURRY_AI_CONTACT) }}
 />
+    )}
           
-      <FloatingCurryOrb
-        hidden={!!activeConvo}
-        onActivate={() => setActiveConvo(CURRY_AI_CONTACT)}
-      />
+   <FloatingCurryOrb
+  hidden={!!activeConvo || showShorts}
+  onActivate={() => setActiveConvo(CURRY_AI_CONTACT)}
+/>
 
                 {watchTogether.session?.status === 'active' && (
   <WatchTogetherPlayer
@@ -1833,6 +1834,16 @@ const handleSend = async () => {
     mini={activeConvo?.id !== watchTogether.session.conversation_id}
   />
 )}
+const unreadConversationsPreview = conversations
+  .filter(c => (unreadCounts[c.id] || 0) > 0)
+  .sort((a, b) => (unreadCounts[b.id] || 0) - (unreadCounts[a.id] || 0))
+  .slice(0, 4)
+  .map(c => ({
+    id: c.id,
+    name: getConvoName(c),
+    avatarUrl: getOtherUserAvatar(c, userId),
+    unread: unreadCounts[c.id] || 0,
+  }))
 
 {showShorts && (
   <ShortsPage
@@ -1840,6 +1851,11 @@ const handleSend = async () => {
     getConvoName={getConvoName} initialVideo={shortsInitialVideo}
     onClose={() => { setShowShorts(false); setShortsInitialVideo(null) }}
     onNavigate={(tab) => { setShowShorts(false); setShortsInitialVideo(null); setActiveTab(tab) }}
+    unreadConversations={unreadConversationsPreview}
+    totalUnread={totalUnread}
+    onOpenConversation={(convoId) => {
+      setShowShorts(false); setShortsInitialVideo(null); openConversationById(convoId)
+    }}
   />
 )}
    {youtubePlayer && (
