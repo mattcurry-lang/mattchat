@@ -240,56 +240,92 @@ export default function ShortsVideoCard({
     </>
   )
 
+  // Right-aligned, narrow-column variant — used only in the desktop
+  // left-column layout above, where the block sits in a fixed 260px
+  // column beside the video rather than spanning its full width
+  // below it. Same content as creatorAndCaption, different shape:
+  // avatar+name wrap to fit the narrow column, caption wraps to
+  // multiple lines naturally instead of a single wide line.
+  const creatorAndCaptionLeftColumn = (textColor, linkColor) => (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: textColor }}>
+          {video.channelTitle}
+        </span>
+        <div style={{
+          width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+          background: 'linear-gradient(135deg,#667eea,#764ba2)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 13, fontWeight: 800, color: '#fff',
+        }}>
+          {(video.channelTitle || '?').charAt(0).toUpperCase()}
+        </div>
+      </div>
+      <button
+        onClick={(e) => { e.stopPropagation(); onToggleFollow?.() }}
+        style={{
+          background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit',
+          fontSize: 13.5, fontWeight: 700, color: following ? 'rgba(255,255,255,0.55)' : linkColor,
+          alignSelf: 'flex-end',
+        }}
+      >
+        {following ? 'Following' : 'Follow'}
+      </button>
+      <div style={{ color: textColor, fontSize: 13, fontWeight: 500, lineHeight: 1.5 }}>
+        {video.title}
+      </div>
+    </>
+  )
+
   if (isDesktop) {
-    const cardHeight = 'min(72vh, 700px)'
-    const cardWidth = 'min(80vw, calc(min(72vh, 700px) * 9 / 16))'
+    const cardHeight = 'min(88vh, 860px)'
+    const cardWidth = 'calc(min(88vh, 860px) * 9 / 16)'
     return (
       <div style={{
         height: '100dvh', width: '100%', flexShrink: 0,
         scrollSnapAlign: 'start', scrollSnapStop: 'always',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        background: '#0a0a0f', gap: 14, padding: '0 0 64px', boxSizing: 'border-box',
+        display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        background: '#0a0a0f', gap: 36, boxSizing: 'border-box', padding: '0 32px',
       }}>
-        {/* Video + caption share ONE column (same width, same left
-            edge) so the caption can never drift out of alignment with
-            the video above it — this was the actual bug: the caption
-            used to be a sibling of the [video, rail] row and got
-            centered under that ENTIRE row's width, which visually
-            dragged it right, toward the rail, instead of sitting
-            flush under the video. The rail is a separate sibling
-            beside this whole column now, not inside it. */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: cardWidth }}>
-            <div style={{ position: 'relative', width: '100%', height: cardHeight }}>
-              <div style={{
-                position: 'absolute', inset: -50, borderRadius: 48,
-                background: bgColor, filter: 'blur(55px) saturate(1.7)',
-                opacity: 0.6, zIndex: 0, transition: 'background 0.6s ease',
-                animation: 'shortsCardGlowPulse 4s ease-in-out infinite',
-                pointerEvents: 'none',
-              }} />
-              <div
-                onClick={handleTapVideo}
-                style={{
-                  position: 'relative', zIndex: 1, width: '100%', height: '100%',
-                  borderRadius: 16, overflow: 'hidden', cursor: 'pointer', background: bgColor,
-                  border: '1px solid rgba(255,255,255,0.14)',
-                  boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
-                  transition: 'background 0.6s ease',
-                }}
-              >
-                {videoSurface}
-              </div>
-            </div>
+        {/* Left column: creator + caption, positioned beside the
+            video instead of stacked below it — this is what lets the
+            video itself grow to fill most of the viewport height
+            rather than being constrained to leave room underneath
+            for a caption block. Fixed width + right-aligned text so
+            it reads naturally as "belonging" to the video sitting
+            just to its right, rather than drifting off toward the
+            far left edge of a wide screen. */}
+        <div style={{
+          width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column',
+          alignItems: 'flex-end', textAlign: 'right', gap: 10,
+        }}>
+          {creatorAndCaptionLeftColumn('#fff', '#5eb1ff')}
+        </div>
 
-            <div style={{ position: 'relative', zIndex: 1 }}>
-              {creatorAndCaption('#fff', '#5eb1ff')}
-            </div>
+        <div style={{ position: 'relative', width: cardWidth, height: cardHeight, flexShrink: 0 }}>
+          <div style={{
+            position: 'absolute', inset: -50, borderRadius: 48,
+            background: bgColor, filter: 'blur(55px) saturate(1.7)',
+            opacity: 0.6, zIndex: 0, transition: 'background 0.6s ease',
+            animation: 'shortsCardGlowPulse 4s ease-in-out infinite',
+            pointerEvents: 'none',
+          }} />
+          <div
+            onClick={handleTapVideo}
+            style={{
+              position: 'relative', zIndex: 1, width: '100%', height: '100%',
+              borderRadius: 16, overflow: 'hidden', cursor: 'pointer', background: bgColor,
+              border: '1px solid rgba(255,255,255,0.14)',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+              transition: 'background 0.6s ease',
+            }}
+          >
+            {videoSurface}
           </div>
+        </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, paddingTop: 8 }}>
-            {railButtons(desktopRailBtnStyle, desktopRailLabelStyle, 'none')}
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, flexShrink: 0 }}>
+          {railButtons(desktopRailBtnStyle, desktopRailLabelStyle, 'none')}
         </div>
 
         <style>{`
