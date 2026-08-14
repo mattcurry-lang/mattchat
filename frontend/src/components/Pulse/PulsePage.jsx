@@ -7,17 +7,15 @@ import { PLATFORM_META, AppIcon } from './PulseIcons'
 import { usePulseData, usePulseSettings } from '../../hooks/usePulseData'
 import { getPulsePlugin } from '../../lib/pulsePlugins'
 import YouTubePulsePage from './YouTubePulsePage'
-import ShortsPage from '../Shorts/ShortsPage'
 
 const LOCKED_PLATFORMS = Object.entries(PLATFORM_META).filter(([, meta]) => meta.supportLevel === 'native_only')
 
 export default function PulsePage({
   session, userId, profile, conversations, unreadCounts, getConvoName,
-  onOpenConversation, onSelectVideo, aiSummary,
+  onOpenConversation, onSelectVideo, aiSummary, onOpenShorts,
 }) {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
-  const [showShorts, setShowShorts] = useState(false)
   const [showYouTubePulse, setShowYouTubePulse] = useState(false)
   const { privacyMode, setPrivacyMode } = usePulseSettings(userId)
   const { items, loading, error, reload } = usePulseData(session, { conversations, unreadCounts, getConvoName })
@@ -107,7 +105,7 @@ export default function PulsePage({
         {(filter === 'all' || filter === 'more') && (
           <>
             <button
-              onClick={() => setShowShorts(true)}
+              onClick={onOpenShorts}
               style={{
                 display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-surface-2)',
                 border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px',
@@ -149,13 +147,6 @@ export default function PulsePage({
           </>
         )}
       </div>
-
-      {showShorts && (
-        <ShortsPage
-          session={session} userId={userId} conversations={conversations}
-          getConvoName={getConvoName} onClose={() => setShowShorts(false)}
-        />
-      )}
 
       {showYouTubePulse && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto' }}>
