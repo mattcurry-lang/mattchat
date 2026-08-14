@@ -85,6 +85,7 @@ import EmailWorkspace from '../components/EmailWorkspace'
 import WhatsAppPage from '../components/WhatsApp/WhatsAppPage'
 import WhatsAppIcon from '../components/icons/WhatsAppIcon'
 import AdminAnnouncements from '../components/AdminAnnouncements'
+import ChangeProfilePictureModal from '../components/ChangeProfilePictureModal'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -535,6 +536,7 @@ const [curryPrefill, setCurryPrefill] = useState(null)
   const [showEmailWorkspace, setShowEmailWorkspace] = useState(false)
   const [showWhatsApp, setShowWhatsApp] = useState(false)
   const [showAnnouncements, setShowAnnouncements] = useState(false)
+  const [showChangePicture, setShowChangePicture] = useState(false)
   
   // that appears AFTER a plain message has already been sent, if
   // Curry thinks it might land colder than intended. Never blocks or
@@ -1556,8 +1558,33 @@ const handleSend = async () => {
                   </div>
                 </div>
               </div>
-
+                    
+{showChangePicture && (
+  <ChangeProfilePictureModal
+    session={session}
+    userId={userId}
+    username={profile?.username}
+    currentAvatarUrl={profile?.avatar_url}
+    avatarPreference={profile?.avatar_category}
+    onComplete={(patch) => {
+      setProfile(p => ({ ...p, ...patch }))
+      setShowChangePicture(false)
+    }}
+    onClose={() => setShowChangePicture(false)}
+  />
+)}
               <div className="profile-menu-actions">
+                    <button
+  onClick={() => { setShowChangePicture(true); setShowProfileMenu(false) }}
+  style={{
+    display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(167,139,250,0.12)',
+    border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#c4b5fd',
+    fontSize: 12.5, fontWeight: 700, padding: '8px 12px', cursor: 'pointer',
+    fontFamily: 'inherit', whiteSpace: 'nowrap',
+  }}
+>
+  <IconCamera size={14} /> Change profile picture
+</button>
                 <button
                   onClick={async () => {
                     if (connectingGmail) return
