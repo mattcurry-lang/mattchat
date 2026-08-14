@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react'
-import { Heart, MessageCircle, Repeat2, Bookmark, Send, Volume2, VolumeX, ChevronUp, ChevronDown } from 'lucide-react'
+import { Heart, MessageCircle, Repeat2, Bookmark, Send, Volume2, VolumeX } from 'lucide-react'
 import { useDominantColor } from '../../hooks/useDominantColor'
 import { useIsDesktop } from '../../hooks/useIsDesktop'
 
@@ -33,19 +33,17 @@ function haptic(pattern = 10) {
   }
 }
 
-// Desktop prev/next nav (onPrev/onNext/hasPrev/hasNext) is rendered
-// INSIDE this card's own action-rail column — sandwiching the
-// like/comment/repost/save/send stack — not as a separate floating
-// cluster positioned against the viewport. This is what keeps the
-// whole Shorts unit (video + rail + nav) reading as one component
-// instead of two disconnected UI groups.
+// Desktop prev/next nav is a SEPARATE floating cluster rendered by
+// ShortsPage.jsx, positioned fixed against the viewport (vertically
+// centered on the whole screen, near the right edge) — not part of
+// this card's action rail. This card only owns the video + rail +
+// creator/caption block.
 export default function ShortsVideoCard({
   video, isActive, isMounted,
   onProgress, onEnded, onReplay, liked, onToggleLike,
   onOpenShare, onOpenComments, commentCount, onTap,
   muted, onToggleMute,
   following, onToggleFollow, reposted, onToggleRepost, saved, onToggleSave,
-  onPrev, onNext, hasPrev, hasNext,
 }) {
   const wrapperRef = useRef(null)
   const playerRef = useRef(null)
@@ -289,26 +287,8 @@ export default function ShortsVideoCard({
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, paddingTop: Math.max(0, 0) }}>
-            {onPrev && (
-              <button
-                onClick={onPrev} disabled={!hasPrev} title="Previous Short (up)" style={navBtnStyle(!hasPrev)}
-                onMouseEnter={e => { if (hasPrev) e.currentTarget.style.transform = 'scale(1.1)' }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
-              >
-                <ChevronUp size={19} color="#fff" strokeWidth={2.5} />
-              </button>
-            )}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, paddingTop: 8 }}>
             {railButtons(desktopRailBtnStyle, desktopRailLabelStyle, 'none')}
-            {onNext && (
-              <button
-                onClick={onNext} disabled={!hasNext} title="Next Short (down)" style={navBtnStyle(!hasNext)}
-                onMouseEnter={e => { if (hasNext) e.currentTarget.style.transform = 'scale(1.1)' }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
-              >
-                <ChevronDown size={19} color="#fff" strokeWidth={2.5} />
-              </button>
-            )}
           </div>
         </div>
 
@@ -378,10 +358,3 @@ const railBtnStyle = {
 const railLabelStyle = { fontSize: 11, fontWeight: 700, textShadow: '0 1px 3px rgba(0,0,0,0.6)' }
 const desktopRailBtnStyle = { ...railBtnStyle }
 const desktopRailLabelStyle = { fontSize: 11, fontWeight: 700, color: '#fff' }
-
-const navBtnStyle = (disabled) => ({
-  background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)',
-  borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
-  cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.25 : 1, flexShrink: 0,
-  transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s',
-})
