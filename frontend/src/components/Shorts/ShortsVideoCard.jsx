@@ -298,7 +298,7 @@ export default function ShortsVideoCard({
           </div>
         </div>
 
-        <div style={{ width: cardWidth, position: 'relative', zIndex: 1 }}>
+        <div style={{ width: cardWidth, position: 'relative', zIndex: 1, alignSelf: 'flex-start', marginLeft: 'calc((100% - ' + cardWidth + ') / 2)' }}>
           {creatorAndCaption('#fff', '#5eb1ff')}
         </div>
 
