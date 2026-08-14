@@ -252,30 +252,44 @@ export default function ShortsVideoCard({
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         background: '#0a0a0f', gap: 14, padding: '0 0 64px', boxSizing: 'border-box',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          <div style={{ position: 'relative', width: cardWidth, height: cardHeight }}>
-            <div style={{
-              position: 'absolute', inset: -50, borderRadius: 48,
-              background: bgColor, filter: 'blur(55px) saturate(1.7)',
-              opacity: 0.6, zIndex: 0, transition: 'background 0.6s ease',
-              animation: 'shortsCardGlowPulse 4s ease-in-out infinite',
-              pointerEvents: 'none',
-            }} />
-            <div
-              onClick={handleTapVideo}
-              style={{
-                position: 'relative', zIndex: 1, width: '100%', height: '100%',
-                borderRadius: 16, overflow: 'hidden', cursor: 'pointer', background: bgColor,
-                border: '1px solid rgba(255,255,255,0.14)',
-                boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
-                transition: 'background 0.6s ease',
-              }}
-            >
-              {videoSurface}
+        {/* Video + caption share ONE column (same width, same left
+            edge) so the caption can never drift out of alignment with
+            the video above it — this was the actual bug: the caption
+            used to be a sibling of the [video, rail] row and got
+            centered under that ENTIRE row's width, which visually
+            dragged it right, toward the rail, instead of sitting
+            flush under the video. The rail is a separate sibling
+            beside this whole column now, not inside it. */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: cardWidth }}>
+            <div style={{ position: 'relative', width: '100%', height: cardHeight }}>
+              <div style={{
+                position: 'absolute', inset: -50, borderRadius: 48,
+                background: bgColor, filter: 'blur(55px) saturate(1.7)',
+                opacity: 0.6, zIndex: 0, transition: 'background 0.6s ease',
+                animation: 'shortsCardGlowPulse 4s ease-in-out infinite',
+                pointerEvents: 'none',
+              }} />
+              <div
+                onClick={handleTapVideo}
+                style={{
+                  position: 'relative', zIndex: 1, width: '100%', height: '100%',
+                  borderRadius: 16, overflow: 'hidden', cursor: 'pointer', background: bgColor,
+                  border: '1px solid rgba(255,255,255,0.14)',
+                  boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+                  transition: 'background 0.6s ease',
+                }}
+              >
+                {videoSurface}
+              </div>
+            </div>
+
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              {creatorAndCaption('#fff', '#5eb1ff')}
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, paddingTop: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, paddingTop: Math.max(0, 0) }}>
             {onPrev && (
               <button
                 onClick={onPrev} disabled={!hasPrev} title="Previous Short (up)" style={navBtnStyle(!hasPrev)}
@@ -296,10 +310,6 @@ export default function ShortsVideoCard({
               </button>
             )}
           </div>
-        </div>
-
-        <div style={{ width: cardWidth, position: 'relative', zIndex: 1, alignSelf: 'flex-start', marginLeft: 'calc((100% - ' + cardWidth + ') / 2)' }}>
-          {creatorAndCaption('#fff', '#5eb1ff')}
         </div>
 
         <style>{`
