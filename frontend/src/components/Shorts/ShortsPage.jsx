@@ -13,7 +13,7 @@ import BottomNav from '../BottomNav'
 
 // Warms the browser's connection to YouTube's domains the instant
 // Shorts opens, before any card has mounted or even fetched. DNS +
-// TLS handshake is a fixed cost that would otherwise happen lazily o
+// TLS handshake is a fixed cost that would otherwise happen lazily on
 // the first player's first request — doing it here overlaps it with
 // the initial feed fetch instead of stacking after it.
 function preconnectYouTube() {
