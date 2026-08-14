@@ -335,7 +335,15 @@ export default function ShortsVideoCard({
       </div>
     )
   }
-
+<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, paddingTop: 8 }}>
+  {onPrev && (
+    <button onClick={onPrev} ...><ChevronUp .../></button>
+  )}
+  {railButtons(desktopRailBtnStyle, desktopRailLabelStyle, 'none')}
+  {onNext && (
+    <button onClick={onNext} ...><ChevronDown .../></button>
+  )}
+</div>
   // ── Mobile: full-bleed immersive video, everything overlaid with a
   // gradient scrim — this is the correct treatment when the video IS
   // the screen, matching your mobile Reels reference from earlier.
