@@ -6,7 +6,7 @@ import { useInstagramConnection } from '../../hooks/useInstagramConnection'
 import {
   connectGoogleDrive, listGoogleDriveAccounts, disconnectGoogleDriveAccount,
   connectGoogleCalendar, listGoogleCalendarAccounts, disconnectGoogleCalendarAccount,
-  listPinterestBoards,
+  listPinterestBoards, disconnectPinterest,
 } from '../../lib/supabase'
 import TikTokView from './TikTokView'
 import { useTikTokConnection } from '../../hooks/useTikTokConnection'
@@ -29,7 +29,8 @@ export default function ConnectedAppsSection({ session, userId, avatarPreference
   const [connectingCalendar, setConnectingCalendar] = useState(false)
   const [disconnectingDrive, setDisconnectingDrive] = useState(false)
   const [disconnectingCalendar, setDisconnectingCalendar] = useState(false)
-  const [pinterestConnected, setPinterestConnected] = useState(false)
+ const [pinterestConnected, setPinterestConnected] = useState(false)
+  const [disconnectingPinterest, setDisconnectingPinterest] = useState(false)
 
   const loadDrive = useCallback(async () => {
     try { setDriveAccounts(await listGoogleDriveAccounts(session)) } catch (e) { console.error('listGoogleDriveAccounts failed:', e) }
@@ -144,7 +145,18 @@ export default function ConnectedAppsSection({ session, userId, avatarPreference
     }
     setDisconnectingCalendar(false)
   }
-
+  
+const handleDisconnectPinterest = async () => {
+    setDisconnectingPinterest(true)
+    try {
+      await disconnectPinterest(session)
+      setPinterestConnected(false)
+      setOpenService(null)
+    } catch (e) {
+      setConnectError('Could not disconnect Pinterest.')
+    }
+    setDisconnectingPinterest(false)
+  }
   const services = [
     {
       id: 'whatsapp',
@@ -250,12 +262,28 @@ export default function ConnectedAppsSection({ session, userId, avatarPreference
     )
   }
 
-  if (openService === 'pinterest') {
+ if (openService === 'pinterest') {
     return (
       <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={() => setOpenService(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16, padding: 0 }}>←</button>
-          <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Pinterest</h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button onClick={() => setOpenService(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16, padding: 0 }}>←</button>
+            <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Pinterest</h3>
+          </div>
+          {pinterestConnected && (
+            <button
+              onClick={handleDisconnectPinterest}
+              disabled={disconnectingPinterest}
+              style={{
+                background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)',
+                borderRadius: 20, color: '#f87171', fontSize: 11.5, fontWeight: 700,
+                padding: '5px 12px', cursor: disconnectingPinterest ? 'default' : 'pointer',
+                fontFamily: 'inherit', opacity: disconnectingPinterest ? 0.6 : 1, whiteSpace: 'nowrap',
+              }}
+            >
+              {disconnectingPinterest ? 'Removing…' : 'Disconnect'}
+            </button>
+          )}
         </div>
         <PinterestPicker
           session={session}
