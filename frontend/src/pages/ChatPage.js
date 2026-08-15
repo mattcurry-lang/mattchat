@@ -108,6 +108,7 @@ function getMessagePreview(content) {
     return `${emoji} Sticker`
   }
   if (content.startsWith('gif:')) return 'GIF'
+  if (content.startsWith('pinterest:')) return '📌 Pin'
   if (content.startsWith('call_log:') || content.startsWith('missed_call:')) return 'Call'
   if (content.startsWith('short:')) return '📹 Short'
   // Newer format: message_type === 'short' stores a JSON payload as the
@@ -176,6 +177,21 @@ function GifBubble({ content }) {
       )}
       <img src={url} alt={title} onLoad={() => setLoaded(true)} style={{ display: loaded ? 'block' : 'none', width: '100%', maxWidth: 220 }} />
       <div style={{ position: 'absolute', bottom: 4, right: 6, background: 'rgba(0,0,0,0.6)', borderRadius: 4, fontSize: 9, fontWeight: 700, color: '#fff', padding: '2px 5px' }}>GIF</div>
+    </div>
+  )
+}
+function PinterestBubble({ content }) {
+  const [loaded, setLoaded] = useState(false)
+  const parts = content.replace('pinterest:', '').split('::')
+  const url = parts[0] || ''
+  const alt = parts[1] || 'Pin'
+  return (
+    <div style={{ borderRadius: 12, overflow: 'hidden', maxWidth: 220, background: 'rgba(255,255,255,0.06)', position: 'relative' }}>
+      {!loaded && (
+        <div style={{ width: 220, height: 220, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--dark-text-3)' }}>📌</div>
+      )}
+      <img src={url} alt={alt} onLoad={() => setLoaded(true)} style={{ display: loaded ? 'block' : 'none', width: '100%', maxWidth: 220 }} />
+      <div style={{ position: 'absolute', bottom: 4, right: 6, background: 'rgba(0,0,0,0.6)', borderRadius: 4, fontSize: 9, fontWeight: 700, color: '#fff', padding: '2px 5px' }}>Pinterest</div>
     </div>
   )
 }
@@ -290,6 +306,19 @@ if (msg.content?.startsWith('call_log:') || msg.content?.startsWith('missed_call
         <div>
           {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
           <GifBubble content={msg.content} isMe={isMe} />
+          <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+          <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
+        </div>
+      </div>
+    )
+  }
+if (msg.content?.startsWith('pinterest:')) {
+    return (
+      <div className={`msg-row ${isMe ? 'mine' : ''}`}>
+        {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
+        <div>
+          {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
+          <PinterestBubble content={msg.content} />
           <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
           <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
         </div>
@@ -1043,7 +1072,7 @@ useEffect(() => {
     const missed = messages.slice(-catchUpPending.unreadCount)
       .filter(m => m.message_type !== 'curry' && m.content
         && !m.content.startsWith('call_log:') && !m.content.startsWith('missed_call:')
-        && !m.content.startsWith('sticker:') && !m.content.startsWith('gif:'))
+       && !m.content.startsWith('sticker:') && !m.content.startsWith('gif:') && !m.content.startsWith('pinterest:'))
       .map(m => ({ sender: m.sender_id === userId ? 'You' : (m.profiles?.username || 'Them'), content: m.content }))
     try {
       const data = await callCurryAI('catch_me_up', { conversationId: activeConvo.id, messages: missed }, session)
@@ -1159,6 +1188,12 @@ const handleSend = async () => {
     setShowEmojiPicker(false)
     await sendMessage(`gif:${gif.url}::${gif.title}`)
     bumpConversationActivity('GIF')
+  }
+  const handlePinterestSelect = async (pin) => {
+    if (!activeConvo) return
+    setShowEmojiPicker(false)
+    await sendMessage(`pinterest:${pin.imageUrl}::${pin.altText || 'Pin'}`)
+    bumpConversationActivity('📌 Pin')
   }
  const findMessageById = (id) => messages.find(m => m.id === id)
   const getConvoName = (c) => {
@@ -1430,6 +1465,10 @@ const handleSend = async () => {
               ) : c.last_message?.startsWith('gif:') ? (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <IconFilm size={11} /> GIF
+                </span>
+              ) : c.last_message?.startsWith('pinterest:') ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  📌 Pin
                 </span>
               ) : (c.last_message?.startsWith('call_log:') || c.last_message?.startsWith('missed_call:')) ? (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -2257,7 +2296,14 @@ _onWatchTogether: (videoId) => {
                       <IconSmile size={20} />
                     </button>
                     {showEmojiPicker && (
-                      <EmojiPicker onEmojiSelect={handleEmojiSelect} onStickerSelect={handleStickerSelect} onGifSelect={handleGifSelect} onClose={() => setShowEmojiPicker(false)} />
+                     <EmojiPicker
+                        onEmojiSelect={handleEmojiSelect}
+                        onStickerSelect={handleStickerSelect}
+                        onGifSelect={handleGifSelect}
+                        onPinterestSelect={handlePinterestSelect}
+                        onClose={() => setShowEmojiPicker(false)}
+                        session={session}
+                      />
                     )}
                   </div>
 
