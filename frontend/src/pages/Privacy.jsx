@@ -114,7 +114,7 @@ export default function Privacy() {
           <p>
             Email:
             <br />
-            <strong>mattchat.app@gmail.com</strong>
+            <strong>mattchat.app.org@gmail.com</strong>
           </p>
 
 
