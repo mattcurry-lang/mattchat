@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import PinterestTab from './PinterestTab'
 
 // ── Emoji Data ────────────────────────────────────────────────
 const EMOJI_CATEGORIES = [
@@ -324,7 +325,7 @@ function GifGrid({ query, onSelect }) {
 }
 
 // ── Main EmojiPicker ──────────────────────────────────────────
-export default function EmojiPicker({ onEmojiSelect, onStickerSelect, onGifSelect, onClose }) {
+export default function EmojiPicker({ onEmojiSelect, onStickerSelect, onGifSelect, onPinterestSelect, onClose, session }) {
   const [tab, setTab] = useState('emoji')           // emoji | stickers | gifs
   const [emojiCategory, setEmojiCategory] = useState('smileys')
   const [stickerPack, setStickerPack] = useState('love')
@@ -401,6 +402,7 @@ export default function EmojiPicker({ onEmojiSelect, onStickerSelect, onGifSelec
     { id: 'emoji', icon: '😀', label: 'Emoji' },
     { id: 'stickers', icon: '🎭', label: 'Stickers' },
     { id: 'gifs', icon: '🎬', label: 'GIFs' },
+    { id: 'pinterest', icon: '📌', label: 'Pinterest' },
   ]
 
   return (
@@ -653,6 +655,13 @@ export default function EmojiPicker({ onEmojiSelect, onStickerSelect, onGifSelec
                 fontFamily: 'inherit', boxSizing: 'border-box',
               }}
             />
+            {/* ── PINTEREST TAB ── */}
+      {tab === 'pinterest' && (
+        <PinterestTab
+          session={session}
+          onPinSelect={(pin) => { onPinterestSelect(pin); onClose() }}
+        />
+      )}
           </div>
 
           {/* Category chips */}
