@@ -1,6 +1,6 @@
 // hooks/useDrawingVoice.js
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { subscribeToChannel, getChannel } from '../lib/realtimeManager'
+import { getChannel } from '../lib/realtimeManager'
 
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
@@ -44,14 +44,26 @@ function watchSpeaking(stream, onChange) {
 
 /**
  * Peer-to-peer voice over the drawing session's existing realtime
- * channel (`drawing:${sessionId}`), used purely as a signaling
- * transport for WebRTC offer/answer/ICE — no Daily.co, no billing
- * dependency. Two participants, direct connection.
+ * channel — no Daily.co, no billing dependency. Two participants,
+ * direct WebRTC connection, STUN only.
  *
- * NOTE: signature changed from the Daily version — this needs
- * `sessionId` (not `conversationId`) because signaling has to ride
- * the same channel useDrawingSession already opened, and that
- * channel is keyed by session id.
+ * IMPORTANT: this hook does NOT call subscribeToChannel itself.
+ * realtimeManager only ever runs the FIRST buildChannel registered
+ * for a given channel key (see openChannel) — useDrawingSession
+ * already owns `drawing:${sessionId}`, so a second .on() registration
+ * here would silently never fire. Instead, useDrawingSession forwards
+ * every `voice-signal` broadcast to the `onVoiceSignal` handler you
+ * wire into it, and you feed those payloads into this hook via
+ * `handleSignal`. Outgoing sends are fine as-is (getChannel().send()
+ * doesn't need registration, only receiving does).
+ *
+ * Wiring in DrawingModal:
+ *
+ *   const voice = useDrawingVoice(session?.id, userId, voiceEnabled)
+ *   const drawing = useDrawingSession(conversationId, userId, profile, {
+ *     ...strokeHandlers,
+ *     onVoiceSignal: voice.handleSignal,
+ *   })
  */
 export function useDrawingVoice(sessionId, userId, enabled) {
   const [micOn, setMicOn] = useState(false)
@@ -65,14 +77,15 @@ export function useDrawingVoice(sessionId, userId, enabled) {
   const audioElRef = useRef(null)
   const stopSpeakingWatchRef = useRef(null)
   const channelKeyRef = useRef(null)
-  const remoteUserIdRef = useRef(null)
   const makingOfferRef = useRef(false)
-  const polite = useRef(false) // set once we know the remote peer's id
+  const politeRef = useRef(false) // set once we know the remote peer's id
+  const enabledRef = useRef(enabled)
+  enabledRef.current = enabled
 
-  const send = useCallback((event, payload) => {
+  const send = useCallback((payload) => {
     const key = channelKeyRef.current
     if (!key) return
-    getChannel(key)?.send({ type: 'broadcast', event, payload: { ...payload, userId } })
+    getChannel(key)?.send({ type: 'broadcast', event: 'voice-signal', payload: { ...payload, userId } })
   }, [userId])
 
   const teardownPeer = useCallback(() => {
@@ -80,23 +93,30 @@ export function useDrawingVoice(sessionId, userId, enabled) {
     stopSpeakingWatchRef.current = null
     pcRef.current?.close()
     pcRef.current = null
-    localStreamRef.current?.getTracks().forEach(t => t.stop())
-    localStreamRef.current = null
     if (audioElRef.current) {
       audioElRef.current.srcObject = null
       audioElRef.current.remove()
       audioElRef.current = null
     }
-    remoteUserIdRef.current = null
     setConnected(false)
     setOtherSpeaking(false)
+  }, [])
+
+  const ensureLocalStream = useCallback(async () => {
+    if (localStreamRef.current) return localStreamRef.current
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    // Start muted, matching the old startAudioOff: true behavior —
+    // user has to explicitly toggle mic on.
+    stream.getAudioTracks().forEach(t => { t.enabled = false })
+    localStreamRef.current = stream
+    return stream
   }, [])
 
   const createPeerConnection = useCallback(() => {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
 
     pc.onicecandidate = (e) => {
-      if (e.candidate) send('voice-ice-candidate', { candidate: e.candidate })
+      if (e.candidate) send({ kind: 'ice-candidate', candidate: e.candidate })
     }
 
     pc.ontrack = (e) => {
@@ -122,7 +142,7 @@ export function useDrawingVoice(sessionId, userId, enabled) {
       try {
         makingOfferRef.current = true
         await pc.setLocalDescription()
-        send('voice-offer', { description: pc.localDescription })
+        send({ kind: 'offer', description: pc.localDescription })
       } catch (err) {
         setVoiceError(err.message || 'Voice negotiation failed')
       } finally {
@@ -133,113 +153,86 @@ export function useDrawingVoice(sessionId, userId, enabled) {
     return pc
   }, [send])
 
-  const ensureLocalStream = useCallback(async () => {
-    if (localStreamRef.current) return localStreamRef.current
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    // Start muted, matching the old startAudioOff: true behavior —
-    // user has to explicitly toggle mic on.
-    stream.getAudioTracks().forEach(t => { t.enabled = false })
-    localStreamRef.current = stream
-    return stream
-  }, [])
+  const ensurePeer = useCallback(async (remoteUserId) => {
+    if (pcRef.current) return pcRef.current
+    politeRef.current = userId > remoteUserId
+    const stream = await ensureLocalStream()
+    const pc = createPeerConnection()
+    pcRef.current = pc
+    stream.getTracks().forEach(track => pc.addTrack(track, stream))
+    return pc
+  }, [userId, ensureLocalStream, createPeerConnection])
 
-  useEffect(() => {
-    if (!enabled || !sessionId || !userId) return
-    let cancelled = false
-    const channelKey = `drawing:${sessionId}`
-    channelKeyRef.current = channelKey
-    setConnecting(true)
-    setVoiceError(null)
-
-    const handleRemotePeer = async (remoteUserId) => {
-      if (cancelled || remoteUserId === userId) return
-      // Deterministic initiator/polite-peer assignment so both sides
-      // agree on who offers first without a race.
-      polite.current = userId > remoteUserId
-      remoteUserIdRef.current = remoteUserId
-      if (!pcRef.current) {
-        try {
-          const stream = await ensureLocalStream()
-          if (cancelled) return
-          const pc = createPeerConnection()
-          pcRef.current = pc
-          stream.getTracks().forEach(track => pc.addTrack(track, stream))
-        } catch (err) {
-          setVoiceError(err.message || 'Could not access microphone')
-          setConnecting(false)
-        }
+  /**
+   * Feed a `voice-signal` broadcast payload here (from
+   * useDrawingSession's onVoiceSignal handler). payload.userId is
+   * already guaranteed to be the OTHER peer's id — useDrawingSession
+   * filters out our own echoes before calling us.
+   */
+  const handleSignal = useCallback(async (payload) => {
+    if (!enabledRef.current) return
+    const { kind, userId: remoteUserId } = payload
+    try {
+      if (kind === 'join' || kind === 'join-ack') {
+        const isNew = !pcRef.current
+        await ensurePeer(remoteUserId)
+        if (kind === 'join') send({ kind: 'join-ack' }) // let a late joiner discover us too
+        if (isNew) setConnecting(true)
+        return
       }
-    }
-
-    const buildChannel = (channel) => channel
-      .on('broadcast', { event: 'voice-join' }, ({ payload }) => {
-        if (payload.userId === userId) return
-        handleRemotePeer(payload.userId)
-        // Answer back so a late joiner also learns about us even if
-        // they missed our own voice-join.
-        send('voice-join-ack', {})
-      })
-      .on('broadcast', { event: 'voice-join-ack' }, ({ payload }) => {
-        if (payload.userId === userId) return
-        handleRemotePeer(payload.userId)
-      })
-      .on('broadcast', { event: 'voice-offer' }, async ({ payload }) => {
-        if (payload.userId === userId) return
-        await handleRemotePeer(payload.userId)
-        const pc = pcRef.current
-        if (!pc) return
+      if (kind === 'offer') {
+        const pc = await ensurePeer(remoteUserId)
+        const offerCollision = makingOfferRef.current || pc.signalingState !== 'stable'
+        if (offerCollision && !politeRef.current) return // impolite peer ignores colliding offer
+        await pc.setRemoteDescription(payload.description)
+        await pc.setLocalDescription()
+        send({ kind: 'answer', description: pc.localDescription })
+        return
+      }
+      if (kind === 'answer') {
+        await pcRef.current?.setRemoteDescription(payload.description)
+        return
+      }
+      if (kind === 'ice-candidate') {
         try {
-          const offerCollision = makingOfferRef.current || pc.signalingState !== 'stable'
-          if (offerCollision && !polite.current) return // impolite peer ignores colliding offer
-          await pc.setRemoteDescription(payload.description)
-          await pc.setLocalDescription()
-          send('voice-answer', { description: pc.localDescription })
-        } catch (err) {
-          setVoiceError(err.message || 'Voice negotiation failed')
-        }
-      })
-      .on('broadcast', { event: 'voice-answer' }, async ({ payload }) => {
-        if (payload.userId === userId) return
-        const pc = pcRef.current
-        if (!pc) return
-        try {
-          await pc.setRemoteDescription(payload.description)
-        } catch (err) {
-          setVoiceError(err.message || 'Voice negotiation failed')
-        }
-      })
-      .on('broadcast', { event: 'voice-ice-candidate' }, async ({ payload }) => {
-        if (payload.userId === userId) return
-        const pc = pcRef.current
-        if (!pc) return
-        try {
-          await pc.addIceCandidate(payload.candidate)
+          await pcRef.current?.addIceCandidate(payload.candidate)
         } catch (err) {
           // Benign in many cases (candidate arriving before remote
           // description is set) — don't surface as a hard error.
           console.warn('[useDrawingVoice] addIceCandidate failed:', err)
         }
-      })
-      .on('broadcast', { event: 'voice-leave' }, ({ payload }) => {
-        if (payload.userId === userId) return
+        return
+      }
+      if (kind === 'leave') {
         teardownPeer()
         setConnecting(false)
-      })
+        return
+      }
+    } catch (err) {
+      setVoiceError(err.message || 'Voice negotiation failed')
+    }
+  }, [ensurePeer, send, teardownPeer])
 
-    const unsubscribe = subscribeToChannel(channelKey, buildChannel, {
-      onResync: () => {
-        // Peer connection survives a realtime resync; nothing to redo
-        // here beyond re-announcing so a peer who also resynced can
-        // re-discover us if their state got cleared.
-        send('voice-join', {})
-      },
-    })
+  useEffect(() => {
+    if (!enabled || !sessionId || !userId) return
+    let cancelled = false
+    channelKeyRef.current = `drawing:${sessionId}`
+    setConnecting(true)
+    setVoiceError(null)
 
-    // Announce ourselves; if nobody answers we just sit connecting
-    // until a peer shows up (or the user leaves the canvas).
-    send('voice-join', {})
+    // Wait for useDrawingSession's channel to actually exist before
+    // announcing — it may still be joining when this effect fires.
+    const announce = () => {
+      if (cancelled) return
+      if (getChannel(channelKeyRef.current)) {
+        send({ kind: 'join' })
+      } else {
+        setTimeout(announce, 250)
+      }
+    }
+    announce()
 
-    // If we're alone, stop showing "connecting" after a short grace
+    // If nobody answers, stop showing "connecting" after a grace
     // period rather than spinning forever.
     const aloneTimeout = setTimeout(() => {
       if (!cancelled && !pcRef.current) setConnecting(false)
@@ -248,12 +241,14 @@ export function useDrawingVoice(sessionId, userId, enabled) {
     return () => {
       cancelled = true
       clearTimeout(aloneTimeout)
-      send('voice-leave', {})
-      unsubscribe()
+      send({ kind: 'leave' })
       teardownPeer()
+      localStreamRef.current?.getTracks().forEach(t => t.stop())
+      localStreamRef.current = null
       setConnecting(false)
+      setMicOn(false)
     }
-  }, [enabled, sessionId, userId, createPeerConnection, ensureLocalStream, send, teardownPeer])
+  }, [enabled, sessionId, userId, send, teardownPeer])
 
   const toggleMic = useCallback(() => {
     const stream = localStreamRef.current
@@ -263,5 +258,5 @@ export function useDrawingVoice(sessionId, userId, enabled) {
     setMicOn(next)
   }, [micOn])
 
-  return { micOn, toggleMic, otherSpeaking, connected, connecting, voiceError }
+  return { micOn, toggleMic, otherSpeaking, connected, connecting, voiceError, handleSignal }
 }
