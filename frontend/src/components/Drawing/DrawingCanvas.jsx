@@ -1,17 +1,16 @@
 import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef } from 'react'
-import { simplifyPoints, renderStroke, renderShape, renderText, replayStrokes } from './drawingEngine'
+import { simplifyPoints, renderStroke, renderShape, renderText, replayStrokes, CANVAS_LOGICAL_WIDTH, CANVAS_LOGICAL_HEIGHT } from './drawingEngine'
 
 const SHAPE_TOOLS = new Set(['rect', 'circle', 'line', 'arrow', 'triangle'])
-const STROKE_UPDATE_THROTTLE_MS = 40 // how often in-progress points get broadcast, not how often we render locally
+const STROKE_UPDATE_THROTTLE_MS = 40
 
-// Two stacked canvases instead of one:
-//   base  — committed strokes only, full-replayed on undo/redo/clear/remote
-//           commits. Cheap because it only repaints on real state changes.
-//   live  — the local in-progress stroke AND any remote strokes that are
-//           mid-drag (stroke_start received, stroke_end not yet). Repainted
-//           on every pointer move, but it's a small, cheap surface.
-// This is what makes "User A draws while User B draws" not fight over one
-// canvas — each drag only ever touches the live layer until it commits.
+// Two stacked canvases (base = committed strokes, live = in-progress
+// local + remote strokes), BOTH mapped onto a fixed logical coordinate
+// space (see CANVAS_LOGICAL_WIDTH/HEIGHT in drawingEngine.js) the same
+// way an SVG viewBox works — every device computes its own scale/offset
+// to fit that same logical space into whatever screen it has, so a
+// desktop and a phone are always looking at the exact same canvas,
+// just zoomed differently. Nothing drawn is ever off-screen for anyone.
 const DrawingCanvas = forwardRef(function DrawingCanvas(
   {
     tool, color, size, opacity, userId, participantUserIds,
@@ -29,16 +28,31 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
   const liveCtxRef = useRef(null)
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
 
-  const [strokes, setStrokes] = useState([])           // committed (local + remote), base layer source of truth
-  const [remoteCursors, setRemoteCursors] = useState({}) // userId -> {x,y,color,username}
-  const redoStackRef = useRef([])                        // this user's own undone strokes
+  const scaleRef = useRef(1)
+  const offsetXRef = useRef(0)
+  const offsetYRef = useRef(0)
+
+  const [strokes, setStrokes] = useState([])
+  const [remoteCursors, setRemoteCursors] = useState({})
+  const redoStackRef = useRef([])
   const drawingRef = useRef(false)
   const currentPointsRef = useRef([])
   const currentStrokeMetaRef = useRef(null)
   const lastUpdateSentRef = useRef(0)
-  const remoteLiveStrokesRef = useRef(new Map())         // strokeId -> in-progress stroke from another user
+  const remoteLiveStrokesRef = useRef(new Map())
   const textInputRef = useRef(null)
   const [textEditor, setTextEditor] = useState(null)
+
+  const applyTransform = (ctx, scale, offsetX, offsetY) => {
+    ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * offsetX, dpr * offsetY)
+  }
+
+  const clearDevicePixels = (ctx, canvas) => {
+    ctx.save()
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.restore()
+  }
 
   const resizeCanvases = useCallback(() => {
     const container = containerRef.current
@@ -46,18 +60,29 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     const live = liveCanvasRef.current
     if (!container || !base || !live) return
     const { width, height } = container.getBoundingClientRect()
+    if (width === 0 || height === 0) return
+
+    // "meet"-style fit, same concept as SVG's preserveAspectRatio: the
+    // whole logical canvas is always fully visible, letterboxed if the
+    // device's aspect ratio doesn't match — never cropped.
+    const scale = Math.min(width / CANVAS_LOGICAL_WIDTH, height / CANVAS_LOGICAL_HEIGHT)
+    const offsetX = (width - CANVAS_LOGICAL_WIDTH * scale) / 2
+    const offsetY = (height - CANVAS_LOGICAL_HEIGHT * scale) / 2
+    scaleRef.current = scale
+    offsetXRef.current = offsetX
+    offsetYRef.current = offsetY
+
     for (const canvas of [base, live]) {
       canvas.width = Math.round(width * dpr)
       canvas.height = Math.round(height * dpr)
       canvas.style.width = `${width}px`
       canvas.style.height = `${height}px`
-      const ctx = canvas.getContext('2d')
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      applyTransform(canvas.getContext('2d'), scale, offsetX, offsetY)
     }
     baseCtxRef.current = base.getContext('2d')
     liveCtxRef.current = live.getContext('2d')
     replayStrokes(baseCtxRef.current, base, strokes)
-    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dpr])
 
   useEffect(() => {
@@ -65,12 +90,9 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     const ro = new ResizeObserver(resizeCanvases)
     if (containerRef.current) ro.observe(containerRef.current)
     return () => ro.disconnect()
-    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Full replay of the BASE layer only — fires on committed-stroke
-  // changes (undo/redo/clear/remote stroke_end/initial load). Never
-  // fires during a live drag.
   useEffect(() => {
     const ctx = baseCtxRef.current
     const canvas = baseCanvasRef.current
@@ -81,7 +103,6 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
   useEffect(() => { onCanUndoChange?.(strokes.some(s => s.userId === userId && !s.deleted)) }, [strokes, onCanUndoChange, userId])
   useEffect(() => { onCanRedoChange?.(redoStackRef.current.length > 0) }, [strokes, onCanRedoChange])
 
-  // Drop cursors for anyone no longer present (e.g. they closed the canvas).
   useEffect(() => {
     if (!participantUserIds) return
     setRemoteCursors(prev => {
@@ -92,24 +113,31 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     })
   }, [participantUserIds])
 
+  // Converts a raw screen event into LOGICAL canvas coordinates —
+  // everything from this point on (strokes, broadcasts, persistence)
+  // is in logical units, identical across every device.
   const getPoint = (e) => {
     const rect = liveCanvasRef.current.getBoundingClientRect()
     const clientX = e.touches ? e.touches[0].clientX : e.clientX
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
-    return { x: clientX - rect.left, y: clientY - rect.top }
+    const screenX = clientX - rect.left
+    const screenY = clientY - rect.top
+    const scale = scaleRef.current || 1
+    const x = (screenX - offsetXRef.current) / scale
+    const y = (screenY - offsetYRef.current) / scale
+    return {
+      x: Math.max(0, Math.min(CANVAS_LOGICAL_WIDTH, x)),
+      y: Math.max(0, Math.min(CANVAS_LOGICAL_HEIGHT, y)),
+    }
   }
 
   const newStrokeId = () => `${userId}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
-  // Redraws ONLY the live (top) layer: local in-progress stroke + any
-  // remote in-progress strokes. This is what lets two people draw at
-  // the same instant without either one forcing a full repaint of the
-  // other's work.
   const redrawLiveLayer = useCallback(() => {
     const ctx = liveCtxRef.current
     const canvas = liveCanvasRef.current
     if (!ctx || !canvas) return
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    clearDevicePixels(ctx, canvas)
 
     const meta = currentStrokeMetaRef.current
     if (meta && currentPointsRef.current.length) {
@@ -173,7 +201,7 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     currentStrokeMetaRef.current = null
     const ctx = liveCtxRef.current
     const canvas = liveCanvasRef.current
-    if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height)
+    if (ctx && canvas) clearDevicePixels(ctx, canvas)
   }
 
   const handlePointerUp = (e) => {
@@ -205,7 +233,6 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
   }
 
   useImperativeHandle(ref, () => ({
-    // ── Local toolbar actions ──
     undo: () => {
       setStrokes(prev => {
         const idx = [...prev].reverse().findIndex(s => s.userId === userId && !s.deleted)
@@ -231,22 +258,23 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
       onLocalClear?.()
     },
     exportPng: () => {
-      const base = baseCanvasRef.current
-      if (!base) return null
-      // Flatten onto an offscreen canvas with the background baked in,
-      // so exported/saved PNGs aren't transparent.
+      // Export at a fixed, generous logical resolution — identical
+      // quality regardless of which device (phone or desktop) triggers
+      // the export, since it replays from strokes rather than copying
+      // whatever the live on-screen backing store happens to be.
+      const EXPORT_SCALE = 2
       const out = document.createElement('canvas')
-      out.width = base.width
-      out.height = base.height
+      out.width = CANVAS_LOGICAL_WIDTH * EXPORT_SCALE
+      out.height = CANVAS_LOGICAL_HEIGHT * EXPORT_SCALE
       const octx = out.getContext('2d')
+      octx.setTransform(EXPORT_SCALE, 0, 0, EXPORT_SCALE, 0, 0)
       octx.fillStyle = backgroundColor
-      octx.fillRect(0, 0, out.width, out.height)
-      octx.drawImage(base, 0, 0)
+      octx.fillRect(0, 0, CANVAS_LOGICAL_WIDTH, CANVAS_LOGICAL_HEIGHT)
+      replayStrokes(octx, out, strokes)
       return out.toDataURL('image/png')
     },
     getStrokes: () => strokes,
 
-    // ── Remote event application — wired by the parent from useDrawingSession ──
     applyInitialStrokes: (loaded) => setStrokes(loaded || []),
     applyRemoteStrokeStart: (payload) => {
       remoteLiveStrokesRef.current.set(payload.id, { ...payload })
@@ -279,6 +307,13 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     },
   }), [strokes, userId, onLocalUndo, onLocalRedo, onLocalClear, redrawLiveLayer, backgroundColor])
 
+  // Remote cursors are stored in logical coords too — convert back to
+  // screen px here for the overlay divs.
+  const cursorScreenPos = (c) => ({
+    left: c.x * scaleRef.current + offsetXRef.current,
+    top: c.y * scaleRef.current + offsetYRef.current,
+  })
+
   return (
     <div
       ref={containerRef}
@@ -307,36 +342,40 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
         }}
       />
 
-      {/* Remote cursors — plain positioned divs, cheap for the handful
-          of concurrent participants this feature supports. */}
-      {Object.entries(remoteCursors).map(([uid, c]) => (
-        <div key={uid} style={{ position: 'absolute', left: c.x, top: c.y, pointerEvents: 'none', transform: 'translate(-2px,-2px)', zIndex: 10 }}>
-          <div style={{ width: 10, height: 10, borderRadius: '50%', background: c.color, border: '2px solid #fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
-          {c.username && (
-            <div style={{ marginTop: 2, fontSize: 10, fontWeight: 700, color: '#fff', background: c.color, borderRadius: 6, padding: '1px 6px', whiteSpace: 'nowrap' }}>
-              {c.username}
-            </div>
-          )}
-        </div>
-      ))}
+      {Object.entries(remoteCursors).map(([uid, c]) => {
+        const pos = cursorScreenPos(c)
+        return (
+          <div key={uid} style={{ position: 'absolute', left: pos.left, top: pos.top, pointerEvents: 'none', transform: 'translate(-2px,-2px)', zIndex: 10 }}>
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: c.color, border: '2px solid #fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
+            {c.username && (
+              <div style={{ marginTop: 2, fontSize: 10, fontWeight: 700, color: '#fff', background: c.color, borderRadius: 6, padding: '1px 6px', whiteSpace: 'nowrap' }}>
+                {c.username}
+              </div>
+            )}
+          </div>
+        )
+      })}
 
-      {textEditor && (
-        <input
-          ref={textInputRef}
-          autoFocus
-          onBlur={(e) => submitText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') e.target.blur()
-            if (e.key === 'Escape') setTextEditor(null)
-          }}
-          style={{
-            position: 'absolute', left: textEditor.x, top: textEditor.y,
-            font: `${Math.max(14, size * 4)}px system-ui, -apple-system, sans-serif`,
-            color, background: 'rgba(255,255,255,0.9)', border: `1px dashed ${color}`,
-            borderRadius: 4, padding: '2px 6px', outline: 'none', minWidth: 60, zIndex: 11,
-          }}
-        />
-      )}
+      {textEditor && (() => {
+        const pos = { left: textEditor.x * scaleRef.current + offsetXRef.current, top: textEditor.y * scaleRef.current + offsetYRef.current }
+        return (
+          <input
+            ref={textInputRef}
+            autoFocus
+            onBlur={(e) => submitText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.target.blur()
+              if (e.key === 'Escape') setTextEditor(null)
+            }}
+            style={{
+              position: 'absolute', left: pos.left, top: pos.top,
+              font: `${Math.max(14, size * 4) * scaleRef.current}px system-ui, -apple-system, sans-serif`,
+              color, background: 'rgba(255,255,255,0.9)', border: `1px dashed ${color}`,
+              borderRadius: 4, padding: '2px 6px', outline: 'none', minWidth: 60, zIndex: 11,
+            }}
+          />
+        )
+      })()}
     </div>
   )
 })
