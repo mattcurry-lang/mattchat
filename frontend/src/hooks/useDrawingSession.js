@@ -119,6 +119,15 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
       .on('broadcast', { event: 'cursor' }, ({ payload }) => {
         if (payload.userId !== userId) handlersRef.current.onRemoteCursor?.(payload)
       })
+      // Voice (WebRTC) signaling rides this same channel. Only one
+      // buildChannel per channel key ever actually runs (see
+      // realtimeManager's openChannel), so useDrawingVoice can't
+      // register its own .on() handlers here — it hands us a single
+      // callback instead and we forward every voice-signal broadcast
+      // to it, kind-tagged, and let it sort out offer/answer/ice/etc.
+      .on('broadcast', { event: 'voice-signal' }, ({ payload }) => {
+        if (payload.userId !== userId) handlersRef.current.onVoiceSignal?.(payload)
+      })
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState()
         const list = Object.values(state).flat().map((p) => ({
