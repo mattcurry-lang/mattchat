@@ -2093,13 +2093,15 @@ const handleSend = async () => {
               </div>
             </div>
 
-            {showDrawing && (
+           {showDrawing && (
               <DrawingModal
                 session={session}
                 conversationId={activeConvo.id}
                 userId={userId}
                 profile={profile}
                 sendMessage={sendMessage}
+                onInvite={inviteToDraw}
+                inviteeName={getConvoName(activeConvo)}
                 onClose={() => setShowDrawing(false)}
               />
             )}
