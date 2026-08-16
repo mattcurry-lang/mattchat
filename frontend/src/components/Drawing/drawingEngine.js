@@ -1,13 +1,17 @@
 // Pure drawing logic — no React, no DOM beyond a CanvasRenderingContext2D.
 // Kept separate so DrawingCanvas.jsx stays focused on event wiring/state,
 // and so this is trivially reusable for both local rendering and replaying
-// remote/persisted strokes (Phase 2/3) with identical visual output.
+// remote/persisted strokes with identical visual output.
+
+// Fixed logical canvas size, same idea as an SVG viewBox — every device
+// (phone or desktop) maps its actual pixel area onto this SAME logical
+// space, scaled to fit. This is what guarantees a desktop user and a
+// mobile user are always looking at the exact same drawing, just at
+// different zoom levels — nothing drawn is ever off-screen for anyone.
+export const CANVAS_LOGICAL_WIDTH = 1600
+export const CANVAS_LOGICAL_HEIGHT = 1000
 
 // ── Point simplification ──────────────────────────────────────
-// Douglas-Peucker-lite: drops points that don't meaningfully change the
-// line's direction, so a fast scribble doesn't produce thousands of
-// near-duplicate points. Runs once when a stroke ends (or before an
-// insert), never during the live drag.
 export function simplifyPoints(points, tolerance = 1.2) {
   if (points.length <= 2) return points
   const sqTolerance = tolerance * tolerance
@@ -42,11 +46,6 @@ export function simplifyPoints(points, tolerance = 1.2) {
   return out
 }
 
-// ── Smooth rendering ──────────────────────────────────────────
-// Renders a stroke as a series of quadratic curves through midpoints,
-// which is what makes freehand lines look smooth instead of faceted —
-// the same trick most lightweight whiteboard canvases use instead of
-// full spline fitting.
 function strokeStyleFor(tool, color, opacity) {
   if (tool === 'highlighter') {
     return { color, opacity: Math.min(opacity, 0.35), composite: 'multiply', cap: 'square' }
@@ -71,7 +70,6 @@ export function renderStroke(ctx, stroke) {
   ctx.lineJoin = 'round'
 
   if (points.length === 1) {
-    // A tap/dot — draw a filled circle so single clicks still show something.
     ctx.beginPath()
     ctx.arc(points[0].x, points[0].y, size / 2, 0, Math.PI * 2)
     ctx.fillStyle = style.color
@@ -93,9 +91,6 @@ export function renderStroke(ctx, stroke) {
   ctx.restore()
 }
 
-// ── Shapes ─────────────────────────────────────────────────────
-// A shape is stored the same as a stroke but with tool set to the shape
-// name and exactly two points: start and current/end corner.
 export function renderShape(ctx, stroke) {
   const { tool, points, size, color, opacity } = stroke
   if (!points || points.length < 2) return
@@ -159,13 +154,13 @@ export function renderText(ctx, stroke) {
   ctx.restore()
 }
 
-// ── Full replay ────────────────────────────────────────────────
-// Clears and redraws every non-deleted stroke, in order. Called after
-// undo/redo/clear, and for initial load of a persisted session — never
-// during an active drag (that's incremental, handled by the caller
-// drawing just the in-progress stroke on top).
 export function replayStrokes(ctx, canvas, strokes) {
+  // Clear the FULL backing store (not just the logical area) — the ctx
+  // transform is already applied, but clearRect needs device pixels.
+  ctx.save()
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.clearRect(0, 0, canvas.width, canvas.height)
+  ctx.restore()
   for (const s of strokes) {
     if (s.deleted) continue
     if (s.tool === 'text') renderText(ctx, s)
@@ -174,9 +169,6 @@ export function replayStrokes(ctx, canvas, strokes) {
   }
 }
 
-// Collaboration cursor color — deterministic per user id, so it stays
-// stable across the session and across reconnects without needing to
-// coordinate/reserve colors server-side.
 const CURSOR_COLORS = ['#a78bfa', '#60a5fa', '#34d399', '#fbbf24', '#f87171', '#f472b6', '#22d3ee', '#fb923c']
 export function colorForUser(userId) {
   let hash = 0
