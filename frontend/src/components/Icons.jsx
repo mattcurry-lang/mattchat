@@ -713,17 +713,14 @@ export function IconEyeOff({ size = 18, ...props }) {
 
 // ── Drawing toolbar icons — append these to Icons.jsx ───────────
 
-export function IconBrush({ size = 18, ...props }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
-      <path d="M9.5 14.5 4 20" />
-      <path d="M8.5 13.2c-.9-.9-.9-2.4 0-3.3l7-7c.9-.9 2.4-.9 3.3 0 .9.9.9 2.4 0 3.3l-7 7c-.9.9-2.4.9-3.3 0Z" />
-      <path d="M4 20c-.6-2.4.3-4 2-4.6" />
-    </svg>
-  )
-}
-
-export function IconEraser({ size = 18, ...props }) {
+export const IconBrush = ({ size = 20, style, ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} {...props}>
+    <path d="M9.06 11.9 4.5 16.46a2.5 2.5 0 0 0-.7 1.35L3 21l3.19-.8a2.5 2.5 0 0 0 1.35-.7l4.56-4.56" />
+    <path d="M12.5 12.5 20 5a1.7 1.7 0 0 0-2.4-2.4L10.1 10.1" />
+    <path d="M9.06 11.9c.83.83 2.18.83 3.01 0 .83-.83.83-2.18 0-3.01" />
+  </svg>
+)
+export function IconEraser({ size = 20, ...props }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
       <path d="M20 20H9L4.5 15.5a2 2 0 0 1 0-2.8l7-7a2 2 0 0 1 2.8 0l5.5 5.5a2 2 0 0 1 0 2.8L14 19.5" />
