@@ -464,7 +464,7 @@ const youtubeId = extractYouTubeId(msg.content)
     </div>
   )
 }
-function ThreeDotMenu({ onPoll, onTask, onSchedule, onSearch, onSearchYouTube, onShare, onClose }) {
+function ThreeDotMenu({ onDraw, onPoll, onTask, onSchedule, onSearch, onSearchYouTube, onShare, onClose }) {
   useEffect(() => {
     const handler = (e) => { if (!e.target.closest('.threedot-wrapper')) onClose() }
     document.addEventListener('mousedown', handler)
@@ -472,6 +472,7 @@ function ThreeDotMenu({ onPoll, onTask, onSchedule, onSearch, onSearchYouTube, o
   }, [onClose])
 
   const items = [
+    { icon: <IconBrush size={17} />, label: 'Draw Together', action: onDraw },
     { icon: <IconChart size={17} />, label: 'Create Poll', action: onPoll },
     { icon: <IconCheckSquare size={17} />, label: 'Task List', action: onTask },
     { icon: <IconClock size={17} />, label: 'Schedule Message', action: onSchedule },
@@ -2018,24 +2019,12 @@ const handleSend = async () => {
                    <IconClock size={13} /> <span style={{ fontSize: 11 }}>Scheduled</span>
                   </button>
                 )}
-                  <button className="icon-btn dark" onClick={() => setShowDrawing(true)} title="Draw together">
-  <IconBrush size={18} />
-</button>
-                  {showDrawing && (
-  <DrawingModal
-    session={session}
-    conversationId={activeConvo.id}
-    userId={userId}
-    profile={profile}
-    sendMessage={sendMessage}
-    onClose={() => setShowDrawing(false)}
-  />
-)}
-                <div className="threedot-wrapper" style={{ position: 'relative' }}>
+          <div className="threedot-wrapper" style={{ position: 'relative' }}>
                   <button className="icon-btn dark" onClick={() => setShowThreeDot(v => !v)} title="More options"
                     style={{ color: showThreeDot ? '#a78bfa' : undefined, background: showThreeDot ? 'rgba(167,139,250,0.15)' : undefined }}><IconMoreVertical size={17} /></button>
                   {showThreeDot && (
                    <ThreeDotMenu
+  onDraw={() => setShowDrawing(true)}
   onPoll={() => { setShowPoll(v => !v); setShowTask(false) }}
   onTask={() => { setShowTask(v => !v); setShowPoll(false) }}
   onSchedule={() => setShowScheduler(true)}
@@ -2048,6 +2037,17 @@ const handleSend = async () => {
                 </div>
               </div>
             </div>
+
+            {showDrawing && (
+              <DrawingModal
+                session={session}
+                conversationId={activeConvo.id}
+                userId={userId}
+                profile={profile}
+                sendMessage={sendMessage}
+                onClose={() => setShowDrawing(false)}
+              />
+            )}
 
             {callError && (
               <div style={{ padding: '8px 16px', background: 'rgba(239,68,68,0.08)', borderBottom: '1px solid rgba(239,68,68,0.2)', fontSize: 13, color: '#ef4444', fontWeight: 500 }}>
