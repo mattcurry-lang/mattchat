@@ -20,7 +20,7 @@ export default function DrawingModal({ session, conversationId, userId, profile,
   const [saveState, setSaveState] = useState('idle') // idle | saving | saved
   const canvasApiRef = useRef(null)
   const modalRef = useRef(null)
-  const { micOn, toggleMic, otherSpeaking, connected } = useDrawingVoice(conversationId, true)
+  const { micOn, toggleMic, otherSpeaking, connected, connecting, voiceError } = useDrawingVoice(conversationId, true)
 
   const handlers = {
     onInitialStrokes: (strokes) => canvasApiRef.current?.applyInitialStrokes(strokes),
@@ -217,26 +217,24 @@ export default function DrawingModal({ session, conversationId, userId, profile,
         onLocalCursorMove={broadcastCursor}
       />
 
-      {/* Voice Button Sibling */}
+     {/* Voice Button Sibling */}
       <button
         onClick={toggleMic}
-        title={micOn ? 'Mute mic' : 'Talk to them'}
+        disabled={!connected}
+        title={
+          voiceError ? `Voice unavailable: ${voiceError}` :
+          connecting ? 'Connecting voice…' :
+          micOn ? 'Mute mic' : 'Talk to them'
+        }
         style={{
-          position: 'absolute',
-          bottom: 20,
-          right: 20,
-          zIndex: 50,
-          width: 48,
-          height: 48,
-          borderRadius: '50%',
-          border: 'none',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: micOn ? 'linear-gradient(135deg,#667eea,#764ba2)' : 'rgba(0,0,0,0.55)',
+          position: 'absolute', bottom: 20, right: 20, zIndex: 50,
+          width: 48, height: 48, borderRadius: '50%', border: 'none',
+          cursor: connected ? 'pointer' : 'not-allowed',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: voiceError ? 'rgba(239,68,68,0.6)' : micOn ? 'linear-gradient(135deg,#667eea,#764ba2)' : 'rgba(0,0,0,0.55)',
           boxShadow: otherSpeaking ? '0 0 0 4px rgba(52,211,153,0.4)' : '0 4px 16px rgba(0,0,0,0.3)',
-          transition: 'box-shadow 0.2s',
+          opacity: connecting ? 0.5 : 1,
+          transition: 'box-shadow 0.2s, opacity 0.2s',
         }}
       >
         <IconMic size={20} style={{ color: micOn ? '#fff' : 'rgba(255,255,255,0.7)' }} />
