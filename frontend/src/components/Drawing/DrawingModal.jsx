@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import DrawingCanvas from './DrawingCanvas'
 import DrawingToolbar from './DrawingToolbar'
+import { useDrawingSession } from '../../hooks/useDrawingSession'
 
-// Phase 1: local-only collaborative-canvas UI shell. No Supabase, no
-// session, no persistence yet — this validates the drawing feel,
-// toolbar ergonomics, and mobile/desktop input handling in isolation
-// before Phase 2 wires in useDrawingSession + realtime broadcast.
-export default function DrawingModal({ onClose }) {
+// Phase 2: shared, persisted, realtime canvas. This modal now owns the
+// session/channel lifecycle via useDrawingSession and wires every remote
+// event straight into DrawingCanvas's imperative ref methods —
+// DrawingCanvas itself stays completely unaware of Supabase.
+export default function DrawingModal({ session, conversationId, userId, profile, sendMessage, onClose }) {
   const [tool, setTool] = useState('pen')
   const [color, setColor] = useState('#a78bfa')
   const [size, setSize] = useState(6)
@@ -14,8 +15,27 @@ export default function DrawingModal({ onClose }) {
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [saveState, setSaveState] = useState('idle') // idle | saving | saved
   const canvasApiRef = useRef(null)
   const modalRef = useRef(null)
+
+  const handlers = {
+    onInitialStrokes: (strokes) => canvasApiRef.current?.applyInitialStrokes(strokes),
+    onRemoteStrokeStart: (payload) => canvasApiRef.current?.applyRemoteStrokeStart(payload),
+    onRemoteStrokeUpdate: (payload) => canvasApiRef.current?.applyRemoteStrokeUpdate(payload),
+    onRemoteStrokeEnd: (payload) => canvasApiRef.current?.applyRemoteStrokeEnd(payload),
+    onRemoteUndo: (payload) => canvasApiRef.current?.applyRemoteUndo(payload),
+    onRemoteRedo: (payload) => canvasApiRef.current?.applyRemoteRedo(payload),
+    onRemoteClear: () => canvasApiRef.current?.applyRemoteClear(),
+    onRemoteCursor: (payload) => canvasApiRef.current?.applyRemoteCursor(payload),
+  }
+
+  const {
+    loading, connectionStatus, participants,
+    broadcastStrokeStart, broadcastStrokeUpdate, broadcastStrokeEnd,
+    broadcastUndo, broadcastRedo, broadcastClear, broadcastCursor,
+    saveToChat,
+  } = useDrawingSession(conversationId, userId, profile, handlers)
 
   // ── Keyboard shortcuts (desktop) ──
   useEffect(() => {
@@ -31,7 +51,6 @@ export default function DrawingModal({ onClose }) {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  // Prevent the whole page from scrolling behind the modal while it's open.
   useEffect(() => {
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -47,8 +66,24 @@ export default function DrawingModal({ onClose }) {
     a.click()
   }, [])
 
+  const handleSaveToChat = useCallback(async () => {
+    if (!sendMessage || saveState === 'saving') return
+    const dataUrl = canvasApiRef.current?.exportPng()
+    if (!dataUrl) return
+    setSaveState('saving')
+    try {
+      await saveToChat(dataUrl, sendMessage)
+      setSaveState('saved')
+      setTimeout(() => setSaveState('idle'), 1800)
+    } catch (e) {
+      console.error('saveToChat failed:', e)
+      setSaveState('idle')
+      alert('Could not save the drawing to chat. Please try again.')
+    }
+  }, [sendMessage, saveState, saveToChat])
+
   const handleClear = useCallback(() => {
-    if (window.confirm('Clear the whole canvas? This can\'t be undone.')) {
+    if (window.confirm("Clear the whole canvas for everyone? This can't be undone.")) {
       canvasApiRef.current?.clear()
     }
   }, [])
@@ -68,6 +103,13 @@ export default function DrawingModal({ onClose }) {
     document.addEventListener('fullscreenchange', handler)
     return () => document.removeEventListener('fullscreenchange', handler)
   }, [])
+
+  const statusLabel = {
+    connecting: 'Connecting…',
+    reconnecting: 'Reconnecting…',
+    offline: "You're offline — your drawing is saved locally and will sync when you reconnect.",
+    connected: null,
+  }[connectionStatus]
 
   return (
     <div
@@ -90,11 +132,37 @@ export default function DrawingModal({ onClose }) {
         <style>{`@keyframes drawModalPop { from { opacity:0; transform: scale(0.97); } to { opacity:1; transform:none; } }`}</style>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px 0', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
             🎨 Draw Together
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {!loading && participants.length === 0 && (
+              <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.4)' }}>Waiting for someone to join…</span>
+            )}
+            {participants.map(p => (
+              <div key={p.userId} title={p.username} style={{
+                display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.06)',
+                borderRadius: 20, padding: '3px 8px 3px 3px',
+              }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color }} />
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>{p.username}</span>
+              </div>
+            ))}
+          </div>
         </div>
+
+        {statusLabel && (
+          <div style={{
+            margin: '8px 16px 0', fontSize: 11.5, fontWeight: 600, textAlign: 'center',
+            color: connectionStatus === 'offline' ? '#fbbf24' : '#a5b4fc',
+            background: connectionStatus === 'offline' ? 'rgba(251,191,36,0.08)' : 'rgba(102,126,234,0.08)',
+            border: `1px solid ${connectionStatus === 'offline' ? 'rgba(251,191,36,0.25)' : 'rgba(102,126,234,0.2)'}`,
+            borderRadius: 10, padding: '6px 10px',
+          }}>
+            {statusLabel}
+          </div>
+        )}
 
         {/* Toolbar */}
         <DrawingToolbar
@@ -110,6 +178,9 @@ export default function DrawingModal({ onClose }) {
           onRedo={() => canvasApiRef.current?.redo()}
           onClear={handleClear}
           onExport={handleExport}
+          onSaveToChat={sendMessage ? handleSaveToChat : undefined}
+          saving={saveState === 'saving'}
+          saved={saveState === 'saved'}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
           onClose={onClose}
@@ -117,16 +188,30 @@ export default function DrawingModal({ onClose }) {
 
         {/* Canvas */}
         <div style={{ flex: 1, minHeight: 0, padding: 14 }}>
-          <DrawingCanvas
-            ref={canvasApiRef}
-            tool={tool}
-            color={color}
-            size={size}
-            opacity={opacity}
-            onCanUndoChange={setCanUndo}
-            onCanRedoChange={setCanRedo}
-            onLocalStrokeEnd={() => {}} // Phase 2 will broadcast + persist here
-          />
+          {loading ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>
+              Opening canvas…
+            </div>
+          ) : (
+            <DrawingCanvas
+              ref={canvasApiRef}
+              tool={tool}
+              color={color}
+              size={size}
+              opacity={opacity}
+              userId={userId}
+              participantUserIds={participants.map(p => p.userId)}
+              onCanUndoChange={setCanUndo}
+              onCanRedoChange={setCanRedo}
+              onLocalStrokeStart={broadcastStrokeStart}
+              onLocalStrokeUpdate={broadcastStrokeUpdate}
+              onLocalStrokeEnd={broadcastStrokeEnd}
+              onLocalUndo={broadcastUndo}
+              onLocalRedo={broadcastRedo}
+              onLocalClear={broadcastClear}
+              onLocalCursorMove={broadcastCursor}
+            />
+          )}
         </div>
       </div>
     </div>
