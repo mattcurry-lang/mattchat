@@ -57,7 +57,7 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     baseCtxRef.current = base.getContext('2d')
     liveCtxRef.current = live.getContext('2d')
     replayStrokes(baseCtxRef.current, base, strokes)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [dpr])
 
   useEffect(() => {
@@ -65,7 +65,7 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     const ro = new ResizeObserver(resizeCanvases)
     if (containerRef.current) ro.observe(containerRef.current)
     return () => ro.disconnect()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [])
 
   // Full replay of the BASE layer only — fires on committed-stroke
