@@ -710,3 +710,133 @@ export function IconEyeOff({ size = 18, ...props }) {
     </svg>
   )
 }
+
+// ── Drawing toolbar icons — append these to Icons.jsx ───────────
+
+export function IconBrush({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M9.5 14.5 4 20" />
+      <path d="M8.5 13.2c-.9-.9-.9-2.4 0-3.3l7-7c.9-.9 2.4-.9 3.3 0 .9.9.9 2.4 0 3.3l-7 7c-.9.9-2.4.9-3.3 0Z" />
+      <path d="M4 20c-.6-2.4.3-4 2-4.6" />
+    </svg>
+  )
+}
+
+export function IconEraser({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M20 20H9L4.5 15.5a2 2 0 0 1 0-2.8l7-7a2 2 0 0 1 2.8 0l5.5 5.5a2 2 0 0 1 0 2.8L14 19.5" />
+      <line x1="9" y1="20" x2="14.5" y2="14.5" />
+    </svg>
+  )
+}
+
+export function IconUndo({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M3 11h11a5 5 0 0 1 0 10h-3" />
+      <path d="M8 6 3 11l5 5" />
+    </svg>
+  )
+}
+
+export function IconRedo({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M21 11H10a5 5 0 0 0 0 10h3" />
+      <path d="M16 6l5 5-5 5" />
+    </svg>
+  )
+}
+
+export function IconShapes({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <circle cx="7.5" cy="15.5" r="4" />
+      <rect x="13" y="4" width="8" height="8" rx="1.2" />
+      <path d="M14 20h7l-3.5-6z" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function IconType({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M4 6.5h16" />
+      <path d="M12 6.5V19" />
+      <path d="M9 19h6" />
+    </svg>
+  )
+}
+
+export function IconDownload({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M12 3v12" />
+      <path d="M7 10l5 5 5-5" />
+      <path d="M4 19h16" />
+    </svg>
+  )
+}
+
+export function IconPalette({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.9 1.8-1.9 0-.5-.2-.9-.5-1.3-.3-.3-.5-.7-.5-1.2 0-1 .8-1.7 1.8-1.7H16a4.5 4.5 0 0 0 4.5-4.5C20.5 6.8 16.8 3 12 3Z" />
+      <circle cx="7.5" cy="11" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="9.5" cy="7.2" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="14.5" cy="7.2" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="16.5" cy="11" r="1.3" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+export function IconMaximize({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+      <path d="M16 3h3a2 2 0 0 1 2 2v3" />
+      <path d="M21 16v3a2 2 0 0 1-2 2h-3" />
+      <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+    </svg>
+  )
+}
+
+export function IconMinimize({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M9 3v3a2 2 0 0 1-2 2H4" />
+      <path d="M15 3v3a2 2 0 0 0 2 2h3" />
+      <path d="M15 21v-3a2 2 0 0 1 2-2h3" />
+      <path d="M9 21v-3a2 2 0 0 0-2-2H4" />
+    </svg>
+  )
+}
+
+export function IconPencil({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M13.5 5.5 18.5 10.5 8 21H3v-5Z" />
+      <path d="M12 7l5 5" />
+    </svg>
+  )
+}
+
+export function IconMarker({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M4 20l1.5-5L16 4.5a1.8 1.8 0 0 1 2.5 2.5L8 17.5 4 20Z" strokeLinejoin="round" />
+      <line x1="13.5" y1="7" x2="17" y2="10.5" />
+    </svg>
+  )
+}
+
+export function IconHighlighter({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M6 15l8.5-8.5 3 3L9 18l-4.5 1.5L6 15Z" strokeLinejoin="round" />
+      <line x1="3" y1="21" x2="9" y2="21" />
+    </svg>
+  )
+}
