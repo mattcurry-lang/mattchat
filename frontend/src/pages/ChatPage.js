@@ -2000,7 +2000,7 @@ const handleSend = async () => {
                 <div className="chat-header-name">{getConvoName(activeConvo)}</div>
                 <div className="chat-header-sub" style={{ minHeight: 16 }}>{headerStatus()}</div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+             <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', flexShrink: 0, maxWidth: '100%' }}>
                 {callStatus === 'idle' && (
                   <CallButtons onVoiceCall={() => startCall('audio')} onVideoCall={() => startCall('video')} disabled={false} />
                 )}
