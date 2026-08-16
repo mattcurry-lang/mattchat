@@ -3,6 +3,7 @@ import DrawingCanvas from './DrawingCanvas'
 import DrawingToolbar from './DrawingToolbar'
 import { useDrawingSession } from '../../hooks/useDrawingSession'
 import { useDrawingVoice } from '../../hooks/useDrawingVoice'
+import { IconMic } from '../Icons'
 
 // Phase 2: shared, persisted, realtime canvas. This modal now owns the
 // session/channel lifecycle via useDrawingSession and wires every remote
