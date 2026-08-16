@@ -3,8 +3,9 @@ import { supabase } from '../lib/supabase'
 import { subscribeToChannel } from '../lib/realtimeManager'
 
 export function useWatchTogether(conversationId, userId) {
-  const [session, setSession] = useState(null) // any non-ended session, whatever its status
+  const [session, setSession] = useState(null)
   const lastLocalUpdate = useRef(0)
+  const dismissedIdsRef = useRef(new Set()) 
 
   const loadActive = useCallback(() => {
     if (!conversationId) return
@@ -16,7 +17,11 @@ export function useWatchTogether(conversationId, userId) {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
-      .then(({ data }) => setSession(data || null))
+      .then(({ data }) => {
+        const row = data || null
+        if (row && dismissedIdsRef.current.has(row.id)) { setSession(null); return }  // ← NEW
+        setSession(row)
+      })
   }, [conversationId])
 
   useEffect(() => { loadActive() }, [loadActive])
@@ -70,8 +75,15 @@ useEffect(() => {
 
   const declineInvite = useCallback(async () => {
     if (!session) return
-    await supabase.from('watch_together_sessions').update({ status: 'declined' }).eq('id', session.id)
+    dismissedIdsRef.current.add(session.id)          // ← NEW: never show this id again locally
     setSession(null)
+    const { error, data } = await supabase.from('watch_together_sessions')
+      .update({ status: 'declined' })
+      .eq('id', session.id)
+      .select()
+    if (error || !data?.length) {
+      console.error('declineInvite: DB update did not persist (likely blocked by RLS):', error)
+    }
   }, [session])
 
   const updatePlayback = useCallback(async (patch) => {
