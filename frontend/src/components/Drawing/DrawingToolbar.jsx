@@ -43,7 +43,8 @@ function ToolButton({ active, onClick, title, children }) {
 export default function DrawingToolbar({
   tool, onToolChange, color, onColorChange, size, onSizeChange,
   canUndo, canRedo, onUndo, onRedo, onClear, onExport,
-  isFullscreen, onToggleFullscreen, onClose, saving,
+  onSaveToChat, saving, saved,
+  isFullscreen, onToggleFullscreen, onClose,
 }) {
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [showShapes, setShowShapes] = useState(false)
@@ -138,6 +139,23 @@ export default function DrawingToolbar({
       </ToolButton>
 
       <div style={{ flex: 1 }} />
+
+      {onSaveToChat && (
+        <button
+          onClick={onSaveToChat}
+          disabled={saving}
+          title="Save this drawing to the chat"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, height: 34, padding: '0 12px',
+            borderRadius: 20, fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: saving ? 'default' : 'pointer',
+            background: saved ? 'rgba(52,211,153,0.15)' : 'rgba(167,139,250,0.15)',
+            border: `1px solid ${saved ? 'rgba(52,211,153,0.35)' : 'rgba(167,139,250,0.3)'}`,
+            color: saved ? '#34d399' : '#c4b5fd', opacity: saving ? 0.7 : 1, flexShrink: 0,
+          }}
+        >
+          {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save to Chat'}
+        </button>
+      )}
 
       <ToolButton active={false} onClick={onExport} title="Export as PNG">
         <IconDownload size={17} />
