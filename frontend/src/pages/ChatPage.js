@@ -2021,7 +2021,16 @@ const handleSend = async () => {
                   <button className="icon-btn dark" onClick={() => setShowDrawing(true)} title="Draw together">
   <IconBrush size={18} />
 </button>
-                  {showDrawing && <DrawingModal onClose={() => setShowDrawing(false)} />}
+                  {showDrawing && (
+  <DrawingModal
+    session={session}
+    conversationId={activeConvo.id}
+    userId={userId}
+    profile={profile}
+    sendMessage={sendMessage}
+    onClose={() => setShowDrawing(false)}
+  />
+)}
                 <div className="threedot-wrapper" style={{ position: 'relative' }}>
                   <button className="icon-btn dark" onClick={() => setShowThreeDot(v => !v)} title="More options"
                     style={{ color: showThreeDot ? '#a78bfa' : undefined, background: showThreeDot ? 'rgba(167,139,250,0.15)' : undefined }}><IconMoreVertical size={17} /></button>
