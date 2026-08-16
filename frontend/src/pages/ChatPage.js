@@ -99,7 +99,7 @@ const AUTO_CONTEXT_GAP_DAYS = 2    // quiet period before showing "last spoke" c
 // gif:, status_reply:, call logs, shorts) never leak their raw syntax
 // into the sidebar the way status_reply's URL-encoded caption was.
 // FIX: shorts previously fell through to `return content`, which
-// printed either the raw legacy "short:videoId::title::..." string
+// printed either the raw legacy "short:videoId::title::.." string
 // or, for the newer message_type:'short' JSON payload, the raw JSON
 // blob straight into the chat list row.
 function getMessagePreview(content) {
