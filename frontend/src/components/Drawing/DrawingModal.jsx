@@ -9,7 +9,7 @@ import { IconMic } from '../Icons'
 // session/channel lifecycle via useDrawingSession and wires every remote
 // event straight into DrawingCanvas's imperative ref methods —
 // DrawingCanvas itself stays completely unaware of Supabase.
-export default function DrawingModal({ session, conversationId, userId, profile, sendMessage, onClose }) {
+export default function DrawingModal({ session, conversationId, userId, profile, sendMessage, onInvite, inviteeName, onClose }) {
   const [tool, setTool] = useState('pen')
   const [color, setColor] = useState('#a78bfa')
   const [size, setSize] = useState(6)
@@ -17,7 +17,17 @@ export default function DrawingModal({ session, conversationId, userId, profile,
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [saveState, setSaveState] = useState('idle') // idle | saving | saved
+  const [saveState, setSaveState] = useState('idle') 
+  const [inviteSent, setInviteSent] = useState(false)
+
+  const handleInvite = useCallback(async () => {
+    if (!onInvite) return
+    setInviteSent(false)
+    await onInvite()
+    setInviteSent(true)
+    setTimeout(() => setInviteSent(false), 3000)
+  }, [onInvite])
+  
   const canvasApiRef = useRef(null)
   const modalRef = useRef(null)
   const { micOn, toggleMic, otherSpeaking, connected, connecting, voiceError } = useDrawingVoice(conversationId, true)
@@ -139,9 +149,25 @@ export default function DrawingModal({ session, conversationId, userId, profile,
           <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
             🎨 Draw Together
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {!loading && participants.length === 0 && (
-              <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.4)' }}>Waiting for someone to join…</span>
+              <>
+                <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.4)' }}>
+                  {inviteSent ? 'Invite sent ✓' : `Waiting for ${inviteeName || 'someone'} to join…`}
+                </span>
+                {onInvite && (
+                  <button
+                    onClick={handleInvite}
+                    style={{
+                      background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)',
+                      borderRadius: 20, color: '#c4b5fd', fontSize: 11, fontWeight: 700,
+                      padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    Invite {inviteeName || ''}
+                  </button>
+                )}
+              </>
             )}
             {participants.map(p => (
               <div key={p.userId} title={p.username} style={{
