@@ -73,7 +73,7 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
   }, [conversationId, userId])
 
   // ── Load persisted strokes whenever we (re)connect to a session ──
-  const loadStrokes = useCallback(async () => {
+ const loadStrokes = useCallback(async () => {
     if (!session?.id) return
     const { data } = await supabase
       .from('drawing_strokes')
@@ -81,7 +81,7 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
       .eq('session_id', session.id)
       .order('created_at', { ascending: true })
     const strokes = (data || []).map(row => ({
-      id: row.id, userId: row.user_id, tool: row.tool, color: row.color,
+      id: row.client_stroke_id, userId: row.user_id, tool: row.tool, color: row.color,
       size: row.size, opacity: row.opacity, points: row.points,
       textContent: row.text_content, deleted: row.deleted,
     }))
@@ -191,27 +191,26 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
     send('stroke_update', { strokeId, newPoints, userId })
   }, [send, userId])
 
-  const broadcastStrokeEnd = useCallback(async (stroke) => {
+ const broadcastStrokeEnd = useCallback(async (stroke) => {
     send('stroke_end', { ...stroke, userId })
     if (!session?.id) return
     const { error } = await supabase.from('drawing_strokes').insert({
-      id: stroke.id, session_id: session.id, user_id: userId,
+      client_stroke_id: stroke.id, session_id: session.id, user_id: userId,
       tool: stroke.tool, color: stroke.color, size: stroke.size, opacity: stroke.opacity,
       points: stroke.points, text_content: stroke.textContent || null, deleted: false,
     })
     if (error) console.error('[useDrawingSession] persist stroke failed:', error)
   }, [send, session?.id, userId])
 
-  const broadcastUndo = useCallback(async (strokeId) => {
+ const broadcastUndo = useCallback(async (strokeId) => {
     send('undo', { strokeId, userId })
-    await supabase.from('drawing_strokes').update({ deleted: true }).eq('id', strokeId).eq('user_id', userId)
+    await supabase.from('drawing_strokes').update({ deleted: true }).eq('client_stroke_id', strokeId).eq('user_id', userId)
   }, [send, userId])
 
   const broadcastRedo = useCallback(async (strokeId) => {
     send('redo', { strokeId, userId })
-    await supabase.from('drawing_strokes').update({ deleted: false }).eq('id', strokeId).eq('user_id', userId)
+    await supabase.from('drawing_strokes').update({ deleted: false }).eq('client_stroke_id', strokeId).eq('user_id', userId)
   }, [send, userId])
-
   const broadcastClear = useCallback(async () => {
     send('clear', { userId })
     if (session?.id) await supabase.from('drawing_strokes').delete().eq('session_id', session.id)
