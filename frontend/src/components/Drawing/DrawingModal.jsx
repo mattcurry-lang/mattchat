@@ -30,6 +30,7 @@ export default function DrawingModal({ session, conversationId, userId, profile,
   
   const canvasApiRef = useRef(null)
   const modalRef = useRef(null)
+  const imageFileInputRef = useRef(null)
 
   // useDrawingVoice needs the drawing session's id (from
   // useDrawingSession's return) to know which channel to signal on,
@@ -55,6 +56,11 @@ export default function DrawingModal({ session, conversationId, userId, profile,
     onRemoteRedo: (payload) => canvasApiRef.current?.applyRemoteRedo(payload),
     onRemoteClear: () => canvasApiRef.current?.applyRemoteClear(),
     onRemoteCursor: (payload) => canvasApiRef.current?.applyRemoteCursor(payload),
+    onInitialObjects: (objects) => canvasApiRef.current?.applyInitialObjects(objects),
+    onRemoteObjectCreated: (payload) => canvasApiRef.current?.applyRemoteObjectCreated(payload),
+    onRemoteObjectMoving: (payload) => canvasApiRef.current?.applyRemoteObjectMoving(payload),
+    onRemoteObjectUpdated: (payload) => canvasApiRef.current?.applyRemoteObjectUpdated(payload),
+    onRemoteObjectDeleted: (payload) => canvasApiRef.current?.applyRemoteObjectDeleted(payload),
     onVoiceSignal,
   }
 
@@ -63,7 +69,8 @@ export default function DrawingModal({ session, conversationId, userId, profile,
     loading, connectionStatus, participants,
     broadcastStrokeStart, broadcastStrokeUpdate, broadcastStrokeEnd,
     broadcastUndo, broadcastRedo, broadcastClear, broadcastCursor,
-    saveToChat,
+    broadcastObjectCreated, broadcastObjectMoving, broadcastObjectUpdated, broadcastObjectDeleted,
+    uploadObjectImage, saveToChat,
   } = useDrawingSession(conversationId, userId, profile, handlers)
 
   const { micOn, toggleMic, otherSpeaking, connected, connecting, voiceError, handleSignal } =
@@ -126,6 +133,33 @@ export default function DrawingModal({ session, conversationId, userId, profile,
       canvasApiRef.current?.clear()
     }
   }, [])
+
+  const handleAddSticky = useCallback(() => {
+    canvasApiRef.current?.createStickyNote()
+  }, [])
+
+  const handleAddImageClick = useCallback(() => {
+    imageFileInputRef.current?.click()
+  }, [])
+
+  const handleImageFileChange = useCallback(async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow picking the same file again later
+    if (!file) return
+    try {
+      const url = await uploadObjectImage(file)
+      const dims = await new Promise((resolve) => {
+        const img = new window.Image()
+        img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight })
+        img.onerror = () => resolve({ w: 400, h: 300 })
+        img.src = url
+      })
+      canvasApiRef.current?.createImageObject({ url, naturalWidth: dims.w, naturalHeight: dims.h })
+    } catch (err) {
+      console.error('image insert failed:', err)
+      alert('Could not add that image. Please try again.')
+    }
+  }, [uploadObjectImage])
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -219,6 +253,17 @@ export default function DrawingModal({ session, conversationId, userId, profile,
           </div>
         )}
 
+        {/* Hidden file input for the Image tool — the toolbar button just
+            triggers this via onAddImage, keeping the picker itself here
+            alongside the upload logic that already lives in this modal. */}
+        <input
+          ref={imageFileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleImageFileChange}
+          style={{ display: 'none' }}
+        />
+
         {/* Toolbar */}
         <DrawingToolbar
           tool={tool}
@@ -233,6 +278,8 @@ export default function DrawingModal({ session, conversationId, userId, profile,
           onRedo={() => canvasApiRef.current?.redo()}
           onClear={handleClear}
           onExport={handleExport}
+          onAddSticky={handleAddSticky}
+          onAddImage={handleAddImageClick}
           onSaveToChat={sendMessage ? handleSaveToChat : undefined}
           saving={saveState === 'saving'}
           saved={saveState === 'saved'}
@@ -267,6 +314,10 @@ export default function DrawingModal({ session, conversationId, userId, profile,
         onLocalRedo={broadcastRedo}
         onLocalClear={broadcastClear}
         onLocalCursorMove={broadcastCursor}
+        onLocalObjectCreate={broadcastObjectCreated}
+        onLocalObjectMoving={broadcastObjectMoving}
+        onLocalObjectUpdate={broadcastObjectUpdated}
+        onLocalObjectDelete={broadcastObjectDeleted}
       />
 
      {/* Voice Button Sibling */}
