@@ -18,6 +18,7 @@ export default function DrawingModal({ session, conversationId, userId, profile,
   const [saveState, setSaveState] = useState('idle') // idle | saving | saved
   const canvasApiRef = useRef(null)
   const modalRef = useRef(null)
+  const { micOn, toggleMic, otherSpeaking, connected } = useDrawingVoice(conversationId, true)
 
   const handlers = {
     onInitialStrokes: (strokes) => canvasApiRef.current?.applyInitialStrokes(strokes),
@@ -186,33 +187,61 @@ export default function DrawingModal({ session, conversationId, userId, profile,
           onClose={onClose}
         />
 
-        {/* Canvas */}
-        <div style={{ flex: 1, minHeight: 0, padding: 14 }}>
-          {loading ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>
-              Opening canvas…
-            </div>
-          ) : (
-            <DrawingCanvas
-              ref={canvasApiRef}
-              tool={tool}
-              color={color}
-              size={size}
-              opacity={opacity}
-              userId={userId}
-              participantUserIds={participants.map(p => p.userId)}
-              onCanUndoChange={setCanUndo}
-              onCanRedoChange={setCanRedo}
-              onLocalStrokeStart={broadcastStrokeStart}
-              onLocalStrokeUpdate={broadcastStrokeUpdate}
-              onLocalStrokeEnd={broadcastStrokeEnd}
-              onLocalUndo={broadcastUndo}
-              onLocalRedo={broadcastRedo}
-              onLocalClear={broadcastClear}
-              onLocalCursorMove={broadcastCursor}
-            />
-          )}
-        </div>
+      {/* Canvas */}
+<div style={{ flex: 1, minHeight: 0, padding: 14 }}>
+  {loading ? (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>
+      Opening canvas…
+    </div>
+  ) : (
+    /* Relative container to anchor absolute-positioned siblings */
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <DrawingCanvas
+        ref={canvasApiRef}
+        tool={tool}
+        color={color}
+        size={size}
+        opacity={opacity}
+        userId={userId}
+        participantUserIds={participants.map(p => p.userId)}
+        onCanUndoChange={setCanUndo}
+        onCanRedoChange={setCanRedo}
+        onLocalStrokeStart={broadcastStrokeStart}
+        onLocalStrokeUpdate={broadcastStrokeUpdate}
+        onLocalStrokeEnd={broadcastStrokeEnd}
+        onLocalUndo={broadcastUndo}
+        onLocalRedo={broadcastRedo}
+        onLocalClear={broadcastClear}
+        onLocalCursorMove={broadcastCursor}
+      />
+
+      {/* Voice Button Sibling */}
+      <button
+        onClick={toggleMic}
+        title={micOn ? 'Mute mic' : 'Talk to them'}
+        style={{
+          position: 'absolute',
+          bottom: 20,
+          right: 20,
+          zIndex: 50,
+          width: 48,
+          height: 48,
+          borderRadius: '50%',
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: micOn ? 'linear-gradient(135deg,#667eea,#764ba2)' : 'rgba(0,0,0,0.55)',
+          boxShadow: otherSpeaking ? '0 0 0 4px rgba(52,211,153,0.4)' : '0 4px 16px rgba(0,0,0,0.3)',
+          transition: 'box-shadow 0.2s',
+        }}
+      >
+        <IconMic size={20} style={{ color: micOn ? '#fff' : 'rgba(255,255,255,0.7)' }} />
+      </button>
+    </div>
+  )}
+</div>
       </div>
     </div>
   )
