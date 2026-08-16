@@ -1084,19 +1084,27 @@ useEffect(() => {
     reload()
   }
 const inviteToDraw = useCallback(async () => {
-    if (!activeConvo?.id || !otherUserId) return
-    setShowDrawing(true) // open immediately for the inviter — no need to wait on the network
-    try {
-      const { data: { session: authSession } } = await supabase.auth.getSession()
-      await fetch('https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/send-drawing-invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
-        body: JSON.stringify({ conversationId: activeConvo.id, invitedUserId: otherUserId }),
-      })
-    } catch (e) {
-      console.error('inviteToDraw failed:', e)
+  if (!activeConvo?.id || !otherUserId) return
+  setShowDrawing(true)
+  try {
+    const { data: { session: authSession } } = await supabase.auth.getSession()
+    const res = await fetch('https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/send-drawing-invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
+      body: JSON.stringify({ conversationId: activeConvo.id, invitedUserId: otherUserId }),
+    })
+    const data = await res.json()
+    if (!data.ok) {
+      console.error('inviteToDraw failed:', data.error)
+      playSound('warning')
+      alert(`Couldn't notify ${getConvoName(activeConvo)} — they may not see this invite. (${data.error || 'unknown error'})`)
     }
-  }, [activeConvo, otherUserId])
+  } catch (e) {
+    console.error('inviteToDraw failed:', e)
+    playSound('warning')
+    alert(`Couldn't send the invite — check your connection and try again.`)
+  }
+}, [activeConvo, otherUserId, getConvoName])
   // Conversation Coach (Phase 3) — fires AFTER a plain message has
   // already been sent, purely advisory, never blocking. Skips very
   // short/trivial messages so a Gemini call doesn't fire for every
