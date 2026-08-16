@@ -9,6 +9,8 @@ export function useDrawingVoice(conversationId, enabled) {
   const [micOn, setMicOn] = useState(false)
   const [otherSpeaking, setOtherSpeaking] = useState(false)
   const [connected, setConnected] = useState(false)
+  const [connecting, setConnecting] = useState(false)
+  const [voiceError, setVoiceError] = useState(null)          // ← NEW
   const callRef = useRef(null)
 
   useEffect(() => {
@@ -16,26 +18,34 @@ export function useDrawingVoice(conversationId, enabled) {
     let cancelled = false
 
     const join = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch(`${FUNCTIONS_BASE}/create-drawing-voice-room`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ conversationId }),
-      })
-      const data = await res.json()
-      if (cancelled || !data.ok) return
+      setConnecting(true)
+      setVoiceError(null)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const res = await fetch(`${FUNCTIONS_BASE}/create-drawing-voice-room`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+          body: JSON.stringify({ conversationId }),
+        })
+        const data = await res.json()
+        if (cancelled) return
+        if (!data.ok) { setVoiceError(data.error || 'Could not start voice'); setConnecting(false); return }  // ← NEW
 
-      const call = DailyIframe.createCallObject({ audioSource: true, videoSource: false })
-      callRef.current = call
+        const call = DailyIframe.createCallObject({ audioSource: true, videoSource: false })
+        callRef.current = call
 
-      call.on('active-speaker-change', (e) => {
-        setOtherSpeaking(e.activeSpeaker?.peerId !== call.participants().local?.session_id)
-      })
-      call.on('left-meeting', () => setConnected(false))
+        call.on('active-speaker-change', (e) => {
+          setOtherSpeaking(e.activeSpeaker?.peerId !== call.participants().local?.session_id)
+        })
+        call.on('left-meeting', () => setConnected(false))
 
-      await call.join({ url: data.roomUrl, token: data.token, startVideoOff: true, startAudioOff: true })
-      if (cancelled) { call.leave(); return }
-      setConnected(true)
+        await call.join({ url: data.roomUrl, token: data.token, startVideoOff: true, startAudioOff: true })
+        if (cancelled) { call.leave(); return }
+        setConnected(true)
+      } catch (e) {
+        if (!cancelled) setVoiceError(e.message || 'Could not start voice')   // ← NEW
+      }
+      setConnecting(false)
     }
 
     join()
@@ -51,11 +61,11 @@ export function useDrawingVoice(conversationId, enabled) {
 
   const toggleMic = useCallback(() => {
     const call = callRef.current
-    if (!call) return
+    if (!call || !connected) return   // ← guarded: no silent no-op confusion, see button below
     const next = !micOn
     call.setLocalAudio(next)
     setMicOn(next)
-  }, [micOn])
+  }, [micOn, connected])
 
-  return { micOn, toggleMic, otherSpeaking, connected }
+  return { micOn, toggleMic, otherSpeaking, connected, connecting, voiceError }  // ← added connecting, voiceError
 }
