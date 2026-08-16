@@ -86,6 +86,7 @@ import WhatsAppPage from '../components/WhatsApp/WhatsAppPage'
 import WhatsAppIcon from '../components/icons/WhatsAppIcon'
 import AdminAnnouncements from '../components/AdminAnnouncements'
 import ChangeProfilePictureModal from '../components/ChangeProfilePictureModal'
+import DrawingModal from '../components/Drawing/DrawingModal'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -566,6 +567,7 @@ const [curryPrefill, setCurryPrefill] = useState(null)
   const [showWhatsApp, setShowWhatsApp] = useState(false)
   const [showAnnouncements, setShowAnnouncements] = useState(false)
   const [showChangePicture, setShowChangePicture] = useState(false)
+  const [showDrawing, setShowDrawing] = useState(false)
   
   // that appears AFTER a plain message has already been sent, if
   // Curry thinks it might land colder than intended. Never blocks or
@@ -2015,6 +2017,10 @@ const handleSend = async () => {
                    <IconClock size={13} /> <span style={{ fontSize: 11 }}>Scheduled</span>
                   </button>
                 )}
+                  <button className="icon-btn dark" onClick={() => setShowDrawing(true)} title="Draw together">
+  <IconBrush size={18} />
+</button>
+                  {showDrawing && <DrawingModal onClose={() => setShowDrawing(false)} />}
                 <div className="threedot-wrapper" style={{ position: 'relative' }}>
                   <button className="icon-btn dark" onClick={() => setShowThreeDot(v => !v)} title="More options"
                     style={{ color: showThreeDot ? '#a78bfa' : undefined, background: showThreeDot ? 'rgba(167,139,250,0.15)' : undefined }}><IconMoreVertical size={17} /></button>
