@@ -88,6 +88,7 @@ import WhatsAppIcon from '../components/icons/WhatsAppIcon'
 import AdminAnnouncements from '../components/AdminAnnouncements'
 import ChangeProfilePictureModal from '../components/ChangeProfilePictureModal'
 import DrawingModal from '../components/Drawing/DrawingModal'
+import { createPortal } from 'react-dom'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -464,12 +465,27 @@ const youtubeId = extractYouTubeId(msg.content)
     </div>
   )
 }
-function ThreeDotMenu({ onDraw, onPoll, onTask, onSchedule, onSearch, onSearchYouTube, onShare, onClose }) {
+function ThreeDotMenu({ anchorRef, onDraw, onPoll, onTask, onSchedule, onSearch, onSearchYouTube, onShare, onClose }) {
+  const [pos, setPos] = useState(null)
+  const menuRef = useRef(null)
+
   useEffect(() => {
-    const handler = (e) => { if (!e.target.closest('.threedot-wrapper')) onClose() }
+    const rect = anchorRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const MENU_WIDTH = 200
+    const left = Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8)
+    setPos({ top: rect.bottom + 6, left: Math.max(8, left) })
+  }, [anchorRef])
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (menuRef.current?.contains(e.target)) return
+      if (anchorRef.current?.contains(e.target)) return
+      onClose()
+    }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [onClose])
+  }, [onClose, anchorRef])
 
   const items = [
     { icon: <IconBrush size={17} />, label: 'Draw Together', action: onDraw },
@@ -480,11 +496,22 @@ function ThreeDotMenu({ onDraw, onPoll, onTask, onSchedule, onSearch, onSearchYo
     { icon: <IconVideo size={17} />, label: 'Search YouTube', action: onSearchYouTube },
     { icon: <IconMail size={17} />, label: 'Share Contact Link', action: onShare },
   ]
-  return (
-    <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, zIndex: 200, background: 'rgba(255,255,255,0.98)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow-lg)', overflow: 'hidden', animation: 'menuPop 0.18s cubic-bezier(0.34,1.56,0.64,1)', minWidth: 200 }}>
+
+  if (!pos) return null
+
+  return createPortal(
+    <div
+      ref={menuRef}
+      style={{
+        position: 'fixed', top: pos.top, left: pos.left, zIndex: 2000,
+        background: 'rgba(255,255,255,0.98)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+        border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow-lg)',
+        overflow: 'hidden', animation: 'menuPop 0.18s cubic-bezier(0.34,1.56,0.64,1)', minWidth: 200,
+      }}
+    >
       {items.map(({ icon, label, action }) => (
         <button key={label} onClick={() => { action(); onClose() }}
-          style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 500, color: 'var(--text-primary)', transition: 'background 0.12s', textAlign: 'left' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 500, color: 'var(--text-primary)', textAlign: 'left' }}
           onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-surface-2)'}
           onMouseLeave={e => e.currentTarget.style.background = 'none'}
         >
@@ -492,7 +519,8 @@ function ThreeDotMenu({ onDraw, onPoll, onTask, onSchedule, onSearch, onSearchYo
           {label}
         </button>
       ))}
-    </div>
+    </div>,
+    document.body
   )
 }
 function CallButtons({ onVoiceCall, onVideoCall, disabled }) {
@@ -587,10 +615,11 @@ const [curryPrefill, setCurryPrefill] = useState(null)
  
   
 
-  const msgRefs        = useRef({})
+const msgRefs        = useRef({})
   const messagesEndRef = useRef(null)
   const typingTimer    = useRef(null)
   const textareaRef    = useRef(null)
+  const threeDotBtnRef = useRef(null)
 
   const userId = session.user.id
 const { isOnline, getLastSeenLabel } = usePresence(userId)
@@ -694,6 +723,9 @@ useEffect(() => {
       answerCall()
     } else if (data.type === 'call' && action === 'decline') {
       declineCall()
+    } else if (data.type === 'draw' && action === 'accept-draw') {
+      const found = conversations.find(c => c.id === data.conversationId)
+      if (found) { openConvo(found); setShowDrawing(true) }
     } else if (data.conversationId) {
       const found = conversations.find(c => c.id === data.conversationId)
       if (found) openConvo(found)
@@ -1051,7 +1083,20 @@ useEffect(() => {
       .eq('id', activeConvo.id)
     reload()
   }
-
+const inviteToDraw = useCallback(async () => {
+    if (!activeConvo?.id || !otherUserId) return
+    setShowDrawing(true) // open immediately for the inviter — no need to wait on the network
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      await fetch('https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/send-drawing-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
+        body: JSON.stringify({ conversationId: activeConvo.id, invitedUserId: otherUserId }),
+      })
+    } catch (e) {
+      console.error('inviteToDraw failed:', e)
+    }
+  }, [activeConvo, otherUserId])
   // Conversation Coach (Phase 3) — fires AFTER a plain message has
   // already been sent, purely advisory, never blocking. Skips very
   // short/trivial messages so a Gemini call doesn't fire for every
@@ -2019,12 +2064,13 @@ const handleSend = async () => {
                    <IconClock size={13} /> <span style={{ fontSize: 11 }}>Scheduled</span>
                   </button>
                 )}
-          <div className="threedot-wrapper" style={{ position: 'relative' }}>
-                  <button className="icon-btn dark" onClick={() => setShowThreeDot(v => !v)} title="More options"
+         <div className="threedot-wrapper" style={{ position: 'relative' }}>
+                  <button ref={threeDotBtnRef} className="icon-btn dark" onClick={() => setShowThreeDot(v => !v)} title="More options"
                     style={{ color: showThreeDot ? '#a78bfa' : undefined, background: showThreeDot ? 'rgba(167,139,250,0.15)' : undefined }}><IconMoreVertical size={17} /></button>
                   {showThreeDot && (
                    <ThreeDotMenu
-  onDraw={() => setShowDrawing(true)}
+  anchorRef={threeDotBtnRef}
+  onDraw={inviteToDraw}
   onPoll={() => { setShowPoll(v => !v); setShowTask(false) }}
   onTask={() => { setShowTask(v => !v); setShowPoll(false) }}
   onSchedule={() => setShowScheduler(true)}
