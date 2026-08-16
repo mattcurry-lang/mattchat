@@ -1083,28 +1083,7 @@ useEffect(() => {
       .eq('id', activeConvo.id)
     reload()
   }
-const inviteToDraw = useCallback(async () => {
-  if (!activeConvo?.id || !otherUserId) return
-  setShowDrawing(true)
-  try {
-    const { data: { session: authSession } } = await supabase.auth.getSession()
-    const res = await fetch('https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/send-drawing-invite', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
-      body: JSON.stringify({ conversationId: activeConvo.id, invitedUserId: otherUserId }),
-    })
-    const data = await res.json()
-    if (!data.ok) {
-      console.error('inviteToDraw failed:', data.error)
-      playSound('warning')
-      alert(`Couldn't notify ${getConvoName(activeConvo)} — they may not see this invite. (${data.error || 'unknown error'})`)
-    }
-  } catch (e) {
-    console.error('inviteToDraw failed:', e)
-    playSound('warning')
-    alert(`Couldn't send the invite — check your connection and try again.`)
-  }
-}, [activeConvo, otherUserId, getConvoName])
+
   // Conversation Coach (Phase 3) — fires AFTER a plain message has
   // already been sent, purely advisory, never blocking. Skips very
   // short/trivial messages so a Gemini call doesn't fire for every
@@ -1259,6 +1238,28 @@ const handleSend = async () => {
     const other = c.conversation_members?.find(m => m.user_id !== userId)
     return other?.profiles?.username || other?.profiles?.email || 'Unknown'
   }
+  const inviteToDraw = useCallback(async () => {
+  if (!activeConvo?.id || !otherUserId) return
+  setShowDrawing(true)
+  try {
+    const { data: { session: authSession } } = await supabase.auth.getSession()
+    const res = await fetch('https://bqerkvywgxoioocbkxif.supabase.co/functions/v1/send-drawing-invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
+      body: JSON.stringify({ conversationId: activeConvo.id, invitedUserId: otherUserId }),
+    })
+    const data = await res.json()
+    if (!data.ok) {
+      console.error('inviteToDraw failed:', data.error)
+      playSound('warning')
+      alert(`Couldn't notify ${getConvoName(activeConvo)} — they may not see this invite. (${data.error || 'unknown error'})`)
+    }
+  } catch (e) {
+    console.error('inviteToDraw failed:', e)
+    playSound('warning')
+    alert(`Couldn't send the invite — check your connection and try again.`)
+  }
+}, [activeConvo, otherUserId, getConvoName])
 
   const searchFiltered = conversations.filter(c => getConvoName(c).toLowerCase().includes(search.toLowerCase()))
   const filtered = filterByCollection(searchFiltered, collection, { unreadCounts, sharedConvoIds, tags })
