@@ -104,7 +104,19 @@ export function useDrawingVoice(sessionId, userId, enabled) {
 
   const ensureLocalStream = useCallback(async () => {
     if (localStreamRef.current) return localStreamRef.current
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    // Explicit constraints instead of bare `audio: true` — a plain
+    // boolean doesn't reliably enable the browser's audio processing
+    // pipeline. echoCancellation matters most if both people are in
+    // the same room: without it, each side's mic picks up its own
+    // speaker output and re-sends it, which reads as "background
+    // noise" (really a feedback loop) rather than a clean voice track.
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    })
     // Start muted, matching the old startAudioOff: true behavior —
     // user has to explicitly toggle mic on.
     stream.getAudioTracks().forEach(t => { t.enabled = false })
