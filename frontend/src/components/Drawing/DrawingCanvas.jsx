@@ -7,6 +7,16 @@ const MIN_ZOOM = 0.4
 const MAX_ZOOM = 6
 const PAN_MARGIN_PX = 80 // min px of canvas that must always stay visible
 
+const STICKY_COLORS = {
+  yellow: '#fde68a', blue: '#bfdbfe', green: '#bbf7d0',
+  purple: '#ddd6fe', pink: '#fbcfe8', orange: '#fed7aa',
+}
+const MIN_OBJECT_W = 60
+const MIN_OBJECT_H = 50
+const DEFAULT_STICKY_W = 180
+const DEFAULT_STICKY_H = 140
+const MAX_IMAGE_DIM = 420
+
 const clamp = (v, min, max) => Math.min(max, Math.max(min, v))
 const touchDist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
 const touchMid = (a, b) => ({ x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 })
@@ -19,17 +29,21 @@ const touchMid = (a, b) => ({ x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.
 // desktop and a phone are always looking at the exact same canvas,
 // just zoomed differently. Nothing drawn is ever off-screen for anyone.
 //
-// On top of that base "fit" transform, the user can now additionally
+// On top of that base "fit" transform, the user can additionally
 // zoom/pan (mouse wheel, trackpad pinch, middle-drag, Space+drag,
 // two-finger touch). scaleRef/offsetXRef/offsetYRef below always hold
-// the COMBINED (fit × zoom × pan) transform — everything downstream
-// (getPoint, remote cursor placement, the text-tool input) reads those
-// the same way it always did and needs no changes.
+// the COMBINED (fit × zoom × pan) transform.
+//
+// Sticky notes and images are a THIRD layer on top of both canvases:
+// plain DOM elements, positioned imperatively (not via React state) so
+// they track the transform in lockstep with the canvas during pan/zoom
+// instead of lagging a render behind — see positionObjectEl below.
 const DrawingCanvas = forwardRef(function DrawingCanvas(
   {
     tool, color, size, opacity, userId, participantUserIds,
     onLocalStrokeStart, onLocalStrokeUpdate, onLocalStrokeEnd,
     onLocalUndo, onLocalRedo, onLocalClear, onLocalCursorMove,
+    onLocalObjectCreate, onLocalObjectMoving, onLocalObjectUpdate, onLocalObjectDelete,
     onCanUndoChange, onCanRedoChange,
     backgroundColor = '#ffffff',
   },
@@ -43,7 +57,7 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
 
   // Combined (fit × zoom × pan) transform — read by getPoint, cursor
-  // placement, text input positioning. Unchanged shape from before.
+  // placement, text input positioning, and object positioning.
   const scaleRef = useRef(1)
   const offsetXRef = useRef(0)
   const offsetYRef = useRef(0)
@@ -71,6 +85,18 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
   const [strokes, setStrokes] = useState([])
   const strokesRef = useRef([])
   strokesRef.current = strokes
+
+  const [objects, setObjects] = useState([])
+  const objectsRef = useRef([])
+  objectsRef.current = objects
+  const objectDomRefs = useRef(new Map())     // objectId -> DOM node
+  const objectRefCallbacks = useRef(new Map()) // objectId -> stable ref-callback
+  const dragStateRef = useRef(null)            // { id, mode, startLogical, startObj }
+  const lastObjectMoveSentRef = useRef(0)
+  const dragMoveImplRef = useRef(null)
+  const dragEndImplRef = useRef(null)
+  const stableDragMove = useRef((e) => dragMoveImplRef.current?.(e)).current
+  const stableDragEnd = useRef((e) => dragEndImplRef.current?.(e)).current
 
   const [remoteCursors, setRemoteCursors] = useState({})
   const [panCursor, setPanCursor] = useState(null) // null | 'grab' | 'grabbing'
@@ -112,9 +138,34 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     })
   }, [])
 
+  // ── Object positioning (imperative — see file-level comment) ──
+  const positionObjectEl = (id) => {
+    const el = objectDomRefs.current.get(id)
+    const obj = objectsRef.current.find(o => o.id === id)
+    if (!el || !obj) return
+    const scale = scaleRef.current || 1
+    el.style.left = `${obj.x * scale + offsetXRef.current}px`
+    el.style.top = `${obj.y * scale + offsetYRef.current}px`
+    el.style.width = `${obj.width * scale}px`
+    el.style.height = `${obj.height * scale}px`
+    el.style.transform = obj.rotation ? `rotate(${obj.rotation}deg)` : 'none'
+  }
+  const positionAllObjects = () => { objectDomRefs.current.forEach((_, id) => positionObjectEl(id)) }
+  const getObjectRefCallback = (id) => {
+    let fn = objectRefCallbacks.current.get(id)
+    if (!fn) {
+      fn = (el) => {
+        if (el) { objectDomRefs.current.set(id, el); positionObjectEl(id) }
+        else objectDomRefs.current.delete(id)
+      }
+      objectRefCallbacks.current.set(id, fn)
+    }
+    return fn
+  }
+
   // Recomputes the combined transform from fit × zoom × pan, applies it
-  // to both canvases, and redraws. This is the single place that turns
-  // a zoom/pan ref change into pixels on screen.
+  // to both canvases, redraws, and repositions every object overlay —
+  // the single place a zoom/pan ref change becomes pixels on screen.
   const recomputeTransform = useCallback(() => {
     const scale = fitScaleRef.current * zoomRef.current
     const offsetX = fitOffsetXRef.current + panXRef.current
@@ -129,6 +180,7 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     if (live && liveCtxRef.current) applyTransform(liveCtxRef.current, scale, offsetX, offsetY)
     if (base && baseCtxRef.current) replayStrokes(baseCtxRef.current, base, strokesRef.current)
     redrawLiveLayer()
+    positionAllObjects()
 
     if (zoomLabelRef.current) zoomLabelRef.current.textContent = `${Math.round(zoomRef.current * 100)}%`
   }, [redrawLiveLayer, dpr])
@@ -151,8 +203,6 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     panYRef.current = minPanY > maxPanY ? 0 : clamp(panYRef.current, minPanY, maxPanY)
   }
 
-  // Coalesce rapid wheel/pinch updates into one transform recompute
-  // per animation frame instead of one per event.
   const scheduleTransformUpdate = () => {
     if (rafPendingRef.current) return
     rafPendingRef.current = true
@@ -162,8 +212,6 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     })
   }
 
-  // Zooms so the logical point currently under screen point (px,py)
-  // stays under that same screen point after the zoom.
   const zoomAt = (px, py, nextZoomRaw) => {
     const nextZoom = clamp(nextZoomRaw, MIN_ZOOM, MAX_ZOOM)
     const s0 = zoomRef.current
@@ -200,9 +248,6 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     const { width, height } = container.getBoundingClientRect()
     if (width === 0 || height === 0) return
 
-    // "meet"-style fit, same concept as SVG's preserveAspectRatio: the
-    // whole logical canvas is always fully visible at zoom=1, letterboxed
-    // if the device's aspect ratio doesn't match — never cropped.
     const scale = Math.min(width / CANVAS_LOGICAL_WIDTH, height / CANVAS_LOGICAL_HEIGHT)
     const offsetX = (width - CANVAS_LOGICAL_WIDTH * scale) / 2
     const offsetY = (height - CANVAS_LOGICAL_HEIGHT * scale) / 2
@@ -237,6 +282,10 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     replayStrokes(ctx, canvas, strokes)
   }, [strokes])
 
+  // Remote object changes (create/update/delete) arrive via setObjects,
+  // which doesn't otherwise touch the DOM — reposition after each one.
+  useEffect(() => { positionAllObjects() }, [objects])
+
   useEffect(() => { onCanUndoChange?.(strokes.some(s => s.userId === userId && !s.deleted)) }, [strokes, onCanUndoChange, userId])
   useEffect(() => { onCanRedoChange?.(redoStackRef.current.length > 0) }, [strokes, onCanRedoChange])
 
@@ -268,7 +317,7 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     }
   }
 
-  const newStrokeId = () => `${userId}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+  const newLocalId = () => `${userId}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
   const handlePointerDown = (e) => {
     if (tool === 'text') {
@@ -281,7 +330,7 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     drawingRef.current = true
     const p = getPoint(e)
     currentPointsRef.current = [p]
-    const id = newStrokeId()
+    const id = newLocalId()
     currentStrokeMetaRef.current = { id, tool, color, size, opacity, userId }
     redrawLiveLayer()
     onLocalStrokeStart?.({ id, tool, color, size, opacity, points: [p] })
@@ -423,10 +472,92 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     if (e.touches.length === 0) handlePointerUp(e)
   }
 
+  // ── Object drag/resize (sticky notes, images) ──
+  // A single shared drag-state ref is enough since only one object can
+  // be dragged at a time. Move happens BOTH via mouse and touch, so we
+  // listen on `window` for the duration of the drag rather than only on
+  // the element, which also survives the pointer leaving a small handle.
+  const handleObjectDragMoveImpl = (e) => {
+    const drag = dragStateRef.current
+    if (!drag) return
+    e.preventDefault()
+    const p = getPoint(e)
+    const dx = p.x - drag.startLogical.x
+    const dy = p.y - drag.startLogical.y
+    const obj = objectsRef.current.find(o => o.id === drag.id)
+    if (!obj) return
+    let patch
+    if (drag.mode === 'move') {
+      patch = {
+        x: clamp(drag.startObj.x + dx, 0, CANVAS_LOGICAL_WIDTH - obj.width),
+        y: clamp(drag.startObj.y + dy, 0, CANVAS_LOGICAL_HEIGHT - obj.height),
+      }
+    } else {
+      patch = {
+        width: clamp(drag.startObj.width + dx, MIN_OBJECT_W, CANVAS_LOGICAL_WIDTH),
+        height: clamp(drag.startObj.height + dy, MIN_OBJECT_H, CANVAS_LOGICAL_HEIGHT),
+      }
+    }
+    // Deliberate direct mutation: `obj` here IS the element inside
+    // objectsRef.current (which is the same array `objects` state
+    // holds — see the assignment above), so this stays consistent
+    // with state and needs no re-render mid-drag. positionObjectEl
+    // reflects it on screen immediately; setObjects only happens once,
+    // at drag end, to make it official for React and for remote peers.
+    Object.assign(obj, patch)
+    positionObjectEl(drag.id)
+    const now = Date.now()
+    if (now - lastObjectMoveSentRef.current > STROKE_UPDATE_THROTTLE_MS) {
+      lastObjectMoveSentRef.current = now
+      onLocalObjectMoving?.(drag.id, patch)
+    }
+  }
+  dragMoveImplRef.current = handleObjectDragMoveImpl
+
+  const handleObjectDragEndImpl = () => {
+    const drag = dragStateRef.current
+    if (!drag) return
+    dragStateRef.current = null
+    window.removeEventListener('mousemove', stableDragMove)
+    window.removeEventListener('mouseup', stableDragEnd)
+    window.removeEventListener('touchmove', stableDragMove)
+    window.removeEventListener('touchend', stableDragEnd)
+    const obj = objectsRef.current.find(o => o.id === drag.id)
+    if (!obj) return
+    const patch = drag.mode === 'move' ? { x: obj.x, y: obj.y } : { width: obj.width, height: obj.height }
+    setObjects(prev => prev.map(o => (o.id === drag.id ? { ...o, ...patch } : o)))
+    onLocalObjectUpdate?.(drag.id, patch)
+  }
+  dragEndImplRef.current = handleObjectDragEndImpl
+
+  const startObjectDrag = (id, mode) => (e) => {
+    e.stopPropagation() // don't let this reach the canvas's draw/pan handlers
+    e.preventDefault()
+    const obj = objectsRef.current.find(o => o.id === id)
+    if (!obj) return
+    dragStateRef.current = {
+      id, mode, startLogical: getPoint(e),
+      startObj: { x: obj.x, y: obj.y, width: obj.width, height: obj.height },
+    }
+    window.addEventListener('mousemove', stableDragMove)
+    window.addEventListener('mouseup', stableDragEnd)
+    window.addEventListener('touchmove', stableDragMove, { passive: false })
+    window.addEventListener('touchend', stableDragEnd)
+  }
+
+  const updateObjectData = (id, data) => {
+    setObjects(prev => prev.map(o => (o.id === id ? { ...o, data } : o)))
+    onLocalObjectUpdate?.(id, { data })
+  }
+  const deleteObject = (id) => {
+    setObjects(prev => prev.map(o => (o.id === id ? { ...o, deleted: true } : o)))
+    onLocalObjectDelete?.(id)
+  }
+
   const submitText = (value) => {
     if (value.trim() && textEditor) {
       const stroke = {
-        id: newStrokeId(), tool: 'text', color, size, opacity, userId,
+        id: newLocalId(), tool: 'text', color, size, opacity, userId,
         points: [{ x: textEditor.x, y: textEditor.y }],
         textContent: value, deleted: false,
       }
@@ -512,11 +643,9 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     },
     exportPng: () => {
       // Export at a fixed, generous logical resolution — identical
-      // quality regardless of which device (phone or desktop) triggers
-      // the export, since it replays from strokes rather than copying
-      // whatever the live on-screen backing store happens to be. Note:
-      // deliberately exports the full logical canvas, not just whatever
-      // is currently panned/zoomed into view.
+      // quality regardless of which device triggers the export. Note:
+      // exports strokes only (matches current save-to-chat behavior);
+      // sticky notes/images baked into the PNG export is a follow-up.
       const EXPORT_SCALE = 2
       const out = document.createElement('canvas')
       out.width = CANVAS_LOGICAL_WIDTH * EXPORT_SCALE
@@ -561,7 +690,58 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     applyRemoteCursor: ({ userId: uid, x, y, color: c, username }) => {
       setRemoteCursors(prev => ({ ...prev, [uid]: { x, y, color: c, username } }))
     },
-  }), [strokes, userId, onLocalUndo, onLocalRedo, onLocalClear, redrawLiveLayer, backgroundColor])
+
+    // ── Objects (sticky notes, images) ──
+    createStickyNote: () => {
+      const container = containerRef.current
+      const { width, height } = container ? container.getBoundingClientRect() : { width: 400, height: 300 }
+      const scale = scaleRef.current || 1
+      const w = DEFAULT_STICKY_W, h = DEFAULT_STICKY_H
+      const x = clamp((width / 2 - offsetXRef.current) / scale - w / 2, 0, CANVAS_LOGICAL_WIDTH - w)
+      const y = clamp((height / 2 - offsetYRef.current) / scale - h / 2, 0, CANVAS_LOGICAL_HEIGHT - h)
+      const obj = {
+        id: newLocalId(), userId, type: 'sticky', data: { text: '', color: 'yellow' },
+        x, y, width: w, height: h, rotation: 0, zIndex: objectsRef.current.length, deleted: false,
+      }
+      setObjects(prev => [...prev, obj])
+      onLocalObjectCreate?.(obj)
+    },
+    createImageObject: ({ url, naturalWidth, naturalHeight }) => {
+      const container = containerRef.current
+      const { width, height } = container ? container.getBoundingClientRect() : { width: 400, height: 300 }
+      const scale = scaleRef.current || 1
+      const ratio = naturalWidth && naturalHeight ? naturalWidth / naturalHeight : 1
+      let w = MAX_IMAGE_DIM, h = MAX_IMAGE_DIM / ratio
+      if (h > MAX_IMAGE_DIM) { h = MAX_IMAGE_DIM; w = MAX_IMAGE_DIM * ratio }
+      const x = clamp((width / 2 - offsetXRef.current) / scale - w / 2, 0, CANVAS_LOGICAL_WIDTH - w)
+      const y = clamp((height / 2 - offsetYRef.current) / scale - h / 2, 0, CANVAS_LOGICAL_HEIGHT - h)
+      const obj = {
+        id: newLocalId(), userId, type: 'image', data: { url },
+        x, y, width: w, height: h, rotation: 0, zIndex: objectsRef.current.length, deleted: false,
+      }
+      setObjects(prev => [...prev, obj])
+      onLocalObjectCreate?.(obj)
+    },
+    applyInitialObjects: (loaded) => setObjects(loaded || []),
+    applyRemoteObjectCreated: (payload) => {
+      setObjects(prev => (prev.some(o => o.id === payload.id) ? prev : [...prev, payload]))
+    },
+    applyRemoteObjectMoving: ({ objectId, patch }) => {
+      // Ephemeral — mutate in place + reposition the DOM node directly,
+      // same performance reasoning as remote strokes; no React re-render
+      // per drag tick from a peer's cursor.
+      const obj = objectsRef.current.find(o => o.id === objectId)
+      if (!obj) return
+      Object.assign(obj, patch)
+      positionObjectEl(objectId)
+    },
+    applyRemoteObjectUpdated: ({ objectId, patch }) => {
+      setObjects(prev => prev.map(o => (o.id === objectId ? { ...o, ...patch } : o)))
+    },
+    applyRemoteObjectDeleted: ({ objectId }) => {
+      setObjects(prev => prev.map(o => (o.id === objectId ? { ...o, deleted: true } : o)))
+    },
+  }), [strokes, objects, userId, onLocalUndo, onLocalRedo, onLocalClear, onLocalObjectCreate, redrawLiveLayer, backgroundColor])
 
   // Remote cursors are stored in logical coords too — convert back to
   // screen px here for the overlay divs.
@@ -597,6 +777,37 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
           cursor: panCursor || (tool === 'eraser' ? 'cell' : tool === 'text' ? 'text' : 'crosshair'),
         }}
       />
+
+      {objects.filter(o => !o.deleted).map(o => (
+        <div
+          key={o.id}
+          ref={getObjectRefCallback(o.id)}
+          onMouseDown={startObjectDrag(o.id, 'move')}
+          onTouchStart={startObjectDrag(o.id, 'move')}
+          style={{ position: 'absolute', zIndex: 12 + (o.zIndex || 0), cursor: 'grab' }}
+        >
+          {o.type === 'sticky' ? (
+            <StickyNoteContent
+              obj={o}
+              onTextChange={(text) => updateObjectData(o.id, { ...o.data, text })}
+              onColorChange={(colorKey) => updateObjectData(o.id, { ...o.data, color: colorKey })}
+              onDelete={() => deleteObject(o.id)}
+            />
+          ) : (
+            <ImageObjectContent obj={o} onDelete={() => deleteObject(o.id)} />
+          )}
+          <div
+            onMouseDown={startObjectDrag(o.id, 'resize')}
+            onTouchStart={startObjectDrag(o.id, 'resize')}
+            title="Resize"
+            style={{
+              position: 'absolute', right: -5, bottom: -5, width: 16, height: 16, borderRadius: '50%',
+              background: '#a78bfa', border: '2px solid #fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+              cursor: 'nwse-resize',
+            }}
+          />
+        </div>
+      ))}
 
       {Object.entries(remoteCursors).map(([uid, c]) => {
         const pos = cursorScreenPos(c)
@@ -659,5 +870,62 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     </div>
   )
 })
+
+function StickyNoteContent({ obj, onTextChange, onColorChange, onDelete }) {
+  const bg = STICKY_COLORS[obj.data?.color] || STICKY_COLORS.yellow
+  return (
+    <div style={{ width: '100%', height: '100%', background: bg, borderRadius: 8, boxShadow: '0 4px 14px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column', padding: 8, boxSizing: 'border-box' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+        {Object.keys(STICKY_COLORS).map(key => (
+          <button
+            key={key}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onColorChange(key) }}
+            title={key}
+            style={{
+              width: 12, height: 12, borderRadius: '50%', background: STICKY_COLORS[key], padding: 0, cursor: 'pointer',
+              border: key === obj.data?.color ? '2px solid rgba(0,0,0,0.5)' : '1px solid rgba(0,0,0,0.15)',
+            }}
+          />
+        ))}
+        <button
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onDelete() }}
+          title="Delete note"
+          style={{ width: 14, height: 14, borderRadius: '50%', background: 'rgba(0,0,0,0.15)', border: 'none', color: 'rgba(0,0,0,0.6)', fontSize: 10, lineHeight: '14px', cursor: 'pointer', padding: 0 }}
+        >
+          ×
+        </button>
+      </div>
+      <textarea
+        defaultValue={obj.data?.text || ''}
+        onMouseDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+        onBlur={(e) => onTextChange(e.target.value)}
+        placeholder="Note…"
+        style={{ flex: 1, resize: 'none', border: 'none', outline: 'none', background: 'transparent', font: '600 13px system-ui, -apple-system, sans-serif', color: 'rgba(0,0,0,0.75)' }}
+      />
+    </div>
+  )
+}
+
+function ImageObjectContent({ obj, onDelete }) {
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative', borderRadius: 6, overflow: 'hidden', boxShadow: '0 4px 14px rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)' }}>
+      <img src={obj.data?.url} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }} />
+      <button
+        onMouseDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); onDelete() }}
+        title="Delete image"
+        style={{ position: 'absolute', top: 4, right: 4, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', border: 'none', color: '#fff', fontSize: 12, lineHeight: '18px', cursor: 'pointer', padding: 0 }}
+      >
+        ×
+      </button>
+    </div>
+  )
+}
 
 export default DrawingCanvas
