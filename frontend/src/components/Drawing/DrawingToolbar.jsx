@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import {
   IconPencil, IconMarker, IconHighlighter, IconEraser, IconShapes, IconType,
+  IconStickyNote, IconImagePlus,
   IconUndo, IconRedo, IconTrash, IconDownload, IconMaximize, IconMinimize, IconX,
 } from '../Icons'
 import ColorPicker from './ColorPicker'
@@ -43,6 +44,7 @@ function ToolButton({ active, onClick, title, children }) {
 export default function DrawingToolbar({
   tool, onToolChange, color, onColorChange, size, onSizeChange,
   canUndo, canRedo, onUndo, onRedo, onClear, onExport,
+  onAddSticky, onAddImage,
   onSaveToChat, saving, saved,
   isFullscreen, onToggleFullscreen, onClose,
 }) {
@@ -98,6 +100,17 @@ export default function DrawingToolbar({
       <ToolButton active={tool === 'text'} onClick={() => onToolChange('text')} title="Text">
         <IconType size={17} />
       </ToolButton>
+
+      {onAddSticky && (
+        <ToolButton active={false} onClick={onAddSticky} title="Add sticky note">
+          <IconStickyNote size={17} />
+        </ToolButton>
+      )}
+      {onAddImage && (
+        <ToolButton active={false} onClick={onAddImage} title="Add image">
+          <IconImagePlus size={17} />
+        </ToolButton>
+      )}
 
       <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.1)', margin: '0 4px', flexShrink: 0 }} />
 
