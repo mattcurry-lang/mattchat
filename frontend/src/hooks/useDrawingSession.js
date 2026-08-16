@@ -7,14 +7,14 @@ const CURSOR_THROTTLE_MS = 45
 
 /**
  * One shared drawing session per conversation, on one realtime channel
- * (`drawing:${sessionId}`) carrying both broadcast (strokes, cursors)
- * and presence (who's here) — matching the single-channel-per-topic
- * pattern realtimeManager.js already enforces everywhere else.
+ * (`drawing:${sessionId}`) carrying broadcast (strokes, objects, cursors)
+ * and presence — matching the single-channel-per-topic pattern
+ * realtimeManager.js already enforces everywhere else.
  *
  * `handlers` are remote-event callbacks the caller (DrawingModal) wires
  * straight into the canvas's imperative ref methods, so this hook never
  * needs to know anything about canvas internals — it only speaks in
- * stroke/cursor payloads.
+ * stroke/object/cursor payloads.
  */
 export function useDrawingSession(conversationId, userId, profile, handlers = {}) {
   const [session, setSession] = useState(null)
@@ -73,7 +73,7 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
   }, [conversationId, userId])
 
   // ── Load persisted strokes whenever we (re)connect to a session ──
- const loadStrokes = useCallback(async () => {
+  const loadStrokes = useCallback(async () => {
     if (!session?.id) return
     const { data } = await supabase
       .from('drawing_strokes')
@@ -88,7 +88,24 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
     handlersRef.current.onInitialStrokes?.(strokes)
   }, [session?.id])
 
+  // ── Load persisted objects (sticky notes, images) the same way ──
+  const loadObjects = useCallback(async () => {
+    if (!session?.id) return
+    const { data } = await supabase
+      .from('canvas_objects')
+      .select('*')
+      .eq('session_id', session.id)
+      .order('created_at', { ascending: true })
+    const objects = (data || []).map(row => ({
+      id: row.client_object_id, userId: row.user_id, type: row.type, data: row.data,
+      x: row.x, y: row.y, width: row.width, height: row.height,
+      rotation: row.rotation, zIndex: row.z_index, deleted: row.deleted,
+    }))
+    handlersRef.current.onInitialObjects?.(objects)
+  }, [session?.id])
+
   useEffect(() => { loadStrokes() }, [loadStrokes])
+  useEffect(() => { loadObjects() }, [loadObjects])
 
   // ── Realtime: one channel per session, broadcast + presence together ──
   useEffect(() => {
@@ -118,6 +135,19 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
       })
       .on('broadcast', { event: 'cursor' }, ({ payload }) => {
         if (payload.userId !== userId) handlersRef.current.onRemoteCursor?.(payload)
+      })
+      // Objects — same channel, no new subscription (spec section 2).
+      .on('broadcast', { event: 'object_created' }, ({ payload }) => {
+        if (payload.userId !== userId) handlersRef.current.onRemoteObjectCreated?.(payload)
+      })
+      .on('broadcast', { event: 'object_moving' }, ({ payload }) => {
+        if (payload.userId !== userId) handlersRef.current.onRemoteObjectMoving?.(payload)
+      })
+      .on('broadcast', { event: 'object_updated' }, ({ payload }) => {
+        if (payload.userId !== userId) handlersRef.current.onRemoteObjectUpdated?.(payload)
+      })
+      .on('broadcast', { event: 'object_deleted' }, ({ payload }) => {
+        if (payload.userId !== userId) handlersRef.current.onRemoteObjectDeleted?.(payload)
       })
       // Voice (WebRTC) signaling rides this same channel. Only one
       // buildChannel per channel key ever actually runs (see
@@ -162,6 +192,7 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
       onResync: () => {
         setConnectionStatus('reconnecting')
         loadStrokes()   // resync any strokes we missed while disconnected
+        loadObjects()   // ...and any objects too
         track()          // presence resets on reconnect — retrack
       },
     })
@@ -172,7 +203,7 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
       getChannel(channelKey)?.untrack?.()
       unsubscribe()
     }
-  }, [session?.id, userId, profile?.username, profile?.avatar_url, myColor, loadStrokes])
+  }, [session?.id, userId, profile?.username, profile?.avatar_url, myColor, loadStrokes, loadObjects])
 
   // ── Browser online/offline awareness (spec sections 9 & 21) ──
   useEffect(() => {
@@ -200,7 +231,7 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
     send('stroke_update', { strokeId, newPoints, userId })
   }, [send, userId])
 
- const broadcastStrokeEnd = useCallback(async (stroke) => {
+  const broadcastStrokeEnd = useCallback(async (stroke) => {
     send('stroke_end', { ...stroke, userId })
     if (!session?.id) return
     const { error } = await supabase.from('drawing_strokes').insert({
@@ -211,7 +242,7 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
     if (error) console.error('[useDrawingSession] persist stroke failed:', error)
   }, [send, session?.id, userId])
 
- const broadcastUndo = useCallback(async (strokeId) => {
+  const broadcastUndo = useCallback(async (strokeId) => {
     send('undo', { strokeId, userId })
     await supabase.from('drawing_strokes').update({ deleted: true }).eq('client_stroke_id', strokeId).eq('user_id', userId)
   }, [send, userId])
@@ -220,6 +251,7 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
     send('redo', { strokeId, userId })
     await supabase.from('drawing_strokes').update({ deleted: false }).eq('client_stroke_id', strokeId).eq('user_id', userId)
   }, [send, userId])
+
   const broadcastClear = useCallback(async () => {
     send('clear', { userId })
     if (session?.id) await supabase.from('drawing_strokes').delete().eq('session_id', session.id)
@@ -231,6 +263,61 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
     lastCursorSentRef.current = now
     send('cursor', { x, y, userId })
   }, [send, userId])
+
+  // ── Objects: created/updated/deleted broadcast AND persist;
+  // "moving" is broadcast-only (ephemeral drag feedback), mirroring
+  // stroke_update vs stroke_end — see spec section 28 on avoiding a
+  // DB write per mouse movement. ──
+  const broadcastObjectCreated = useCallback(async (object) => {
+    send('object_created', { ...object, userId })
+    if (!session?.id) return
+    const { error } = await supabase.from('canvas_objects').insert({
+      client_object_id: object.id, session_id: session.id, user_id: userId,
+      type: object.type, data: object.data, x: object.x, y: object.y,
+      width: object.width, height: object.height, rotation: object.rotation || 0,
+      z_index: object.zIndex || 0, deleted: false,
+    })
+    if (error) console.error('[useDrawingSession] persist object failed:', error)
+  }, [send, session?.id, userId])
+
+  const broadcastObjectMoving = useCallback((objectId, patch) => {
+    send('object_moving', { objectId, patch, userId })
+  }, [send, userId])
+
+  const broadcastObjectUpdated = useCallback(async (objectId, patch) => {
+    send('object_updated', { objectId, patch, userId })
+    const dbPatch = {}
+    if ('x' in patch) dbPatch.x = patch.x
+    if ('y' in patch) dbPatch.y = patch.y
+    if ('width' in patch) dbPatch.width = patch.width
+    if ('height' in patch) dbPatch.height = patch.height
+    if ('rotation' in patch) dbPatch.rotation = patch.rotation
+    if ('data' in patch) dbPatch.data = patch.data
+    if ('zIndex' in patch) dbPatch.z_index = patch.zIndex
+    dbPatch.updated_at = new Date().toISOString()
+    // No .eq('user_id', ...) filter — canvas_objects_update_member allows
+    // any conversation member to move/recolor/edit any object.
+    const { error } = await supabase.from('canvas_objects').update(dbPatch).eq('client_object_id', objectId)
+    if (error) console.error('[useDrawingSession] persist object update failed:', error)
+  }, [send, userId])
+
+  const broadcastObjectDeleted = useCallback(async (objectId) => {
+    send('object_deleted', { objectId, userId })
+    await supabase.from('canvas_objects').update({ deleted: true }).eq('client_object_id', objectId)
+  }, [send, userId])
+
+  // ── Image upload for the "Image" tool — keeps Supabase usage
+  // confined to this hook; DrawingCanvas stays unaware of it. ──
+  const uploadObjectImage = useCallback(async (file) => {
+    const safeName = (file.name || 'image').replace(/[^a-zA-Z0-9._-]/g, '_')
+    const path = `${conversationId}/objects/${Date.now()}-${safeName}`
+    const { error: uploadError } = await supabase.storage
+      .from('drawing-media')
+      .upload(path, file, { contentType: file.type || 'image/png', upsert: false })
+    if (uploadError) throw uploadError
+    const { data } = supabase.storage.from('drawing-media').getPublicUrl(path)
+    return data.publicUrl
+  }, [conversationId])
 
   // ── Save to Chat: uploads the exported PNG, sends a `drawing:` message ──
   const saveToChat = useCallback(async (dataUrl, sendMessageFn) => {
@@ -252,6 +339,7 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
     session, loading, connectionStatus, participants, myColor,
     broadcastStrokeStart, broadcastStrokeUpdate, broadcastStrokeEnd,
     broadcastUndo, broadcastRedo, broadcastClear, broadcastCursor,
-    saveToChat,
+    broadcastObjectCreated, broadcastObjectMoving, broadcastObjectUpdated, broadcastObjectDeleted,
+    uploadObjectImage, saveToChat,
   }
 }
