@@ -837,3 +837,23 @@ export function IconHighlighter({ size = 18, ...props }) {
     </svg>
   )
 }
+export function IconStickyNote({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3h9L20 8.5v10a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5v-14Z" />
+      <path d="M14 3v4.5A1.5 1.5 0 0 0 15.5 9H20" />
+    </svg>
+  )
+}
+
+export function IconImagePlus({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <rect x="3" y="4" width="14" height="14" rx="2" />
+      <circle cx="8.5" cy="9.5" r="1.6" />
+      <path d="M3 15.5 8 11l3 3 2.5-2.5L17 15" />
+      <line x1="19.5" y1="4" x2="19.5" y2="10" />
+      <line x1="16.5" y1="7" x2="22.5" y2="7" />
+    </svg>
+  )
+}
