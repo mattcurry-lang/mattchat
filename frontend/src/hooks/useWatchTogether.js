@@ -2,6 +2,12 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { subscribeToChannel } from '../lib/realtimeManager'
 
+// A 'pending' invite nobody acted on shouldn't keep resurfacing forever
+// — if decline/accept never persisted (e.g. blocked by RLS, or the
+// inviter just closed the tab), treat it as expired client-side rather
+// than showing a stale invite as if it just happened.
+const PENDING_EXPIRY_MS = 5 * 60 * 1000 // 5 minutes
+
 export function useWatchTogether(conversationId, userId) {
   const [session, setSession] = useState(null)
   const lastLocalUpdate = useRef(0)
@@ -19,7 +25,27 @@ export function useWatchTogether(conversationId, userId) {
       .maybeSingle()
       .then(({ data }) => {
         const row = data || null
-        if (row && dismissedIdsRef.current.has(row.id)) { setSession(null); return }  // ← NEW
+        if (row && dismissedIdsRef.current.has(row.id)) { setSession(null); return }
+
+        // Self-healing: a 'pending' invite that's sat unanswered past
+        // the expiry window is treated as dead. Best-effort mark it
+        // 'ended' in the DB too, so it stops resurfacing for the OTHER
+        // participant as well — but don't block on it (if this fails,
+        // e.g. same RLS issue that can block decline, we still hide it
+        // locally either way).
+        if (row?.status === 'pending') {
+          const ageMs = Date.now() - new Date(row.created_at).getTime()
+          if (ageMs > PENDING_EXPIRY_MS) {
+            dismissedIdsRef.current.add(row.id)
+            supabase.from('watch_together_sessions').update({ status: 'ended' }).eq('id', row.id)
+              .then(({ error }) => {
+                if (error) console.warn('[watchTogether] could not auto-expire stale invite (non-fatal):', error)
+              })
+            setSession(null)
+            return
+          }
+        }
+
         setSession(row)
       })
   }, [conversationId])
@@ -51,6 +77,17 @@ useEffect(() => {
   // Creates a PENDING invite, not a live session — the other person
   // must accept before either side actually watches anything.
   const inviteToWatch = useCallback(async (videoId) => {
+    // Defensive cleanup: close out any stale pending/active sessions
+    // for this conversation before starting a new one, mirroring the
+    // "one active session per conversation" pattern used for drawing
+    // sessions elsewhere in this app. Without this, old abandoned rows
+    // pile up and can resurface later even after a fresh invite is
+    // handled correctly.
+    await supabase.from('watch_together_sessions')
+      .update({ status: 'ended' })
+      .eq('conversation_id', conversationId)
+      .in('status', ['pending', 'active'])
+
     const { data, error } = await supabase.from('watch_together_sessions').insert({
       conversation_id: conversationId,
       video_id: videoId,
