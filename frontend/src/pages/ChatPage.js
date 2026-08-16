@@ -30,7 +30,8 @@ import BottomNav from '../components/BottomNav'
 import {
   IconPhone, IconVideo, IconPhoneOff, IconSparkle, IconMoreVertical, IconSmile, IconMic, IconPlus, IconStatus,
   IconChart, IconCheckSquare, IconClock, IconSearch, IconMail, IconShield, IconLogOut, IconInbox, IconPin,
- IconMessageSquare, IconHistory, IconX, IconFolder, IconSettings, IconBell, IconCamera, IconFilm, IconTrash
+  IconMessageSquare, IconHistory, IconX, IconFolder, IconSettings, IconBell, IconCamera, IconFilm, IconTrash,
+  IconBrush
 } from '../components/Icons'
 import { ReactableMessage } from '../components/MessageReactions'
 import { useStatuses } from '../hooks/useStatuses'
