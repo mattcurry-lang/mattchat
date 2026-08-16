@@ -30,7 +30,21 @@ export default function DrawingModal({ session, conversationId, userId, profile,
   
   const canvasApiRef = useRef(null)
   const modalRef = useRef(null)
-  const { micOn, toggleMic, otherSpeaking, connected, connecting, voiceError } = useDrawingVoice(conversationId, true)
+
+  // useDrawingVoice needs the drawing session's id (from
+  // useDrawingSession's return) to know which channel to signal on,
+  // but useDrawingSession needs a voice-signal handler (from
+  // useDrawingVoice's return) in its `handlers` argument — a genuine
+  // circular dependency between the two hooks in the same render.
+  //
+  // Broken by indirection: useDrawingSession gets a stable callback
+  // that forwards to whatever's in voiceSignalHandlerRef; we point
+  // that ref at the real voice.handleSignal in an effect below, once
+  // useDrawingVoice has actually run.
+  const voiceSignalHandlerRef = useRef(null)
+  const onVoiceSignal = useCallback((payload) => {
+    voiceSignalHandlerRef.current?.(payload)
+  }, [])
 
   const handlers = {
     onInitialStrokes: (strokes) => canvasApiRef.current?.applyInitialStrokes(strokes),
@@ -41,14 +55,26 @@ export default function DrawingModal({ session, conversationId, userId, profile,
     onRemoteRedo: (payload) => canvasApiRef.current?.applyRemoteRedo(payload),
     onRemoteClear: () => canvasApiRef.current?.applyRemoteClear(),
     onRemoteCursor: (payload) => canvasApiRef.current?.applyRemoteCursor(payload),
+    onVoiceSignal,
   }
 
   const {
+    session: drawingSession, // aliased — distinct from the `session` prop above
     loading, connectionStatus, participants,
     broadcastStrokeStart, broadcastStrokeUpdate, broadcastStrokeEnd,
     broadcastUndo, broadcastRedo, broadcastClear, broadcastCursor,
     saveToChat,
   } = useDrawingSession(conversationId, userId, profile, handlers)
+
+  const { micOn, toggleMic, otherSpeaking, connected, connecting, voiceError, handleSignal } =
+    useDrawingVoice(drawingSession?.id, userId, true)
+
+  // Wire the real signal handler into the ref useDrawingSession's
+  // onVoiceSignal forwards to. Runs after mount/update, once
+  // handleSignal reflects the current session — see the comment above.
+  useEffect(() => {
+    voiceSignalHandlerRef.current = handleSignal
+  }, [handleSignal])
 
   // ── Keyboard shortcuts (desktop) ──
   useEffect(() => {
