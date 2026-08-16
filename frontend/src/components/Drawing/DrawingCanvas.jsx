@@ -2,100 +2,126 @@ import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, f
 import { simplifyPoints, renderStroke, renderShape, renderText, replayStrokes } from './drawingEngine'
 
 const SHAPE_TOOLS = new Set(['rect', 'circle', 'line', 'arrow', 'triangle'])
+const STROKE_UPDATE_THROTTLE_MS = 40 // how often in-progress points get broadcast, not how often we render locally
 
-// Exposes imperative controls (undo/redo/clear/exportPng) to the parent
-// toolbar via a ref, while keeping the actual stroke array as this
-// component's own local state — Phase 2 will lift stroke mutations out
-// through onLocalStroke so they can also be broadcast, without changing
-// this component's rendering logic at all.
+// Two stacked canvases instead of one:
+//   base  — committed strokes only, full-replayed on undo/redo/clear/remote
+//           commits. Cheap because it only repaints on real state changes.
+//   live  — the local in-progress stroke AND any remote strokes that are
+//           mid-drag (stroke_start received, stroke_end not yet). Repainted
+//           on every pointer move, but it's a small, cheap surface.
+// This is what makes "User A draws while User B draws" not fight over one
+// canvas — each drag only ever touches the live layer until it commits.
 const DrawingCanvas = forwardRef(function DrawingCanvas(
-  { tool, color, size, opacity, onLocalStrokeEnd, onCanUndoChange, onCanRedoChange, remoteStrokes, backgroundColor = '#ffffff' },
+  {
+    tool, color, size, opacity, userId, participantUserIds,
+    onLocalStrokeStart, onLocalStrokeUpdate, onLocalStrokeEnd,
+    onLocalUndo, onLocalRedo, onLocalClear, onLocalCursorMove,
+    onCanUndoChange, onCanRedoChange,
+    backgroundColor = '#ffffff',
+  },
   ref
 ) {
-  const canvasRef = useRef(null)
+  const baseCanvasRef = useRef(null)
+  const liveCanvasRef = useRef(null)
   const containerRef = useRef(null)
-  const ctxRef = useRef(null)
+  const baseCtxRef = useRef(null)
+  const liveCtxRef = useRef(null)
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
 
-  const [strokes, setStrokes] = useState([])       // committed strokes (local + remote merged)
-  const redoStackRef = useRef([])                  // this user's own undone strokes, for redo
+  const [strokes, setStrokes] = useState([])           // committed (local + remote), base layer source of truth
+  const [remoteCursors, setRemoteCursors] = useState({}) // userId -> {x,y,color,username}
+  const redoStackRef = useRef([])                        // this user's own undone strokes
   const drawingRef = useRef(false)
   const currentPointsRef = useRef([])
   const currentStrokeMetaRef = useRef(null)
+  const lastUpdateSentRef = useRef(0)
+  const remoteLiveStrokesRef = useRef(new Map())         // strokeId -> in-progress stroke from another user
   const textInputRef = useRef(null)
-  const [textEditor, setTextEditor] = useState(null) // { x, y } | null while placing text
+  const [textEditor, setTextEditor] = useState(null)
 
-  // ── Sizing: match canvas backing store to CSS size * devicePixelRatio
-  // so strokes stay crisp on high-DPI screens instead of blurring. ──
-  const resizeCanvas = useCallback(() => {
-    const canvas = canvasRef.current
+  const resizeCanvases = useCallback(() => {
     const container = containerRef.current
-    if (!canvas || !container) return
+    const base = baseCanvasRef.current
+    const live = liveCanvasRef.current
+    if (!container || !base || !live) return
     const { width, height } = container.getBoundingClientRect()
-    canvas.width = Math.round(width * dpr)
-    canvas.height = Math.round(height * dpr)
-    canvas.style.width = `${width}px`
-    canvas.style.height = `${height}px`
-    const ctx = canvas.getContext('2d')
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    ctxRef.current = ctx
-    replayStrokes(ctx, canvas, strokes.map(withDeviceCoords => withDeviceCoords)) // strokes are stored in CSS px, ctx transform handles scale
-  }, [dpr, strokes])
+    for (const canvas of [base, live]) {
+      canvas.width = Math.round(width * dpr)
+      canvas.height = Math.round(height * dpr)
+      canvas.style.width = `${width}px`
+      canvas.style.height = `${height}px`
+      const ctx = canvas.getContext('2d')
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    }
+    baseCtxRef.current = base.getContext('2d')
+    liveCtxRef.current = live.getContext('2d')
+    replayStrokes(baseCtxRef.current, base, strokes)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dpr])
 
   useEffect(() => {
-    resizeCanvas()
-    const ro = new ResizeObserver(resizeCanvas)
+    resizeCanvases()
+    const ro = new ResizeObserver(resizeCanvases)
     if (containerRef.current) ro.observe(containerRef.current)
     return () => ro.disconnect()
-    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Re-render whenever the committed stroke list changes (undo/redo/
-  // clear/remote strokes arriving) — this is the only place a FULL
-  // replay happens; live dragging draws incrementally instead (below).
+  // Full replay of the BASE layer only — fires on committed-stroke
+  // changes (undo/redo/clear/remote stroke_end/initial load). Never
+  // fires during a live drag.
   useEffect(() => {
-    const ctx = ctxRef.current
-    const canvas = canvasRef.current
+    const ctx = baseCtxRef.current
+    const canvas = baseCanvasRef.current
     if (!ctx || !canvas) return
     replayStrokes(ctx, canvas, strokes)
   }, [strokes])
 
-  // Merge remote strokes in (Phase 2 will feed this prop from realtime).
-  useEffect(() => {
-    if (!remoteStrokes) return
-    setStrokes(remoteStrokes)
-  }, [remoteStrokes])
-
-  useEffect(() => { onCanUndoChange?.(strokes.some(s => !s.deleted)) }, [strokes, onCanUndoChange])
+  useEffect(() => { onCanUndoChange?.(strokes.some(s => s.userId === userId && !s.deleted)) }, [strokes, onCanUndoChange, userId])
   useEffect(() => { onCanRedoChange?.(redoStackRef.current.length > 0) }, [strokes, onCanRedoChange])
 
+  // Drop cursors for anyone no longer present (e.g. they closed the canvas).
+  useEffect(() => {
+    if (!participantUserIds) return
+    setRemoteCursors(prev => {
+      const ids = new Set(participantUserIds)
+      const next = {}
+      for (const [uid, c] of Object.entries(prev)) if (ids.has(uid)) next[uid] = c
+      return next
+    })
+  }, [participantUserIds])
+
   const getPoint = (e) => {
-    const rect = canvasRef.current.getBoundingClientRect()
+    const rect = liveCanvasRef.current.getBoundingClientRect()
     const clientX = e.touches ? e.touches[0].clientX : e.clientX
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
     return { x: clientX - rect.left, y: clientY - rect.top }
   }
 
-  const newStrokeId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+  const newStrokeId = () => `${userId}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
-  const drawLivePoint = (points) => {
-    // Incremental draw: only redraw the last two committed strokes'
-    // worth of canvas would be wasteful to track, so for the ACTIVE
-    // stroke we just re-render the whole committed layer once (cheap,
-    // since it's cached in `strokes`) plus this in-progress stroke on
-    // top — avoids a full replay of everything on every pointer move.
-    const ctx = ctxRef.current
-    const canvas = canvasRef.current
+  // Redraws ONLY the live (top) layer: local in-progress stroke + any
+  // remote in-progress strokes. This is what lets two people draw at
+  // the same instant without either one forcing a full repaint of the
+  // other's work.
+  const redrawLiveLayer = useCallback(() => {
+    const ctx = liveCtxRef.current
+    const canvas = liveCanvasRef.current
     if (!ctx || !canvas) return
-    replayStrokes(ctx, canvas, strokes)
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+
     const meta = currentStrokeMetaRef.current
-    if (!meta) return
-    if (SHAPE_TOOLS.has(meta.tool)) {
-      renderShape(ctx, { ...meta, points })
-    } else {
-      renderStroke(ctx, { ...meta, points })
+    if (meta && currentPointsRef.current.length) {
+      if (SHAPE_TOOLS.has(meta.tool)) renderShape(ctx, { ...meta, points: currentPointsRef.current })
+      else renderStroke(ctx, { ...meta, points: currentPointsRef.current })
     }
-  }
+
+    remoteLiveStrokesRef.current.forEach((s) => {
+      if (SHAPE_TOOLS.has(s.tool)) renderShape(ctx, s)
+      else renderStroke(ctx, s)
+    })
+  }, [])
 
   const handlePointerDown = (e) => {
     if (tool === 'text') {
@@ -108,21 +134,30 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     drawingRef.current = true
     const p = getPoint(e)
     currentPointsRef.current = [p]
-    currentStrokeMetaRef.current = { id: newStrokeId(), tool, color, size, opacity }
-    drawLivePoint([p])
+    const id = newStrokeId()
+    currentStrokeMetaRef.current = { id, tool, color, size, opacity, userId }
+    redrawLiveLayer()
+    onLocalStrokeStart?.({ id, tool, color, size, opacity, points: [p] })
   }
 
   const handlePointerMove = (e) => {
+    const p = getPoint(e)
+    onLocalCursorMove?.(p.x, p.y)
+
     if (!drawingRef.current) return
     e.preventDefault()
-    const p = getPoint(e)
     if (SHAPE_TOOLS.has(tool)) {
-      // Shapes only need start + current point.
       currentPointsRef.current = [currentPointsRef.current[0], p]
     } else {
       currentPointsRef.current.push(p)
     }
-    drawLivePoint(currentPointsRef.current)
+    redrawLiveLayer()
+
+    const now = Date.now()
+    if (now - lastUpdateSentRef.current > STROKE_UPDATE_THROTTLE_MS) {
+      lastUpdateSentRef.current = now
+      onLocalStrokeUpdate?.(currentStrokeMetaRef.current.id, currentPointsRef.current)
+    }
   }
 
   const commitCurrentStroke = () => {
@@ -130,12 +165,15 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     let points = currentPointsRef.current
     if (!meta || points.length === 0) return
     if (!SHAPE_TOOLS.has(meta.tool)) points = simplifyPoints(points)
-    const stroke = { ...meta, points, deleted: false, userId: 'me' }
+    const stroke = { ...meta, points, deleted: false }
     setStrokes(prev => [...prev, stroke])
-    redoStackRef.current = [] // any new stroke invalidates the redo stack
+    redoStackRef.current = []
     onLocalStrokeEnd?.(stroke)
     currentPointsRef.current = []
     currentStrokeMetaRef.current = null
+    const ctx = liveCtxRef.current
+    const canvas = liveCanvasRef.current
+    if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height)
   }
 
   const handlePointerUp = (e) => {
@@ -155,9 +193,9 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
   const submitText = (value) => {
     if (value.trim() && textEditor) {
       const stroke = {
-        id: newStrokeId(), tool: 'text', color, size, opacity,
+        id: newStrokeId(), tool: 'text', color, size, opacity, userId,
         points: [{ x: textEditor.x, y: textEditor.y }],
-        textContent: value, deleted: false, userId: 'me',
+        textContent: value, deleted: false,
       }
       setStrokes(prev => [...prev, stroke])
       redoStackRef.current = []
@@ -166,15 +204,16 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     setTextEditor(null)
   }
 
-  // ── Imperative API for the toolbar ──
   useImperativeHandle(ref, () => ({
+    // ── Local toolbar actions ──
     undo: () => {
       setStrokes(prev => {
-        const idx = [...prev].reverse().findIndex(s => s.userId === 'me' && !s.deleted)
+        const idx = [...prev].reverse().findIndex(s => s.userId === userId && !s.deleted)
         if (idx === -1) return prev
         const realIdx = prev.length - 1 - idx
         const target = prev[realIdx]
         redoStackRef.current = [...redoStackRef.current, target]
+        onLocalUndo?.(target.id)
         const next = [...prev]
         next[realIdx] = { ...target, deleted: true }
         return next
@@ -183,15 +222,62 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     redo: () => {
       const target = redoStackRef.current.pop()
       if (!target) return
+      onLocalRedo?.(target.id)
       setStrokes(prev => prev.map(s => (s.id === target.id ? { ...s, deleted: false } : s)))
     },
     clear: () => {
       setStrokes([])
       redoStackRef.current = []
+      onLocalClear?.()
     },
-    exportPng: () => canvasRef.current?.toDataURL('image/png'),
+    exportPng: () => {
+      const base = baseCanvasRef.current
+      if (!base) return null
+      // Flatten onto an offscreen canvas with the background baked in,
+      // so exported/saved PNGs aren't transparent.
+      const out = document.createElement('canvas')
+      out.width = base.width
+      out.height = base.height
+      const octx = out.getContext('2d')
+      octx.fillStyle = backgroundColor
+      octx.fillRect(0, 0, out.width, out.height)
+      octx.drawImage(base, 0, 0)
+      return out.toDataURL('image/png')
+    },
     getStrokes: () => strokes,
-  }), [strokes])
+
+    // ── Remote event application — wired by the parent from useDrawingSession ──
+    applyInitialStrokes: (loaded) => setStrokes(loaded || []),
+    applyRemoteStrokeStart: (payload) => {
+      remoteLiveStrokesRef.current.set(payload.id, { ...payload })
+      redrawLiveLayer()
+    },
+    applyRemoteStrokeUpdate: ({ strokeId, newPoints }) => {
+      const existing = remoteLiveStrokesRef.current.get(strokeId)
+      if (!existing) return
+      remoteLiveStrokesRef.current.set(strokeId, { ...existing, points: newPoints })
+      redrawLiveLayer()
+    },
+    applyRemoteStrokeEnd: (payload) => {
+      remoteLiveStrokesRef.current.delete(payload.id)
+      redrawLiveLayer()
+      setStrokes(prev => (prev.some(s => s.id === payload.id) ? prev : [...prev, { ...payload, deleted: false }]))
+    },
+    applyRemoteUndo: ({ strokeId }) => {
+      setStrokes(prev => prev.map(s => (s.id === strokeId ? { ...s, deleted: true } : s)))
+    },
+    applyRemoteRedo: ({ strokeId }) => {
+      setStrokes(prev => prev.map(s => (s.id === strokeId ? { ...s, deleted: false } : s)))
+    },
+    applyRemoteClear: () => {
+      setStrokes([])
+      remoteLiveStrokesRef.current.clear()
+      redrawLiveLayer()
+    },
+    applyRemoteCursor: ({ userId: uid, x, y, color: c, username }) => {
+      setRemoteCursors(prev => ({ ...prev, [uid]: { x, y, color: c, username } }))
+    },
+  }), [strokes, userId, onLocalUndo, onLocalRedo, onLocalClear, redrawLiveLayer, backgroundColor])
 
   return (
     <div
@@ -199,11 +285,15 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
       style={{
         position: 'relative', width: '100%', height: '100%',
         background: backgroundColor, borderRadius: 16, overflow: 'hidden',
-        touchAction: 'none', // prevents the browser from treating drawing gestures as page scroll
+        touchAction: 'none',
       }}
     >
       <canvas
-        ref={canvasRef}
+        ref={baseCanvasRef}
+        style={{ position: 'absolute', inset: 0, display: 'block', width: '100%', height: '100%', pointerEvents: 'none' }}
+      />
+      <canvas
+        ref={liveCanvasRef}
         onMouseDown={handlePointerDown}
         onMouseMove={handlePointerMove}
         onMouseUp={handlePointerUp}
@@ -211,8 +301,25 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
         onTouchStart={handlePointerDown}
         onTouchMove={handlePointerMove}
         onTouchEnd={handlePointerUp}
-        style={{ display: 'block', width: '100%', height: '100%', cursor: tool === 'eraser' ? 'cell' : tool === 'text' ? 'text' : 'crosshair' }}
+        style={{
+          position: 'absolute', inset: 0, display: 'block', width: '100%', height: '100%',
+          cursor: tool === 'eraser' ? 'cell' : tool === 'text' ? 'text' : 'crosshair',
+        }}
       />
+
+      {/* Remote cursors — plain positioned divs, cheap for the handful
+          of concurrent participants this feature supports. */}
+      {Object.entries(remoteCursors).map(([uid, c]) => (
+        <div key={uid} style={{ position: 'absolute', left: c.x, top: c.y, pointerEvents: 'none', transform: 'translate(-2px,-2px)', zIndex: 10 }}>
+          <div style={{ width: 10, height: 10, borderRadius: '50%', background: c.color, border: '2px solid #fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
+          {c.username && (
+            <div style={{ marginTop: 2, fontSize: 10, fontWeight: 700, color: '#fff', background: c.color, borderRadius: 6, padding: '1px 6px', whiteSpace: 'nowrap' }}>
+              {c.username}
+            </div>
+          )}
+        </div>
+      ))}
+
       {textEditor && (
         <input
           ref={textInputRef}
@@ -226,7 +333,7 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
             position: 'absolute', left: textEditor.x, top: textEditor.y,
             font: `${Math.max(14, size * 4)}px system-ui, -apple-system, sans-serif`,
             color, background: 'rgba(255,255,255,0.9)', border: `1px dashed ${color}`,
-            borderRadius: 4, padding: '2px 6px', outline: 'none', minWidth: 60,
+            borderRadius: 4, padding: '2px 6px', outline: 'none', minWidth: 60, zIndex: 11,
           }}
         />
       )}
