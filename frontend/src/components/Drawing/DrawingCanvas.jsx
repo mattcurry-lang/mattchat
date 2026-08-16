@@ -47,7 +47,7 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     const ro = new ResizeObserver(resizeCanvas)
     if (containerRef.current) ro.observe(containerRef.current)
     return () => ro.disconnect()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [])
 
   // Re-render whenever the committed stroke list changes (undo/redo/
