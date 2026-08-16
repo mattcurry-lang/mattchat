@@ -857,3 +857,10 @@ export function IconImagePlus({ size = 18, ...props }) {
     </svg>
   )
 }
+export function IconPointer({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M5 3l14 6-6 2-2 6-6-14Z" strokeLinejoin="round" />
+    </svg>
+  )
+}
