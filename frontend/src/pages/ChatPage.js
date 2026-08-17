@@ -248,11 +248,11 @@ function DrawingBubble({ content }) {
         </div>
       </button>
 
-      {expanded && (
+  {expanded && createPortal(
         <div
           onClick={() => setExpanded(false)}
           style={{
-            position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(10,10,16,0.92)',
+            position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(10,10,16,0.92)',
             backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
           }}
@@ -267,20 +267,19 @@ function DrawingBubble({ content }) {
               background: '#fff',
             }}
           />
-<button
-        onClick={() => setExpanded(true)}
-        style={{
-          display: 'block', position: 'relative', border: 'none', padding: 0, cursor: 'pointer',
-          borderRadius: 16, overflow: 'visible', maxWidth: 240, background: 'none',
-        }}
-      >
+          <button
+            onClick={() => setExpanded(false)}
+            style={{
+              position: 'absolute', top: 20, right: 20, width: 36, height: 36, borderRadius: '50%',
+              background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
+              color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
             ✕
           </button>
-        </div>
+        </div>,
+        document.body
       )}
-    </>
-  )
-}
 // Reply-to-status bubble — a small "📸 Replied to a status" tag above
 // the actual reply text, same visual language as a WhatsApp/Instagram
 // status-reply quote, but simple: just a tag + the caption snippet,
