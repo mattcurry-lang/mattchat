@@ -1,12 +1,18 @@
 import React, { useState } from 'react'
 import {
   IconPencil, IconMarker, IconHighlighter, IconEraser, IconShapes, IconType,
-  IconStickyNote, IconImagePlus, IconPointer, IconSmile,
-  IconHourglass, IconCheckSquare,
+  IconStickyNote, IconImagePlus, IconPointer, IconSmile, IconHourglass, IconCheckSquare,
+  IconDna, IconWand,
   IconUndo, IconRedo, IconTrash, IconDownload, IconMaximize, IconMinimize, IconX,
 } from '../Icons'
 
 import ColorPicker from './ColorPicker'
+
+const TEMPLATES = [
+  { id: 'brainstorm', label: '💡 Brainstorm' },
+  { id: 'todo', label: '✅ To-do Board' },
+  { id: 'mindmap', label: '🧠 Mind Map' },
+]
 
 const TIMER_PRESETS = [
   { label: '10s', seconds: 10 }, { label: '30s', seconds: 30 },
@@ -42,10 +48,12 @@ export default function DrawingToolbar({
   canUndo, canRedo, onUndo, onRedo, onClear, onExport,
   onAddSticky, onAddImage,
   pointing, onTogglePoint, onPickReaction,
-  onStartTimer, onStartVote, // Phase 4a
+  onStartTimer, onStartVote,
+  onAddMindMap, onApplyTemplate, 
   onSaveToChat, saving, saved,
   isFullscreen, onToggleFullscreen, onClose,
 }) {
+  const [showTemplates, setShowTemplates] = useState(false)
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [showShapes, setShowShapes] = useState(false)
   const [showReactions, setShowReactions] = useState(false)
@@ -153,7 +161,27 @@ export default function DrawingToolbar({
           )}
         </div>
       )}
+{/* Phase 4b: Mind Map */}
+      {onAddMindMap && (
+        <ToolButton active={false} onClick={onAddMindMap} title="Add mind map"><IconDna size={17} /></ToolButton>
+      )}
 
+      {/* Phase 4b: Templates */}
+      {onApplyTemplate && (
+        <div style={{ position: 'relative' }}>
+          <ToolButton active={showTemplates} onClick={() => setShowTemplates(v => !v)} title="Templates"><IconWand size={17} /></ToolButton>
+          {showTemplates && (
+            <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, background: '#1e1e2e', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 12, padding: 6, display: 'flex', flexDirection: 'column', gap: 2, zIndex: 30, minWidth: 150, boxShadow: '0 8px 30px rgba(0,0,0,0.4)' }}>
+              {TEMPLATES.map(t => (
+                <button key={t.id} onClick={() => { onApplyTemplate(t.id); setShowTemplates(false) }}
+                  style={{ padding: '7px 10px', borderRadius: 8, background: 'none', border: 'none', color: 'rgba(255,255,255,0.8)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.1)', margin: '0 4px', flexShrink: 0 }} />
       <div style={{ position: 'relative' }}>
         <button onClick={() => setShowColorPicker(v => !v)} title="Color" style={{ width: 30, height: 30, borderRadius: '50%', background: color, border: '2px solid rgba(255,255,255,0.25)', cursor: 'pointer', flexShrink: 0 }} />
