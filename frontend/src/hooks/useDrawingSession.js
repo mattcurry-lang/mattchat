@@ -111,13 +111,16 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
       .on('broadcast', { event: 'object_moving' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onRemoteObjectMoving?.(payload) })
       .on('broadcast', { event: 'object_updated' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onRemoteObjectUpdated?.(payload) })
       .on('broadcast', { event: 'object_deleted' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onRemoteObjectDeleted?.(payload) })
-      //phase 4
+      
   .on('broadcast', { event: 'vote_start' }, ({ payload }) => { handlersRef.current.onRemoteVoteStart?.(payload) })
   .on('broadcast', { event: 'vote_cast' }, ({ payload }) => { handlersRef.current.onRemoteVoteCast?.(payload) })
   .on('broadcast', { event: 'vote_end' }, ({ payload }) => { handlersRef.current.onRemoteVoteEnd?.(payload) })
   .on('broadcast', { event: 'timer_start' }, ({ payload }) => { handlersRef.current.onRemoteTimerStart?.(payload) })
   .on('broadcast', { event: 'timer_cancel' }, ({ payload }) => { handlersRef.current.onRemoteTimerCancel?.(payload) })
-      // ── Phase 3: reactions, pointer, comments — same channel ──
+  .on('broadcast', { event: 'game_start' }, ({ payload }) => { handlersRef.current.onRemoteGameStart?.(payload) })
+  .on('broadcast', { event: 'game_guess' }, ({ payload }) => { handlersRef.current.onRemoteGameGuess?.(payload) })
+  .on('broadcast', { event: 'game_reveal' }, ({ payload }) => { handlersRef.current.onRemoteGameReveal?.(payload) })
+  .on('broadcast', { event: 'game_end' }, ({ payload }) => { handlersRef.current.onRemoteGameEnd?.(payload) })
       .on('broadcast', { event: 'reaction' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onRemoteReaction?.(payload) })
       .on('broadcast', { event: 'pointer' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onRemotePointer?.(payload) })
       .on('broadcast', { event: 'pointer_off' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onRemotePointerOff?.(payload) })
@@ -318,7 +321,35 @@ const startTimer = useCallback((durationSeconds, label) => {
   send('timer_start', timer)
   return timer
 }, [send, userId])
+// add near the other broadcast* functions, before the return statement:
 
+// `word` is deliberately NOT part of `publicPayload` — it never
+// leaves this device for Pictionary rounds. The caller keeps it in
+// its own local state as the "I already know this" source of truth.
+const startGame = useCallback((gameConfig) => {
+  const game = {
+    id: `${userId}-${Date.now()}`,
+    type: gameConfig.type,          // 'pictionary' | 'secret_drawing'
+    prompt: gameConfig.type === 'secret_drawing' ? gameConfig.prompt : undefined,
+    drawerId: gameConfig.type === 'pictionary' ? userId : undefined,
+    startedBy: userId,
+    phase: 'active',
+  }
+  send('game_start', game)
+  return game
+}, [send, userId])
+
+const sendGuess = useCallback((gameId, text) => {
+  send('game_guess', { gameId, userId, username: profile?.username || 'Someone', text })
+}, [send, userId, profile?.username])
+
+const revealGame = useCallback((gameId) => {
+  send('game_reveal', { gameId })
+}, [send])
+
+const endGame = useCallback((gameId) => {
+  send('game_end', { gameId, userId })
+}, [send, userId])
 const cancelTimer = useCallback((timerId) => {
   send('timer_cancel', { timerId, userId })
 }, [send, userId])
@@ -329,7 +360,7 @@ const cancelTimer = useCallback((timerId) => {
     broadcastUndo, broadcastRedo, broadcastClear, broadcastCursor,
     broadcastObjectCreated, broadcastObjectMoving, broadcastObjectUpdated, broadcastObjectDeleted,
     uploadObjectImage, saveToChat,
-    broadcastReaction, broadcastPointerMove, broadcastPointerOff,
+    broadcastReaction, broadcastPointerMove, broadcastPointerOff,startGame, sendGuess, revealGame, endGame,
     addComment, resolveComment, deleteComment,startVote, castVote, endVote, startTimer, cancelTimer,
   }
 }
