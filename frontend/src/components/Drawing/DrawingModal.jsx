@@ -15,14 +15,16 @@ export default function DrawingModal({ session, conversationId, userId, profile,
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [saveState, setSaveState] = useState('idle')
   const [inviteSent, setInviteSent] = useState(false)
-
-  // Phase 3 local UI state
+const [showGamePicker, setShowGamePicker] = useState(false)
+const [activeGame, setActiveGame] = useState(null) // { id, type, prompt?, drawerId?, phase }
+const [myWord, setMyWord] = useState(null)         // Pictionary — only set locally for the drawer
+const [gameGuesses, setGameGuesses] = useState([])
   const [pointing, setPointing] = useState(false)
   const [armedReaction, setArmedReaction] = useState(null)
   const [comments, setComments] = useState({}) // objectId -> [comment]
   const [drawingUserIds, setDrawingUserIds] = useState(() => new Set())
   const drawingTimersRef = useRef(new Map())
-  // new local state, alongside the other Phase 3 state:
+  
 const [activeTimer, setActiveTimer] = useState(null)   // { id, durationSeconds, label, startsAt, startedBy }
 const [timeLeft, setTimeLeft] = useState(0)
 const [activePoll, setActivePoll] = useState(null)     // { id, question, options, votes: { userId: optionId }, createdBy }
@@ -76,7 +78,10 @@ const [activePoll, setActivePoll] = useState(null)     // { id, question, option
     onRemoteObjectMoving: (payload) => canvasApiRef.current?.applyRemoteObjectMoving(payload),
     onRemoteObjectUpdated: (payload) => canvasApiRef.current?.applyRemoteObjectUpdated(payload),
     onRemoteObjectDeleted: (payload) => canvasApiRef.current?.applyRemoteObjectDeleted(payload),
-    // add to the handlers object:
+     onRemoteGameStart: (game) => { setActiveGame(game); setGameGuesses([]) },
+  onRemoteGameGuess: (payload) => setGameGuesses(prev => [...prev, payload]),
+  onRemoteGameReveal: () => { canvasApiRef.current?.revealSecretStrokes() },
+  onRemoteGameEnd: () => { setActiveGame(null); setMyWord(null); setGameGuesses([]) },
   onRemoteVoteStart: (poll) => setActivePoll(poll),
   onRemoteVoteCast: ({ pollId, optionId, userId: voterId }) =>
     setActivePoll(prev => (prev && prev.id === pollId ? { ...prev, votes: { ...prev.votes, [voterId]: optionId } } : prev)),
@@ -103,7 +108,8 @@ const {
   uploadObjectImage, saveToChat,
   broadcastReaction, broadcastPointerMove, broadcastPointerOff,
   addComment, resolveComment, deleteComment,
-  startVote, castVote, endVote, startTimer, cancelTimer, 
+  startVote, castVote, endVote, startTimer, cancelTimer,
+  startGame, sendGuess, revealGame, endGame, // Phase 5
 } = useDrawingSession(conversationId, userId, profile, handlers)
 
   const { micOn, toggleMic, otherSpeaking, connected, connecting, voiceError, handleSignal } =
@@ -191,7 +197,42 @@ const handleCastVote = useCallback((optionId) => {
 const handleAddMindMap = useCallback(() => {
   canvasApiRef.current?.createMindMapRoot()
 }, [])
+const PICTIONARY_WORDS = ['guitar', 'lighthouse', 'octopus', 'volcano', 'umbrella', 'campfire', 'skateboard', 'telescope']
+const SECRET_PROMPTS = ['Draw an animal', 'Draw your dream house', 'Draw something you ate today', 'Draw a superhero', 'Draw the weather outside']
 
+const handleStartPictionary = useCallback(() => {
+  const word = PICTIONARY_WORDS[Math.floor(Math.random() * PICTIONARY_WORDS.length)]
+  const game = startGame({ type: 'pictionary' })
+  setActiveGame(game)
+  setMyWord(word) // only I know this — never broadcast
+  setGameGuesses([])
+  setShowGamePicker(false)
+}, [startGame])
+
+const handleStartSecretDrawing = useCallback(() => {
+  const prompt = SECRET_PROMPTS[Math.floor(Math.random() * SECRET_PROMPTS.length)]
+  const game = startGame({ type: 'secret_drawing', prompt })
+  setActiveGame(game)
+  setGameGuesses([])
+  setShowGamePicker(false)
+  // Reuses the Phase 4a timer — its existing zero-crossing effect
+  // (below) triggers the reveal the instant it hits zero.
+  setActiveTimer(startTimer(30, 'Secret drawing'))
+}, [startGame, startTimer])
+
+const handleSendGuess = useCallback((text) => {
+  if (!activeGame || !text.trim()) return
+  sendGuess(activeGame.id, text.trim())
+  setGameGuesses(prev => [...prev, { userId, username: profile?.username || 'You', text: text.trim() }])
+}, [activeGame, sendGuess, userId, profile?.username])
+
+const handleEndGame = useCallback(() => {
+  if (!activeGame) return
+  endGame(activeGame.id)
+  setActiveGame(null)
+  setMyWord(null)
+  setGameGuesses([])
+}, [activeGame, endGame])
 const handleApplyTemplate = useCallback((templateId) => {
   const api = canvasApiRef.current
   if (!api) return
@@ -312,7 +353,51 @@ const handleApplyTemplate = useCallback((templateId) => {
     )}
   </div>
 )}
+        
+{showGamePicker && !activeGame && (
+  <div style={{ margin: '8px 16px 0', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: 12, padding: 10, display: 'flex', gap: 8 }}>
+    <button onClick={handleStartPictionary}
+      style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: '#fff', fontSize: 12, fontWeight: 700, padding: '10px 8px', cursor: 'pointer' }}>
+      🎨 Pictionary
+    </button>
+    <button onClick={handleStartSecretDrawing}
+      style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: '#fff', fontSize: 12, fontWeight: 700, padding: '10px 8px', cursor: 'pointer' }}>
+      🤫 Secret Drawing
+    </button>
+    <button onClick={() => setShowGamePicker(false)}
+      style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14 }}>✕</button>
+  </div>
+)}
 
+{activeGame?.type === 'pictionary' && (
+  <div style={{ margin: '8px 16px 0', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: 12, padding: 10 }}>
+    <div style={{ fontSize: 12.5, fontWeight: 700, color: '#fff', marginBottom: 6 }}>
+      {activeGame.drawerId === userId ? `🎨 You're drawing: "${myWord}"` : `🎨 ${participants.find(p => p.userId === activeGame.drawerId)?.username || 'Someone'} is drawing — guess below!`}
+    </div>
+    {gameGuesses.length > 0 && (
+      <div style={{ maxHeight: 90, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 6 }}>
+        {gameGuesses.map((g, i) => (
+          <div key={i} style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.75)' }}><b>{g.username}:</b> {g.text}</div>
+        ))}
+      </div>
+    )}
+    <div style={{ display: 'flex', gap: 6 }}>
+      {activeGame.drawerId !== userId && (
+        <GuessInput onSend={handleSendGuess} />
+      )}
+      <button onClick={handleEndGame} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 11, cursor: 'pointer', textDecoration: 'underline', marginLeft: 'auto' }}>end round</button>
+    </div>
+  </div>
+)}
+
+{activeGame?.type === 'secret_drawing' && (
+  <div style={{ margin: '8px 16px 0', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: 12, padding: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <div style={{ fontSize: 12.5, fontWeight: 700, color: '#fff' }}>
+      🤫 {activeGame.prompt} {activeGame.phase === 'revealed' ? '— revealed!' : '(hidden until reveal)'}
+    </div>
+    <button onClick={handleEndGame} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}>close</button>
+  </div>
+)}
 {activePoll && (
   <div style={{ margin: '8px 16px 0', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: 12, padding: 10 }}>
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -370,6 +455,7 @@ const handleApplyTemplate = useCallback((templateId) => {
   onStartVote={handleStartVote}
           onAddMindMap={handleAddMindMap}
   onApplyTemplate={handleApplyTemplate}
+          onOpenGamePicker={() => setShowGamePicker(v => !v)}
           isFullscreen={isFullscreen} onToggleFullscreen={toggleFullscreen} onClose={onClose}
         />
 
@@ -402,6 +488,7 @@ const handleApplyTemplate = useCallback((templateId) => {
                 onAddComment={addComment}
                 onResolveComment={resolveComment}
                 onDeleteComment={deleteComment}
+                secretModeActive={activeGame?.type === 'secret_drawing' && activeGame.phase !== 'revealed'}
               />
 
               <button onClick={toggleMic} disabled={!connected}
@@ -414,8 +501,28 @@ const handleApplyTemplate = useCallback((templateId) => {
               </button>
             </div>
           )}
+          
         </div>
+        
       </div>
+      function GuessInput({ onSend }) {
+  const [text, setText] = useState('')
+  return (
+    <>
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter' && text.trim()) { onSend(text); setText('') } }}
+        placeholder="Type your guess…"
+        style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: '#fff', fontSize: 12, padding: '6px 10px', outline: 'none' }}
+      />
+      <button onClick={() => { if (text.trim()) { onSend(text); setText('') } }}
+        style={{ background: 'rgba(167,139,250,0.2)', border: '1px solid rgba(167,139,250,0.35)', borderRadius: 8, color: '#c4b5fd', fontSize: 11, fontWeight: 700, padding: '0 10px', cursor: 'pointer' }}>
+        Send
+      </button>
+    </>
+  )
+}
     </div>
   )
 }
