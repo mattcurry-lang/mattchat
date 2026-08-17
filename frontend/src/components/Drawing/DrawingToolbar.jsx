@@ -51,6 +51,7 @@ export default function DrawingToolbar({
   onStartTimer, onStartVote,
   onAddMindMap, onApplyTemplate, 
   onOpenGamePicker,
+  onReplay,
   onSaveToChat, saving, saved,
   isFullscreen, onToggleFullscreen, onClose,
 }) {
