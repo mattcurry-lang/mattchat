@@ -236,19 +236,21 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
   return data.publicUrl
 }, [conversationId])
 
-  const saveToChat = useCallback(async (dataUrl, sendMessageFn) => {
-    const res = await fetch(dataUrl)
-    const blob = await res.blob()
-    const path = `${conversationId}/${Date.now()}.png`
-    const { error: uploadError } = await supabase.storage.from('drawing-media')
-      .upload(path, blob, { contentType: 'image/png', upsert: false })
-    if (uploadError) throw uploadError
-    const { data } = supabase.storage.from('drawing-media').getPublicUrl(path)
-    const names = participants.map(p => p.username).filter(Boolean)
-    const label = names.length ? names.join(' & ') : 'Someone'
-    await sendMessageFn(`drawing:${data.publicUrl}::${label}`)
-    return data.publicUrl
-  }, [conversationId, participants])
+ const saveToChat = useCallback(async (dataUrl, sendMessageFn) => {
+  const res = await fetch(dataUrl)
+  const blob = await res.blob()
+  const path = `${conversationId}/${Date.now()}.png`
+  const { error: uploadError } = await supabase.storage.from('drawing-media')
+    .upload(path, blob, { contentType: 'image/png', upsert: false })
+  if (uploadError) throw new Error(`Save to chat failed: ${uploadError.message}`)
+  const { data } = supabase.storage.from('drawing-media').getPublicUrl(path)
+  const names = Array.from(new Set(
+    [profile?.username, ...participants.map(p => p.username)].filter(Boolean)
+  ))
+  const label = names.length ? names.join(' & ') : 'Someone'
+  await sendMessageFn(`drawing:${data.publicUrl}::${label}`)
+  return data.publicUrl
+}, [conversationId, participants, profile?.username])
 
   // ── Phase 3: reactions (ephemeral, no table) ──
   const broadcastReaction = useCallback((emoji, x, y) => {
