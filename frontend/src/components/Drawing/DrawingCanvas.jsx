@@ -93,12 +93,35 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
   const lastUpdateSentRef = useRef(0)
   const remoteLiveStrokesRef = useRef(new Map())
   const textInputRef = useRef(null)
+  const [selectedStrokeId, setSelectedStrokeId] = useState(null)
+const selectDragRef = useRef(null)
   const [textEditor, setTextEditor] = useState(null)
   const pointingRef = useRef(pointing)
   pointingRef.current = pointing
 
-  // Phase 5 — buffered remote strokes while a secret round is active.
-  // Flushed into `strokes` (and thus rendered) only by revealSecretStrokes().
+ const isEditableTool = (t) => SHAPE_TOOLS.has(t) || t === 'text'
+
+const strokeBounds = (s) => {
+  if (s.tool === 'text') {
+    const p = s.points[0]
+    const w = Math.max(40, (s.textContent?.length || 1) * (s.size || 6) * 2.2)
+    const h = Math.max(20, (s.size || 6) * 4.5)
+    return { x1: p.x, y1: p.y, x2: p.x + w, y2: p.y + h }
+  }
+  const [a, b] = s.points
+  return { x1: Math.min(a.x, b.x), y1: Math.min(a.y, b.y), x2: Math.max(a.x, b.x), y2: Math.max(a.y, b.y) }
+}
+
+const hitTestEditable = (p) => {
+  const candidates = strokesRef.current.filter(s => !s.deleted && isEditableTool(s.tool))
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    const s = candidates[i]
+    const b = strokeBounds(s)
+    const pad = 6
+    if (p.x >= b.x1 - pad && p.x <= b.x2 + pad && p.y >= b.y1 - pad && p.y <= b.y2 + pad) return s
+  }
+  return null
+}
   const secretBufferRef = useRef([])
   const secretModeRef = useRef(secretModeActive)
   secretModeRef.current = secretModeActive
@@ -294,17 +317,19 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
 
   const newLocalId = () => `${userId}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
-  const handlePointerDown = (e) => {
-    if (armedReaction) {
+ const handlePointerDown = (e) => {
+    if (armedReaction)  
+    if (pointingRef.current) return
+    if (tool === 'select') {
       e.preventDefault()
       const p = getPoint(e)
-      const id = newLocalId()
-      setReactions(prev => [...prev, { id, emoji: armedReaction, x: p.x, y: p.y, userId, expiresAt: Date.now() + REACTION_LIFETIME_MS }])
-      onLocalReaction?.(armedReaction, p.x, p.y)
-      onReactionPlaced?.()
+      const hit = hitTestEditable(p)
+      setSelectedStrokeId(hit ? hit.id : null)
+      if (hit) {
+        selectDragRef.current = { id: hit.id, startLogical: p, startPoints: hit.points.map(pt => ({ ...pt })) }
+      }
       return
     }
-    if (pointingRef.current) return
     if (tool === 'text') {
       const p = getPoint(e)
       setTextEditor({ x: p.x, y: p.y })
@@ -321,7 +346,17 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     onLocalStrokeStart?.({ id, tool, color, size, opacity, points: [p] })
   }
 
-  const handlePointerMove = (e) => {
+ const handlePointerMove = (e) => {
+    if (tool === 'select' && selectDragRef.current) {
+      e.preventDefault()
+      const p = getPoint(e)
+      const drag = selectDragRef.current
+      const dx = p.x - drag.startLogical.x, dy = p.y - drag.startLogical.y
+      setStrokes(prev => prev.map(s => (
+        s.id === drag.id ? { ...s, points: drag.startPoints.map(pt => ({ x: pt.x + dx, y: pt.y + dy })) } : s
+      )))
+      return
+    }
     const p = getPoint(e)
     if (pointingRef.current) { e.preventDefault(); onLocalPointerMove?.(p.x, p.y); return }
     onLocalCursorMove?.(p.x, p.y)
@@ -358,7 +393,24 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     const ctx = liveCtxRef.current, canvas = liveCanvasRef.current
     if (ctx && canvas) clearDevicePixels(ctx, canvas)
   }
-  const handlePointerUp = (e) => {
+const handlePointerUp = (e) => {
+    if (tool === 'select' && selectDragRef.current) {
+      const drag = selectDragRef.current
+      selectDragRef.current = null
+      const moved = strokesRef.current.find(s => s.id === drag.id)
+      if (moved) {
+        // Soft-delete the original, commit a NEW stroke with moved
+        // points — reuses the existing undo/redo + broadcast/persist
+        // pipeline exactly as a fresh stroke would, no new plumbing.
+        onLocalUndo?.(drag.id)
+        setStrokes(prev => prev.map(s => (s.id === drag.id ? { ...s, deleted: true } : s)))
+        const replacement = { ...moved, id: newLocalId(), deleted: false }
+        setStrokes(prev => [...prev, replacement])
+        onLocalStrokeEnd?.(replacement)
+        setSelectedStrokeId(replacement.id)
+      }
+      return
+    }
     if (pointingRef.current) return
     if (!drawingRef.current) return
     e.preventDefault(); drawingRef.current = false; commitCurrentStroke()
@@ -556,10 +608,27 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
       replayStrokes(octx, out, strokes)
       return out.toDataURL('image/png')
     },
+    
     getStrokes: () => strokes,
     resetView: () => resetView(),
     applyInitialStrokes: (loaded) => setStrokes(loaded || []),
-
+deleteSelectedStroke: () => {
+  if (!selectedStrokeId) return
+  onLocalUndo?.(selectedStrokeId)
+  setStrokes(prev => prev.map(s => (s.id === selectedStrokeId ? { ...s, deleted: true } : s)))
+  setSelectedStrokeId(null)
+},
+recolorSelectedStroke: (newColor) => {
+  const target = strokesRef.current.find(s => s.id === selectedStrokeId)
+  if (!target) return
+  onLocalUndo?.(selectedStrokeId)
+  setStrokes(prev => prev.map(s => (s.id === selectedStrokeId ? { ...s, deleted: true } : s)))
+  const replacement = { ...target, id: newLocalId(), color: newColor, deleted: false }
+  setStrokes(prev => [...prev, replacement])
+  onLocalStrokeEnd?.(replacement)
+  setSelectedStrokeId(replacement.id)
+},
+getSelectedStroke: () => strokesRef.current.find(s => s.id === selectedStrokeId) || null,
     // Remote strokes are gated by secretModeRef — while a secret round
     // is active, don't render them at all (not even the live preview);
     // stroke_end payloads are buffered instead of shown.
@@ -669,7 +738,13 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
   }), [strokes, objects, userId, onLocalUndo, onLocalRedo, onLocalClear, onLocalObjectCreate, redrawLiveLayer, backgroundColor])
 
   const cursorScreenPos = (c) => ({ left: c.x * scaleRef.current + offsetXRef.current, top: c.y * scaleRef.current + offsetYRef.current })
-
+ 
+const deleteSelectedStrokeLocal = () => {
+  if (!selectedStrokeId) return
+  onLocalUndo?.(selectedStrokeId)
+  setStrokes(prev => prev.map(s => (s.id === selectedStrokeId ? { ...s, deleted: true } : s)))
+  setSelectedStrokeId(null)
+}
   return (
     <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%', background: backgroundColor, borderRadius: 16, overflow: 'hidden', touchAction: 'none' }}>
       <canvas ref={baseCanvasRef} style={{ position: 'absolute', inset: 0, display: 'block', width: '100%', height: '100%', pointerEvents: 'none' }} />
@@ -746,6 +821,24 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
           />
         )
       })()}
+      {tool === 'select' && selectedStrokeId && (() => {
+  const s = strokes.find(x => x.id === selectedStrokeId)
+  if (!s || s.deleted) return null
+  const b = strokeBounds(s)
+  const scale = scaleRef.current
+  const left = b.x1 * scale + offsetXRef.current - 6
+  const top = b.y1 * scale + offsetYRef.current - 6
+  const w = (b.x2 - b.x1) * scale + 12
+  const h = (b.y2 - b.y1) * scale + 12
+  return (
+    <div style={{ position: 'absolute', left, top, width: w, height: h, border: '2px dashed #a78bfa', borderRadius: 4, pointerEvents: 'none', zIndex: 13 }}>
+      <div style={{ position: 'absolute', top: -30, left: 0, display: 'flex', gap: 4, pointerEvents: 'auto' }}>
+        <button onMouseDown={(e) => e.stopPropagation()} onClick={() => { ref.current?.deleteSelectedStroke(); }}
+          style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(239,68,68,0.9)', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer' }}>×</button>
+      </div>
+    </div>
+  )
+})()}
 
       {secretModeActive && (
         <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 15, background: 'rgba(167,139,250,0.2)', border: '1px solid rgba(167,139,250,0.4)', borderRadius: 20, padding: '5px 12px', fontSize: 11, fontWeight: 800, color: '#c4b5fd' }}>
