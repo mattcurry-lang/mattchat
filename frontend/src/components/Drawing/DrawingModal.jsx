@@ -195,12 +195,29 @@ const handleAddMindMap = useCallback(() => {
 const handleApplyTemplate = useCallback((templateId) => {
   const api = canvasApiRef.current
   if (!api) return
+
   if (templateId === 'mindmap') {
     api.createMindMapRoot('Main Topic')
-  } else if (templateId === 'brainstorm') {
-    api.createStickyNote(); api.createStickyNote(); api.createStickyNote()
-  } else if (templateId === 'todo') {
-    api.createStickyNote(); api.createStickyNote(); api.createStickyNote()
+    return
+  }
+
+  if (templateId === 'brainstorm') {
+    // Three open-ended prompt notes, side by side, each a different
+    // color so they read as distinct columns at a glance.
+    api.createStickyNote({ x: 0.28, y: 0.35, text: '💡 Idea', color: 'yellow' })
+    api.createStickyNote({ x: 0.5, y: 0.35, text: '❓ Question', color: 'blue' })
+    api.createStickyNote({ x: 0.72, y: 0.35, text: '⚠️ Risk', color: 'pink' })
+    return
+  }
+
+  if (templateId === 'todo') {
+    // Classic three-column board — labels pre-filled so the columns
+    // are unmistakable, positioned as headers with room to add more
+    // notes underneath each one.
+    api.createStickyNote({ x: 0.2, y: 0.25, text: '📋 To Do', color: 'orange' })
+    api.createStickyNote({ x: 0.5, y: 0.25, text: '🔨 Doing', color: 'blue' })
+    api.createStickyNote({ x: 0.8, y: 0.25, text: '✅ Done', color: 'green' })
+    return
   }
 }, [])
   const handleImageFileChange = useCallback(async (e) => {
