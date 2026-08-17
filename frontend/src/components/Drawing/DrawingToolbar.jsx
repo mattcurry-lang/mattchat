@@ -1,10 +1,15 @@
 import React, { useState } from 'react'
-import {
-  IconPencil, IconMarker, IconHighlighter, IconEraser, IconShapes, IconType,
-  IconStickyNote, IconImagePlus, IconPointer, IconSmile, IconHourglass, IconCheckSquare,
-  IconDna, IconWand, IconGraduationCap ,
-  IconUndo, IconRedo, IconTrash, IconDownload, IconMaximize, IconMinimize, IconX,
-} from '../Icons'
+export default function DrawingToolbar({
+  tool, onToolChange, color, onColorChange, size, onSizeChange,
+  canUndo, canRedo, onUndo, onRedo, onClear, onExport,
+  onAddSticky, onAddImage,
+  pointing, onTogglePoint, onPickReaction,
+  onStartTimer, onStartVote,
+  onAddMindMap, onApplyTemplate, 
+  onOpenGamePicker,
+  onSaveToChat, saving, saved,
+  isFullscreen, onToggleFullscreen, onClose,
+}) {
 
 import ColorPicker from './ColorPicker'
 
