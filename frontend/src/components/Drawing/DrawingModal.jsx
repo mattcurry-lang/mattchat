@@ -501,11 +501,13 @@ const handleApplyTemplate = useCallback((templateId) => {
               </button>
             </div>
           )}
-          
         </div>
-        
       </div>
-      function GuessInput({ onSend }) {
+    </div>
+  )
+}
+
+function GuessInput({ onSend }) {
   const [text, setText] = useState('')
   return (
     <>
@@ -521,8 +523,5 @@ const handleApplyTemplate = useCallback((templateId) => {
         Send
       </button>
     </>
-  )
-}
-    </div>
   )
 }
