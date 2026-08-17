@@ -188,7 +188,21 @@ const handleCastVote = useCallback((optionId) => {
 
   const handleAddSticky = useCallback(() => canvasApiRef.current?.createStickyNote(), [])
   const handleAddImageClick = useCallback(() => imageFileInputRef.current?.click(), [])
+const handleAddMindMap = useCallback(() => {
+  canvasApiRef.current?.createMindMapRoot()
+}, [])
 
+const handleApplyTemplate = useCallback((templateId) => {
+  const api = canvasApiRef.current
+  if (!api) return
+  if (templateId === 'mindmap') {
+    api.createMindMapRoot('Main Topic')
+  } else if (templateId === 'brainstorm') {
+    api.createStickyNote(); api.createStickyNote(); api.createStickyNote()
+  } else if (templateId === 'todo') {
+    api.createStickyNote(); api.createStickyNote(); api.createStickyNote()
+  }
+}, [])
   const handleImageFileChange = useCallback(async (e) => {
     const file = e.target.files?.[0]
     e.target.value = ''
@@ -337,6 +351,8 @@ const handleCastVote = useCallback((optionId) => {
           saving={saveState === 'saving'} saved={saveState === 'saved'}
           onStartTimer={handleStartTimer}
   onStartVote={handleStartVote}
+          onAddMindMap={handleAddMindMap}
+  onApplyTemplate={handleApplyTemplate}
           isFullscreen={isFullscreen} onToggleFullscreen={toggleFullscreen} onClose={onClose}
         />
 
