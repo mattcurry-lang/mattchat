@@ -213,7 +213,12 @@ export default function DrawingToolbar({
         </button>
       )}
 
-      <ToolButton active={false} onClick={onExport} title="Export as PNG"><IconDownload size={17} /></ToolButton>
+      <ToolButton active={false} onClick={onExport} title="Export as PNG">
+        <IconDownload size={17} />
+      </ToolButton>
+      {onReplay && (
+        <ToolButton active={false} onClick={onReplay} title="Replay drawing">▶️</ToolButton>
+      )}
       <ToolButton active={false} onClick={onToggleFullscreen} title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}>{isFullscreen ? <IconMinimize size={17} /> : <IconMaximize size={17} />}</ToolButton>
 
       <button onClick={onClose} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, color: '#f87171', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }} title="Close">
