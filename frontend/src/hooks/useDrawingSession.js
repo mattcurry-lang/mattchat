@@ -111,6 +111,12 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
       .on('broadcast', { event: 'object_moving' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onRemoteObjectMoving?.(payload) })
       .on('broadcast', { event: 'object_updated' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onRemoteObjectUpdated?.(payload) })
       .on('broadcast', { event: 'object_deleted' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onRemoteObjectDeleted?.(payload) })
+      //phase 4
+  .on('broadcast', { event: 'vote_start' }, ({ payload }) => { handlersRef.current.onRemoteVoteStart?.(payload) })
+  .on('broadcast', { event: 'vote_cast' }, ({ payload }) => { handlersRef.current.onRemoteVoteCast?.(payload) })
+  .on('broadcast', { event: 'vote_end' }, ({ payload }) => { handlersRef.current.onRemoteVoteEnd?.(payload) })
+  .on('broadcast', { event: 'timer_start' }, ({ payload }) => { handlersRef.current.onRemoteTimerStart?.(payload) })
+  .on('broadcast', { event: 'timer_cancel' }, ({ payload }) => { handlersRef.current.onRemoteTimerCancel?.(payload) })
       // ── Phase 3: reactions, pointer, comments — same channel ──
       .on('broadcast', { event: 'reaction' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onRemoteReaction?.(payload) })
       .on('broadcast', { event: 'pointer' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onRemotePointer?.(payload) })
@@ -287,6 +293,35 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
     await supabase.from('canvas_object_comments').delete().eq('id', commentId)
     send('comment_deleted', { commentId, objectId, userId })
   }, [send, userId])
+  // add near the other broadcast* functions, before the return statement:
+
+const startVote = useCallback((question, optionLabels) => {
+  const poll = {
+    id: `${userId}-${Date.now()}`, question,
+    options: optionLabels.map((label, i) => ({ id: `opt-${i}`, label })),
+    votes: {}, createdBy: userId,
+  }
+  send('vote_start', poll)
+  return poll
+}, [send, userId])
+
+const castVote = useCallback((pollId, optionId) => {
+  send('vote_cast', { pollId, optionId, userId })
+}, [send, userId])
+
+const endVote = useCallback((pollId) => {
+  send('vote_end', { pollId, userId })
+}, [send, userId])
+
+const startTimer = useCallback((durationSeconds, label) => {
+  const timer = { id: `${userId}-${Date.now()}`, durationSeconds, label, startsAt: Date.now(), startedBy: userId }
+  send('timer_start', timer)
+  return timer
+}, [send, userId])
+
+const cancelTimer = useCallback((timerId) => {
+  send('timer_cancel', { timerId, userId })
+}, [send, userId])
 
   return {
     session, loading, connectionStatus, participants, myColor,
@@ -295,6 +330,6 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
     broadcastObjectCreated, broadcastObjectMoving, broadcastObjectUpdated, broadcastObjectDeleted,
     uploadObjectImage, saveToChat,
     broadcastReaction, broadcastPointerMove, broadcastPointerOff,
-    addComment, resolveComment, deleteComment,
+    addComment, resolveComment, deleteComment,startVote, castVote, endVote, startTimer, cancelTimer,
   }
 }
