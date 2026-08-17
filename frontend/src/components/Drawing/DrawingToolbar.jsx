@@ -2,10 +2,16 @@ import React, { useState } from 'react'
 import {
   IconPencil, IconMarker, IconHighlighter, IconEraser, IconShapes, IconType,
   IconStickyNote, IconImagePlus, IconPointer, IconSmile,
+  IconHourglass, IconCheckSquare,
   IconUndo, IconRedo, IconTrash, IconDownload, IconMaximize, IconMinimize, IconX,
 } from '../Icons'
+
 import ColorPicker from './ColorPicker'
 
+const TIMER_PRESETS = [
+  { label: '10s', seconds: 10 }, { label: '30s', seconds: 30 },
+  { label: '1m', seconds: 60 }, { label: '5m', seconds: 300 },
+]
 const DRAW_TOOLS = [
   { id: 'pen', label: 'Pen', Icon: IconPencil },
   { id: 'marker', label: 'Marker', Icon: IconMarker },
@@ -36,13 +42,27 @@ export default function DrawingToolbar({
   canUndo, canRedo, onUndo, onRedo, onClear, onExport,
   onAddSticky, onAddImage,
   pointing, onTogglePoint, onPickReaction,
+  onStartTimer, onStartVote, // Phase 4a
   onSaveToChat, saving, saved,
   isFullscreen, onToggleFullscreen, onClose,
 }) {
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [showShapes, setShowShapes] = useState(false)
   const [showReactions, setShowReactions] = useState(false)
+  const [showTimerMenu, setShowTimerMenu] = useState(false)
+  const [showVoteForm, setShowVoteForm] = useState(false)
+  const [voteQuestion, setVoteQuestion] = useState('')
+  const [voteOptions, setVoteOptions] = useState(['', ''])
   const isShapeActive = SHAPE_TOOLS.some(s => s.id === tool)
+
+  const submitVote = () => {
+    const opts = voteOptions.map(o => o.trim()).filter(Boolean)
+    if (!voteQuestion.trim() || opts.length < 2) return
+    onStartVote(voteQuestion.trim(), opts)
+    setVoteQuestion('')
+    setVoteOptions(['', ''])
+    setShowVoteForm(false)
+  }
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '8px 10px', background: '#181825', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap', position: 'relative', zIndex: 20 }}>
@@ -94,8 +114,47 @@ export default function DrawingToolbar({
         </div>
       )}
 
-      <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.1)', margin: '0 4px', flexShrink: 0 }} />
+      {/* Phase 4a: Timer */}
+      {onStartTimer && (
+        <div style={{ position: 'relative' }}>
+          <ToolButton active={showTimerMenu} onClick={() => setShowTimerMenu(v => !v)} title="Start timer"><IconHourglass size={17} /></ToolButton>
+          {showTimerMenu && (
+            <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, background: '#1e1e2e', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 12, padding: 6, display: 'flex', flexDirection: 'column', gap: 2, zIndex: 30, minWidth: 100, boxShadow: '0 8px 30px rgba(0,0,0,0.4)' }}>
+              {TIMER_PRESETS.map(p => (
+                <button key={p.seconds} onClick={() => { onStartTimer(p.seconds); setShowTimerMenu(false) }}
+                  style={{ padding: '7px 10px', borderRadius: 8, background: 'none', border: 'none', color: 'rgba(255,255,255,0.8)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
+      {/* Phase 4a: Vote */}
+      {onStartVote && (
+        <div style={{ position: 'relative' }}>
+          <ToolButton active={showVoteForm} onClick={() => setShowVoteForm(v => !v)} title="Start a vote"><IconCheckSquare size={17} /></ToolButton>
+          {showVoteForm && (
+            <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, background: '#1e1e2e', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 12, padding: 10, display: 'flex', flexDirection: 'column', gap: 6, zIndex: 30, width: 220, boxShadow: '0 8px 30px rgba(0,0,0,0.4)' }}>
+              <input value={voteQuestion} onChange={(e) => setVoteQuestion(e.target.value)} placeholder="Question…"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 12, padding: '6px 8px', outline: 'none' }} />
+              {voteOptions.map((opt, i) => (
+                <input key={i} value={opt} onChange={(e) => setVoteOptions(prev => prev.map((o, idx) => (idx === i ? e.target.value : o)))} placeholder={`Option ${i + 1}`}
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 12, padding: '6px 8px', outline: 'none' }} />
+              ))}
+              <div style={{ display: 'flex', gap: 6 }}>
+                {voteOptions.length < 4 && (
+                  <button onClick={() => setVoteOptions(prev => [...prev, ''])} style={{ flex: 1, background: 'none', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: 8, color: 'rgba(255,255,255,0.6)', fontSize: 11, padding: '5px 0', cursor: 'pointer' }}>+ Option</button>
+                )}
+                <button onClick={submitVote} style={{ flex: 1, background: 'rgba(167,139,250,0.2)', border: '1px solid rgba(167,139,250,0.35)', borderRadius: 8, color: '#c4b5fd', fontSize: 11, fontWeight: 700, padding: '5px 0', cursor: 'pointer' }}>Start</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.1)', margin: '0 4px', flexShrink: 0 }} />
       <div style={{ position: 'relative' }}>
         <button onClick={() => setShowColorPicker(v => !v)} title="Color" style={{ width: 30, height: 30, borderRadius: '50%', background: color, border: '2px solid rgba(255,255,255,0.25)', cursor: 'pointer', flexShrink: 0 }} />
         {showColorPicker && <ColorPicker color={color} onChange={onColorChange} onClose={() => setShowColorPicker(false)} />}
