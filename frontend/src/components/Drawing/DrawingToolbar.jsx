@@ -7,8 +7,13 @@ import {
 } from '../Icons'
 
 import ColorPicker from './ColorPicker'
+import ColorPicker from './ColorPicker'
 
-const TEMPLATES = [ ... ]
+const TEMPLATES = [
+  { id: 'brainstorm', label: '💡 Brainstorm' },
+  { id: 'todo', label: '✅ To-do Board' },
+  { id: 'mindmap', label: '🧠 Mind Map' },
+]
 
 import ColorPicker from './ColorPicker'
 
