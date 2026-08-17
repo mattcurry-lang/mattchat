@@ -6,10 +6,11 @@ const STROKE_UPDATE_THROTTLE_MS = 40
 const MIN_ZOOM = 0.4
 const MAX_ZOOM = 6
 const PAN_MARGIN_PX = 80
+
+const STICKY_COLORS = { yellow: '#fde68a', blue: '#bfdbfe', green: '#bbf7d0', purple: '#ddd6fe', pink: '#fbcfe8', orange: '#fed7aa' }
 const MINDNODE_COLORS = { yellow: '#fde68a', blue: '#bfdbfe', green: '#bbf7d0', purple: '#ddd6fe', pink: '#fbcfe8' }
 const MINDNODE_W = 140
 const MINDNODE_H = 60
-const STICKY_COLORS = { yellow: '#fde68a', blue: '#bfdbfe', green: '#bbf7d0', purple: '#ddd6fe', pink: '#fbcfe8', orange: '#fed7aa' }
 const MIN_OBJECT_W = 60
 const MIN_OBJECT_H = 50
 const DEFAULT_STICKY_W = 180
@@ -28,10 +29,10 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     onLocalUndo, onLocalRedo, onLocalClear, onLocalCursorMove,
     onLocalObjectCreate, onLocalObjectMoving, onLocalObjectUpdate, onLocalObjectDelete,
     onCanUndoChange, onCanRedoChange,
-    // Phase 3
     pointing, onLocalPointerMove, onLocalPointerOff,
     armedReaction, onReactionPlaced, onLocalReaction,
     comments, onAddComment, onResolveComment, onDeleteComment,
+    secretModeActive, // Phase 5 — while true, remote strokes are buffered, not rendered
     backgroundColor = '#ffffff',
   },
   ref
@@ -42,8 +43,7 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
   const baseCtxRef = useRef(null)
   const liveCtxRef = useRef(null)
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
-const connectionsSvgRef = useRef(null)
-const lineRefs = useRef(new Map()) // childObjectId -> <line> DOM node
+
   const scaleRef = useRef(1)
   const offsetXRef = useRef(0)
   const offsetYRef = useRef(0)
@@ -80,9 +80,11 @@ const lineRefs = useRef(new Map()) // childObjectId -> <line> DOM node
   const stableDragMove = useRef((e) => dragMoveImplRef.current?.(e)).current
   const stableDragEnd = useRef((e) => dragEndImplRef.current?.(e)).current
 
+  const lineRefs = useRef(new Map()) // Phase 4b — mind map connection lines
+
   const [remoteCursors, setRemoteCursors] = useState({})
-  const [remotePointers, setRemotePointers] = useState({}) // Phase 3
-  const [reactions, setReactions] = useState([])            // Phase 3
+  const [remotePointers, setRemotePointers] = useState({})
+  const [reactions, setReactions] = useState([])
   const [panCursor, setPanCursor] = useState(null)
   const redoStackRef = useRef([])
   const drawingRef = useRef(false)
@@ -94,6 +96,12 @@ const lineRefs = useRef(new Map()) // childObjectId -> <line> DOM node
   const [textEditor, setTextEditor] = useState(null)
   const pointingRef = useRef(pointing)
   pointingRef.current = pointing
+
+  // Phase 5 — buffered remote strokes while a secret round is active.
+  // Flushed into `strokes` (and thus rendered) only by revealSecretStrokes().
+  const secretBufferRef = useRef([])
+  const secretModeRef = useRef(secretModeActive)
+  secretModeRef.current = secretModeActive
 
   const applyTransform = (ctx, scale, offsetX, offsetY) => {
     ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * offsetX, dpr * offsetY)
@@ -138,21 +146,24 @@ const lineRefs = useRef(new Map()) // childObjectId -> <line> DOM node
     }
     return fn
   }
+
+  // Phase 4b — repositions mind-map connector lines to track their
+  // parent/child nodes' current on-screen position.
   const positionConnections = () => {
-  const scale = scaleRef.current || 1
-  objectsRef.current.forEach(o => {
-    if (o.type !== 'mindnode' || !o.data?.parentId || o.deleted) return
-    const line = lineRefs.current.get(o.id)
-    const parent = objectsRef.current.find(p => p.id === o.data.parentId)
-    if (!line || !parent) return
-    const cx1 = (parent.x + parent.width / 2) * scale + offsetXRef.current
-    const cy1 = (parent.y + parent.height / 2) * scale + offsetYRef.current
-    const cx2 = (o.x + o.width / 2) * scale + offsetXRef.current
-    const cy2 = (o.y + o.height / 2) * scale + offsetYRef.current
-    line.setAttribute('x1', cx1); line.setAttribute('y1', cy1)
-    line.setAttribute('x2', cx2); line.setAttribute('y2', cy2)
-  })
-}
+    const scale = scaleRef.current || 1
+    objectsRef.current.forEach(o => {
+      if (o.type !== 'mindnode' || !o.data?.parentId || o.deleted) return
+      const line = lineRefs.current.get(o.id)
+      const parent = objectsRef.current.find(p => p.id === o.data.parentId)
+      if (!line || !parent) return
+      const cx1 = (parent.x + parent.width / 2) * scale + offsetXRef.current
+      const cy1 = (parent.y + parent.height / 2) * scale + offsetYRef.current
+      const cx2 = (o.x + o.width / 2) * scale + offsetXRef.current
+      const cy2 = (o.y + o.height / 2) * scale + offsetYRef.current
+      line.setAttribute('x1', cx1); line.setAttribute('y1', cy1)
+      line.setAttribute('x2', cx2); line.setAttribute('y2', cy2)
+    })
+  }
 
   const recomputeTransform = useCallback(() => {
     const scale = fitScaleRef.current * zoomRef.current
@@ -259,10 +270,8 @@ const lineRefs = useRef(new Map()) // childObjectId -> <line> DOM node
     })
   }, [participantUserIds])
 
-  // Phase 3: leaving Point mode clears our own pointer for everyone else.
   useEffect(() => { if (!pointing) onLocalPointerOff?.() }, [pointing, onLocalPointerOff])
 
-  // Phase 3: each reaction removes itself after its animation window.
   useEffect(() => {
     if (reactions.length === 0) return
     const now = Date.now()
@@ -286,7 +295,6 @@ const lineRefs = useRef(new Map()) // childObjectId -> <line> DOM node
   const newLocalId = () => `${userId}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
   const handlePointerDown = (e) => {
-    // Phase 3: an armed reaction consumes this tap instead of drawing/pointing.
     if (armedReaction) {
       e.preventDefault()
       const p = getPoint(e)
@@ -296,7 +304,7 @@ const lineRefs = useRef(new Map()) // childObjectId -> <line> DOM node
       onReactionPlaced?.()
       return
     }
-    if (pointingRef.current) return // Point mode: no drawing, move handled below
+    if (pointingRef.current) return
     if (tool === 'text') {
       const p = getPoint(e)
       setTextEditor({ x: p.x, y: p.y })
@@ -315,11 +323,7 @@ const lineRefs = useRef(new Map()) // childObjectId -> <line> DOM node
 
   const handlePointerMove = (e) => {
     const p = getPoint(e)
-    if (pointingRef.current) {
-      e.preventDefault()
-      onLocalPointerMove?.(p.x, p.y)
-      return
-    }
+    if (pointingRef.current) { e.preventDefault(); onLocalPointerMove?.(p.x, p.y); return }
     onLocalCursorMove?.(p.x, p.y)
     if (!drawingRef.current) return
     e.preventDefault()
@@ -433,6 +437,7 @@ const lineRefs = useRef(new Map()) // childObjectId -> <line> DOM node
     }
     Object.assign(obj, patch)
     positionObjectEl(drag.id)
+    positionConnections()
     const now = Date.now()
     if (now - lastObjectMoveSentRef.current > STROKE_UPDATE_THROTTLE_MS) {
       lastObjectMoveSentRef.current = now
@@ -471,6 +476,19 @@ const lineRefs = useRef(new Map()) // childObjectId -> <line> DOM node
   const updateObjectData = (id, data) => { setObjects(prev => prev.map(o => (o.id === id ? { ...o, data } : o))); onLocalObjectUpdate?.(id, { data }) }
   const deleteObject = (id) => { setObjects(prev => prev.map(o => (o.id === id ? { ...o, deleted: true } : o))); onLocalObjectDelete?.(id) }
 
+  const addMindMapChild = (parentId) => {
+    const parent = objectsRef.current.find(o => o.id === parentId)
+    if (!parent) return
+    const angle = Math.random() * Math.PI * 2
+    const dist = 160
+    const x = clamp(parent.x + Math.cos(angle) * dist, 0, CANVAS_LOGICAL_WIDTH - MINDNODE_W)
+    const y = clamp(parent.y + Math.sin(angle) * dist, 0, CANVAS_LOGICAL_HEIGHT - MINDNODE_H)
+    const colors = Object.keys(MINDNODE_COLORS)
+    const obj = { id: newLocalId(), userId, type: 'mindnode', data: { text: '', color: colors[Math.floor(Math.random() * colors.length)], parentId }, x, y, width: MINDNODE_W, height: MINDNODE_H, rotation: 0, zIndex: objectsRef.current.length, deleted: false }
+    setObjects(prev => [...prev, obj])
+    onLocalObjectCreate?.(obj)
+  }
+
   const submitText = (value) => {
     if (value.trim() && textEditor) {
       const stroke = { id: newLocalId(), tool: 'text', color, size, opacity, userId, points: [{ x: textEditor.x, y: textEditor.y }], textContent: value, deleted: false }
@@ -498,12 +516,8 @@ const lineRefs = useRef(new Map()) // childObjectId -> <line> DOM node
   }, [])
 
   useEffect(() => {
-    const onKeyDown = (e) => {
-      if (e.code === 'Space' && !e.repeat) { spacePressedRef.current = true; if (!isPanningRef.current) setPanCursor('grab') }
-    }
-    const onKeyUp = (e) => {
-      if (e.code === 'Space') { spacePressedRef.current = false; if (!isPanningRef.current) setPanCursor(null) }
-    }
+    const onKeyDown = (e) => { if (e.code === 'Space' && !e.repeat) { spacePressedRef.current = true; if (!isPanningRef.current) setPanCursor('grab') } }
+    const onKeyUp = (e) => { if (e.code === 'Space') { spacePressedRef.current = false; if (!isPanningRef.current) setPanCursor(null) } }
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
     return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp) }
@@ -545,8 +559,17 @@ const lineRefs = useRef(new Map()) // childObjectId -> <line> DOM node
     getStrokes: () => strokes,
     resetView: () => resetView(),
     applyInitialStrokes: (loaded) => setStrokes(loaded || []),
-    applyRemoteStrokeStart: (payload) => { remoteLiveStrokesRef.current.set(payload.id, { ...payload }); redrawLiveLayer() },
+
+    // Remote strokes are gated by secretModeRef — while a secret round
+    // is active, don't render them at all (not even the live preview);
+    // stroke_end payloads are buffered instead of shown.
+    applyRemoteStrokeStart: (payload) => {
+      if (secretModeRef.current) return
+      remoteLiveStrokesRef.current.set(payload.id, { ...payload })
+      redrawLiveLayer()
+    },
     applyRemoteStrokeUpdate: ({ strokeId, newPoints }) => {
+      if (secretModeRef.current) return
       const existing = remoteLiveStrokesRef.current.get(strokeId)
       if (!existing) return
       remoteLiveStrokesRef.current.set(strokeId, { ...existing, points: newPoints })
@@ -555,6 +578,10 @@ const lineRefs = useRef(new Map()) // childObjectId -> <line> DOM node
     applyRemoteStrokeEnd: (payload) => {
       remoteLiveStrokesRef.current.delete(payload.id)
       redrawLiveLayer()
+      if (secretModeRef.current) {
+        secretBufferRef.current.push({ ...payload, deleted: false })
+        return
+      }
       setStrokes(prev => (prev.some(s => s.id === payload.id) ? prev : [...prev, { ...payload, deleted: false }]))
     },
     applyRemoteUndo: ({ strokeId }) => setStrokes(prev => prev.map(s => (s.id === strokeId ? { ...s, deleted: true } : s))),
@@ -563,56 +590,23 @@ const lineRefs = useRef(new Map()) // childObjectId -> <line> DOM node
     applyRemoteCursor: ({ userId: uid, x, y, color: c, username }) => setRemoteCursors(prev => ({ ...prev, [uid]: { x, y, color: c, username } })),
 
     createStickyNote: (opts = {}) => {
-  const container = containerRef.current
-  const { width, height } = container ? container.getBoundingClientRect() : { width: 400, height: 300 }
-  const scale = scaleRef.current || 1
-  const w = DEFAULT_STICKY_W, h = DEFAULT_STICKY_H
-
-  // opts.x/y are FRACTIONS of the logical canvas (0..1), so template
-  // layouts stay proportional regardless of canvas size — not raw
-  // pixel offsets, which would break on differently-sized screens.
-  let x, y
-  if (opts.x != null && opts.y != null) {
-    x = clamp(opts.x * CANVAS_LOGICAL_WIDTH - w / 2, 0, CANVAS_LOGICAL_WIDTH - w)
-    y = clamp(opts.y * CANVAS_LOGICAL_HEIGHT - h / 2, 0, CANVAS_LOGICAL_HEIGHT - h)
-  } else {
-    x = clamp((width / 2 - offsetXRef.current) / scale - w / 2, 0, CANVAS_LOGICAL_WIDTH - w)
-    y = clamp((height / 2 - offsetYRef.current) / scale - h / 2, 0, CANVAS_LOGICAL_HEIGHT - h)
-  }
-
-  const obj = {
-    id: newLocalId(), userId, type: 'sticky',
-    data: { text: opts.text || '', color: opts.color || 'yellow' },
-    x, y, width: w, height: h, rotation: 0, zIndex: objectsRef.current.length, deleted: false,
-  }
-  setObjects(prev => [...prev, obj])
-  onLocalObjectCreate?.(obj)
-  return obj.id
-},
-    // helper, near createStickyNote/createImageObject inside useImperativeHandle
-createMindMapRoot: (text = 'Central Idea') => {
-  const container = containerRef.current
-  const { width, height } = container ? container.getBoundingClientRect() : { width: 400, height: 300 }
-  const scale = scaleRef.current || 1
-  const x = clamp((width / 2 - offsetXRef.current) / scale - MINDNODE_W / 2, 0, CANVAS_LOGICAL_WIDTH - MINDNODE_W)
-  const y = clamp((height / 2 - offsetYRef.current) / scale - MINDNODE_H / 2, 0, CANVAS_LOGICAL_HEIGHT - MINDNODE_H)
-  const obj = { id: newLocalId(), userId, type: 'mindnode', data: { text, color: 'purple', parentId: null }, x, y, width: MINDNODE_W, height: MINDNODE_H, rotation: 0, zIndex: objectsRef.current.length, deleted: false }
-  setObjects(prev => [...prev, obj])
-  onLocalObjectCreate?.(obj)
-  return obj.id
-},
-addMindMapChild: (parentId) => {
-  const parent = objectsRef.current.find(o => o.id === parentId)
-  if (!parent) return
-  const angle = Math.random() * Math.PI * 2
-  const dist = 160
-  const x = clamp(parent.x + Math.cos(angle) * dist, 0, CANVAS_LOGICAL_WIDTH - MINDNODE_W)
-  const y = clamp(parent.y + Math.sin(angle) * dist, 0, CANVAS_LOGICAL_HEIGHT - MINDNODE_H)
-  const colors = Object.keys(MINDNODE_COLORS)
-  const obj = { id: newLocalId(), userId, type: 'mindnode', data: { text: '', color: colors[Math.floor(Math.random() * colors.length)], parentId }, x, y, width: MINDNODE_W, height: MINDNODE_H, rotation: 0, zIndex: objectsRef.current.length, deleted: false }
-  setObjects(prev => [...prev, obj])
-  onLocalObjectCreate?.(obj)
-},
+      const container = containerRef.current
+      const { width, height } = container ? container.getBoundingClientRect() : { width: 400, height: 300 }
+      const scale = scaleRef.current || 1
+      const w = DEFAULT_STICKY_W, h = DEFAULT_STICKY_H
+      let x, y
+      if (opts.x != null && opts.y != null) {
+        x = clamp(opts.x * CANVAS_LOGICAL_WIDTH - w / 2, 0, CANVAS_LOGICAL_WIDTH - w)
+        y = clamp(opts.y * CANVAS_LOGICAL_HEIGHT - h / 2, 0, CANVAS_LOGICAL_HEIGHT - h)
+      } else {
+        x = clamp((width / 2 - offsetXRef.current) / scale - w / 2, 0, CANVAS_LOGICAL_WIDTH - w)
+        y = clamp((height / 2 - offsetYRef.current) / scale - h / 2, 0, CANVAS_LOGICAL_HEIGHT - h)
+      }
+      const obj = { id: newLocalId(), userId, type: 'sticky', data: { text: opts.text || '', color: opts.color || 'yellow' }, x, y, width: w, height: h, rotation: 0, zIndex: objectsRef.current.length, deleted: false }
+      setObjects(prev => [...prev, obj])
+      onLocalObjectCreate?.(obj)
+      return obj.id
+    },
     createImageObject: ({ url, naturalWidth, naturalHeight }) => {
       const container = containerRef.current
       const { width, height } = container ? container.getBoundingClientRect() : { width: 400, height: 300 }
@@ -623,8 +617,21 @@ addMindMapChild: (parentId) => {
       const x = clamp((width / 2 - offsetXRef.current) / scale - w / 2, 0, CANVAS_LOGICAL_WIDTH - w)
       const y = clamp((height / 2 - offsetYRef.current) / scale - h / 2, 0, CANVAS_LOGICAL_HEIGHT - h)
       const obj = { id: newLocalId(), userId, type: 'image', data: { url }, x, y, width: w, height: h, rotation: 0, zIndex: objectsRef.current.length, deleted: false }
-      setObjects(prev => [...prev, obj]); onLocalObjectCreate?.(obj)
+      setObjects(prev => [...prev, obj])
+      onLocalObjectCreate?.(obj)
     },
+    createMindMapRoot: (text = 'Central Idea') => {
+      const container = containerRef.current
+      const { width, height } = container ? container.getBoundingClientRect() : { width: 400, height: 300 }
+      const scale = scaleRef.current || 1
+      const x = clamp((width / 2 - offsetXRef.current) / scale - MINDNODE_W / 2, 0, CANVAS_LOGICAL_WIDTH - MINDNODE_W)
+      const y = clamp((height / 2 - offsetYRef.current) / scale - MINDNODE_H / 2, 0, CANVAS_LOGICAL_HEIGHT - MINDNODE_H)
+      const obj = { id: newLocalId(), userId, type: 'mindnode', data: { text, color: 'purple', parentId: null }, x, y, width: MINDNODE_W, height: MINDNODE_H, rotation: 0, zIndex: objectsRef.current.length, deleted: false }
+      setObjects(prev => [...prev, obj])
+      onLocalObjectCreate?.(obj)
+      return obj.id
+    },
+    addMindMapChild: (parentId) => addMindMapChild(parentId),
     applyInitialObjects: (loaded) => setObjects(loaded || []),
     applyRemoteObjectCreated: (payload) => setObjects(prev => (prev.some(o => o.id === payload.id) ? prev : [...prev, payload])),
     applyRemoteObjectMoving: ({ objectId, patch }) => {
@@ -632,11 +639,11 @@ addMindMapChild: (parentId) => {
       if (!obj) return
       Object.assign(obj, patch)
       positionObjectEl(objectId)
+      positionConnections()
     },
     applyRemoteObjectUpdated: ({ objectId, patch }) => setObjects(prev => prev.map(o => (o.id === objectId ? { ...o, ...patch } : o))),
     applyRemoteObjectDeleted: ({ objectId }) => setObjects(prev => prev.map(o => (o.id === objectId ? { ...o, deleted: true } : o))),
 
-    // Phase 3
     applyRemoteReaction: (payload) => {
       setReactions(prev => [...prev, { id: `${payload.userId}-${Date.now()}`, emoji: payload.emoji, x: payload.x, y: payload.y, userId: payload.userId, expiresAt: Date.now() + REACTION_LIFETIME_MS }])
     },
@@ -646,65 +653,56 @@ addMindMapChild: (parentId) => {
     applyRemotePointerOff: ({ userId: uid }) => {
       setRemotePointers(prev => { const next = { ...prev }; delete next[uid]; return next })
     },
+
+    // Phase 5 — flushes any remote strokes buffered during a secret
+    // round into normal rendered state, all at once, both sides.
+    revealSecretStrokes: () => {
+      const buffered = secretBufferRef.current
+      secretBufferRef.current = []
+      if (buffered.length === 0) return
+      setStrokes(prev => {
+        const existingIds = new Set(prev.map(s => s.id))
+        return [...prev, ...buffered.filter(s => !existingIds.has(s.id))]
+      })
+    },
+    clearSecretBuffer: () => { secretBufferRef.current = [] },
   }), [strokes, objects, userId, onLocalUndo, onLocalRedo, onLocalClear, onLocalObjectCreate, redrawLiveLayer, backgroundColor])
 
   const cursorScreenPos = (c) => ({ left: c.x * scaleRef.current + offsetXRef.current, top: c.y * scaleRef.current + offsetYRef.current })
 
   return (
-    <div
-      ref={containerRef}
-      style={{ position: 'relative', width: '100%', height: '100%', background: backgroundColor, borderRadius: 16, overflow: 'hidden', touchAction: 'none' }}
-    >
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%', background: backgroundColor, borderRadius: 16, overflow: 'hidden', touchAction: 'none' }}>
       <canvas ref={baseCanvasRef} style={{ position: 'absolute', inset: 0, display: 'block', width: '100%', height: '100%', pointerEvents: 'none' }} />
       <canvas
         ref={liveCanvasRef}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeaveCanvas}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseLeaveCanvas}
+        onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
         style={{
           position: 'absolute', inset: 0, display: 'block', width: '100%', height: '100%',
           cursor: panCursor || (armedReaction ? 'copy' : pointing ? 'crosshair' : tool === 'eraser' ? 'cell' : tool === 'text' ? 'text' : 'crosshair'),
         }}
       />
-<svg ref={connectionsSvgRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 11 }}>
-  {objects.filter(o => o.type === 'mindnode' && o.data?.parentId && !o.deleted).map(o => (
-    <line
-      key={`conn-${o.id}`}
-      ref={(el) => { if (el) lineRefs.current.set(o.id, el); else lineRefs.current.delete(o.id) }}
-      stroke="rgba(167,139,250,0.5)"
-      strokeWidth="2"
-    />
-  ))}
-</svg>
+
+      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 11 }}>
+        {objects.filter(o => o.type === 'mindnode' && o.data?.parentId && !o.deleted).map(o => (
+          <line key={`conn-${o.id}`} ref={(el) => { if (el) lineRefs.current.set(o.id, el); else lineRefs.current.delete(o.id) }} stroke="rgba(167,139,250,0.5)" strokeWidth="2" />
+        ))}
+      </svg>
+
       {objects.filter(o => !o.deleted).map(o => (
         <div key={o.id} ref={getObjectRefCallback(o.id)} onMouseDown={startObjectDrag(o.id, 'move')} onTouchStart={startObjectDrag(o.id, 'move')} style={{ position: 'absolute', zIndex: 12 + (o.zIndex || 0), cursor: 'grab' }}>
           {o.type === 'sticky' ? (
-  <StickyNoteContent obj={o} onTextChange={(text) => updateObjectData(o.id, { ...o.data, text })} onColorChange={(colorKey) => updateObjectData(o.id, { ...o.data, color: colorKey })} onDelete={() => deleteObject(o.id)} />
-) : o.type === 'mindnode' ? (
-  <MindNodeContent
-    obj={o}
-    onTextChange={(text) => updateObjectData(o.id, { ...o.data, text })}
-    onColorChange={(colorKey) => updateObjectData(o.id, { ...o.data, color: colorKey })}
-    onDelete={() => deleteObject(o.id)}
-    onAddChild={() => addMindMapChild(o.id)}
-  />
-) : (
-  <ImageObjectContent obj={o} onDelete={() => deleteObject(o.id)} />
-)}
+            <StickyNoteContent obj={o} onTextChange={(text) => updateObjectData(o.id, { ...o.data, text })} onColorChange={(colorKey) => updateObjectData(o.id, { ...o.data, color: colorKey })} onDelete={() => deleteObject(o.id)} />
+          ) : o.type === 'mindnode' ? (
+            <MindNodeContent obj={o} onTextChange={(text) => updateObjectData(o.id, { ...o.data, text })} onColorChange={(colorKey) => updateObjectData(o.id, { ...o.data, color: colorKey })} onDelete={() => deleteObject(o.id)} onAddChild={() => addMindMapChild(o.id)} />
+          ) : (
+            <ImageObjectContent obj={o} onDelete={() => deleteObject(o.id)} />
+          )}
           <div onMouseDown={startObjectDrag(o.id, 'resize')} onTouchStart={startObjectDrag(o.id, 'resize')} title="Resize"
             style={{ position: 'absolute', right: -5, bottom: -5, width: 16, height: 16, borderRadius: '50%', background: '#a78bfa', border: '2px solid #fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', cursor: 'nwse-resize' }} />
-          {/* Phase 3: comment badge + popover, tracks the object's own transform for free */}
-          <CommentBadge
-            objectId={o.id}
-            comments={comments?.[o.id] || []}
-            onAdd={(text) => onAddComment?.(o.id, text)}
-            onResolve={(commentId) => onResolveComment?.(o.id, commentId)}
-            onDelete={(commentId) => onDeleteComment?.(o.id, commentId)}
-          />
+          {o.type !== 'mindnode' && (
+            <CommentBadge objectId={o.id} comments={comments?.[o.id] || []} onAdd={(text) => onAddComment?.(o.id, text)} onResolve={(commentId) => onResolveComment?.(o.id, commentId)} onDelete={(commentId) => onDeleteComment?.(o.id, commentId)} />
+          )}
         </div>
       ))}
 
@@ -718,27 +716,19 @@ addMindMapChild: (parentId) => {
         )
       })}
 
-      {/* Phase 3: live pointers — "Name →" following remote cursor */}
       {Object.entries(remotePointers).map(([uid, p]) => {
         const pos = cursorScreenPos(p)
         return (
           <div key={uid} style={{ position: 'absolute', left: pos.left, top: pos.top, pointerEvents: 'none', zIndex: 16, display: 'flex', alignItems: 'center', gap: 4 }}>
             <span style={{ fontSize: 18, color: p.color, transform: 'translateY(-2px)' }}>👉</span>
-            <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: p.color, borderRadius: 6, padding: '2px 7px', whiteSpace: 'nowrap' }}>
-              {p.username || 'Someone'} →
-            </span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: p.color, borderRadius: 6, padding: '2px 7px', whiteSpace: 'nowrap' }}>{p.username || 'Someone'} →</span>
           </div>
         )
       })}
 
-      {/* Phase 3: floating reactions */}
       {reactions.map(r => {
         const pos = cursorScreenPos(r)
-        return (
-          <div key={r.id} className="mc-reaction-float" style={{ position: 'absolute', left: pos.left, top: pos.top, fontSize: 28, pointerEvents: 'none', zIndex: 17, transform: 'translate(-50%,-50%)' }}>
-            {r.emoji}
-          </div>
-        )
+        return <div key={r.id} className="mc-reaction-float" style={{ position: 'absolute', left: pos.left, top: pos.top, fontSize: 28, pointerEvents: 'none', zIndex: 17, transform: 'translate(-50%,-50%)' }}>{r.emoji}</div>
       })}
       <style>{`
         @keyframes mcReactionFloat { 0% { opacity: 0; transform: translate(-50%,-40%) scale(0.6); } 15% { opacity: 1; transform: translate(-50%,-60%) scale(1); } 100% { opacity: 0; transform: translate(-50%,-140%) scale(1.1); } }
@@ -749,19 +739,19 @@ addMindMapChild: (parentId) => {
         const pos = { left: textEditor.x * scaleRef.current + offsetXRef.current, top: textEditor.y * scaleRef.current + offsetYRef.current }
         return (
           <input
-            ref={textInputRef}
-            autoFocus
+            ref={textInputRef} autoFocus
             onBlur={(e) => submitText(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setTextEditor(null) }}
-            style={{
-              position: 'absolute', left: pos.left, top: pos.top,
-              font: `${Math.max(14, size * 4) * scaleRef.current}px system-ui, -apple-system, sans-serif`,
-              color, background: 'rgba(255,255,255,0.9)', border: `1px dashed ${color}`,
-              borderRadius: 4, padding: '2px 6px', outline: 'none', minWidth: 60, zIndex: 11,
-            }}
+            style={{ position: 'absolute', left: pos.left, top: pos.top, font: `${Math.max(14, size * 4) * scaleRef.current}px system-ui, -apple-system, sans-serif`, color, background: 'rgba(255,255,255,0.9)', border: `1px dashed ${color}`, borderRadius: 4, padding: '2px 6px', outline: 'none', minWidth: 60, zIndex: 11 }}
           />
         )
       })()}
+
+      {secretModeActive && (
+        <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 15, background: 'rgba(167,139,250,0.2)', border: '1px solid rgba(167,139,250,0.4)', borderRadius: 20, padding: '5px 12px', fontSize: 11, fontWeight: 800, color: '#c4b5fd' }}>
+          🤫 Secret mode — their strokes are hidden until reveal
+        </div>
+      )}
 
       <div style={{ position: 'absolute', left: 12, bottom: 12, zIndex: 15, display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(15,15,26,0.85)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, padding: '4px 10px' }}>
         <span ref={zoomLabelRef} style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.75)', minWidth: 32, textAlign: 'center' }}>100%</span>
@@ -788,6 +778,7 @@ function StickyNoteContent({ obj, onTextChange, onColorChange, onDelete }) {
     </div>
   )
 }
+
 function MindNodeContent({ obj, onTextChange, onColorChange, onDelete, onAddChild }) {
   const bg = MINDNODE_COLORS[obj.data?.color] || MINDNODE_COLORS.purple
   return (
@@ -800,24 +791,14 @@ function MindNodeContent({ obj, onTextChange, onColorChange, onDelete, onAddChil
         <button onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onDelete() }}
           style={{ width: 12, height: 12, borderRadius: '50%', background: 'rgba(0,0,0,0.15)', border: 'none', color: 'rgba(0,0,0,0.6)', fontSize: 9, lineHeight: '12px', cursor: 'pointer', padding: 0 }}>×</button>
       </div>
-      <textarea
-        defaultValue={obj.data?.text || ''}
-        onMouseDown={(e) => e.stopPropagation()}
-        onTouchStart={(e) => e.stopPropagation()}
-        onBlur={(e) => onTextChange(e.target.value)}
-        placeholder="Idea…"
-        style={{ flex: 1, resize: 'none', border: 'none', outline: 'none', background: 'transparent', font: '700 12.5px system-ui, -apple-system, sans-serif', color: 'rgba(0,0,0,0.75)', textAlign: 'center' }}
-      />
-      <button
-        onMouseDown={(e) => e.stopPropagation()}
-        onTouchStart={(e) => e.stopPropagation()}
-        onClick={(e) => { e.stopPropagation(); onAddChild() }}
-        title="Add branch"
-        style={{ position: 'absolute', bottom: -10, right: -10, width: 22, height: 22, borderRadius: '50%', background: '#a78bfa', border: '2px solid #fff', color: '#fff', fontSize: 13, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.3)' }}
-      >+</button>
+      <textarea defaultValue={obj.data?.text || ''} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()} onBlur={(e) => onTextChange(e.target.value)} placeholder="Idea…"
+        style={{ flex: 1, resize: 'none', border: 'none', outline: 'none', background: 'transparent', font: '700 12.5px system-ui, -apple-system, sans-serif', color: 'rgba(0,0,0,0.75)', textAlign: 'center' }} />
+      <button onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onAddChild() }} title="Add branch"
+        style={{ position: 'absolute', bottom: -10, right: -10, width: 22, height: 22, borderRadius: '50%', background: '#a78bfa', border: '2px solid #fff', color: '#fff', fontSize: 13, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.3)' }}>+</button>
     </div>
   )
 }
+
 function ImageObjectContent({ obj, onDelete }) {
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', borderRadius: 6, overflow: 'hidden', boxShadow: '0 4px 14px rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)' }}>
@@ -828,35 +809,19 @@ function ImageObjectContent({ obj, onDelete }) {
   )
 }
 
-// Phase 3: comment badge + popover. Rendered as a child of the object's
-// wrapper div, which already tracks pan/zoom via positionObjectEl — so
-// this needs zero transform math of its own.
 function CommentBadge({ comments, onAdd, onResolve, onDelete }) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState('')
   const openCount = comments.filter(c => !c.resolved).length
-
   return (
     <div style={{ position: 'absolute', bottom: -10, left: -10, zIndex: 14 }}>
-      <button
-        onMouseDown={(e) => e.stopPropagation()}
-        onTouchStart={(e) => e.stopPropagation()}
-        onClick={(e) => { e.stopPropagation(); setOpen(v => !v) }}
-        title="Comments"
-        style={{
-          width: 22, height: 22, borderRadius: '50%', border: '2px solid #fff', cursor: 'pointer',
-          background: openCount > 0 ? '#a78bfa' : 'rgba(0,0,0,0.5)', color: '#fff', fontSize: 10, fontWeight: 800,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-        }}
-      >
+      <button onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setOpen(v => !v) }} title="Comments"
+        style={{ width: 22, height: 22, borderRadius: '50%', border: '2px solid #fff', cursor: 'pointer', background: openCount > 0 ? '#a78bfa' : 'rgba(0,0,0,0.5)', color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.3)' }}>
         {openCount > 0 ? openCount : '💬'}
       </button>
       {open && (
-        <div
-          onMouseDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-          style={{ position: 'absolute', bottom: 26, left: 0, width: 220, maxHeight: 260, background: '#1e1e2e', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 12, boxShadow: '0 8px 30px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-        >
+        <div onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}
+          style={{ position: 'absolute', bottom: 26, left: 0, width: 220, maxHeight: 260, background: '#1e1e2e', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 12, boxShadow: '0 8px 30px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ maxHeight: 160, overflowY: 'auto', padding: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
             {comments.length === 0 && <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.4)' }}>No comments yet.</div>}
             {comments.map(c => (
@@ -870,19 +835,10 @@ function CommentBadge({ comments, onAdd, onResolve, onDelete }) {
             ))}
           </div>
           <div style={{ display: 'flex', gap: 4, padding: 8, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-            <input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && draft.trim()) { onAdd(draft); setDraft('') } }}
-              placeholder="Add comment…"
-              style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 11.5, padding: '5px 8px', outline: 'none' }}
-            />
-            <button
-              onClick={() => { if (draft.trim()) { onAdd(draft); setDraft('') } }}
-              style={{ background: 'rgba(167,139,250,0.2)', border: '1px solid rgba(167,139,250,0.35)', borderRadius: 8, color: '#c4b5fd', fontSize: 11, fontWeight: 700, padding: '0 8px', cursor: 'pointer' }}
-            >
-              Send
-            </button>
+            <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && draft.trim()) { onAdd(draft); setDraft('') } }} placeholder="Add comment…"
+              style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 11.5, padding: '5px 8px', outline: 'none' }} />
+            <button onClick={() => { if (draft.trim()) { onAdd(draft); setDraft('') } }}
+              style={{ background: 'rgba(167,139,250,0.2)', border: '1px solid rgba(167,139,250,0.35)', borderRadius: 8, color: '#c4b5fd', fontSize: 11, fontWeight: 700, padding: '0 8px', cursor: 'pointer' }}>Send</button>
           </div>
         </div>
       )}
