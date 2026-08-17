@@ -4,6 +4,7 @@ import DrawingToolbar from './DrawingToolbar'
 import { useDrawingSession } from '../../hooks/useDrawingSession'
 import { useDrawingVoice } from '../../hooks/useDrawingVoice'
 import { IconMic } from '../Icons'
+import ReplayModal from './ReplayModal'
 
 export default function DrawingModal({ session, conversationId, userId, profile, sendMessage, onInvite, inviteeName, onClose }) {
   const [tool, setTool] = useState('pen')
@@ -24,6 +25,8 @@ const [gameGuesses, setGameGuesses] = useState([])
   const [comments, setComments] = useState({}) // objectId -> [comment]
   const [drawingUserIds, setDrawingUserIds] = useState(() => new Set())
   const drawingTimersRef = useRef(new Map())
+  const [showReplay, setShowReplay] = useState(false)
+const [replaySnapshot, setReplaySnapshot] = useState([])
   
 const [activeTimer, setActiveTimer] = useState(null)   // { id, durationSeconds, label, startsAt, startedBy }
 const [timeLeft, setTimeLeft] = useState(0)
@@ -225,7 +228,15 @@ const handleSendGuess = useCallback((text) => {
   sendGuess(activeGame.id, text.trim())
   setGameGuesses(prev => [...prev, { userId, username: profile?.username || 'You', text: text.trim() }])
 }, [activeGame, sendGuess, userId, profile?.username])
-
+const handleOpenReplay = useCallback(() => {
+  const strokes = canvasApiRef.current?.getStrokes() || []
+  if (!strokes.filter(s => !s.deleted).length) {
+    alert('Nothing to replay yet — draw something first!')
+    return
+  }
+  setReplaySnapshot(strokes)
+  setShowReplay(true)
+}, [])
 const handleEndGame = useCallback(() => {
   if (!activeGame) return
   endGame(activeGame.id)
@@ -398,6 +409,9 @@ const handleApplyTemplate = useCallback((templateId) => {
     <button onClick={handleEndGame} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}>close</button>
   </div>
 )}
+        {showReplay && (
+  <ReplayModal strokes={replaySnapshot} participants={participants} onClose={() => setShowReplay(false)} />
+)}
 {activePoll && (
   <div style={{ margin: '8px 16px 0', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: 12, padding: 10 }}>
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -455,6 +469,7 @@ const handleApplyTemplate = useCallback((templateId) => {
   onStartVote={handleStartVote}
           onAddMindMap={handleAddMindMap}
   onApplyTemplate={handleApplyTemplate}
+          onReplay={handleOpenReplay}
           onOpenGamePicker={() => setShowGamePicker(v => !v)}
           isFullscreen={isFullscreen} onToggleFullscreen={toggleFullscreen} onClose={onClose}
         />
