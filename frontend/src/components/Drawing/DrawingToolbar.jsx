@@ -23,6 +23,7 @@ const DRAW_TOOLS = [
   { id: 'marker', label: 'Marker', Icon: IconMarker },
   { id: 'highlighter', label: 'Highlighter', Icon: IconHighlighter },
   { id: 'eraser', label: 'Eraser', Icon: IconEraser },
+  { id: 'select', label: 'Select', Icon: IconCheckSquare },
 ]
 const SHAPE_TOOLS = [
   { id: 'line', label: 'Line' }, { id: 'arrow', label: 'Arrow' }, { id: 'rect', label: 'Rectangle' },
@@ -93,7 +94,9 @@ export default function DrawingToolbar({
           </div>
         )}
       </div>
-
+<ToolButton active={tool === 'select'} onClick={() => onToolChange('select')} title="Select & edit shapes/text">
+  <IconCheckSquare size={17} />
+</ToolButton>
       <ToolButton active={tool === 'text'} onClick={() => onToolChange('text')} title="Text"><IconType size={17} /></ToolButton>
       {onAddSticky && <ToolButton active={false} onClick={onAddSticky} title="Add sticky note"><IconStickyNote size={17} /></ToolButton>}
       {onAddImage && <ToolButton active={false} onClick={onAddImage} title="Add image"><IconImagePlus size={17} /></ToolButton>}
