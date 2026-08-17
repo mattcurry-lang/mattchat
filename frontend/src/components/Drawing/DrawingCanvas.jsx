@@ -6,7 +6,9 @@ const STROKE_UPDATE_THROTTLE_MS = 40
 const MIN_ZOOM = 0.4
 const MAX_ZOOM = 6
 const PAN_MARGIN_PX = 80
-
+const MINDNODE_COLORS = { yellow: '#fde68a', blue: '#bfdbfe', green: '#bbf7d0', purple: '#ddd6fe', pink: '#fbcfe8' }
+const MINDNODE_W = 140
+const MINDNODE_H = 60
 const STICKY_COLORS = { yellow: '#fde68a', blue: '#bfdbfe', green: '#bbf7d0', purple: '#ddd6fe', pink: '#fbcfe8', orange: '#fed7aa' }
 const MIN_OBJECT_W = 60
 const MIN_OBJECT_H = 50
@@ -40,7 +42,8 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
   const baseCtxRef = useRef(null)
   const liveCtxRef = useRef(null)
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
-
+const connectionsSvgRef = useRef(null)
+const lineRefs = useRef(new Map()) // childObjectId -> <line> DOM node
   const scaleRef = useRef(1)
   const offsetXRef = useRef(0)
   const offsetYRef = useRef(0)
@@ -135,6 +138,21 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     }
     return fn
   }
+  const positionConnections = () => {
+  const scale = scaleRef.current || 1
+  objectsRef.current.forEach(o => {
+    if (o.type !== 'mindnode' || !o.data?.parentId || o.deleted) return
+    const line = lineRefs.current.get(o.id)
+    const parent = objectsRef.current.find(p => p.id === o.data.parentId)
+    if (!line || !parent) return
+    const cx1 = (parent.x + parent.width / 2) * scale + offsetXRef.current
+    const cy1 = (parent.y + parent.height / 2) * scale + offsetYRef.current
+    const cx2 = (o.x + o.width / 2) * scale + offsetXRef.current
+    const cy2 = (o.y + o.height / 2) * scale + offsetYRef.current
+    line.setAttribute('x1', cx1); line.setAttribute('y1', cy1)
+    line.setAttribute('x2', cx2); line.setAttribute('y2', cy2)
+  })
+}
 
   const recomputeTransform = useCallback(() => {
     const scale = fitScaleRef.current * zoomRef.current
@@ -149,6 +167,7 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     if (base && baseCtxRef.current) replayStrokes(baseCtxRef.current, base, strokesRef.current)
     redrawLiveLayer()
     positionAllObjects()
+    positionConnections()
     if (zoomLabelRef.current) zoomLabelRef.current.textContent = `${Math.round(zoomRef.current * 100)}%`
   }, [redrawLiveLayer, dpr])
 
@@ -220,7 +239,7 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     replayStrokes(ctx, canvas, strokes)
   }, [strokes])
 
-  useEffect(() => { positionAllObjects() }, [objects])
+  useEffect(() => { positionAllObjects(); positionConnections() }, [objects])
   useEffect(() => { onCanUndoChange?.(strokes.some(s => s.userId === userId && !s.deleted)) }, [strokes, onCanUndoChange, userId])
   useEffect(() => { onCanRedoChange?.(redoStackRef.current.length > 0) }, [strokes, onCanRedoChange])
 
@@ -553,6 +572,30 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
       const obj = { id: newLocalId(), userId, type: 'sticky', data: { text: '', color: 'yellow' }, x, y, width: w, height: h, rotation: 0, zIndex: objectsRef.current.length, deleted: false }
       setObjects(prev => [...prev, obj]); onLocalObjectCreate?.(obj)
     },
+    // helper, near createStickyNote/createImageObject inside useImperativeHandle
+createMindMapRoot: (text = 'Central Idea') => {
+  const container = containerRef.current
+  const { width, height } = container ? container.getBoundingClientRect() : { width: 400, height: 300 }
+  const scale = scaleRef.current || 1
+  const x = clamp((width / 2 - offsetXRef.current) / scale - MINDNODE_W / 2, 0, CANVAS_LOGICAL_WIDTH - MINDNODE_W)
+  const y = clamp((height / 2 - offsetYRef.current) / scale - MINDNODE_H / 2, 0, CANVAS_LOGICAL_HEIGHT - MINDNODE_H)
+  const obj = { id: newLocalId(), userId, type: 'mindnode', data: { text, color: 'purple', parentId: null }, x, y, width: MINDNODE_W, height: MINDNODE_H, rotation: 0, zIndex: objectsRef.current.length, deleted: false }
+  setObjects(prev => [...prev, obj])
+  onLocalObjectCreate?.(obj)
+  return obj.id
+},
+addMindMapChild: (parentId) => {
+  const parent = objectsRef.current.find(o => o.id === parentId)
+  if (!parent) return
+  const angle = Math.random() * Math.PI * 2
+  const dist = 160
+  const x = clamp(parent.x + Math.cos(angle) * dist, 0, CANVAS_LOGICAL_WIDTH - MINDNODE_W)
+  const y = clamp(parent.y + Math.sin(angle) * dist, 0, CANVAS_LOGICAL_HEIGHT - MINDNODE_H)
+  const colors = Object.keys(MINDNODE_COLORS)
+  const obj = { id: newLocalId(), userId, type: 'mindnode', data: { text: '', color: colors[Math.floor(Math.random() * colors.length)], parentId }, x, y, width: MINDNODE_W, height: MINDNODE_H, rotation: 0, zIndex: objectsRef.current.length, deleted: false }
+  setObjects(prev => [...prev, obj])
+  onLocalObjectCreate?.(obj)
+},
     createImageObject: ({ url, naturalWidth, naturalHeight }) => {
       const container = containerRef.current
       const { width, height } = container ? container.getBoundingClientRect() : { width: 400, height: 300 }
@@ -610,14 +653,31 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
           cursor: panCursor || (armedReaction ? 'copy' : pointing ? 'crosshair' : tool === 'eraser' ? 'cell' : tool === 'text' ? 'text' : 'crosshair'),
         }}
       />
-
+<svg ref={connectionsSvgRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 11 }}>
+  {objects.filter(o => o.type === 'mindnode' && o.data?.parentId && !o.deleted).map(o => (
+    <line
+      key={`conn-${o.id}`}
+      ref={(el) => { if (el) lineRefs.current.set(o.id, el); else lineRefs.current.delete(o.id) }}
+      stroke="rgba(167,139,250,0.5)"
+      strokeWidth="2"
+    />
+  ))}
+</svg>
       {objects.filter(o => !o.deleted).map(o => (
         <div key={o.id} ref={getObjectRefCallback(o.id)} onMouseDown={startObjectDrag(o.id, 'move')} onTouchStart={startObjectDrag(o.id, 'move')} style={{ position: 'absolute', zIndex: 12 + (o.zIndex || 0), cursor: 'grab' }}>
           {o.type === 'sticky' ? (
-            <StickyNoteContent obj={o} onTextChange={(text) => updateObjectData(o.id, { ...o.data, text })} onColorChange={(colorKey) => updateObjectData(o.id, { ...o.data, color: colorKey })} onDelete={() => deleteObject(o.id)} />
-          ) : (
-            <ImageObjectContent obj={o} onDelete={() => deleteObject(o.id)} />
-          )}
+  <StickyNoteContent obj={o} onTextChange={(text) => updateObjectData(o.id, { ...o.data, text })} onColorChange={(colorKey) => updateObjectData(o.id, { ...o.data, color: colorKey })} onDelete={() => deleteObject(o.id)} />
+) : o.type === 'mindnode' ? (
+  <MindNodeContent
+    obj={o}
+    onTextChange={(text) => updateObjectData(o.id, { ...o.data, text })}
+    onColorChange={(colorKey) => updateObjectData(o.id, { ...o.data, color: colorKey })}
+    onDelete={() => deleteObject(o.id)}
+    onAddChild={() => addMindMapChild(o.id)}
+  />
+) : (
+  <ImageObjectContent obj={o} onDelete={() => deleteObject(o.id)} />
+)}
           <div onMouseDown={startObjectDrag(o.id, 'resize')} onTouchStart={startObjectDrag(o.id, 'resize')} title="Resize"
             style={{ position: 'absolute', right: -5, bottom: -5, width: 16, height: 16, borderRadius: '50%', background: '#a78bfa', border: '2px solid #fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', cursor: 'nwse-resize' }} />
           {/* Phase 3: comment badge + popover, tracks the object's own transform for free */}
@@ -711,7 +771,36 @@ function StickyNoteContent({ obj, onTextChange, onColorChange, onDelete }) {
     </div>
   )
 }
-
+function MindNodeContent({ obj, onTextChange, onColorChange, onDelete, onAddChild }) {
+  const bg = MINDNODE_COLORS[obj.data?.color] || MINDNODE_COLORS.purple
+  return (
+    <div style={{ width: '100%', height: '100%', background: bg, borderRadius: 14, boxShadow: '0 4px 14px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column', padding: 6, boxSizing: 'border-box', position: 'relative' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 3, marginBottom: 2 }}>
+        {Object.keys(MINDNODE_COLORS).map(key => (
+          <button key={key} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onColorChange(key) }}
+            style={{ width: 10, height: 10, borderRadius: '50%', background: MINDNODE_COLORS[key], padding: 0, cursor: 'pointer', border: key === obj.data?.color ? '2px solid rgba(0,0,0,0.5)' : '1px solid rgba(0,0,0,0.15)' }} />
+        ))}
+        <button onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onDelete() }}
+          style={{ width: 12, height: 12, borderRadius: '50%', background: 'rgba(0,0,0,0.15)', border: 'none', color: 'rgba(0,0,0,0.6)', fontSize: 9, lineHeight: '12px', cursor: 'pointer', padding: 0 }}>×</button>
+      </div>
+      <textarea
+        defaultValue={obj.data?.text || ''}
+        onMouseDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+        onBlur={(e) => onTextChange(e.target.value)}
+        placeholder="Idea…"
+        style={{ flex: 1, resize: 'none', border: 'none', outline: 'none', background: 'transparent', font: '700 12.5px system-ui, -apple-system, sans-serif', color: 'rgba(0,0,0,0.75)', textAlign: 'center' }}
+      />
+      <button
+        onMouseDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); onAddChild() }}
+        title="Add branch"
+        style={{ position: 'absolute', bottom: -10, right: -10, width: 22, height: 22, borderRadius: '50%', background: '#a78bfa', border: '2px solid #fff', color: '#fff', fontSize: 13, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.3)' }}
+      >+</button>
+    </div>
+  )
+}
 function ImageObjectContent({ obj, onDelete }) {
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', borderRadius: 6, overflow: 'hidden', boxShadow: '0 4px 14px rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)' }}>
