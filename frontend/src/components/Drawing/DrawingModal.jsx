@@ -472,6 +472,10 @@ const handleApplyTemplate = useCallback((templateId) => {
           onReplay={handleOpenReplay}
           onOpenGamePicker={() => setShowGamePicker(v => !v)}
           isFullscreen={isFullscreen} onToggleFullscreen={toggleFullscreen} onClose={onClose}
+          onColorChange={(c) => {
+    setColor(c)
+    if (tool === 'select') canvasApiRef.current?.recolorSelectedStroke(c)
+  }}
         />
 
         <div style={{ flex: 1, minHeight: 0, padding: 14 }}>
