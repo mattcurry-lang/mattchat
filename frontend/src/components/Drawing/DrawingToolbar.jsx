@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import {
   IconPencil, IconMarker, IconHighlighter, IconEraser, IconShapes, IconType,
   IconStickyNote, IconImagePlus, IconPointer, IconSmile, IconHourglass, IconCheckSquare,
-  IconDna, IconWand,
+  IconDna, IconWand, IconGraduationCap ,
   IconUndo, IconRedo, IconTrash, IconDownload, IconMaximize, IconMinimize, IconX,
 } from '../Icons'
 
@@ -121,8 +121,11 @@ export default function DrawingToolbar({
           )}
         </div>
       )}
-
-      {/* Phase 4a: Timer */}
+ 
+      {onOpenGamePicker && (
+        <ToolButton active={false} onClick={onOpenGamePicker} title="Play a game">🎮</ToolButton>
+      )}
+      
       {onStartTimer && (
         <div style={{ position: 'relative' }}>
           <ToolButton active={showTimerMenu} onClick={() => setShowTimerMenu(v => !v)} title="Start timer"><IconHourglass size={17} /></ToolButton>
