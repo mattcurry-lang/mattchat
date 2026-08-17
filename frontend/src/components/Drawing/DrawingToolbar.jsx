@@ -1,5 +1,4 @@
 import React, { useState } from 'react'
-import React, { useState } from 'react'
 import {
   IconPencil, IconMarker, IconHighlighter, IconEraser, IconShapes, IconType,
   IconStickyNote, IconImagePlus, IconPointer, IconSmile, IconHourglass, IconCheckSquare,
