@@ -165,10 +165,10 @@ export default function DrawingModal({ session, conversationId, userId, profile,
         img.src = url
       })
       canvasApiRef.current?.createImageObject({ url, naturalWidth: dims.w, naturalHeight: dims.h })
-    } catch (err) {
-      console.error('image insert failed:', err)
-      alert('Could not add that image. Please try again.')
-    }
+   } catch (err) {
+  console.error('image insert failed:', err)
+  alert(err?.message || 'Could not add that image. Please try again.')
+}
   }, [uploadObjectImage])
 
   const toggleFullscreen = useCallback(() => {
