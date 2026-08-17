@@ -267,14 +267,13 @@ function DrawingBubble({ content }) {
               background: '#fff',
             }}
           />
-          <button
-            onClick={() => setExpanded(false)}
-            style={{
-              position: 'absolute', top: 20, right: 20, width: 36, height: 36, borderRadius: '50%',
-              background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
-              color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
+<button
+        onClick={() => setExpanded(true)}
+        style={{
+          display: 'block', position: 'relative', border: 'none', padding: 0, cursor: 'pointer',
+          borderRadius: 16, overflow: 'visible', maxWidth: 240, background: 'none',
+        }}
+      >
             ✕
           </button>
         </div>
