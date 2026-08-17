@@ -198,6 +198,89 @@ function PinterestBubble({ content }) {
     </div>
   )
 }
+function DrawingBubble({ content }) {
+  const [loaded, setLoaded] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const parts = content.replace('drawing:', '').split('::')
+  const url = parts[0] || ''
+  const label = parts[1] || 'Someone'
+
+  return (
+    <>
+      <button
+        onClick={() => setExpanded(true)}
+        style={{
+          display: 'block', position: 'relative', border: 'none', padding: 0, cursor: 'pointer',
+          borderRadius: 16, overflow: 'visible', maxWidth: 240, background: 'none',
+        }}
+      >
+        {/* Soft glow behind the card — purple, matches the canvas accent */}
+        <div style={{
+          position: 'absolute', inset: -6, borderRadius: 20,
+          background: 'radial-gradient(closest-side, rgba(167,139,250,0.45), rgba(167,139,250,0) 75%)',
+          filter: 'blur(2px)', zIndex: 0,
+        }} />
+        <div style={{
+          position: 'relative', zIndex: 1, borderRadius: 16, overflow: 'hidden',
+          border: '1px solid rgba(167,139,250,0.35)', background: '#fff',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+        }}>
+          {!loaded && (
+            <div style={{ width: 220, height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(0,0,0,0.3)', fontSize: 22 }}>
+              🎨
+            </div>
+          )}
+          <img
+            src={url}
+            alt="Collaborative drawing"
+            onLoad={() => setLoaded(true)}
+            style={{ display: loaded ? 'block' : 'none', width: '100%', maxWidth: 220 }}
+          />
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px',
+            background: 'linear-gradient(135deg, rgba(102,126,234,0.12), rgba(118,75,162,0.12))',
+            borderTop: '1px solid rgba(167,139,250,0.2)',
+          }}>
+            <span style={{ fontSize: 13 }}>🎨</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#6d5bc4' }}>Drawn by {label}</span>
+          </div>
+        </div>
+      </button>
+
+      {expanded && (
+        <div
+          onClick={() => setExpanded(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(10,10,16,0.92)',
+            backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+          }}
+        >
+          <img
+            src={url}
+            alt="Collaborative drawing"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '92vw', maxHeight: '88vh', borderRadius: 16,
+              boxShadow: '0 0 60px rgba(167,139,250,0.35), 0 20px 60px rgba(0,0,0,0.5)',
+              background: '#fff',
+            }}
+          />
+          <button
+            onClick={() => setExpanded(false)}
+            style={{
+              position: 'absolute', top: 20, right: 20, width: 36, height: 36, borderRadius: '50%',
+              background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
+              color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+    </>
+  )
+}
 // Reply-to-status bubble — a small "📸 Replied to a status" tag above
 // the actual reply text, same visual language as a WhatsApp/Instagram
 // status-reply quote, but simple: just a tag + the caption snippet,
