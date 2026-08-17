@@ -562,16 +562,33 @@ const lineRefs = useRef(new Map()) // childObjectId -> <line> DOM node
     applyRemoteClear: () => { setStrokes([]); remoteLiveStrokesRef.current.clear(); redrawLiveLayer() },
     applyRemoteCursor: ({ userId: uid, x, y, color: c, username }) => setRemoteCursors(prev => ({ ...prev, [uid]: { x, y, color: c, username } })),
 
-    createStickyNote: () => {
-      const container = containerRef.current
-      const { width, height } = container ? container.getBoundingClientRect() : { width: 400, height: 300 }
-      const scale = scaleRef.current || 1
-      const w = DEFAULT_STICKY_W, h = DEFAULT_STICKY_H
-      const x = clamp((width / 2 - offsetXRef.current) / scale - w / 2, 0, CANVAS_LOGICAL_WIDTH - w)
-      const y = clamp((height / 2 - offsetYRef.current) / scale - h / 2, 0, CANVAS_LOGICAL_HEIGHT - h)
-      const obj = { id: newLocalId(), userId, type: 'sticky', data: { text: '', color: 'yellow' }, x, y, width: w, height: h, rotation: 0, zIndex: objectsRef.current.length, deleted: false }
-      setObjects(prev => [...prev, obj]); onLocalObjectCreate?.(obj)
-    },
+    createStickyNote: (opts = {}) => {
+  const container = containerRef.current
+  const { width, height } = container ? container.getBoundingClientRect() : { width: 400, height: 300 }
+  const scale = scaleRef.current || 1
+  const w = DEFAULT_STICKY_W, h = DEFAULT_STICKY_H
+
+  // opts.x/y are FRACTIONS of the logical canvas (0..1), so template
+  // layouts stay proportional regardless of canvas size — not raw
+  // pixel offsets, which would break on differently-sized screens.
+  let x, y
+  if (opts.x != null && opts.y != null) {
+    x = clamp(opts.x * CANVAS_LOGICAL_WIDTH - w / 2, 0, CANVAS_LOGICAL_WIDTH - w)
+    y = clamp(opts.y * CANVAS_LOGICAL_HEIGHT - h / 2, 0, CANVAS_LOGICAL_HEIGHT - h)
+  } else {
+    x = clamp((width / 2 - offsetXRef.current) / scale - w / 2, 0, CANVAS_LOGICAL_WIDTH - w)
+    y = clamp((height / 2 - offsetYRef.current) / scale - h / 2, 0, CANVAS_LOGICAL_HEIGHT - h)
+  }
+
+  const obj = {
+    id: newLocalId(), userId, type: 'sticky',
+    data: { text: opts.text || '', color: opts.color || 'yellow' },
+    x, y, width: w, height: h, rotation: 0, zIndex: objectsRef.current.length, deleted: false,
+  }
+  setObjects(prev => [...prev, obj])
+  onLocalObjectCreate?.(obj)
+  return obj.id
+},
     // helper, near createStickyNote/createImageObject inside useImperativeHandle
 createMindMapRoot: (text = 'Central Idea') => {
   const container = containerRef.current
