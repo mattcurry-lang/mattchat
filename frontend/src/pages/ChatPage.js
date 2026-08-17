@@ -111,7 +111,8 @@ function getMessagePreview(content) {
     return `${emoji} Sticker`
   }
   if (content.startsWith('gif:')) return 'GIF'
-  if (content.startsWith('pinterest:')) return '📌 Pin'
+ if (content.startsWith('pinterest:')) return '📌 Pin'
+  if (content.startsWith('drawing:')) return '🎨 Drawing'
   if (content.startsWith('call_log:') || content.startsWith('missed_call:')) return 'Call'
   if (content.startsWith('short:')) return '📹 Short'
   // Newer format: message_type === 'short' stores a JSON payload as the
@@ -1623,6 +1624,10 @@ const handleSend = async () => {
               ) : c.last_message?.startsWith('pinterest:') ? (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   📌 Pin
+                </span>
+              ) : c.last_message?.startsWith('drawing:') ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  🎨 Drawing
                 </span>
               ) : (c.last_message?.startsWith('call_log:') || c.last_message?.startsWith('missed_call:')) ? (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
