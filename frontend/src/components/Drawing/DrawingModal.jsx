@@ -284,7 +284,13 @@ const handleCastVote = useCallback((optionId) => {
 
 {activePoll && (
   <div style={{ margin: '8px 16px 0', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: 12, padding: 10 }}>
-    <div style={{ fontSize: 12.5, fontWeight: 700, color: '#fff', marginBottom: 8 }}>🗳️ {activePoll.question}</div>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: '#fff' }}>🗳️ {activePoll.question}</div>
+      <button onClick={() => setActivePoll(null)}
+        style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14, padding: 0, lineHeight: 1 }}>
+        ✕
+      </button>
+    </div>
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {activePoll.options.map(opt => {
         const counts = Object.values(activePoll.votes)
@@ -306,6 +312,9 @@ const handleCastVote = useCallback((optionId) => {
         style={{ marginTop: 8, background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}>
         end vote
       </button>
+    )}
+    {activePoll.ended && (
+      <div style={{ marginTop: 8, fontSize: 10.5, color: 'rgba(255,255,255,0.35)' }}>Vote ended</div>
     )}
   </div>
 )}
