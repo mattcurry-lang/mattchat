@@ -22,6 +22,10 @@ export default function DrawingModal({ session, conversationId, userId, profile,
   const [comments, setComments] = useState({}) // objectId -> [comment]
   const [drawingUserIds, setDrawingUserIds] = useState(() => new Set())
   const drawingTimersRef = useRef(new Map())
+  // new local state, alongside the other Phase 3 state:
+const [activeTimer, setActiveTimer] = useState(null)   // { id, durationSeconds, label, startsAt, startedBy }
+const [timeLeft, setTimeLeft] = useState(0)
+const [activePoll, setActivePoll] = useState(null)     // { id, question, options, votes: { userId: optionId }, createdBy }
 
   const handleInvite = useCallback(async () => {
     if (!onInvite) return
@@ -72,7 +76,13 @@ export default function DrawingModal({ session, conversationId, userId, profile,
     onRemoteObjectMoving: (payload) => canvasApiRef.current?.applyRemoteObjectMoving(payload),
     onRemoteObjectUpdated: (payload) => canvasApiRef.current?.applyRemoteObjectUpdated(payload),
     onRemoteObjectDeleted: (payload) => canvasApiRef.current?.applyRemoteObjectDeleted(payload),
-    // Phase 3
+    // add to the handlers object:
+  onRemoteVoteStart: (poll) => setActivePoll(poll),
+  onRemoteVoteCast: ({ pollId, optionId, userId: voterId }) =>
+    setActivePoll(prev => (prev && prev.id === pollId ? { ...prev, votes: { ...prev.votes, [voterId]: optionId } } : prev)),
+  onRemoteVoteEnd: ({ pollId }) => setActivePoll(prev => (prev && prev.id === pollId ? { ...prev, ended: true } : prev)),
+  onRemoteTimerStart: (timer) => setActiveTimer(timer),
+  onRemoteTimerCancel: ({ timerId }) => setActiveTimer(prev => (prev && prev.id === timerId ? null : prev)),
     onRemoteReaction: (payload) => canvasApiRef.current?.applyRemoteReaction(payload),
     onRemotePointer: (payload) => canvasApiRef.current?.applyRemotePointer(payload),
     onRemotePointerOff: (payload) => canvasApiRef.current?.applyRemotePointerOff(payload),
@@ -83,22 +93,35 @@ export default function DrawingModal({ session, conversationId, userId, profile,
     onVoiceSignal,
   }
 
-  const {
-    session: drawingSession,
-    loading, connectionStatus, participants,
-    broadcastStrokeStart, broadcastStrokeUpdate, broadcastStrokeEnd,
-    broadcastUndo, broadcastRedo, broadcastClear, broadcastCursor,
-    broadcastObjectCreated, broadcastObjectMoving, broadcastObjectUpdated, broadcastObjectDeleted,
-    uploadObjectImage, saveToChat,
-    broadcastReaction, broadcastPointerMove, broadcastPointerOff,
-    addComment, resolveComment, deleteComment,
-  } = useDrawingSession(conversationId, userId, profile, handlers)
+ // pull the new functions off the hook:
+const {
+  session: drawingSession,
+  loading, connectionStatus, participants,
+  broadcastStrokeStart, broadcastStrokeUpdate, broadcastStrokeEnd,
+  broadcastUndo, broadcastRedo, broadcastClear, broadcastCursor,
+  broadcastObjectCreated, broadcastObjectMoving, broadcastObjectUpdated, broadcastObjectDeleted,
+  uploadObjectImage, saveToChat,
+  broadcastReaction, broadcastPointerMove, broadcastPointerOff,
+  addComment, resolveComment, deleteComment,
+  startVote, castVote, endVote, startTimer, cancelTimer, 
+} = useDrawingSession(conversationId, userId, profile, handlers)
 
   const { micOn, toggleMic, otherSpeaking, connected, connecting, voiceError, handleSignal } =
     useDrawingVoice(drawingSession?.id, userId, true)
 
   useEffect(() => { voiceSignalHandlerRef.current = handleSignal }, [handleSignal])
-
+// countdown ticker
+useEffect(() => {
+  if (!activeTimer) return
+  const tick = () => {
+    const remaining = Math.max(0, activeTimer.durationSeconds - Math.floor((Date.now() - activeTimer.startsAt) / 1000))
+    setTimeLeft(remaining)
+    if (remaining === 0) setActiveTimer(null)
+  }
+  tick()
+  const id = setInterval(tick, 250)
+  return () => clearInterval(id)
+}, [activeTimer])
   useEffect(() => {
     const handler = (e) => {
       const mod = e.ctrlKey || e.metaKey
@@ -148,6 +171,20 @@ export default function DrawingModal({ session, conversationId, userId, profile,
   const handleClear = useCallback(() => {
     if (window.confirm("Clear the whole canvas for everyone? This can't be undone.")) canvasApiRef.current?.clear()
   }, [])
+  // local wrappers, near the other handleX callbacks:
+const handleStartTimer = useCallback((seconds) => {
+  setActiveTimer(startTimer(seconds))
+}, [startTimer])
+
+const handleStartVote = useCallback((question, options) => {
+  setActivePoll(startVote(question, options))
+}, [startVote])
+
+const handleCastVote = useCallback((optionId) => {
+  if (!activePoll) return
+  setActivePoll(prev => ({ ...prev, votes: { ...prev.votes, [userId]: optionId } }))
+  castVote(activePoll.id, optionId)
+}, [activePoll, castVote, userId])
 
   const handleAddSticky = useCallback(() => canvasApiRef.current?.createStickyNote(), [])
   const handleAddImageClick = useCallback(() => imageFileInputRef.current?.click(), [])
@@ -232,7 +269,46 @@ export default function DrawingModal({ session, conversationId, userId, profile,
             {drawingNames.join(' & ')} {drawingNames.length === 1 ? 'is' : 'are'} drawing…
           </div>
         )}
+{activeTimer && timeLeft > 0 && (
+  <div style={{ margin: '6px 16px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, fontSize: 13, fontWeight: 800, color: '#fbbf24' }}>
+    <span>⏱️ {activeTimer.label || 'Timer'}</span>
+    <span style={{ fontVariantNumeric: 'tabular-nums' }}>{timeLeft}s</span>
+    {activeTimer.startedBy === userId && (
+      <button onClick={() => { cancelTimer(activeTimer.id); setActiveTimer(null) }}
+        style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}>
+        cancel
+      </button>
+    )}
+  </div>
+)}
 
+{activePoll && (
+  <div style={{ margin: '8px 16px 0', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: 12, padding: 10 }}>
+    <div style={{ fontSize: 12.5, fontWeight: 700, color: '#fff', marginBottom: 8 }}>🗳️ {activePoll.question}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {activePoll.options.map(opt => {
+        const counts = Object.values(activePoll.votes)
+        const voteCount = counts.filter(v => v === opt.id).length
+        const total = counts.length || 1
+        const pct = Math.round((voteCount / total) * 100)
+        const mine = activePoll.votes[userId] === opt.id
+        return (
+          <button key={opt.id} onClick={() => handleCastVote(opt.id)} disabled={activePoll.ended}
+            style={{ position: 'relative', textAlign: 'left', padding: '6px 10px', borderRadius: 8, border: `1px solid ${mine ? 'rgba(167,139,250,0.5)' : 'rgba(255,255,255,0.1)'}`, background: 'rgba(255,255,255,0.04)', cursor: activePoll.ended ? 'default' : 'pointer', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', inset: 0, width: `${pct}%`, background: 'rgba(167,139,250,0.18)' }} />
+            <span style={{ position: 'relative', fontSize: 12, fontWeight: 600, color: '#fff' }}>{opt.label} {voteCount > 0 && `— ${voteCount} (${pct}%)`}</span>
+          </button>
+        )
+      })}
+    </div>
+    {activePoll.createdBy === userId && !activePoll.ended && (
+      <button onClick={() => { endVote(activePoll.id); setActivePoll(prev => ({ ...prev, ended: true })) }}
+        style={{ marginTop: 8, background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}>
+        end vote
+      </button>
+    )}
+  </div>
+)}
         {statusLabel && (
           <div style={{ margin: '8px 16px 0', fontSize: 11.5, fontWeight: 600, textAlign: 'center', color: connectionStatus === 'offline' ? '#fbbf24' : '#a5b4fc', background: connectionStatus === 'offline' ? 'rgba(251,191,36,0.08)' : 'rgba(102,126,234,0.08)', border: `1px solid ${connectionStatus === 'offline' ? 'rgba(251,191,36,0.25)' : 'rgba(102,126,234,0.2)'}`, borderRadius: 10, padding: '6px 10px' }}>
             {statusLabel}
@@ -250,6 +326,8 @@ export default function DrawingModal({ session, conversationId, userId, profile,
           pointing={pointing} onTogglePoint={handleTogglePoint} onPickReaction={handlePickReaction}
           onSaveToChat={sendMessage ? handleSaveToChat : undefined}
           saving={saveState === 'saving'} saved={saveState === 'saved'}
+          onStartTimer={handleStartTimer}
+  onStartVote={handleStartVote}
           isFullscreen={isFullscreen} onToggleFullscreen={toggleFullscreen} onClose={onClose}
         />
 
