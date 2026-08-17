@@ -267,7 +267,7 @@ function DrawingBubble({ content }) {
               background: '#fff',
             }}
           />
-          <button
+         <button
             onClick={() => setExpanded(false)}
             style={{
               position: 'absolute', top: 20, right: 20, width: 36, height: 36, borderRadius: '50%',
@@ -280,6 +280,10 @@ function DrawingBubble({ content }) {
         </div>,
         document.body
       )}
+    </>
+  )
+}
+
 // Reply-to-status bubble — a small "📸 Replied to a status" tag above
 // the actual reply text, same visual language as a WhatsApp/Instagram
 // status-reply quote, but simple: just a tag + the caption snippet,
