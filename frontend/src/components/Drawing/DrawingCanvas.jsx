@@ -731,7 +731,7 @@ function CommentBadge({ comments, onAdd, onResolve, onDelete }) {
   const openCount = comments.filter(c => !c.resolved).length
 
   return (
-    <div style={{ position: 'absolute', top: 6, right: 6, zIndex: 14 }}>
+    <div style={{ position: 'absolute', bottom: -10, left: -10, zIndex: 14 }}>
       <button
         onMouseDown={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
@@ -749,7 +749,7 @@ function CommentBadge({ comments, onAdd, onResolve, onDelete }) {
         <div
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
-          style={{ position: 'absolute', top: 26, right: 0, width: 220, maxHeight: 260, background: '#1e1e2e', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 12, boxShadow: '0 8px 30px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+          style={{ position: 'absolute', bottom: 26, left: 0, width: 220, maxHeight: 260, background: '#1e1e2e', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 12, boxShadow: '0 8px 30px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
         >
           <div style={{ maxHeight: 160, overflowY: 'auto', padding: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
             {comments.length === 0 && <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.4)' }}>No comments yet.</div>}
