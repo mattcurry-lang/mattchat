@@ -7,7 +7,7 @@ import {
 } from '../Icons'
 
 import ColorPicker from './ColorPicker'
-import ColorPicker from './ColorPicker'
+ 
 
 const TEMPLATES = [
   { id: 'brainstorm', label: '💡 Brainstorm' },
