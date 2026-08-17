@@ -226,14 +226,15 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
   }, [send, userId])
 
   const uploadObjectImage = useCallback(async (file) => {
-    const safeName = (file.name || 'image').replace(/[^a-zA-Z0-9._-]/g, '_')
-    const path = `${conversationId}/objects/${Date.now()}-${safeName}`
-    const { error: uploadError } = await supabase.storage.from('drawing-media')
-      .upload(path, file, { contentType: file.type || 'image/png', upsert: false })
-    if (uploadError) throw uploadError
-    const { data } = supabase.storage.from('drawing-media').getPublicUrl(path)
-    return data.publicUrl
-  }, [conversationId])
+  const safeName = (file.name || 'image').replace(/[^a-zA-Z0-9._-]/g, '_')
+  const path = `${conversationId}/objects/${Date.now()}-${safeName}`
+  const { error: uploadError } = await supabase.storage
+    .from('drawing-media')
+    .upload(path, file, { contentType: file.type || 'image/png', upsert: false })
+  if (uploadError) throw new Error(`Image upload failed: ${uploadError.message}`)
+  const { data } = supabase.storage.from('drawing-media').getPublicUrl(path)
+  return data.publicUrl
+}, [conversationId])
 
   const saveToChat = useCallback(async (dataUrl, sendMessageFn) => {
     const res = await fetch(dataUrl)
