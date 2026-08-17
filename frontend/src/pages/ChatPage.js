@@ -411,6 +411,19 @@ if (msg.content?.startsWith('pinterest:')) {
       </div>
     )
   }
+if (msg.content?.startsWith('drawing:')) {
+    return (
+      <div className={`msg-row ${isMe ? 'mine' : ''}`}>
+        {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
+        <div>
+          {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
+          <DrawingBubble content={msg.content} />
+          <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+          <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
+        </div>
+      </div>
+    )
+  }
 if (msg.content?.startsWith('status_reply:')) {
   return (
     <div className={`msg-row ${isMe ? 'mine' : ''}`}>
