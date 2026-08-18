@@ -34,7 +34,7 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     comments, onAddComment, onResolveComment, onDeleteComment,smartShapeActive,  
     backgroundColor = '#ffffff',
     secretModeActive,  
-    backgroundColor = '#ffffff',
+   
   },
   ref
 ) {
