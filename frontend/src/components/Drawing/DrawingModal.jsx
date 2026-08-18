@@ -22,7 +22,7 @@ const [myWord, setMyWord] = useState(null)         // Pictionary — only set lo
 const [gameGuesses, setGameGuesses] = useState([])
   const [pointing, setPointing] = useState(false)
   const [armedReaction, setArmedReaction] = useState(null)
-  const [comments, setComments] = useState({}) // objectId -> [comment]
+  const [comments, setComments] = useState({})  
   const [drawingUserIds, setDrawingUserIds] = useState(() => new Set())
   const drawingTimersRef = useRef(new Map())
   const [showReplay, setShowReplay] = useState(false)
