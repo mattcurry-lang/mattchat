@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef } from 'react'
-import { simplifyPoints, renderStroke, renderShape, renderText, replayStrokes, CANVAS_LOGICAL_WIDTH, CANVAS_LOGICAL_HEIGHT } from './drawingEngine'
+import { simplifyPoints, renderStroke, renderShape, renderText, replayStrokes, recognizeShape, CANVAS_LOGICAL_WIDTH, CANVAS_LOGICAL_HEIGHT } from './drawingEngine'
 
 const SHAPE_TOOLS = new Set(['rect', 'circle', 'line', 'arrow', 'triangle'])
 const STROKE_UPDATE_THROTTLE_MS = 40
@@ -31,8 +31,9 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     onCanUndoChange, onCanRedoChange,
     pointing, onLocalPointerMove, onLocalPointerOff,
     armedReaction, onReactionPlaced, onLocalReaction,
-    comments, onAddComment, onResolveComment, onDeleteComment,
-    secretModeActive, // Phase 5 — while true, remote strokes are buffered, not rendered
+    comments, onAddComment, onResolveComment, onDeleteComment,smartShapeActive,  
+    backgroundColor = '#ffffff',
+    secretModeActive,  
     backgroundColor = '#ffffff',
   },
   ref
@@ -373,20 +374,41 @@ const hitTestEditable = (p) => {
     }
   }
 
-  const commitCurrentStroke = () => {
-    const meta = currentStrokeMetaRef.current
-    let points = currentPointsRef.current
-    if (!meta || points.length === 0) return
-    if (!SHAPE_TOOLS.has(meta.tool)) points = simplifyPoints(points)
-    const stroke = { ...meta, points, deleted: false }
-    setStrokes(prev => [...prev, stroke])
-    redoStackRef.current = []
-    onLocalStrokeEnd?.(stroke)
-    currentPointsRef.current = []
-    currentStrokeMetaRef.current = null
-    const ctx = liveCtxRef.current, canvas = liveCanvasRef.current
-    if (ctx && canvas) clearDevicePixels(ctx, canvas)
+ const commitCurrentStroke = () => {
+  const meta = currentStrokeMetaRef.current
+  let points = currentPointsRef.current
+  if (!meta || points.length === 0) return
+
+  if (!SHAPE_TOOLS.has(meta.tool)) {
+    points = simplifyPoints(points)
+
+    // Smart Shape: only applies to freehand pen/marker — eraser and
+    // highlighter strokes are never reinterpreted as shapes.
+    if (smartShapeActive && (meta.tool === 'pen' || meta.tool === 'marker')) {
+      const recognized = recognizeShape(currentPointsRef.current) // use pre-simplify points, denser = better detection
+      if (recognized) {
+        const stroke = { ...meta, tool: recognized.type, points: recognized.points, deleted: false }
+        setStrokes(prev => [...prev, stroke])
+        redoStackRef.current = []
+        onLocalStrokeEnd?.(stroke)
+        currentPointsRef.current = []
+        currentStrokeMetaRef.current = null
+        const ctx = liveCtxRef.current, canvas = liveCanvasRef.current
+        if (ctx && canvas) clearDevicePixels(ctx, canvas)
+        return
+      }
+    }
   }
+
+  const stroke = { ...meta, points, deleted: false }
+  setStrokes(prev => [...prev, stroke])
+  redoStackRef.current = []
+  onLocalStrokeEnd?.(stroke)
+  currentPointsRef.current = []
+  currentStrokeMetaRef.current = null
+  const ctx = liveCtxRef.current, canvas = liveCanvasRef.current
+  if (ctx && canvas) clearDevicePixels(ctx, canvas)
+}
   const cancelCurrentStroke = () => {
     drawingRef.current = false
     currentPointsRef.current = []
