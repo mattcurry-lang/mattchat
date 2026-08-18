@@ -52,7 +52,7 @@ export default function DrawingToolbar({
   onStartTimer, onStartVote,
   onAddMindMap, onApplyTemplate, 
   onOpenGamePicker,
-  onReplay,
+  onReplay,smartShapeActive, onToggleSmartShape,
   onSaveToChat, saving, saved,
   isFullscreen, onToggleFullscreen, onClose,
 }) {
@@ -208,7 +208,9 @@ export default function DrawingToolbar({
       <ToolButton active={false} onClick={onClear} title="Clear canvas"><IconTrash size={17} /></ToolButton>
 
       <div style={{ flex: 1 }} />
-
+{onToggleSmartShape && (
+  <ToolButton active={smartShapeActive} onClick={onToggleSmartShape} title="Smart Shape — rough gestures become clean shapes">✨</ToolButton>
+)}
       {onSaveToChat && (
         <button onClick={onSaveToChat} disabled={saving} title="Save this drawing to the chat"
           style={{ display: 'flex', alignItems: 'center', gap: 6, height: 34, padding: '0 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: saving ? 'default' : 'pointer',
