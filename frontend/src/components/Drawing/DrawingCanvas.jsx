@@ -785,7 +785,7 @@ const deleteSelectedStrokeLocal = () => {
           ) : o.type === 'mindnode' ? (
             <MindNodeContent obj={o} onTextChange={(text) => updateObjectData(o.id, { ...o.data, text })} onColorChange={(colorKey) => updateObjectData(o.id, { ...o.data, color: colorKey })} onDelete={() => deleteObject(o.id)} onAddChild={() => addMindMapChild(o.id)} />
           ) : (
-          ) : (
+          
   <ImageObjectContent
     obj={o}
     onDelete={() => deleteObject(o.id)}
