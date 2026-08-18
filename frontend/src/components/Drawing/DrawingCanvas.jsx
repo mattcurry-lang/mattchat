@@ -96,6 +96,7 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
   const [selectedStrokeId, setSelectedStrokeId] = useState(null)
 const selectDragRef = useRef(null)
   const [textEditor, setTextEditor] = useState(null)
+  const [annotatingImageId, setAnnotatingImageId] = useState(null)
   const pointingRef = useRef(pointing)
   pointingRef.current = pointing
 
@@ -524,7 +525,14 @@ const handlePointerUp = (e) => {
     window.addEventListener('touchmove', stableDragMove, { passive: false })
     window.addEventListener('touchend', stableDragEnd)
   }
-
+const addImageAnnotation = (imageId, annotation) => {
+  setObjects(prev => prev.map(o => (
+    o.id === imageId ? { ...o, data: { ...o.data, annotations: [...(o.data?.annotations || []), annotation] } } : o
+  )))
+  const obj = objectsRef.current.find(o => o.id === imageId)
+  const nextAnnotations = [...(obj?.data?.annotations || []), annotation]
+  onLocalObjectUpdate?.(imageId, { data: { ...(obj?.data || {}), annotations: nextAnnotations } })
+}
   const updateObjectData = (id, data) => { setObjects(prev => prev.map(o => (o.id === id ? { ...o, data } : o))); onLocalObjectUpdate?.(id, { data }) }
   const deleteObject = (id) => { setObjects(prev => prev.map(o => (o.id === id ? { ...o, deleted: true } : o))); onLocalObjectDelete?.(id) }
 
@@ -765,14 +773,28 @@ const deleteSelectedStrokeLocal = () => {
       </svg>
 
       {objects.filter(o => !o.deleted).map(o => (
-        <div key={o.id} ref={getObjectRefCallback(o.id)} onMouseDown={startObjectDrag(o.id, 'move')} onTouchStart={startObjectDrag(o.id, 'move')} style={{ position: 'absolute', zIndex: 12 + (o.zIndex || 0), cursor: 'grab' }}>
+        <div
+  key={o.id}
+  ref={getObjectRefCallback(o.id)}
+  onMouseDown={annotatingImageId === o.id ? undefined : startObjectDrag(o.id, 'move')}
+  onTouchStart={annotatingImageId === o.id ? undefined : startObjectDrag(o.id, 'move')}
+  style={{ position: 'absolute', zIndex: 12 + (o.zIndex || 0), cursor: annotatingImageId === o.id ? 'default' : 'grab' }}
+>
           {o.type === 'sticky' ? (
             <StickyNoteContent obj={o} onTextChange={(text) => updateObjectData(o.id, { ...o.data, text })} onColorChange={(colorKey) => updateObjectData(o.id, { ...o.data, color: colorKey })} onDelete={() => deleteObject(o.id)} />
           ) : o.type === 'mindnode' ? (
             <MindNodeContent obj={o} onTextChange={(text) => updateObjectData(o.id, { ...o.data, text })} onColorChange={(colorKey) => updateObjectData(o.id, { ...o.data, color: colorKey })} onDelete={() => deleteObject(o.id)} onAddChild={() => addMindMapChild(o.id)} />
           ) : (
-            <ImageObjectContent obj={o} onDelete={() => deleteObject(o.id)} />
-          )}
+          ) : (
+  <ImageObjectContent
+    obj={o}
+    onDelete={() => deleteObject(o.id)}
+    annotating={annotatingImageId === o.id}
+    onToggleAnnotate={() => setAnnotatingImageId(prev => (prev === o.id ? null : o.id))}
+    tool={tool} color={color} size={size}
+    onAddAnnotation={(a) => addImageAnnotation(o.id, a)}
+  />
+)}
           <div onMouseDown={startObjectDrag(o.id, 'resize')} onTouchStart={startObjectDrag(o.id, 'resize')} title="Resize"
             style={{ position: 'absolute', right: -5, bottom: -5, width: 16, height: 16, borderRadius: '50%', background: '#a78bfa', border: '2px solid #fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', cursor: 'nwse-resize' }} />
           {o.type !== 'mindnode' && (
@@ -892,12 +914,99 @@ function MindNodeContent({ obj, onTextChange, onColorChange, onDelete, onAddChil
   )
 }
 
-function ImageObjectContent({ obj, onDelete }) {
+function renderAnnotationSvg(a) {
+  const opacity = a.tool === 'highlighter' ? 0.35 : 1
+  const strokeWidth = (a.size || 4) * 0.9
+  if (a.tool === 'rect') {
+    const [p1, p2] = a.points; if (!p2) return null
+    return <rect key={a.id} x={Math.min(p1.x, p2.x) * 100} y={Math.min(p1.y, p2.y) * 100} width={Math.abs(p2.x - p1.x) * 100} height={Math.abs(p2.y - p1.y) * 100} fill="none" stroke={a.color} strokeWidth={strokeWidth} vectorEffect="non-scaling-stroke" opacity={opacity} />
+  }
+  if (a.tool === 'circle') {
+    const [p1, p2] = a.points; if (!p2) return null
+    const cx = (p1.x + p2.x) / 2 * 100, cy = (p1.y + p2.y) / 2 * 100
+    const rx = Math.abs(p2.x - p1.x) / 2 * 100, ry = Math.abs(p2.y - p1.y) / 2 * 100
+    return <ellipse key={a.id} cx={cx} cy={cy} rx={rx} ry={ry} fill="none" stroke={a.color} strokeWidth={strokeWidth} vectorEffect="non-scaling-stroke" opacity={opacity} />
+  }
+  if (a.tool === 'line' || a.tool === 'arrow') {
+    const [p1, p2] = a.points; if (!p2) return null
+    return <line key={a.id} x1={p1.x * 100} y1={p1.y * 100} x2={p2.x * 100} y2={p2.y * 100} stroke={a.color} strokeWidth={strokeWidth} vectorEffect="non-scaling-stroke" opacity={opacity} markerEnd={a.tool === 'arrow' ? 'url(#mcArrowHead)' : undefined} />
+  }
+  if (a.tool === 'triangle') {
+    const [p1, p2] = a.points; if (!p2) return null
+    const topX = (p1.x + p2.x) / 2 * 100
+    return <polygon key={a.id} points={`${topX},${p1.y * 100} ${p1.x * 100},${p2.y * 100} ${p2.x * 100},${p2.y * 100}`} fill="none" stroke={a.color} strokeWidth={strokeWidth} vectorEffect="non-scaling-stroke" opacity={opacity} />
+  }
+  // freehand pen/marker/highlighter
+  const pts = (a.points || []).map(p => `${p.x * 100},${p.y * 100}`).join(' ')
+  return <polyline key={a.id} points={pts} fill="none" stroke={a.color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" opacity={opacity} />
+}
+
+function ImageObjectContent({ obj, onDelete, annotating, onToggleAnnotate, tool, color, size, onAddAnnotation }) {
+  const svgRef = useRef(null)
+  const drawingRef = useRef(false)
+  const currentRef = useRef(null)
+  const [, forceRender] = useState(0)
+
+  const getFracPoint = (e) => {
+    const rect = svgRef.current.getBoundingClientRect()
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    return {
+      x: clamp((clientX - rect.left) / rect.width, 0, 1),
+      y: clamp((clientY - rect.top) / rect.height, 0, 1),
+    }
+  }
+
+  const handleDown = (e) => {
+    if (!annotating || tool === 'eraser' || tool === 'text') return
+    e.stopPropagation()
+    drawingRef.current = true
+    const p = getFracPoint(e)
+    currentRef.current = { id: `ann-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, tool, color, size, points: [p] }
+    forceRender(v => v + 1)
+  }
+  const handleMove = (e) => {
+    if (!annotating || !drawingRef.current) return
+    e.stopPropagation()
+    const p = getFracPoint(e)
+    if (SHAPE_TOOLS.has(tool)) currentRef.current.points = [currentRef.current.points[0], p]
+    else currentRef.current.points.push(p)
+    forceRender(v => v + 1)
+  }
+  const handleUp = (e) => {
+    if (!annotating || !drawingRef.current) return
+    e.stopPropagation()
+    drawingRef.current = false
+    if (currentRef.current && currentRef.current.points.length) onAddAnnotation(currentRef.current)
+    currentRef.current = null
+    forceRender(v => v + 1)
+  }
+
+  const annotations = obj.data?.annotations || []
+
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', borderRadius: 6, overflow: 'hidden', boxShadow: '0 4px 14px rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)' }}>
       <img src={obj.data?.url} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }} />
+      <svg
+        ref={svgRef} viewBox="0 0 100 100" preserveAspectRatio="none"
+        onMouseDown={handleDown} onMouseMove={handleMove} onMouseUp={handleUp} onMouseLeave={handleUp}
+        onTouchStart={handleDown} onTouchMove={handleMove} onTouchEnd={handleUp}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: annotating ? 'crosshair' : 'default', pointerEvents: annotating ? 'auto' : 'none' }}
+      >
+        <defs>
+          <marker id="mcArrowHead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="context-stroke" />
+          </marker>
+        </defs>
+        {annotations.map(a => renderAnnotationSvg(a))}
+        {currentRef.current && renderAnnotationSvg(currentRef.current)}
+      </svg>
+      <button onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onToggleAnnotate() }} title={annotating ? 'Done annotating' : 'Annotate image'}
+        style={{ position: 'absolute', bottom: 4, left: 4, width: 22, height: 22, borderRadius: '50%', background: annotating ? '#a78bfa' : 'rgba(0,0,0,0.55)', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >✏️</button>
       <button onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onDelete() }} title="Delete image"
-        style={{ position: 'absolute', top: 4, right: 4, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', border: 'none', color: '#fff', fontSize: 12, lineHeight: '18px', cursor: 'pointer', padding: 0 }}>×</button>
+        style={{ position: 'absolute', top: 4, right: 4, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', border: 'none', color: '#fff', fontSize: 12, lineHeight: '18px', cursor: 'pointer', padding: 0 }}
+      >×</button>
     </div>
   )
 }
