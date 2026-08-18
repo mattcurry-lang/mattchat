@@ -1,13 +1,4 @@
-// Pure drawing logic — no React, no DOM beyond a CanvasRenderingContext2D.
-// Kept separate so DrawingCanvas.jsx stays focused on event wiring/state,
-// and so this is trivially reusable for both local rendering and replaying
-// remote/persisted strokes with identical visual output.
-
-// Fixed logical canvas size, same idea as an SVG viewBox — every device
-// (phone or desktop) maps its actual pixel area onto this SAME logical
-// space, scaled to fit. This is what guarantees a desktop user and a
-// mobile user are always looking at the exact same drawing, just at
-// different zoom levels — nothing drawn is ever off-screen for anyone.
+ 
 export const CANVAS_LOGICAL_WIDTH = 1600
 export const CANVAS_LOGICAL_HEIGHT = 1000
 
@@ -167,6 +158,99 @@ export function replayStrokes(ctx, canvas, strokes) {
     else if (['rect', 'circle', 'line', 'arrow', 'triangle'].includes(s.tool)) renderShape(ctx, s)
     else renderStroke(ctx, s)
   }
+}
+
+// ── Shape recognition ──────────────────────────────────────────
+// Pure geometry, no ML — classifies a completed freehand stroke as
+// line/circle/rectangle/triangle if it clearly resembles one, else
+// returns null and the original stroke is left untouched.
+export function recognizeShape(points) {
+  if (!points || points.length < 4) return null
+
+  const xs = points.map(p => p.x), ys = points.map(p => p.y)
+  const minX = Math.min(...xs), maxX = Math.max(...xs)
+  const minY = Math.min(...ys), maxY = Math.max(...ys)
+  const w = maxX - minX, h = maxY - minY
+  const diag = Math.hypot(w, h)
+  if (diag < 20) return null // too small to confidently classify
+
+  const start = points[0], end = points[points.length - 1]
+  const closeGap = Math.hypot(end.x - start.x, end.y - start.y)
+  const isClosed = closeGap < diag * 0.22
+
+  // ── Line: bbox is very "thin" relative to its length, and points
+  // stay close to the straight segment between start and end. ──
+  const lineLen = Math.hypot(end.x - start.x, end.y - start.y)
+  if (lineLen > 20) {
+    const dx = end.x - start.x, dy = end.y - start.y
+    const lenSq = dx * dx + dy * dy
+    let maxDevSq = 0
+    for (const p of points) {
+      const t = Math.max(0, Math.min(1, ((p.x - start.x) * dx + (p.y - start.y) * dy) / lenSq))
+      const projX = start.x + t * dx, projY = start.y + t * dy
+      const devSq = (p.x - projX) ** 2 + (p.y - projY) ** 2
+      if (devSq > maxDevSq) maxDevSq = devSq
+    }
+    if (Math.sqrt(maxDevSq) < Math.max(10, lineLen * 0.08) && !isClosed) {
+      return { type: 'line', points: [start, end] }
+    }
+  }
+
+  if (!isClosed) return null // circle/rect/triangle all require a roughly-closed loop
+
+  // ── Centroid + radius stats, used by both circle and corner checks ──
+  const cx = xs.reduce((a, b) => a + b, 0) / xs.length
+  const cy = ys.reduce((a, b) => a + b, 0) / ys.length
+  const radii = points.map(p => Math.hypot(p.x - cx, p.y - cy))
+  const meanR = radii.reduce((a, b) => a + b, 0) / radii.length
+  const varR = radii.reduce((a, b) => a + (b - meanR) ** 2, 0) / radii.length
+  const stdR = Math.sqrt(varR)
+  const roundness = meanR > 0 ? stdR / meanR : 1
+
+  if (roundness < 0.22) {
+    return { type: 'circle', points: [{ x: minX, y: minY }, { x: maxX, y: maxY }] }
+  }
+
+  // ── Corner detection for rect vs triangle: walk the stroke, find
+  // points where direction changes sharply (local angle minima). ──
+  const corners = detectCorners(points)
+  if (corners.length === 4 || corners.length === 5) {
+    return { type: 'rect', points: [{ x: minX, y: minY }, { x: maxX, y: maxY }] }
+  }
+  if (corners.length === 3) {
+    return { type: 'triangle', points: [{ x: minX, y: minY }, { x: maxX, y: maxY }] }
+  }
+
+  return null // ambiguous — leave the original freehand stroke alone
+}
+
+function detectCorners(points) {
+  // Resample to a coarser, evenly-ish spaced subset first — raw stroke
+  // points are density-biased toward slow mouse movement, which throws
+  // off angle-based corner detection if used directly.
+  const step = Math.max(1, Math.floor(points.length / 40))
+  const sampled = points.filter((_, i) => i % step === 0)
+  if (sampled.length < 6) return []
+
+  const corners = []
+  const windowSize = 3
+  for (let i = windowSize; i < sampled.length - windowSize; i++) {
+    const a = sampled[i - windowSize], b = sampled[i], c = sampled[i + windowSize]
+    const v1 = { x: b.x - a.x, y: b.y - a.y }
+    const v2 = { x: c.x - b.x, y: c.y - b.y }
+    const len1 = Math.hypot(v1.x, v1.y), len2 = Math.hypot(v2.x, v2.y)
+    if (len1 < 4 || len2 < 4) continue
+    const dot = (v1.x * v2.x + v1.y * v2.y) / (len1 * len2)
+    const angle = Math.acos(Math.max(-1, Math.min(1, dot))) * (180 / Math.PI)
+    if (angle > 45) corners.push(b) // sharp direction change = a corner
+  }
+
+  // Merge corners that landed close together (same real corner, detected twice)
+  const merged = []
+  for (const c of corners) {
+    if (!merged.some(m => Math.hypot(m.x - c.x, m.y - c.y) < 25)) merged.push(c)
+  }
+  return merged
 }
 
 const CURSOR_COLORS = ['#a78bfa', '#60a5fa', '#34d399', '#fbbf24', '#f87171', '#f472b6', '#22d3ee', '#fb923c']
