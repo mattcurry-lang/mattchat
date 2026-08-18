@@ -27,7 +27,7 @@ const [gameGuesses, setGameGuesses] = useState([])
   const drawingTimersRef = useRef(new Map())
   const [showReplay, setShowReplay] = useState(false)
 const [replaySnapshot, setReplaySnapshot] = useState([])
-  
+  const [smartShapeActive, setSmartShapeActive] = useState(false)
 const [activeTimer, setActiveTimer] = useState(null)   // { id, durationSeconds, label, startsAt, startedBy }
 const [timeLeft, setTimeLeft] = useState(0)
 const [activePoll, setActivePoll] = useState(null)     // { id, question, options, votes: { userId: optionId }, createdBy }
@@ -466,10 +466,12 @@ const handleApplyTemplate = useCallback((templateId) => {
           onSaveToChat={sendMessage ? handleSaveToChat : undefined}
           saving={saveState === 'saving'} saved={saveState === 'saved'}
           onStartTimer={handleStartTimer}
-  onStartVote={handleStartVote}
+         onStartVote={handleStartVote}
           onAddMindMap={handleAddMindMap}
-  onApplyTemplate={handleApplyTemplate}
+         onApplyTemplate={handleApplyTemplate}
           onReplay={handleOpenReplay}
+           smartShapeActive={smartShapeActive}
+          onToggleSmartShape={() => setSmartShapeActive(v => !v)}
           onOpenGamePicker={() => setShowGamePicker(v => !v)}
           isFullscreen={isFullscreen} onToggleFullscreen={toggleFullscreen} onClose={onClose}
           onColorChange={(c) => {
@@ -507,6 +509,7 @@ const handleApplyTemplate = useCallback((templateId) => {
                 onAddComment={addComment}
                 onResolveComment={resolveComment}
                 onDeleteComment={deleteComment}
+                smartShapeActive={smartShapeActive}
                 secretModeActive={activeGame?.type === 'secret_drawing' && activeGame.phase !== 'revealed'}
               />
 
