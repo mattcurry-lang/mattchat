@@ -129,7 +129,7 @@ const {
   broadcastReaction, broadcastPointerMove, broadcastPointerOff,
   addComment, resolveComment, deleteComment,
   startVote, castVote, endVote, startTimer, cancelTimer,
-  startGame, sendGuess, revealGame, sendGameMove,
+  startGame, sendGuess, revealGame, endGame, sendGameMove,
 } = useDrawingSession(conversationId, userId, profile, handlers)
 
   const { micOn, toggleMic, otherSpeaking, connected, connecting, voiceError, handleSignal } =
