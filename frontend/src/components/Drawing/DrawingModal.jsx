@@ -17,7 +17,8 @@ export default function DrawingModal({ session, conversationId, userId, profile,
   const [saveState, setSaveState] = useState('idle')
   const [inviteSent, setInviteSent] = useState(false)
 const [showGamePicker, setShowGamePicker] = useState(false)
-const [activeGame, setActiveGame] = useState(null) // { id, type, prompt?, drawerId?, phase }
+const [activeGame, setActiveGame] = useState(null) 
+  const [ticTacToeBoard, setTicTacToeBoard] = useState(null) 
 const [myWord, setMyWord] = useState(null)         // Pictionary — only set locally for the drawer
 const [gameGuesses, setGameGuesses] = useState([])
   const [pointing, setPointing] = useState(false)
@@ -95,6 +96,22 @@ const [activePoll, setActivePoll] = useState(null)     // { id, question, option
     onRemotePointer: (payload) => canvasApiRef.current?.applyRemotePointer(payload),
     onRemotePointerOff: (payload) => canvasApiRef.current?.applyRemotePointerOff(payload),
     onInitialComments: (byObject) => setComments(byObject || {}),
+      onRemoteGameStart: (game) => {
+    setActiveGame(game)
+    setGameGuesses([])
+    // Whoever DIDN'T start is O — mirrors the starter's mySymbol: 'X' above
+    if (game.type === 'tictactoe') setTicTacToeBoard({ cells: Array(9).fill(null), turn: 'X', mySymbol: 'O', winner: null })
+  },
+  onRemoteGameMove: ({ move }) => {
+    setTicTacToeBoard(prev => {
+      if (!prev) return prev
+      const nextCells = [...prev.cells]
+      nextCells[move.index] = move.symbol
+      const winner = checkWinner(nextCells)
+      const nextTurn = move.symbol === 'X' ? 'O' : 'X'
+      return { ...prev, cells: nextCells, turn: nextTurn, winner }
+    })
+  },
     onRemoteCommentCreated: (payload) => setComments(prev => ({ ...prev, [payload.objectId]: [...(prev[payload.objectId] || []), payload] })),
     onRemoteCommentResolved: ({ commentId, objectId }) => setComments(prev => ({ ...prev, [objectId]: (prev[objectId] || []).map(c => (c.id === commentId ? { ...c, resolved: true } : c)) })),
     onRemoteCommentDeleted: ({ commentId, objectId }) => setComments(prev => ({ ...prev, [objectId]: (prev[objectId] || []).filter(c => c.id !== commentId) })),
@@ -112,7 +129,7 @@ const {
   broadcastReaction, broadcastPointerMove, broadcastPointerOff,
   addComment, resolveComment, deleteComment,
   startVote, castVote, endVote, startTimer, cancelTimer,
-  startGame, sendGuess, revealGame, endGame, // Phase 5
+  startGame, sendGuess, revealGame, sendGameMove,
 } = useDrawingSession(conversationId, userId, profile, handlers)
 
   const { micOn, toggleMic, otherSpeaking, connected, connecting, voiceError, handleSignal } =
@@ -202,7 +219,9 @@ const handleAddMindMap = useCallback(() => {
 }, [])
 const PICTIONARY_WORDS = ['guitar', 'lighthouse', 'octopus', 'volcano', 'umbrella', 'campfire', 'skateboard', 'telescope']
 const SECRET_PROMPTS = ['Draw an animal', 'Draw your dream house', 'Draw something you ate today', 'Draw a superhero', 'Draw the weather outside']
-
+const COMPLETE_PROMPTS = ['Complete this house', 'Complete this animal', 'Complete this face', 'Complete this vehicle']
+const DRAW_EACH_OTHER_PROMPT = 'Draw each other!'
+const COPY_PROMPTS = ['a simple flower', 'a smiley face', 'a small house', 'a star']
 const handleStartPictionary = useCallback(() => {
   const word = PICTIONARY_WORDS[Math.floor(Math.random() * PICTIONARY_WORDS.length)]
   const game = startGame({ type: 'pictionary' })
@@ -222,7 +241,58 @@ const handleStartSecretDrawing = useCallback(() => {
   // (below) triggers the reveal the instant it hits zero.
   setActiveTimer(startTimer(30, 'Secret drawing'))
 }, [startGame, startTimer])
+const handleStartCompleteMyDrawing = useCallback(() => {
+  const prompt = COMPLETE_PROMPTS[Math.floor(Math.random() * COMPLETE_PROMPTS.length)]
+  const game = startGame({ type: 'complete_drawing', prompt })
+  setActiveGame(game)
+  setShowGamePicker(false)
+}, [startGame])
 
+const handleStartDrawEachOther = useCallback(() => {
+  const game = startGame({ type: 'draw_each_other', prompt: DRAW_EACH_OTHER_PROMPT })
+  setActiveGame(game)
+  setShowGamePicker(false)
+}, [startGame])
+
+const handleStartCopyMyDrawing = useCallback(() => {
+  const prompt = COPY_PROMPTS[Math.floor(Math.random() * COPY_PROMPTS.length)]
+  const game = startGame({ type: 'copy_drawing', prompt })
+  setActiveGame(game)
+  setShowGamePicker(false)
+}, [startGame])
+
+// ── Tic-Tac-Toe: first player to start is X, the other is O. Board
+// lives entirely in game_move broadcasts — no persistence, matching
+// votes/timers. Win/draw detection runs identically on both sides
+// from the same move sequence, so there's no "authoritative" client.
+const checkWinner = (cells) => {
+  const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]
+  for (const [a,b,c] of lines) {
+    if (cells[a] && cells[a] === cells[b] && cells[a] === cells[c]) return cells[a]
+  }
+  if (cells.every(c => c)) return 'draw'
+  return null
+}
+
+const handleStartTicTacToe = useCallback(() => {
+  const game = startGame({ type: 'tictactoe' })
+  setActiveGame(game)
+  setTicTacToeBoard({ cells: Array(9).fill(null), turn: 'X', mySymbol: 'X', winner: null })
+  setShowGamePicker(false)
+}, [startGame])
+
+const handleTicTacToeMove = useCallback((index) => {
+  if (!activeGame || activeGame.type !== 'tictactoe' || !ticTacToeBoard) return
+  if (ticTacToeBoard.cells[index] || ticTacToeBoard.winner) return
+  if (ticTacToeBoard.turn !== ticTacToeBoard.mySymbol) return // not my turn
+  const nextCells = [...ticTacToeBoard.cells]
+  nextCells[index] = ticTacToeBoard.mySymbol
+  const winner = checkWinner(nextCells)
+  const nextTurn = ticTacToeBoard.mySymbol === 'X' ? 'O' : 'X'
+  setTicTacToeBoard(prev => ({ ...prev, cells: nextCells, turn: nextTurn, winner }))
+  sendGameMove(activeGame.id, { index, symbol: ticTacToeBoard.mySymbol })
+}, [activeGame, ticTacToeBoard, sendGameMove])
+  
 const handleSendGuess = useCallback((text) => {
   if (!activeGame || !text.trim()) return
   sendGuess(activeGame.id, text.trim())
@@ -243,6 +313,7 @@ const handleEndGame = useCallback(() => {
   setActiveGame(null)
   setMyWord(null)
   setGameGuesses([])
+  setTicTacToeBoard(null)
 }, [activeGame, endGame])
 const handleApplyTemplate = useCallback((templateId) => {
   const api = canvasApiRef.current
@@ -366,20 +437,26 @@ const handleApplyTemplate = useCallback((templateId) => {
 )}
         
 {showGamePicker && !activeGame && (
-  <div style={{ margin: '8px 16px 0', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: 12, padding: 10, display: 'flex', gap: 8 }}>
-    <button onClick={handleStartPictionary}
-      style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: '#fff', fontSize: 12, fontWeight: 700, padding: '10px 8px', cursor: 'pointer' }}>
-      🎨 Pictionary
-    </button>
-    <button onClick={handleStartSecretDrawing}
-      style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: '#fff', fontSize: 12, fontWeight: 700, padding: '10px 8px', cursor: 'pointer' }}>
-      🤫 Secret Drawing
-    </button>
+  <div style={{ margin: '8px 16px 0', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: 12, padding: 10 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+      {[
+        ['🎨 Pictionary', handleStartPictionary],
+        ['🤫 Secret Drawing', handleStartSecretDrawing],
+        ['🧩 Complete My Drawing', handleStartCompleteMyDrawing],
+        ['👤 Draw Each Other', handleStartDrawEachOther],
+        ['🎯 Copy My Drawing', handleStartCopyMyDrawing],
+        ['❌⭕ Tic-Tac-Toe', handleStartTicTacToe],
+      ].map(([label, fn]) => (
+        <button key={label} onClick={fn}
+          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: '#fff', fontSize: 11.5, fontWeight: 700, padding: '10px 6px', cursor: 'pointer' }}>
+          {label}
+        </button>
+      ))}
+    </div>
     <button onClick={() => setShowGamePicker(false)}
-      style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14 }}>✕</button>
+      style={{ marginTop: 6, background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 11 }}>Cancel</button>
   </div>
 )}
-
 {activeGame?.type === 'pictionary' && (
   <div style={{ margin: '8px 16px 0', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: 12, padding: 10 }}>
     <div style={{ fontSize: 12.5, fontWeight: 700, color: '#fff', marginBottom: 6 }}>
@@ -407,6 +484,38 @@ const handleApplyTemplate = useCallback((templateId) => {
       🤫 {activeGame.prompt} {activeGame.phase === 'revealed' ? '— revealed!' : '(hidden until reveal)'}
     </div>
     <button onClick={handleEndGame} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}>close</button>
+  </div>
+)}
+        {(activeGame?.type === 'complete_drawing' || activeGame?.type === 'draw_each_other' || activeGame?.type === 'copy_drawing') && (
+  <div style={{ margin: '8px 16px 0', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: 12, padding: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <div style={{ fontSize: 12.5, fontWeight: 700, color: '#fff' }}>
+      {activeGame.type === 'complete_drawing' && `🧩 ${activeGame.prompt}`}
+      {activeGame.type === 'draw_each_other' && `👤 ${activeGame.prompt}`}
+      {activeGame.type === 'copy_drawing' && `🎯 Copy: ${activeGame.prompt}`}
+    </div>
+    <button onClick={handleEndGame} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}>close</button>
+  </div>
+)}
+        {activeGame?.type === 'tictactoe' && ticTacToeBoard && (
+  <div style={{ margin: '8px 16px 0', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: 12, padding: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+    <div style={{ fontSize: 12.5, fontWeight: 700, color: '#fff' }}>
+      {ticTacToeBoard.winner === 'draw' ? "It's a draw!" :
+       ticTacToeBoard.winner ? `${ticTacToeBoard.winner} wins! ${ticTacToeBoard.winner === ticTacToeBoard.mySymbol ? '🎉 You!' : ''}` :
+       ticTacToeBoard.turn === ticTacToeBoard.mySymbol ? "❌⭕ Your turn" : "❌⭕ Their turn"}
+    </div>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 44px)', gridTemplateRows: 'repeat(3, 44px)', gap: 4 }}>
+      {ticTacToeBoard.cells.map((c, i) => (
+        <button key={i} onClick={() => handleTicTacToeMove(i)} disabled={!!c || !!ticTacToeBoard.winner}
+          style={{
+            width: 44, height: 44, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
+            color: c === 'X' ? '#a78bfa' : '#60a5fa', fontSize: 22, fontWeight: 900, cursor: c || ticTacToeBoard.winner ? 'default' : 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+          {c === 'X' ? '❌' : c === 'O' ? '⭕' : ''}
+        </button>
+      ))} 
+    </div>
+    <button onClick={handleEndGame} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}>end game</button>
   </div>
 )}
         {showReplay && (
