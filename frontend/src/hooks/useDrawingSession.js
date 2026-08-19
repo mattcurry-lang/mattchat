@@ -127,6 +127,7 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
       .on('broadcast', { event: 'comment_created' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onRemoteCommentCreated?.(payload) })
       .on('broadcast', { event: 'comment_resolved' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onRemoteCommentResolved?.(payload) })
       .on('broadcast', { event: 'comment_deleted' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onRemoteCommentDeleted?.(payload) })
+       .on('broadcast', { event: 'game_move' }, ({ payload }) => { handlersRef.current.onRemoteGameMove?.(payload) })
       .on('broadcast', { event: 'voice-signal' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onVoiceSignal?.(payload) })
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState()
@@ -353,7 +354,9 @@ const endGame = useCallback((gameId) => {
 const cancelTimer = useCallback((timerId) => {
   send('timer_cancel', { timerId, userId })
 }, [send, userId])
-
+const sendGameMove = useCallback((gameId, move) => {
+  send('game_move', { gameId, userId, move })
+}, [send, userId])
   return {
     session, loading, connectionStatus, participants, myColor,
     broadcastStrokeStart, broadcastStrokeUpdate, broadcastStrokeEnd,
@@ -361,6 +364,6 @@ const cancelTimer = useCallback((timerId) => {
     broadcastObjectCreated, broadcastObjectMoving, broadcastObjectUpdated, broadcastObjectDeleted,
     uploadObjectImage, saveToChat,
     broadcastReaction, broadcastPointerMove, broadcastPointerOff,startGame, sendGuess, revealGame, endGame,
-    addComment, resolveComment, deleteComment,startVote, castVote, endVote, startTimer, cancelTimer,
+    addComment, resolveComment, deleteComment,startVote, castVote, endVote, startTimer, cancelTimer, sendGameMove,
   }
 }
