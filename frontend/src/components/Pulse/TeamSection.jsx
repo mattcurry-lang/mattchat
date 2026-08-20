@@ -7,7 +7,7 @@ import { supabase } from '../../lib/supabase'
 function formatMatchDate(iso) {
   const d = new Date(iso)
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) +
-    ' · ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+    ' · ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
 }
 
 export default function TeamSection({ userId, teamId, onChangeTeam }) {
