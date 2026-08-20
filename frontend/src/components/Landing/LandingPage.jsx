@@ -32,12 +32,61 @@ function GlassCard({ children, style, className = '', ...rest }) {
   )
 }
 
-function GlowButton({ children, primary, onClick, href }) {
+function GlowButton({ children, primary, onClick, href, ariaLabel }) {
   const Tag = href ? 'a' : 'button'
   return (
-    <Tag href={href} onClick={onClick} className={`mc-btn ${primary ? 'mc-btn-primary' : 'mc-btn-secondary'}`}>
+    <Tag
+      href={href}
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className={`mc-btn ${primary ? 'mc-btn-primary' : 'mc-btn-secondary'}`}
+    >
       {children}
     </Tag>
+  )
+}
+
+/*
+  ---------- BRAND MARK ----------
+  TODO(Lainey): This project already has a real Mattchat logo asset /
+  Logo component used elsewhere in the app (per the spec doc, item 5).
+  I don't have that file in this conversation, so this is a placeholder
+  monogram that matches the existing gradient language. Swap the <span
+  className="mc-logo-mark"> block below for your real <Logo /> import,
+  e.g.:
+
+    import Logo from '../components/Logo' // <- real path
+    ...
+    <Logo className="mc-logo-mark" />
+
+  Once wired up, remove this comment block.
+*/
+function BrandMark({ size = 28 }) {
+  return (
+    <span
+      className="mc-logo-mark"
+      style={{ width: size, height: size }}
+      role="img"
+      aria-label="Mattchat logo"
+    >
+      <svg viewBox="0 0 24 24" width={size * 0.6} height={size * 0.6} fill="none">
+        <path
+          d="M4 12a8 8 0 1 1 3.2 6.4L4 20l1.4-3.6A7.96 7.96 0 0 1 4 12z"
+          stroke="white"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
+  )
+}
+
+function BrandLockup({ size = 28, textClassName = 'mc-nav-logo' }) {
+  return (
+    <span className="mc-brand-lockup">
+      <BrandMark size={size} />
+      <span className={textClassName}>Mattchat</span>
+    </span>
   )
 }
 
@@ -305,7 +354,7 @@ function CompareSection() {
             <li>Separate AI, if any</li>
           </ul>
         </GlassCard>
-        <div className="mc-compare-arrow">→</div>
+        <div className="mc-compare-arrow" aria-hidden="true">→</div>
         <GlassCard className="mc-compare-card glow">
           <div className="mc-compare-tag accent">Mattchat</div>
           <ul className="mc-compare-list">
@@ -405,6 +454,45 @@ function FinalCTASection({ onGetStarted }) {
   )
 }
 
+/* ---------- footer ---------- */
+
+function Footer({ onNavigate }) {
+  const year = new Date().getFullYear()
+  return (
+    <footer className="mc-footer">
+      <div className="mc-footer-grid">
+        <div className="mc-footer-brand">
+          <BrandLockup size={26} textClassName="mc-footer-logo-text" />
+          <p className="mc-footer-tagline">The future of human communication.</p>
+        </div>
+
+        <nav className="mc-footer-col" aria-label="Footer navigation">
+          <div className="mc-footer-col-title">Navigate</div>
+          <a href="/" onClick={(e) => onNavigate(e, '/')}>Home</a>
+          <a href="/explore" onClick={(e) => onNavigate(e, '/explore')}>Explore</a>
+          <a href="/auth" onClick={(e) => onNavigate(e, '/auth')}>Get Started</a>
+        </nav>
+
+        <nav className="mc-footer-col" aria-label="Legal">
+          <div className="mc-footer-col-title">Legal</div>
+          <a href="/privacy" onClick={(e) => onNavigate(e, '/privacy')}>Privacy Policy</a>
+          <a href="/terms" onClick={(e) => onNavigate(e, '/terms')}>Terms of Service</a>
+        </nav>
+
+        <nav className="mc-footer-col" aria-label="More">
+          <div className="mc-footer-col-title">More</div>
+          <a href="/about" onClick={(e) => onNavigate(e, '/about')}>About</a>
+          <a href="/contact" onClick={(e) => onNavigate(e, '/contact')}>Contact</a>
+        </nav>
+      </div>
+
+      <div className="mc-footer-bottom">
+        <span>© {year} Mattchat. All rights reserved.</span>
+      </div>
+    </footer>
+  )
+}
+
 /* ---------- ambient background: aurora + particles ---------- */
 
 function AmbientBackground() {
@@ -454,16 +542,78 @@ function AmbientBackground() {
   )
 }
 
+/*
+  ---------- SCROLL FIX ----------
+  Nothing in this file traps scroll. When the whole page is clipped to
+  the viewport, it's almost always because a global rule meant for the
+  *authenticated* app (which needs a fixed, non-scrolling shell with its
+  own internal scroll containers) is being applied to `html`, `body`, or
+  `#root` — and the landing page inherits it because it mounts into the
+  same DOM.
+
+  This hook forces those three elements back to normal, scrollable
+  behavior while the landing page is mounted, and restores whatever was
+  there before on unmount — so the authenticated app's layout is
+  completely unaffected once you navigate away from this page.
+*/
+function useNaturalPageScroll() {
+  useEffect(() => {
+    const html = document.documentElement
+    const body = document.body
+    const root = document.getElementById('root')
+
+    const targets = [html, body, root].filter(Boolean)
+    const prev = targets.map((el) => ({
+      el,
+      overflow: el.style.overflow,
+      overflowY: el.style.overflowY,
+      height: el.style.height,
+      maxHeight: el.style.maxHeight,
+      position: el.style.position,
+    }))
+
+    targets.forEach((el) => {
+      el.style.overflow = 'visible'
+      el.style.overflowY = 'auto'
+      el.style.height = 'auto'
+      el.style.maxHeight = 'none'
+      if (el.style.position === 'fixed') el.style.position = 'static'
+    })
+
+    return () => {
+      prev.forEach(({ el, overflow, overflowY, height, maxHeight, position }) => {
+        el.style.overflow = overflow
+        el.style.overflowY = overflowY
+        el.style.height = height
+        el.style.maxHeight = maxHeight
+        el.style.position = position
+      })
+    }
+  }, [])
+}
+
 /* ---------- root ---------- */
 
 export default function LandingPage() {
   const navigate = useNavigate()
+  useNaturalPageScroll()
+
+  const goTo = useCallback((e, path) => {
+    if (e) e.preventDefault()
+    navigate(path)
+  }, [navigate])
+
   return (
     <div className="mc-root">
       <AmbientBackground />
       <nav className="mc-nav">
-        <span className="mc-nav-logo">Mattchat</span>
-        <GlowButton onClick={() => navigate('/auth')}>Get Started</GlowButton>
+        <a href="/" className="mc-nav-brand" onClick={(e) => goTo(e, '/')} aria-label="Mattchat home">
+          <BrandLockup size={26} />
+        </a>
+        <div className="mc-nav-links">
+          <a href="/explore" className="mc-nav-link" onClick={(e) => goTo(e, '/explore')}>Explore</a>
+          <GlowButton primary onClick={() => navigate('/auth')}>Get Started</GlowButton>
+        </div>
       </nav>
 
       <HeroSection onGetStarted={() => navigate('/auth')} />
@@ -475,25 +625,8 @@ export default function LandingPage() {
       <TestimonialsSection />
       <FinalCTASection onGetStarted={() => navigate('/auth')} />
 
-     
+      <Footer onNavigate={goTo} />
 
-     <footer className="mc-footer">
-
-<span>
-© {new Date().getFullYear()} Mattchat
-</span>
-
-<div>
-<a href="/privacy">
-Privacy
-</a>
-
-<a href="/terms">
-Terms
-</a>
-</div>
-
-</footer>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap');
 
@@ -507,6 +640,7 @@ Terms
           font-family: 'Inter', system-ui, sans-serif;
           overflow-x: hidden;
           min-height: 100vh;
+          height: auto;
         }
 
         /* ---------- ambient ---------- */
@@ -572,6 +706,9 @@ Terms
           font-family: 'Inter', sans-serif; font-weight: 600; font-size: 14.5px; padding: 13px 26px;
           border-radius: 999px; cursor: pointer; border: 1px solid transparent; transition: all 0.25s ease;
         }
+        .mc-btn:focus-visible {
+          outline: 2px solid ${COLORS.blue}; outline-offset: 3px;
+        }
         .mc-btn-primary {
           background: linear-gradient(120deg, ${COLORS.purple}, ${COLORS.violet});
           color: #fff; box-shadow: 0 0 0 0 rgba(108,99,255,0.5);
@@ -580,13 +717,28 @@ Terms
         .mc-btn-secondary { background: rgba(255,255,255,0.04); color: ${COLORS.text}; border-color: ${COLORS.glassBorder}; }
         .mc-btn-secondary:hover { background: rgba(255,255,255,0.08); }
 
+        /* ---------- brand lockup ---------- */
+        .mc-brand-lockup { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+        .mc-logo-mark {
+          display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; flex-shrink: 0;
+          background: linear-gradient(135deg, ${COLORS.purple}, ${COLORS.violet});
+          box-shadow: 0 0 18px rgba(108,99,255,0.35);
+        }
+
         /* ---------- nav ---------- */
         .mc-nav {
           position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between;
           padding: 18px 32px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
           background: rgba(9,9,9,0.55); border-bottom: 1px solid rgba(255,255,255,0.06);
         }
+        .mc-nav-brand { text-decoration: none; color: inherit; }
         .mc-nav-logo { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: -0.3px; }
+        .mc-nav-links { display: flex; align-items: center; gap: 22px; }
+        .mc-nav-link {
+          font-size: 14.5px; font-weight: 600; color: ${COLORS.muted}; text-decoration: none; transition: color 0.2s ease;
+        }
+        .mc-nav-link:hover, .mc-nav-link:focus-visible { color: ${COLORS.text}; }
+        .mc-nav-link:focus-visible { outline: 2px solid ${COLORS.blue}; outline-offset: 3px; border-radius: 4px; }
 
         /* ---------- hero ---------- */
         .mc-hero { padding-top: 88px; }
@@ -748,7 +900,34 @@ Terms
         }
         .mc-final .mc-btn { margin-top: 28px; }
 
-        .mc-footer { position: relative; z-index: 1; text-align: center; padding: 32px; color: ${COLORS.muted}; font-size: 12.5px; border-top: 1px solid rgba(255,255,255,0.06); }
+        /* ---------- footer ---------- */
+        .mc-footer {
+          position: relative; z-index: 1; padding: 64px 32px 32px;
+          border-top: 1px solid rgba(255,255,255,0.06);
+          background: rgba(255,255,255,0.015);
+        }
+        .mc-footer-grid {
+          max-width: 1180px; margin: 0 auto;
+          display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 40px;
+        }
+        .mc-footer-brand { max-width: 260px; }
+        .mc-footer-logo-text { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 17px; }
+        .mc-footer-tagline { margin: 14px 0 0; font-size: 13.5px; color: ${COLORS.muted}; line-height: 1.6; }
+        .mc-footer-col { display: flex; flex-direction: column; gap: 12px; }
+        .mc-footer-col-title {
+          font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 1.5px;
+          color: ${COLORS.muted}; text-transform: uppercase; margin-bottom: 4px;
+        }
+        .mc-footer-col a {
+          font-size: 14px; color: ${COLORS.text}; opacity: 0.8; text-decoration: none; transition: opacity 0.2s ease;
+        }
+        .mc-footer-col a:hover, .mc-footer-col a:focus-visible { opacity: 1; color: ${COLORS.blue}; }
+        .mc-footer-col a:focus-visible { outline: 2px solid ${COLORS.blue}; outline-offset: 3px; border-radius: 3px; }
+        .mc-footer-bottom {
+          max-width: 1180px; margin: 48px auto 0; padding-top: 24px;
+          border-top: 1px solid rgba(255,255,255,0.05);
+          font-size: 12.5px; color: ${COLORS.muted};
+        }
 
         /* ---------- reduced motion ---------- */
         @media (prefers-reduced-motion: reduce) {
@@ -767,10 +946,15 @@ Terms
           .mc-compare-arrow { transform: rotate(90deg); }
           .mc-testimonial-grid { grid-template-columns: 1fr; }
           .mc-curry-wrap, .mc-integrations { transform: scale(0.72); }
+          .mc-footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
+          .mc-footer-brand { max-width: none; grid-column: span 2; }
         }
         @media (max-width: 520px) {
           .mc-section { padding: 88px 18px; }
           .mc-nav { padding: 14px 18px; }
+          .mc-nav-links { gap: 14px; }
+          .mc-footer-grid { grid-template-columns: 1fr; }
+          .mc-footer-brand { grid-column: auto; }
         }
       `}</style>
     </div>
