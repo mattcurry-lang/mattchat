@@ -5,10 +5,13 @@ import PulseActivityCard from './PulseActivityCard'
 import PulseLockedCard from './PulseLockedCard'
 import BirthdayCard from './BirthdayCard'
 import BirthdayExperience from './BirthdayExperience'
+import TeamPicker from './TeamPicker'
+import TeamSection from './TeamSection'
 import { useBirthday } from '../../hooks/useBirthday'
 import { PLATFORM_META, AppIcon } from './PulseIcons'
 import { usePulseData, usePulseSettings } from '../../hooks/usePulseData'
 import { getPulsePlugin } from '../../lib/pulsePlugins'
+import { supabase } from '../../lib/supabase'
 import YouTubePulsePage from './YouTubePulsePage'
 
 const LOCKED_PLATFORMS = Object.entries(PLATFORM_META).filter(([, meta]) => meta.supportLevel === 'native_only')
@@ -23,6 +26,21 @@ export default function PulsePage({
   const { privacyMode, setPrivacyMode } = usePulseSettings(userId)
   const { items, loading, error, reload } = usePulseData(session, { conversations, unreadCounts, getConvoName })
   const birthday = useBirthday(userId, profile)
+
+  // Local override so picking/clearing a team updates Pulse instantly —
+  // `profile` is a prop from ChatPage and PulsePage has no way to push
+  // updates back up into it, same pattern as other Pulse writes here.
+  const [teamOverride, setTeamOverride] = useState(undefined) // undefined = "use profile", null = "explicitly cleared"
+  const favoriteTeam = teamOverride !== undefined ? teamOverride : profile?.favorite_pl_team
+
+  const selectTeam = async (teamId) => {
+    setTeamOverride(teamId) // optimistic
+    const { error: saveError } = await supabase.from('profiles').update({ favorite_pl_team: teamId }).eq('id', userId)
+    if (saveError) {
+      console.error('selectTeam failed:', saveError)
+      setTeamOverride(undefined) // revert on failure
+    }
+  }
 
   const filtered = useMemo(() => {
     let list = items
@@ -76,10 +94,20 @@ export default function PulsePage({
         </div>
       </div>
 
+      {/* ── PERSONALIZED HIERARCHY ── */}
       {!birthday.hasBirthday && <BirthdayCard onSave={birthday.saveBirthday} />}
 
       <PulseSummaryCard name={profile?.username} items={items} loading={loading} aiSummary={aiSummary} />
 
+      {favoriteTeam ? (
+        <TeamSection userId={userId} teamId={favoriteTeam} onChangeTeam={(id) => setTeamOverride(id)} />
+      ) : (
+        <div style={{ borderRadius: 18, padding: 16, background: 'var(--bg-surface-2)', border: '1px solid var(--border)' }}>
+          <TeamPicker onSelect={selectTeam} />
+        </div>
+      )}
+
+      {/* ── OTHER PULSE CONTENT (existing activity feed, unchanged) ── */}
       <input
         value={search}
         onChange={(e) => setSearch(e.target.value)}
@@ -175,7 +203,7 @@ export default function PulsePage({
           />
         </div>
       )}
-   
+
       {birthday.shouldShowExperience && (
         <BirthdayExperience profile={profile} onClose={birthday.dismiss} />
       )}
