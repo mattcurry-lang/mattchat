@@ -7,6 +7,7 @@ import BirthdayCard from './BirthdayCard'
 import BirthdayExperience from './BirthdayExperience'
 import TeamPicker from './TeamPicker'
 import TeamSection from './TeamSection'
+import BibleCard from './BibleCard'
 import { useBirthday } from '../../hooks/useBirthday'
 import { PLATFORM_META, AppIcon } from './PulseIcons'
 import { usePulseData, usePulseSettings } from '../../hooks/usePulseData'
@@ -106,6 +107,8 @@ export default function PulsePage({
           <TeamPicker onSelect={selectTeam} />
         </div>
       )}
+
+      <BibleCard />
 
       {/* ── OTHER PULSE CONTENT (existing activity feed, unchanged) ── */}
       <input
