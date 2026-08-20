@@ -3,33 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
 import { supabase } from '../../lib/supabase'
 import Avatar from '../Avatar'
-
-const VERSE_CACHE_KEY = 'pulse_bible_verse_cache'
-
-async function loadVerse() {
-  const today = new Date().toISOString().slice(0, 10)
-  try {
-    const cached = JSON.parse(sessionStorage.getItem(VERSE_CACHE_KEY) || 'null')
-    if (cached?.date === today) return cached.verse
-  } catch {}
-
-  const { data, error } = await supabase.functions.invoke('pulse-bible')
-  if (error || !data?.ok) return null
-
-  const verse = { reference: data.reference, text: data.verse_text, version: data.version }
-  try { sessionStorage.setItem(VERSE_CACHE_KEY, JSON.stringify({ date: today, verse })) } catch {}
-  return verse
-}
+import { useDailyVerse } from '../../hooks/useDailyVerse'
 
 export default function BirthdayExperience({ profile, onClose }) {
-  const [verse, setVerse] = useState(null)
-  const [verseLoading, setVerseLoading] = useState(true)
-
-  useEffect(() => {
-    let cancelled = false
-    loadVerse().then((v) => { if (!cancelled) { setVerse(v); setVerseLoading(false) } })
-    return () => { cancelled = true }
-  }, [])
+  const { verse, loading: verseLoading } = useDailyVerse()
 
   const firstName = (profile?.username || 'Friend').split(' ')[0]
 
