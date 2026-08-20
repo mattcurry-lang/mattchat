@@ -414,9 +414,9 @@ function IntegrationsSection() {
 /* ---------- section: testimonials ---------- */
 
 const TESTIMONIALS = [
-  { quote: 'I stopped switching apps mid-conversation. Everything I need is already there.', name: 'Amara O.', role: 'Product designer' },
-  { quote: 'Curry catching my open promises before I forget them has quietly saved me weekly.', name: 'Tunde K.', role: 'Founder' },
-  { quote: 'It feels like the messaging app got a decade ahead of everything else overnight.', name: 'Zanele M.', role: 'Student' },
+  { quote: 'I stopped switching apps mid-conversation. Everything I need is already there.', name: 'Jerry Wendo', role: 'Product designer' },
+  { quote: 'Curry catching my open promises before I forget them has quietly saved me weekly.', name: 'Mathew Mutai', role: 'Founder' },
+  { quote: 'It feels like the messaging app got a decade ahead of everything else overnight.', name: 'Shallom Blessing.', role: 'Student' },
 ]
 
 function TestimonialsSection() {
