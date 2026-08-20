@@ -5,6 +5,7 @@ import { useTeamNews } from '../../hooks/useTeamNews'
 import { supabase } from '../../lib/supabase'
 import NewsArticleModal from './NewsArticleModal'
 
+
 function formatMatchDate(iso) {
   const d = new Date(iso)
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) +
