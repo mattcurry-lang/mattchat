@@ -128,14 +128,18 @@ export default function ProfileSetupModal({ session, userId, username, onComplet
                 value={interestsInput}
                 onChange={e => setInterestsInput(e.target.value)}
               />
-              <input
-  className="modal-input"
-  type="date"
-  placeholder="Your birthday"
-  value={birthday}
-  onChange={e => setBirthday(e.target.value)}
-  max={new Date().toISOString().slice(0, 10)}
-/>
+              <div style={{ textAlign: 'left' }}>
+                <label style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 4 }}>
+                  Birthday <span style={{ fontWeight: 400 }}>(so Pulse can celebrate you — optional)</span>
+                </label>
+                <input
+                  className="modal-input"
+                  type="date"
+                  value={birthday}
+                  onChange={e => setBirthday(e.target.value)}
+                  max={new Date().toISOString().slice(0, 10)}
+                />
+              </div>
             </div>
             <div style={{ display: 'flex', gap: 8, width: '100%', marginTop: 10 }}>
               <button className="btn-ghost" style={{ flex: 1 }} onClick={() => setStep('method')}>Skip</button>
