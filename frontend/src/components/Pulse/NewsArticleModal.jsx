@@ -28,7 +28,7 @@ export default function NewsArticleModal({ article, onClose }) {
           <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{article.source}</div>
         </div>
         
-          href={article.url} target="_blank" rel="noopener noreferrer"
+         <a href={article.url} target="_blank" rel="noopener noreferrer"
           style={{ fontSize: 11.5, color: '#c4b5fd', fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}
         >
           Open in browser ↗
