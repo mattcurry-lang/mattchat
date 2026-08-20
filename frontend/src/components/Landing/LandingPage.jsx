@@ -456,10 +456,8 @@ function Footer({ onNavigate }) {
           <BrandLockup size={26} textClassName="mc-footer-logo-text" />
           <p className="mc-footer-tagline">The future of human communication.</p>
         </div>
-
         <nav className="mc-footer-col" aria-label="Footer navigation">
           <div className="mc-footer-col-title">Navigate</div>
-          <a href="/" onClick={(e) => onNavigate(e, '/')}>Home</a>
           <a href="/explore" onClick={(e) => onNavigate(e, '/explore')}>Explore</a>
           <a href="/auth" onClick={(e) => onNavigate(e, '/auth')}>Get Started</a>
         </nav>
@@ -468,12 +466,6 @@ function Footer({ onNavigate }) {
           <div className="mc-footer-col-title">Legal</div>
           <a href="/privacy" onClick={(e) => onNavigate(e, '/privacy')}>Privacy Policy</a>
           <a href="/terms" onClick={(e) => onNavigate(e, '/terms')}>Terms of Service</a>
-        </nav>
-
-        <nav className="mc-footer-col" aria-label="More">
-          <div className="mc-footer-col-title">More</div>
-          <a href="/about" onClick={(e) => onNavigate(e, '/about')}>About</a>
-          <a href="/contact" onClick={(e) => onNavigate(e, '/contact')}>Contact</a>
         </nav>
       </div>
 
@@ -895,10 +887,10 @@ export default function LandingPage() {
           border-top: 1px solid rgba(255,255,255,0.06);
           background: rgba(255,255,255,0.015);
         }
-        .mc-footer-grid {
-          max-width: 1180px; margin: 0 auto;
-          display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 40px;
-        }
+       .mc-footer-grid {
+  max-width: 1180px; margin: 0 auto;
+  display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: 40px;
+}
         .mc-footer-brand { max-width: 260px; }
         .mc-footer-logo-text { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 17px; }
         .mc-footer-tagline { margin: 14px 0 0; font-size: 13.5px; color: ${COLORS.muted}; line-height: 1.6; }
