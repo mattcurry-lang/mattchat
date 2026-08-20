@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useFootballData } from '../../hooks/useFootballData'
 import { useTeamNews } from '../../hooks/useTeamNews'
 import { supabase } from '../../lib/supabase'
+import NewsArticleModal from './NewsArticleModal'
 
 function formatMatchDate(iso) {
   const d = new Date(iso)
@@ -13,6 +14,7 @@ function formatMatchDate(iso) {
 export default function TeamSection({ userId, teamId, onChangeTeam }) {
   const { data, loading, error } = useFootballData(teamId)
   const [expanded, setExpanded] = useState(false)
+  const [openArticle, setOpenArticle] = useState(null)
   const teamName = data?.team?.shortName || data?.team?.name
   const { articles, loading: newsLoading } = useTeamNews(teamId, teamName)
 
@@ -82,18 +84,22 @@ export default function TeamSection({ userId, teamId, onChangeTeam }) {
         <div style={{ marginBottom: 10 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>Latest News</div>
           <div style={{ display: 'flex', gap: 8, overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 2 }}>
-            {articles.slice(0, expanded ? 6 : 3).map((a, i) => (
-              <a key={i} href={a.url} target="_blank" rel="noopener noreferrer" style={{
-                flexShrink: 0, width: 160, borderRadius: 12, overflow: 'hidden', background: 'var(--bg-surface-1, #14141f)',
-                border: '1px solid var(--border)', textDecoration: 'none', display: 'block',
-              }}>
-                {a.image && <img src={a.image} alt="" style={{ width: '100%', height: 80, objectFit: 'cover', display: 'block' }} />}
-                <div style={{ padding: 8 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{a.title}</div>
-                  <div style={{ fontSize: 9.5, color: 'var(--text-muted)', marginTop: 4 }}>{a.source}</div>
-                </div>
-              </a>
-            ))}
+           {articles.slice(0, expanded ? 6 : 3).map((a, i) => (
+  <button
+    key={i}
+    onClick={() => setOpenArticle(a)}
+    style={{
+      flexShrink: 0, width: 160, borderRadius: 12, overflow: 'hidden', background: 'var(--bg-surface-1, #14141f)',
+      border: '1px solid var(--border)', textAlign: 'left', padding: 0, cursor: 'pointer', fontFamily: 'inherit',
+    }}
+  >
+    {a.image && <img src={a.image} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: 80, objectFit: 'cover', display: 'block' }} />}
+    <div style={{ padding: 8 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{a.title}</div>
+      <div style={{ fontSize: 9.5, color: 'var(--text-muted)', marginTop: 4 }}>{a.source}</div>
+    </div>
+  </button>
+))}
           </div>
         </div>
       )}
@@ -118,6 +124,7 @@ export default function TeamSection({ userId, teamId, onChangeTeam }) {
       <button onClick={() => setExpanded(v => !v)} style={{ marginTop: 8, fontSize: 11.5, color: '#c4b5fd', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700 }}>
         {expanded ? 'Show less' : 'See more'}
       </button>
+      {openArticle && <NewsArticleModal article={openArticle} onClose={() => setOpenArticle(null)} />}
     </motion.div>
   )
 }
