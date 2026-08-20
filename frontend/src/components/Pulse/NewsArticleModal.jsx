@@ -28,7 +28,8 @@ export default function NewsArticleModal({ article, onClose }) {
           <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{article.source}</div>
         </div>
         
-         <a href={article.url} target="_blank" rel="noopener noreferrer"
+        <a
+          href={article.url} target="_blank" rel="noopener noreferrer"
           style={{ fontSize: 11.5, color: '#c4b5fd', fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}
         >
           Open in browser ↗
@@ -45,6 +46,7 @@ export default function NewsArticleModal({ article, onClose }) {
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24, textAlign: 'center' }}>
             <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>This site can't be shown inside Mattchat.</div>
             
+            <a
               href={article.url} target="_blank" rel="noopener noreferrer"
               style={{ background: 'linear-gradient(135deg,#667eea,#764ba2)', borderRadius: 20, color: '#fff', fontSize: 12.5, fontWeight: 700, padding: '8px 16px', textDecoration: 'none' }}
             >
