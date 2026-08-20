@@ -3,6 +3,9 @@ import PulseSummaryCard from './PulseSummaryCard'
 import PulseFilterBar from './PulseFilterBar'
 import PulseActivityCard from './PulseActivityCard'
 import PulseLockedCard from './PulseLockedCard'
+import BirthdayCard from './BirthdayCard'
+import BirthdayExperience from './BirthdayExperience'
+import { useBirthday } from '../../hooks/useBirthday'
 import { PLATFORM_META, AppIcon } from './PulseIcons'
 import { usePulseData, usePulseSettings } from '../../hooks/usePulseData'
 import { getPulsePlugin } from '../../lib/pulsePlugins'
@@ -19,6 +22,7 @@ export default function PulsePage({
   const [showYouTubePulse, setShowYouTubePulse] = useState(false)
   const { privacyMode, setPrivacyMode } = usePulseSettings(userId)
   const { items, loading, error, reload } = usePulseData(session, { conversations, unreadCounts, getConvoName })
+  const birthday = useBirthday(userId, profile)
 
   const filtered = useMemo(() => {
     let list = items
@@ -33,10 +37,6 @@ export default function PulsePage({
     return list
   }, [items, filter, search])
 
-  // FIX/REFACTOR: this used to be an if/else chain hardcoding what
-  // "tap this card" means per app (mattchat / instagram / gmail),
-  // which meant every new integration needed an edit here too. Each
-  // plugin now owns its own onOpen behavior — this just delegates.
   const handleOpen = (item) => {
     const plugin = getPulsePlugin(item.app)
     plugin?.onOpen?.(item, { onOpenConversation })
@@ -46,20 +46,37 @@ export default function PulsePage({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 16, maxWidth: 640, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Pulse</h2>
-        <button
-          onClick={() => setPrivacyMode(!privacyMode)}
-          title={privacyMode ? 'Privacy mode is on — tap to turn off' : 'Turn on Privacy Mode'}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 700,
-            background: privacyMode ? 'rgba(74,222,128,0.12)' : 'var(--bg-surface-2)',
-            border: `1px solid ${privacyMode ? 'rgba(74,222,128,0.3)' : 'var(--border)'}`,
-            color: privacyMode ? '#4ade80' : 'var(--text-secondary)',
-            borderRadius: 20, padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit',
-          }}
-        >
-          {privacyMode ? '🔒 Privacy on' : '🔓 Privacy mode'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {birthday.hasBirthday && birthday.isBirthdayToday && (
+            <button
+              onClick={birthday.reopen}
+              title="Revisit your birthday card"
+              style={{
+                background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.3)',
+                borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: '#c4b5fd',
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l2.5 5 5.5.8-4 4 1 5.5L12 15l-5 2.3 1-5.5-4-4 5.5-.8z" /></svg>
+            </button>
+          )}
+          <button
+            onClick={() => setPrivacyMode(!privacyMode)}
+            title={privacyMode ? 'Privacy mode is on — tap to turn off' : 'Turn on Privacy Mode'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 700,
+              background: privacyMode ? 'rgba(74,222,128,0.12)' : 'var(--bg-surface-2)',
+              border: `1px solid ${privacyMode ? 'rgba(74,222,128,0.3)' : 'var(--border)'}`,
+              color: privacyMode ? '#4ade80' : 'var(--text-secondary)',
+              borderRadius: 20, padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            {privacyMode ? '🔒 Privacy on' : '🔓 Privacy mode'}
+          </button>
+        </div>
       </div>
+
+      {!birthday.hasBirthday && <BirthdayCard onSave={birthday.saveBirthday} />}
 
       <PulseSummaryCard name={profile?.username} items={items} loading={loading} aiSummary={aiSummary} />
 
@@ -157,6 +174,10 @@ export default function PulsePage({
             onClose={() => setShowYouTubePulse(false)}
           />
         </div>
+      )}
+   
+      {birthday.shouldShowExperience && (
+        <BirthdayExperience profile={profile} onClose={birthday.dismiss} />
       )}
     </div>
   )
