@@ -63,21 +63,12 @@ function GlowButton({ children, primary, onClick, href, ariaLabel }) {
 */
 function BrandMark({ size = 28 }) {
   return (
-    <span
+    <img
+      src="/logo.png"
+      alt="Mattchat logo"
       className="mc-logo-mark"
-      style={{ width: size, height: size }}
-      role="img"
-      aria-label="Mattchat logo"
-    >
-      <svg viewBox="0 0 24 24" width={size * 0.6} height={size * 0.6} fill="none">
-        <path
-          d="M4 12a8 8 0 1 1 3.2 6.4L4 20l1.4-3.6A7.96 7.96 0 0 1 4 12z"
-          stroke="white"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </span>
+      style={{ width: size, height: size, objectFit: 'contain' }}
+    />
   )
 }
 
@@ -720,10 +711,8 @@ export default function LandingPage() {
         /* ---------- brand lockup ---------- */
         .mc-brand-lockup { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
         .mc-logo-mark {
-          display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; flex-shrink: 0;
-          background: linear-gradient(135deg, ${COLORS.purple}, ${COLORS.violet});
-          box-shadow: 0 0 18px rgba(108,99,255,0.35);
-        }
+  display: inline-block; flex-shrink: 0;
+}
 
         /* ---------- nav ---------- */
         .mc-nav {
