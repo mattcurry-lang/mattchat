@@ -12,6 +12,7 @@ export default function ProfileSetupModal({ session, userId, username, onComplet
   const [organization, setOrganization] = useState('')
   const [currentlyStudying, setCurrentlyStudying] = useState('')
   const [interestsInput, setInterestsInput] = useState('')
+  const [birthday, setBirthday] = useState('')
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [previewUrl, setPreviewUrl] = useState(null)
@@ -26,7 +27,7 @@ export default function ProfileSetupModal({ session, userId, username, onComplet
   const saveBioAndContinue = async () => {
     const interests = interestsInput.split(',').map(s => s.trim()).filter(Boolean).slice(0, 8)
     try {
-      await updateProfileDetails(userId, { bio, organization, currentlyStudying, interests })
+      await updateProfileDetails(userId, { bio, organization, currentlyStudying, interests, birthday: birthday || null })
     } catch (e) {
       console.error('updateProfileDetails failed:', e)
     }
@@ -127,6 +128,14 @@ export default function ProfileSetupModal({ session, userId, username, onComplet
                 value={interestsInput}
                 onChange={e => setInterestsInput(e.target.value)}
               />
+              <input
+  className="modal-input"
+  type="date"
+  placeholder="Your birthday"
+  value={birthday}
+  onChange={e => setBirthday(e.target.value)}
+  max={new Date().toISOString().slice(0, 10)}
+/>
             </div>
             <div style={{ display: 'flex', gap: 8, width: '100%', marginTop: 10 }}>
               <button className="btn-ghost" style={{ flex: 1 }} onClick={() => setStep('method')}>Skip</button>
