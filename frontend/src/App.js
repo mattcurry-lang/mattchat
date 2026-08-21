@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
-
 import ChatPage from './pages/ChatPage'
 import AuthPage from './pages/AuthPage'
 import EmailFormPage from './pages/EmailFormPage'
@@ -13,7 +12,7 @@ import Terms from './pages/Terms'
 import ExplorePage from './pages/ExplorePage'
 import './App.css'
 import { unlockFileAudio } from './lib/mattchatSounds'
-
+import TrustedInvitePage from './pages/TrustedInvitePage'
 
 export default function App() {
 
@@ -211,7 +210,7 @@ if (session === undefined || !aalChecked) {
         : <Navigate to="/" />
     }
 />
-
+<Route path="/trusted-invite/:token" element={<TrustedInvitePage session={session} />} />
         {/* Main app */}
         <Route
           path="/*"
