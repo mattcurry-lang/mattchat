@@ -226,8 +226,7 @@ export default function PulsePage({
           />
         </div>
       )}
-    // Inside components/Pulse/PulsePage.jsx
-
+    
 {showCycle && (
   <CyclePage 
     userId={userId} 
