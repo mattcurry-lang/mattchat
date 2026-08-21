@@ -38,6 +38,7 @@ export default function CyclePage({ userId, onClose, onOpenConversation, convers
         listDailyLogs(userId, { fromDate, toDate }),
       ])
       setSettings(s)
+      syncUserTimezone(userId, s).catch(e => console.error('syncUserTimezone failed:', e))
       setPeriodRecords(records || [])
       setRecentDailyLogs(logs || [])
       setCheckinStreak(computeCheckinStreak((logs || []).map(l => l.log_date)))
