@@ -1,13 +1,15 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useCycleData } from '../../hooks/useCycleData'
 import CycleOnboarding from './CycleOnboarding'
 import CycleDashboard from './CycleDashboard'
+import CycleCheckin from './CycleCheckin'
+import CycleCalendar from './CycleCalendar'
 
-// Decides onboarding vs dashboard based on settings.onboarded — same
-// "container decides which sub-view" pattern as ChatPage does for
-// Curry AI vs normal chat.
 export default function CyclePage({ userId, onClose }) {
-  const { settings, cycleInfo, stats, loading, reload } = useCycleData(userId)
+  const { settings, periodRecords, cycleInfo, stats, loading, reload } = useCycleData(userId)
+  const [showCheckin, setShowCheckin] = useState(false)
+  const [checkinDate, setCheckinDate] = useState(null) // yyyy-MM-dd
+  const [showCalendar, setShowCalendar] = useState(false)
 
   if (loading) {
     return (
@@ -18,25 +20,46 @@ export default function CyclePage({ userId, onClose }) {
   }
 
   if (!settings?.onboarded) {
-    return (
-      <CycleOnboarding
-        userId={userId}
-        onComplete={reload}
-        onClose={onClose}
-      />
-    )
+    return <CycleOnboarding userId={userId} onComplete={reload} onClose={onClose} />
+  }
+
+  const openCheckin = (dateStr) => {
+    setCheckinDate(dateStr || new Date().toISOString().slice(0, 10))
+    setShowCheckin(true)
   }
 
   return (
-    <CycleDashboard
-      userId={userId}
-      settings={settings}
-      cycleInfo={cycleInfo}
-      stats={stats}
-      onReload={reload}
-      onOpenCalendar={() => {/* Phase 2 */}}
-      onOpenCheckin={() => {/* Phase 2 */}}
-      onClose={onClose}
-    />
+    <>
+      <CycleDashboard
+        userId={userId}
+        settings={settings}
+        cycleInfo={cycleInfo}
+        stats={stats}
+        onReload={reload}
+        onOpenCalendar={() => setShowCalendar(true)}
+        onOpenCheckin={() => openCheckin()}
+        onClose={onClose}
+      />
+
+      {showCalendar && (
+        <CycleCalendar
+          userId={userId}
+          settings={settings}
+          periodRecords={periodRecords}
+          cycleInfo={cycleInfo}
+          onOpenDay={openCheckin}
+          onClose={() => setShowCalendar(false)}
+        />
+      )}
+
+      {showCheckin && (
+        <CycleCheckin
+          userId={userId}
+          dateStr={checkinDate}
+          onSaved={reload}
+          onClose={() => setShowCheckin(false)}
+        />
+      )}
+    </>
   )
 }
