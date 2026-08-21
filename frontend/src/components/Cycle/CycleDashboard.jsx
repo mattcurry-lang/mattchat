@@ -123,6 +123,7 @@ export default function CycleDashboard({
             >
               How are you feeling today?
             </button>
+            <button onClick={onOpenTrustedCircle} title="Trusted Circle" style={iconBtnStyle}><IconUsers size={15} /></button>
 
             <button
               onClick={toggleHideCycle}
