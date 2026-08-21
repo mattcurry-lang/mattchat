@@ -54,6 +54,7 @@ export default function CyclePage({ userId, onClose, onOpenConversation, convers
 
   useEffect(() => { loadData() }, [userId])
 
+
   const openDay = (dateStr) => {
     setCheckinDate(dateStr)
     setShowCheckin(true)
