@@ -8,6 +8,7 @@ import CycleInsightsModal from './CycleInsights'
 import CycleRemindersModal from './CycleReminders'
 import CycleWellnessModal from './CycleWellnessModal'
 import { getCycleInfo, getCycleStats, getCycleSettings, listPeriodRecords, listDailyLogs } from '../../lib/cycle'
+import { computeCheckinStreak } from '../../lib/cycleWellness'
 
 export default function CyclePage({ userId, onClose, onOpenConversation, conversations, getConvoName, getOtherUserId }) {
   const [view, setView] = useState('dashboard')
@@ -23,6 +24,7 @@ export default function CyclePage({ userId, onClose, onOpenConversation, convers
   const [periodRecords, setPeriodRecords] = useState([])
   const [loading, setLoading] = useState(true)
   const [recentDailyLogs, setRecentDailyLogs] = useState([])
+  const [checkinStreak, setCheckinStreak] = useState(0)
   const [showWellness, setShowWellness] = useState(false)
   const [wellnessTab, setWellnessTab] = useState('foods')
 
@@ -38,6 +40,8 @@ export default function CyclePage({ userId, onClose, onOpenConversation, convers
       setSettings(s)
       setPeriodRecords(records || [])
       setRecentDailyLogs(logs || [])
+      setCheckinStreak(computeCheckinStreak((logs || []).map(l => l.log_date)))
+
       if (s?.last_period_start) {
         setCycleInfo(getCycleInfo(s))
         setStats(await getCycleStats(userId))
@@ -53,7 +57,6 @@ export default function CyclePage({ userId, onClose, onOpenConversation, convers
   }
 
   useEffect(() => { loadData() }, [userId])
-
 
   const openDay = (dateStr) => {
     setCheckinDate(dateStr)
@@ -82,6 +85,7 @@ export default function CyclePage({ userId, onClose, onOpenConversation, convers
           cycleInfo={cycleInfo}
           stats={stats}
           recentDailyLogs={recentDailyLogs}
+          checkinStreak={checkinStreak}
           onReload={loadData}
           onOpenCalendar={() => setShowCalendar(true)}
           onOpenCheckin={openTodayCheckin}
@@ -114,6 +118,7 @@ export default function CyclePage({ userId, onClose, onOpenConversation, convers
 
       {showWellness && cycleInfo && (
         <CycleWellnessModal
+          userId={userId}
           phase={cycleInfo.phase}
           initialTab={wellnessTab}
           onClose={() => setShowWellness(false)}
