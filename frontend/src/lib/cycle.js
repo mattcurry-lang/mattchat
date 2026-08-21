@@ -76,6 +76,8 @@ export async function getCycleSettings(userId) {
   return data
 }
 
+// Fixes the missing-onConflict bug that could silently create
+// duplicate rows instead of updating the existing one.
 export async function upsertCycleSettings(userId, patch) {
   const { error } = await supabase
     .from('cycle_settings')
@@ -84,6 +86,55 @@ export async function upsertCycleSettings(userId, patch) {
       { onConflict: 'user_id' }
     )
   if (error) throw error
+}
+
+// Lets the user directly correct their last period start date —
+// updates settings AND the most recent period_records row so the
+// calendar/history stay consistent with the corrected date.
+export async function updateLastPeriodStart(userId, newDateStr) {
+  await upsertCycleSettings(userId, { last_period_start: newDateStr })
+
+  const { data: mostRecent, error: fetchErr } = await supabase
+    .from('period_records')
+    .select('id')
+    .eq('user_id', userId)
+    .order('start_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (fetchErr) throw fetchErr
+
+  if (mostRecent) {
+    const { error } = await supabase
+      .from('period_records')
+      .update({ start_date: newDateStr })
+      .eq('id', mostRecent.id)
+    if (error) throw error
+  } else {
+    const { error } = await supabase
+      .from('period_records')
+      .insert({ user_id: userId, start_date: newDateStr, is_estimated: false })
+    if (error) throw error
+  }
+}
+
+export async function updateCycleLengths(userId, { averageCycleLength, averagePeriodLength }) {
+  await upsertCycleSettings(userId, {
+    average_cycle_length: averageCycleLength,
+    average_period_length: averagePeriodLength,
+  })
+}
+
+// The previously-unbuilt "Delete my cycle history" action. Clears
+// period_records and daily_logs, and resets settings back to an
+// unonboarded state so the dashboard shows the empty state again —
+// but leaves reminders/trusted circle configuration untouched, since
+// those aren't "cycle history."
+export async function clearCycleHistory(userId) {
+  const { error: e1 } = await supabase.from('period_records').delete().eq('user_id', userId)
+  if (e1) throw e1
+  const { error: e2 } = await supabase.from('daily_logs').delete().eq('user_id', userId)
+  if (e2) throw e2
+  await upsertCycleSettings(userId, { last_period_start: null, onboarded: false })
 }
 export async function completeCycleOnboarding(userId, { lastPeriodStart, averageCycleLength, averagePeriodLength }) {
   await upsertCycleSettings(userId, {
