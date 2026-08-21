@@ -1,5 +1,68 @@
-// lib/cycle.js
 import { supabase } from './supabase'
+ 
+export function getCycleInfo(settings) {
+  if (!settings || !settings.last_period_start) return null
+
+  const cycleLength = settings.average_cycle_length || 28
+  const periodLength = settings.average_period_length || 5
+
+  const lastStart = new Date(settings.last_period_start)
+  const today = new Date()
+
+  // Clear time portions for accurate day calculations
+  lastStart.setHours(0, 0, 0, 0)
+  today.setHours(0, 0, 0, 0)
+
+  const diffTime = today - lastStart
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+
+  // Calculate current cycle day (1-indexed)
+  const dayOfCycle = ((diffDays % cycleLength) + cycleLength) % cycleLength + 1
+
+  // Determine current phase
+  let phase = 'Follicular'
+  if (dayOfCycle <= periodLength) {
+    phase = 'Menstrual'
+  } else if (dayOfCycle >= cycleLength - 16 && dayOfCycle <= cycleLength - 12) {
+    phase = 'Ovulation'
+  } else if (dayOfCycle > cycleLength - 12) {
+    phase = 'Luteal'
+  }
+
+  // Calculate next period date
+  const nextPeriod = new Date(lastStart)
+  const cycleMultiplier = Math.floor(diffDays / cycleLength) + (diffDays >= 0 ? 1 : 0)
+  nextPeriod.setDate(lastStart.getDate() + cycleMultiplier * cycleLength)
+
+  const daysUntilNext = Math.ceil((nextPeriod - today) / (1000 * 60 * 60 * 24))
+
+  return {
+    dayOfCycle,
+    phase,
+    daysUntilNext,
+    nextPeriodDate: nextPeriod.toISOString().split('T')[0],
+    cycleLength,
+    periodLength,
+  }
+}
+
+/**
+ * Fetch basic cycle analytics and statistics for the user
+ */
+export async function getCycleStats(userId) {
+  const records = await listPeriodRecords(userId, 12)
+  if (!records || records.length === 0) {
+    return { avgCycle: 28, avgPeriod: 5, totalLogged: 0 }
+  }
+
+  return {
+    avgCycle: 28,
+    avgPeriod: 5,
+    totalLogged: records.length,
+  }
+}
+
+// ── Settings & Database Queries ─────────────────────────────
 
 export async function getCycleSettings(userId) {
   const { data, error } = await supabase
@@ -62,6 +125,7 @@ export async function setHideCycle(userId, hide) {
 }
 
 // ── Daily logs ─────────────────────────────────────────────
+
 export async function getDailyLog(userId, dateStr) {
   const { data, error } = await supabase
     .from('daily_logs')
