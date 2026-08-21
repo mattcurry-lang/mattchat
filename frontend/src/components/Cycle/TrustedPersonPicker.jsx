@@ -6,14 +6,14 @@ import { searchProfilesByUsername } from '../../lib/cycleTrust'
 // conversations: the same `conversations` array ChatPage already holds
 // (each with conversation_members[].profiles). getConvoName/getOtherUserId
 // are passed in so we don't duplicate that logic.
-export default function TrustedPersonPicker({ userId, conversations, getConvoName, getOtherUserId, onPick, onClose }) {
+export default function TrustedPersonPicker({ userId, conversations = [], getConvoName, getOtherUserId, onPick, onClose }) {
   const [query, setQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
 
   const contactCandidates = useMemo(() => {
     const seen = new Set()
-    return conversations
+    return (conversations || [])
       .filter(c => !c.is_group)
       .map(c => {
         const otherId = getOtherUserId(c, userId)
