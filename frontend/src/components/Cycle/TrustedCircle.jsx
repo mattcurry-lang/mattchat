@@ -13,10 +13,11 @@ export default function TrustedCircle({ userId, conversations, getConvoName, get
   const [managing, setManaging] = useState(null)
 
   const reload = useCallback(async () => {
-    setLoading(true)
-    try { setPeople(await listTrustedPeople(userId)) } catch (e) { console.error(e) }
-    setLoading(false)
-  }, [userId])
+  setLoading(true)
+  try { setPeople(await listTrustedPeople(userId)) }
+  catch (e) { console.error(e); alert('Could not load your Trusted Circle: ' + e.message) }
+  setLoading(false)
+}, [userId])
 
   useEffect(() => { reload() }, [reload])
 
