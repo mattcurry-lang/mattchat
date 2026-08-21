@@ -14,7 +14,7 @@ import { usePulseData, usePulseSettings } from '../../hooks/usePulseData'
 import { getPulsePlugin } from '../../lib/pulsePlugins'
 import { supabase } from '../../lib/supabase'
 import YouTubePulsePage from './YouTubePulsePage'
-import CyclePage from './Cycle/CyclePage'
+import CyclePage from '../Cycle/CyclePage'
 import { IconFlower } from '../Icons'
 
 
