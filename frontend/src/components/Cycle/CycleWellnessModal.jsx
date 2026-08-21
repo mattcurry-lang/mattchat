@@ -1,5 +1,11 @@
-import React, { useState } from 'react'
-import { PHASE_RECOMMENDATIONS, ITEM_DETAILS, getMealSuggestions } from '../../lib/cycleWellness'
+import React, { useState, useEffect } from 'react'
+import { 
+  PHASE_RECOMMENDATIONS, 
+  ITEM_DETAILS, 
+  getMealSuggestions, 
+  listWellnessPreferences, 
+  setWellnessPreference 
+} from '../../lib/cycleWellness'
 import { IconX } from '../Icons'
 
 const TABS = [
@@ -9,24 +15,53 @@ const TABS = [
   { key: 'movement', label: 'Movement', emoji: '🏃' },
 ]
 
-// initialTab: one of 'foods' | 'drinks' | 'selfCare' | 'movement'
-export default function CycleWellnessModal({ phase, initialTab = 'foods', onClose }) {
+export default function CycleWellnessModal({ userId, phase, initialTab = 'foods', onClose }) {
   const [tab, setTab] = useState(initialTab)
   const [detailItem, setDetailItem] = useState(null)
-  const [saved, setSaved] = useState(new Set())     // local-only for now — Phase 3 persists this
+  const [saved, setSaved] = useState(new Set())
   const [mealSeed, setMealSeed] = useState(0)
   const [showMeals, setShowMeals] = useState(false)
+  const [prefsLoading, setPrefsLoading] = useState(true)
+
+  // Load persisted preferences on mount
+  useEffect(() => {
+    let cancelled = false
+    listWellnessPreferences(userId)
+      .then(prefs => {
+        if (cancelled) return
+        setSaved(new Set(prefs.filter(p => p.status === 'saved').map(p => p.item_id)))
+        setPrefsLoading(false)
+      })
+      .catch(e => { 
+        console.error('listWellnessPreferences failed:', e)
+        if (!cancelled) setPrefsLoading(false) 
+      })
+    return () => { cancelled = true }
+  }, [userId])
 
   const rec = PHASE_RECOMMENDATIONS[phase] || PHASE_RECOMMENDATIONS.follicular
   const items = rec[tab] || []
   const meals = getMealSuggestions(phase, mealSeed)
 
-  const toggleSaved = (id) => {
+  // Persists to the DB — optimistic update, reverts on failure
+  const toggleSaved = async (id) => {
+    const wasSaved = saved.has(id)
     setSaved(prev => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      wasSaved ? next.delete(id) : next.add(id)
       return next
     })
+    try {
+      await setWellnessPreference(userId, id, wasSaved ? null : 'saved')
+    } catch (e) {
+      console.error('setWellnessPreference failed:', e)
+      // Revert on failure
+      setSaved(prev => {
+        const next = new Set(prev)
+        wasSaved ? next.add(id) : next.delete(id)
+        return next
+      })
+    }
   }
 
   return (
@@ -35,7 +70,9 @@ export default function CycleWellnessModal({ phase, initialTab = 'foods', onClos
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 800, color: '#fff', margin: 0 }}>
           What your body might like today
         </h2>
-        <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 32, height: 32, color: '#fff', cursor: 'pointer' }}><IconX size={15} /></button>
+        <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 32, height: 32, color: '#fff', cursor: 'pointer' }}>
+          <IconX size={15} />
+        </button>
       </div>
 
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 18px 90px' }}>
@@ -150,7 +187,9 @@ function ItemDetailSheet({ item, allItems, isSaved, onToggleSaved, onShowAnother
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div style={{ fontSize: 40 }}>{item.emoji}</div>
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 30, height: 30, color: '#fff', cursor: 'pointer' }}><IconX size={14} /></button>
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 30, height: 30, color: '#fff', cursor: 'pointer' }}>
+            <IconX size={14} />
+          </button>
         </div>
 
         <div style={{ fontSize: 18, fontWeight: 800, color: '#fff' }}>{item.label}</div>
