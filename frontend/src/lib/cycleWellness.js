@@ -1,8 +1,58 @@
 // lib/cycleWellness.js
-// Pure content/logic — no DB calls. Phase-keyed wellness copy plus the
-// two dynamic cards on the dashboard: "Today for you" and the daily
-// rotating "little thing". Kept separate from cycleMath.js since that
-// file computes dates/phases, this one just maps phase -> copy.
+// ── Persisted item preferences (Phase 3) ─────────────────────
+import { supabase } from './supabase'
+
+export async function listWellnessPreferences(userId) {
+  const { data, error } = await supabase
+    .from('cycle_wellness_preferences')
+    .select('item_id, status')
+    .eq('user_id', userId)
+  if (error) throw error
+  return data || []
+}
+
+// status: 'saved' | 'disliked' | null (null removes the preference)
+export async function setWellnessPreference(userId, itemId, status) {
+  if (status === null) {
+    const { error } = await supabase
+      .from('cycle_wellness_preferences')
+      .delete()
+      .eq('user_id', userId)
+      .eq('item_id', itemId)
+    if (error) throw error
+    return
+  }
+  const { error } = await supabase
+    .from('cycle_wellness_preferences')
+    .upsert({ user_id: userId, item_id: itemId, status }, { onConflict: 'user_id,item_id' })
+  if (error) throw error
+}
+
+// ── Check-in streak — derived from daily_logs, no new table needed ──
+// dailyLogDates: array of 'yyyy-MM-dd' strings the user has logged
+// (pull this from listDailyLogs results' log_date field).
+export function computeCheckinStreak(dailyLogDates) {
+  const dateSet = new Set(dailyLogDates)
+  let streak = 0
+  let cursor = new Date()
+  cursor.setHours(0, 0, 0, 0)
+
+  // If today isn't logged yet, start counting from yesterday instead —
+  // otherwise a same-day-not-logged-yet user would always show streak 0
+  // even after checking in every day so far.
+  const todayStr = cursor.toISOString().slice(0, 10)
+  if (!dateSet.has(todayStr)) {
+    cursor.setDate(cursor.getDate() - 1)
+  }
+
+  while (true) {
+    const str = cursor.toISOString().slice(0, 10)
+    if (!dateSet.has(str)) break
+    streak++
+    cursor.setDate(cursor.getDate() - 1)
+  }
+  return streak
+}
 
 export const PHASE_COPY = {
   menstrual: {
