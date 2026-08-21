@@ -5,6 +5,28 @@ import { IconX, IconEyeOff, IconSparkle, IconBell } from '../Icons'
 import { logPeriodStart, setHideCycle } from '../../lib/cycle'
 import { format } from 'date-fns'
 
+// Inline SVG Icon for Users to eliminate ReferenceError
+function IconUsers({ size = 15, color = 'currentColor', ...props }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M9 7m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" />
+      <path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      <path d="M21 21v-2a4 4 0 0 0 -3 -3.85" />
+    </svg>
+  )
+}
+
 function CalendarGlyph({ size = 16 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -18,7 +40,7 @@ function CalendarGlyph({ size = 16 }) {
 
 export default function CycleDashboard({ 
   userId, settings, cycleInfo, stats, onReload, 
-  onOpenCalendar, onOpenCheckin, onOpenInsights, onOpenReminders,onOpenTrustedCircle, onClose 
+  onOpenCalendar, onOpenCheckin, onOpenInsights, onOpenReminders, onOpenTrustedCircle, onClose 
 }) {
   const [hiding, setHiding] = useState(false)
 
@@ -53,10 +75,21 @@ export default function CycleDashboard({
     }}>
       {/* Header bar */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 20px', gap: 8 }}>
-        <button onClick={onOpenInsights} title="Your Patterns" style={iconBtnStyle}><IconSparkle size={15} /></button>
-        <button onClick={onOpenReminders} title="Reminders" style={iconBtnStyle}><IconBell size={15} /></button>
-        <button onClick={onOpenCalendar} title="Calendar" style={iconBtnStyle}><CalendarGlyph size={16} /></button>
-        <button onClick={onClose} style={iconBtnStyle}><IconX size={15} /></button>
+        <button onClick={onOpenTrustedCircle} title="Trusted Circle" style={iconBtnStyle}>
+          <IconUsers size={15} />
+        </button>
+        <button onClick={onOpenInsights} title="Your Patterns" style={iconBtnStyle}>
+          <IconSparkle size={15} />
+        </button>
+        <button onClick={onOpenReminders} title="Reminders" style={iconBtnStyle}>
+          <IconBell size={15} />
+        </button>
+        <button onClick={onOpenCalendar} title="Calendar" style={iconBtnStyle}>
+          <CalendarGlyph size={16} />
+        </button>
+        <button onClick={onClose} style={iconBtnStyle}>
+          <IconX size={15} />
+        </button>
       </div>
 
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '8px 20px 100px', display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -99,20 +132,26 @@ export default function CycleDashboard({
               </div>
             </div>
 
-            {/* Phase card */}
-            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: '16px 18px' }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#c4b5fd', marginBottom: 6 }}>{phase.label}</div>
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>{phase.blurb}</div>
-            </div>
+            {/* Phase card with optional chaining safeguards */}
+            {phase && (
+              <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: '16px 18px' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#c4b5fd', marginBottom: 6 }}>
+                  {phase?.label || 'Cycle Update'}
+                </div>
+                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>
+                  {phase?.blurb || ''}
+                </div>
+              </div>
+            )}
 
             {/* Stats grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <StatCard label="Estimated next period" value={format(cycleInfo.nextPeriodDate, 'MMM d')} />
+              <StatCard label="Estimated next period" value={cycleInfo.nextPeriodDate ? format(new Date(cycleInfo.nextPeriodDate), 'MMM d') : '—'} />
               <StatCard label="Cycle length" value={`${cycleInfo.cycleLength} days`} />
-              <StatCard label="Last period" value={format(new Date(settings.last_period_start + 'T00:00:00'), 'MMM d')} />
+              <StatCard label="Last period" value={settings.last_period_start ? format(new Date(settings.last_period_start + 'T00:00:00'), 'MMM d') : '—'} />
               <StatCard
                 label="Average cycle"
-                value={stats ? `${stats.average} days` : 'Need more data'}
+                value={stats?.average ? `${stats.average} days` : 'Need more data'}
               />
             </div>
 
@@ -123,7 +162,6 @@ export default function CycleDashboard({
             >
               How are you feeling today?
             </button>
-            <button onClick={onOpenTrustedCircle} title="Trusted Circle" style={iconBtnStyle}><IconUsers size={15} /></button>
 
             <button
               onClick={toggleHideCycle}
