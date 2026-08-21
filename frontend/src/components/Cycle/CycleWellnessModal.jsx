@@ -32,3 +32,4 @@ export function getMealSuggestions(phase, seed = 0) {
     dinner: pick(3),
   }
 }
+export default CycleWellnessModal;
