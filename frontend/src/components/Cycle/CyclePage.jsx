@@ -4,12 +4,16 @@ import CycleOnboarding from './CycleOnboarding'
 import CycleDashboard from './CycleDashboard'
 import CycleCheckin from './CycleCheckin'
 import CycleCalendar from './CycleCalendar'
+import CycleInsights from './CycleInsights'
+import CycleReminders from './CycleReminders'
 
 export default function CyclePage({ userId, onClose }) {
   const { settings, periodRecords, cycleInfo, stats, loading, reload } = useCycleData(userId)
   const [showCheckin, setShowCheckin] = useState(false)
-  const [checkinDate, setCheckinDate] = useState(null) // yyyy-MM-dd
+  const [checkinDate, setCheckinDate] = useState(null)
   const [showCalendar, setShowCalendar] = useState(false)
+  const [showInsights, setShowInsights] = useState(false)
+  const [showReminders, setShowReminders] = useState(false)
 
   if (loading) {
     return (
@@ -38,6 +42,8 @@ export default function CyclePage({ userId, onClose }) {
         onReload={reload}
         onOpenCalendar={() => setShowCalendar(true)}
         onOpenCheckin={() => openCheckin()}
+        onOpenInsights={() => setShowInsights(true)}
+        onOpenReminders={() => setShowReminders(true)}
         onClose={onClose}
       />
 
@@ -58,6 +64,24 @@ export default function CyclePage({ userId, onClose }) {
           dateStr={checkinDate}
           onSaved={reload}
           onClose={() => setShowCheckin(false)}
+        />
+      )}
+
+      {showInsights && (
+        <CycleInsights
+          userId={userId}
+          periodRecords={periodRecords}
+          stats={stats}
+          onClose={() => setShowInsights(false)}
+        />
+      )}
+
+      {showReminders && (
+        <CycleReminders
+          userId={userId}
+          settings={settings}
+          onSaved={reload}
+          onClose={() => setShowReminders(false)}
         />
       )}
     </>
