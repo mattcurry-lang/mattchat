@@ -1,93 +1,115 @@
-import React, { useState } from 'react'
-import { useCycleData } from '../../hooks/useCycleData'
-import CycleOnboarding from './CycleOnboarding'
+import React, { useState, useEffect } from 'react'
 import CycleDashboard from './CycleDashboard'
-import CycleCheckin from './CycleCheckin'
-import CycleCalendar from './CycleCalendar'
-import CycleInsights from './CycleInsights'
-import CycleReminders from './CycleReminders'
-
+import TrustedCircle from './TrustedCircle'
+import TrustedPersonDashboard from './TrustedPersonDashboard'
+import CycleCalendarModal from './CycleCalendarModal'
+import CycleCheckinModal from './CycleCheckinModal'
+import CycleInsightsModal from './CycleInsightsModal'
+import CycleRemindersModal from './CycleRemindersModal'
+import { getCycleInfo, getCycleStats } from '../../lib/cycle'
+import { getCycleSettings } from '../../lib/cycleTrust'
 
 export default function CyclePage({ userId, onClose, onOpenConversation }) {
-  const { settings, periodRecords, cycleInfo, stats, loading, reload } = useCycleData(userId)
-  const [showCheckin, setShowCheckin] = useState(false)
-  const [checkinDate, setCheckinDate] = useState(null)
+  const [view, setView] = useState('dashboard') // 'dashboard' | 'trusted_dashboard'
+  const [showTrusted, setShowTrusted] = useState(false)
   const [showCalendar, setShowCalendar] = useState(false)
+  const [showCheckin, setShowCheckin] = useState(false)
   const [showInsights, setShowInsights] = useState(false)
   const [showReminders, setShowReminders] = useState(false)
 
-  if (loading) {
-   return (
-    <>  
-      {view === 'trusted_dashboard' && (
-        <TrustedPersonDashboard 
-          onOpenConversation={onOpenConversation}
-          onClose={() => setView('dashboard')}
-        />
-      )}
-    </>
-  )
-}
+  const [settings, setSettings] = useState(null)
+  const [cycleInfo, setCycleInfo] = useState(null)
+  const [stats, setStats] = useState(null)
+  const [loading, setLoading] = useState(true)
 
-  if (!settings?.onboarded) {
-    return <CycleOnboarding userId={userId} onComplete={reload} onClose={onClose} />
+  const loadData = async () => {
+    try {
+      const s = await getCycleSettings(userId)
+      setSettings(s)
+      if (s?.last_period_start) {
+        setCycleInfo(getCycleInfo(s))
+        setStats(await getCycleStats(userId))
+      }
+    } catch (e) {
+      console.error('Error loading cycle data:', e)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const openCheckin = (dateStr) => {
-    setCheckinDate(dateStr || new Date().toISOString().slice(0, 10))
-    setShowCheckin(true)
+  useEffect(() => {
+    loadData()
+  }, [userId])
+
+  if (loading) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 650, background: '#14121f', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13 }}>
+        Loading Cycle Care…
+      </div>
+    )
   }
 
   return (
     <>
-      <CycleDashboard
-        userId={userId}
-        settings={settings}
-        cycleInfo={cycleInfo}
-        stats={stats}
-        onReload={reload}
-        onOpenCalendar={() => setShowCalendar(true)}
-        onOpenCheckin={() => openCheckin()}
-        onOpenInsights={() => setShowInsights(true)}
-        onOpenReminders={() => setShowReminders(true)}
-        onClose={onClose}
-      />
-
-      {showCalendar && (
-        <CycleCalendar
+      {view === 'dashboard' && (
+        <CycleDashboard
           userId={userId}
           settings={settings}
-          periodRecords={periodRecords}
           cycleInfo={cycleInfo}
-          onOpenDay={openCheckin}
-          onClose={() => setShowCalendar(false)}
+          stats={stats}
+          onReload={loadData}
+          onOpenCalendar={() => setShowCalendar(true)}
+          onOpenCheckin={() => setShowCheckin(true)}
+          onOpenInsights={() => setShowInsights(true)}
+          onOpenReminders={() => setShowReminders(true)}
+          onOpenTrustedCircle={() => setShowTrusted(true)}
+          onOpenTrustedDashboard={() => setView('trusted_dashboard')}
+          onClose={onClose}
+        />
+      )}
+
+      {view === 'trusted_dashboard' && (
+        <TrustedPersonDashboard
+          onOpenConversation={onOpenConversation}
+          onClose={() => setView('dashboard')}
+        />
+      )}
+
+      {/* Modals */}
+      {showTrusted && (
+        <TrustedCircle 
+          userId={userId} 
+          onClose={() => setShowTrusted(false)} 
+        />
+      )}
+
+      {showCalendar && (
+        <CycleCalendarModal 
+          userId={userId} 
+          settings={settings} 
+          onReload={loadData} 
+          onClose={() => setShowCalendar(false)} 
         />
       )}
 
       {showCheckin && (
-        <CycleCheckin
-          userId={userId}
-          dateStr={checkinDate}
-          onSaved={reload}
-          onClose={() => setShowCheckin(false)}
+        <CycleCheckinModal 
+          userId={userId} 
+          onClose={() => setShowCheckin(false)} 
         />
       )}
 
       {showInsights && (
-        <CycleInsights
-          userId={userId}
-          periodRecords={periodRecords}
-          stats={stats}
-          onClose={() => setShowInsights(false)}
+        <CycleInsightsModal 
+          userId={userId} 
+          onClose={() => setShowInsights(false)} 
         />
       )}
 
       {showReminders && (
-        <CycleReminders
-          userId={userId}
-          settings={settings}
-          onSaved={reload}
-          onClose={() => setShowReminders(false)}
+        <CycleRemindersModal 
+          userId={userId} 
+          onClose={() => setShowReminders(false)} 
         />
       )}
     </>
