@@ -14,6 +14,9 @@ import { usePulseData, usePulseSettings } from '../../hooks/usePulseData'
 import { getPulsePlugin } from '../../lib/pulsePlugins'
 import { supabase } from '../../lib/supabase'
 import YouTubePulsePage from './YouTubePulsePage'
+import CyclePage from './Cycle/CyclePage'
+import { IconFlower } from '../Icons'
+
 
 const LOCKED_PLATFORMS = Object.entries(PLATFORM_META).filter(([, meta]) => meta.supportLevel === 'native_only')
 
@@ -24,6 +27,7 @@ export default function PulsePage({
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [showYouTubePulse, setShowYouTubePulse] = useState(false)
+  const [showCycle, setShowCycle] = useState(false)
   const { privacyMode, setPrivacyMode } = usePulseSettings(userId)
   const { items, loading, error, reload } = usePulseData(session, { conversations, unreadCounts, getConvoName })
   const birthday = useBirthday(userId, profile)
@@ -185,6 +189,22 @@ export default function PulsePage({
                 <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Search and browse videos</div>
               </div>
             </button>
+            <button
+  onClick={() => setShowCycle(true)}
+  style={{
+    display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-surface-2)',
+    border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px',
+    cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%',
+  }}
+>
+  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <IconFlower size={18} style={{ color: '#fff' }} />
+  </div>
+  <div>
+    <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>Cycle Care</div>
+    <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Private cycle & wellness tracking</div>
+  </div>
+</button>
 
             <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', marginTop: 8, marginBottom: 2 }}>
               More apps — coming with the Mattchat mobile app
@@ -206,6 +226,9 @@ export default function PulsePage({
           />
         </div>
       )}
+      {showCycle && (
+  <CyclePage userId={userId} onClose={() => setShowCycle(false)} />
+)}
 
       {birthday.shouldShowExperience && (
         <BirthdayExperience profile={profile} onClose={birthday.dismiss} />
