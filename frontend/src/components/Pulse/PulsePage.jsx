@@ -226,8 +226,17 @@ export default function PulsePage({
           />
         </div>
       )}
-      {showCycle && (
-  <CyclePage userId={userId} onClose={() => setShowCycle(false)} />
+    // Inside components/Pulse/PulsePage.jsx
+
+{showCycle && (
+  <CyclePage 
+    userId={userId} 
+    onClose={() => setShowCycle(false)} 
+    onOpenConversation={(targetUserId, prefillMessage) => {
+      setShowCycle(false) // Close cycle modal
+      onOpenConversation?.(targetUserId, prefillMessage) // Pass both up to ChatPage
+    }}
+  />
 )}
 
       {birthday.shouldShowExperience && (
