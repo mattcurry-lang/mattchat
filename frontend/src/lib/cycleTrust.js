@@ -1,4 +1,3 @@
-// lib/cycleTrust.js
 import { supabase as sb } from './supabase'
 
 export async function listTrustedPeople(ownerId) {
@@ -50,6 +49,15 @@ export async function respondToTrustedInvite(linkId, accept) {
   if (error) throw error
   if (!data.ok) throw new Error(data.error)
   return data
+}
+
+// Named alias exports for backward/component compatibility
+export async function acceptTrustedInvite(linkId) {
+  return respondToTrustedInvite(linkId, true)
+}
+
+export async function declineTrustedInvite(linkId) {
+  return respondToTrustedInvite(linkId, false)
 }
 
 export async function updateTrustedPermission(id, patch) {
