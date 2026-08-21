@@ -11,15 +11,36 @@ export default function CycleReminders({ userId, settings, onSaved, onClose }) {
   const [dailyCheckin, setDailyCheckin] = useState(initial.dailyCheckin ?? false)
   const [customText, setCustomText] = useState(initial.customText || '')
   const [saving, setSaving] = useState(false)
+  const [reminderHour, setReminderHour] = useState(initial.reminderHour ?? settings?.reminder_hour ?? 9)
 
   const toggleDay = (d) => {
     setDaysBefore(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d].sort((a, b) => a - b))
   }
-
+<div>
+  <SectionLabel>Send reminders around</SectionLabel>
+  <select
+    value={reminderHour}
+    onChange={e => setReminderHour(Number(e.target.value))}
+    style={{
+      width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+      borderRadius: 12, padding: '10px 12px', color: '#fff', fontSize: 13.5, fontFamily: 'inherit',
+    }}
+  >
+    {Array.from({ length: 24 }, (_, h) => (
+      <option key={h} value={h} style={{ color: '#000' }}>
+        {h === 0 ? '12:00 AM' : h < 12 ? `${h}:00 AM` : h === 12 ? '12:00 PM' : `${h - 12}:00 PM`}
+      </option>
+    ))}
+  </select>
+  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 6 }}>
+    Based on your device's timezone, detected automatically.
+  </div>
+</div>
   const save = async () => {
     setSaving(true)
     try {
       await upsertCycleSettings(userId, {
+        reminder_hour: reminderHour,
         reminders: { daysBefore, periodStart, dailyCheckin, customText: customText.trim() || null },
       })
       onSaved?.()
