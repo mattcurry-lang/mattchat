@@ -12,7 +12,14 @@ const PRESET_MESSAGES = [
   'Thinking of you today 🌸',
   'Let me know if you need anything at all',
 ]
-
+function StatBlock({ label, value }) {
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: '8px 10px' }}>
+      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 0.4 }}>{label}</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: '#e5e7eb', marginTop: 2 }}>{value}</div>
+    </div>
+  )
+}
 export default function TrustedPersonDashboard({ onOpenConversation, onClose }) {
   const [links, setLinks] = useState([])
   const [pending, setPending] = useState([])
@@ -138,12 +145,14 @@ export default function TrustedPersonDashboard({ onOpenConversation, onClose }) 
                   : `${name}'s cycle`}
               </div>
 
-              {status?.available && link.permission_level === 3 && (
-                <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.6)', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {status.estimatedNextPeriod && <div>Estimated next period: {status.estimatedNextPeriod}</div>}
-                  {status.phase && <div>Current phase: {status.phase.charAt(0).toUpperCase() + status.phase.slice(1)}</div>}
-                </div>
-              )}
+             {status?.available && link.permission_level === 3 && (
+  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+    <StatBlock label="Cycle day" value={`Day ${status.dayOfCycle}`} />
+    <StatBlock label="Phase" value={status.phase.charAt(0).toUpperCase() + status.phase.slice(1)} />
+    <StatBlock label="Estimated next period" value={status.estimatedNextPeriod} />
+    <StatBlock label="Cycle length" value={`${status.cycleLength} days`} />
+  </div>
+)}
 
               {!status?.available && (
                 <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
