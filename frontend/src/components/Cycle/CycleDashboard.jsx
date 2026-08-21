@@ -40,7 +40,7 @@ function CalendarGlyph({ size = 16 }) {
 }
 
 export default function CycleDashboard({ 
-  userId, settings, cycleInfo, stats, recentDailyLogs, onReload, 
+  userId, settings, cycleInfo, stats, recentDailyLogs, checkinStreak, onReload, 
   onOpenCalendar, onOpenCheckin, onOpenInsights, onOpenReminders, onOpenTrustedCircle, onOpenWellness, onClose 
 }) {
   const [hiding, setHiding] = useState(false)
@@ -133,7 +133,7 @@ export default function CycleDashboard({
               </div>
             </div>
 
-                        {phase && (
+            {phase && (
               <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: '16px 18px' }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#c4b5fd', marginBottom: 6 }}>
                   {phase?.label || 'Cycle Update'}
@@ -144,14 +144,22 @@ export default function CycleDashboard({
               </div>
             )}
 
-            {/* NEW — Today for you card */}
+            {checkinStreak > 0 && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+                background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)',
+                borderRadius: 20, padding: '5px 12px', fontSize: 12, fontWeight: 700, color: '#c4b5fd',
+              }}>
+                🔥 {checkinStreak}-day check-in streak
+              </div>
+            )}
+
+            {/* Today for you card */}
             <TodayForYouCard
               phase={cycleInfo.phase}
               recentDailyLogs={recentDailyLogs}
               onOpenWellness={onOpenWellness}
             />
-
-            {/* Stats grid */}
 
             {/* Stats grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
