@@ -231,11 +231,46 @@ function ProgressRail({ containerRef, activeIndex, total }) {
     </div>
   )
 }
+function useNaturalPageScroll() {
+  useEffect(() => {
+    const html = document.documentElement
+    const body = document.body
+    const root = document.getElementById('root')
 
+    const targets = [html, body, root].filter(Boolean)
+    const prev = targets.map((el) => ({
+      el,
+      overflow: el.style.overflow,
+      overflowY: el.style.overflowY,
+      height: el.style.height,
+      maxHeight: el.style.maxHeight,
+      position: el.style.position,
+    }))
+
+    targets.forEach((el) => {
+      el.style.overflow = 'visible'
+      el.style.overflowY = 'auto'
+      el.style.height = 'auto'
+      el.style.maxHeight = 'none'
+      if (el.style.position === 'fixed') el.style.position = 'static'
+    })
+
+    return () => {
+      prev.forEach(({ el, overflow, overflowY, height, maxHeight, position }) => {
+        el.style.overflow = overflow
+        el.style.overflowY = overflowY
+        el.style.height = height
+        el.style.maxHeight = maxHeight
+        el.style.position = position
+      })
+    }
+  }, [])
+}
 /* ---------- root ---------- */
 
 export default function ExplorePage() {
   const navigate = useNavigate()
+  useNaturalPageScroll()
   const storyRef = useRef(null)
   const [activeIndex, setActiveIndex] = useState(0)
 
