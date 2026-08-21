@@ -18,7 +18,7 @@ function CalendarGlyph({ size = 16 }) {
 
 export default function CycleDashboard({ 
   userId, settings, cycleInfo, stats, onReload, 
-  onOpenCalendar, onOpenCheckin, onOpenInsights, onOpenReminders, onClose 
+  onOpenCalendar, onOpenCheckin, onOpenInsights, onOpenReminders,onOpenTrustedCircle, onClose 
 }) {
   const [hiding, setHiding] = useState(false)
 
