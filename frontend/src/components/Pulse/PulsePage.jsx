@@ -21,7 +21,7 @@ import { IconFlower } from '../Icons'
 const LOCKED_PLATFORMS = Object.entries(PLATFORM_META).filter(([, meta]) => meta.supportLevel === 'native_only')
 
 export default function PulsePage({
-  session, userId, profile, conversations, unreadCounts, getConvoName,
+  session, userId, profile, conversations, unreadCounts, getConvoName, getOtherUserId,
   onOpenConversation, onSelectVideo, aiSummary, onOpenShorts,
 }) {
   const [filter, setFilter] = useState('all')
@@ -230,6 +230,9 @@ export default function PulsePage({
 {showCycle && (
   <CyclePage 
     userId={userId} 
+    conversations={conversations}
+    getConvoName={getConvoName}
+    getOtherUserId={getOtherUserId}
     onClose={() => setShowCycle(false)} 
     onOpenConversation={(targetUserId, prefillMessage) => {
       setShowCycle(false) // Close cycle modal
