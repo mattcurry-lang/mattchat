@@ -1,65 +1,67 @@
 import { supabase } from './supabase'
- 
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
 export function getCycleInfo(settings) {
   if (!settings || !settings.last_period_start) return null
 
   const cycleLength = settings.average_cycle_length || 28
   const periodLength = settings.average_period_length || 5
 
-  const lastStart = new Date(settings.last_period_start)
+  const lastStart = new Date(settings.last_period_start + 'T00:00:00')
   const today = new Date()
-
-  // Clear time portions for accurate day calculations
   lastStart.setHours(0, 0, 0, 0)
   today.setHours(0, 0, 0, 0)
 
-  const diffTime = today - lastStart
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
-
-  // Calculate current cycle day (1-indexed)
+  const diffDays = Math.floor((today - lastStart) / DAY_MS)
   const dayOfCycle = ((diffDays % cycleLength) + cycleLength) % cycleLength + 1
 
-  // Determine current phase
-  let phase = 'Follicular'
-  if (dayOfCycle <= periodLength) {
-    phase = 'Menstrual'
-  } else if (dayOfCycle >= cycleLength - 16 && dayOfCycle <= cycleLength - 12) {
-    phase = 'Ovulation'
-  } else if (dayOfCycle > cycleLength - 12) {
-    phase = 'Luteal'
-  }
+  // NOTE: lowercase keys — must match PHASE_INFO's keys in CycleDashboard,
+  // or PHASE_INFO[phase] comes back undefined and .label throws.
+  const ovulationDay = cycleLength - 14
+  const ovulationWindowStart = Math.max(1, ovulationDay - 2)
+  const ovulationWindowEnd = ovulationDay + 1
 
-  // Calculate next period date
-  const nextPeriod = new Date(lastStart)
-  const cycleMultiplier = Math.floor(diffDays / cycleLength) + (diffDays >= 0 ? 1 : 0)
-  nextPeriod.setDate(lastStart.getDate() + cycleMultiplier * cycleLength)
+  let phase = 'follicular'
+  if (dayOfCycle <= periodLength) phase = 'menstrual'
+  else if (dayOfCycle >= ovulationWindowStart && dayOfCycle <= ovulationWindowEnd) phase = 'ovulation'
+  else if (dayOfCycle > ovulationWindowEnd) phase = 'luteal'
 
-  const daysUntilNext = Math.ceil((nextPeriod - today) / (1000 * 60 * 60 * 24))
+  const daysUntilNextPeriod = cycleLength - dayOfCycle + 1
+  const nextPeriodDate = new Date(today.getTime() + daysUntilNextPeriod * DAY_MS) // real Date object, not a string
+
+  const confidence = diffDays < cycleLength * 2 ? 'low' : 'estimated'
 
   return {
     dayOfCycle,
     phase,
-    daysUntilNext,
-    nextPeriodDate: nextPeriod.toISOString().split('T')[0],
+    daysUntilNextPeriod,
+    nextPeriodDate,
     cycleLength,
     periodLength,
+    confidence,
+    progressFraction: (dayOfCycle - 1) / cycleLength, // needed by CycleRing
   }
 }
 
 /**
- * Fetch basic cycle analytics and statistics for the user
+ * Real average/min/max from recorded period start dates — matches the
+ * { average, min, max, samples } shape CycleDashboard's stats card expects.
  */
 export async function getCycleStats(userId) {
   const records = await listPeriodRecords(userId, 12)
-  if (!records || records.length === 0) {
-    return { avgCycle: 28, avgPeriod: 5, totalLogged: 0 }
-  }
+  const starts = (records || []).map(r => r.start_date).sort()
+  if (starts.length < 2) return null
 
-  return {
-    avgCycle: 28,
-    avgPeriod: 5,
-    totalLogged: records.length,
+  const lengths = []
+  for (let i = 1; i < starts.length; i++) {
+    const days = Math.round((new Date(starts[i]) - new Date(starts[i - 1])) / DAY_MS)
+    if (days > 10 && days < 90) lengths.push(days) // filter obvious glitches
   }
+  if (lengths.length === 0) return null
+
+  const average = Math.round(lengths.reduce((a, b) => a + b, 0) / lengths.length)
+  return { average, min: Math.min(...lengths), max: Math.max(...lengths), samples: lengths.length }
 }
 
 // ── Settings & Database Queries ─────────────────────────────
@@ -71,7 +73,7 @@ export async function getCycleSettings(userId) {
     .eq('user_id', userId)
     .maybeSingle()
   if (error) throw error
-  return data // null if the user has never onboarded
+  return data
 }
 
 export async function upsertCycleSettings(userId, patch) {
