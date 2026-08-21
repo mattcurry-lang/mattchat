@@ -864,3 +864,15 @@ export function IconPointer({ size = 18, ...props }) {
     </svg>
   )
 }
+
+export function IconFlower({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <circle cx="12" cy="12" r="2.4" />
+      <path d="M12 9.6a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z" />
+      <path d="M12 20.4a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z" />
+      <path d="M14.4 12a3 3 0 1 1 6 0 3 3 0 0 1-6 0Z" />
+      <path d="M3.6 12a3 3 0 1 1 6 0 3 3 0 0 1-6 0Z" />
+    </svg>
+  )
+}
