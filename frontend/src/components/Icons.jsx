@@ -154,6 +154,14 @@ export function IconX({ size = 18, ...props }) {
   )
 }
 
+export function IconCheck({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M5 12.5l4.5 4.5L19 7" />
+    </svg>
+  )
+}
+
 export function IconTrash({ size = 18, ...props }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
