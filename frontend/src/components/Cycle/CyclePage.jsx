@@ -91,15 +91,15 @@ export default function CyclePage({ userId, onClose, onOpenConversation, convers
       )}
 
       {showTrusted && (
-        <TrustedCircle
-          userId={userId}
-          conversations={conversations}
-          getConvoName={getConvoName}
-          getOtherUserId={getOtherUserId}
-          onClose={() => setShowTrusted(false)}
-        />
-      )}
-
+  <TrustedCircle
+    userId={userId}
+    conversations={conversations}
+    getConvoName={getConvoName}
+    getOtherUserId={getOtherUserId}
+    onClose={() => setShowTrusted(false)}
+    onOpenConversation={onOpenConversation}  
+  />
+)}
       {showCalendar && (
         <CycleCalendarModal
           userId={userId}
