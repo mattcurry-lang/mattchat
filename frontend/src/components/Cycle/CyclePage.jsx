@@ -7,8 +7,7 @@ import CycleCheckinModal from './CycleCheckin'
 import CycleInsightsModal from './CycleInsights'
 import CycleRemindersModal from './CycleReminders'
 
-import { getCycleInfo, getCycleStats } from '../../lib/cycle'
-import { getCycleSettings } from '../../lib/cycleTrust'
+import { getCycleInfo, getCycleStats, getCycleSettings } from '../../lib/cycle'
 
 export default function CyclePage({ userId, onClose, onOpenConversation }) {
   const [view, setView] = useState('dashboard') // 'dashboard' | 'trusted_dashboard'
