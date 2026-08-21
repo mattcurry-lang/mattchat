@@ -7,6 +7,7 @@ import CycleCalendar from './CycleCalendar'
 import CycleInsights from './CycleInsights'
 import CycleReminders from './CycleReminders'
 
+
 export default function CyclePage({ userId, onClose }) {
   const { settings, periodRecords, cycleInfo, stats, loading, reload } = useCycleData(userId)
   const [showCheckin, setShowCheckin] = useState(false)
