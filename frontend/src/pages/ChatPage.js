@@ -1733,6 +1733,7 @@ const handleSend = async () => {
       conversations={conversations}
       unreadCounts={unreadCounts}
       getConvoName={getConvoName}
+ getOtherUserId={getOtherUserId}
       onOpenConversation={(convoId) => {
         const found = conversations.find(c => c.id === convoId)
         if (found) { openConvo(found); setActiveTab('chats') }
