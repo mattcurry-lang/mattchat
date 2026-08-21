@@ -1,13 +1,10 @@
 import React, { useState } from 'react'
 import CycleRing from './CycleRing'
 import { PHASE_INFO } from '../../lib/cycleMath'
-import { IconX, IconCalendar, IconEyeOff, IconSettings } from '../Icons'
+import { IconX, IconEyeOff, IconSparkle, IconBell } from '../Icons'
 import { logPeriodStart, setHideCycle } from '../../lib/cycle'
 import { format } from 'date-fns'
-import { IconSparkle, IconBell } from '../Icons'
 
-// IconCalendar doesn't exist in your set yet — fall back to IconClock-style
-// glyph inline rather than adding a whole new icon for phase 1.
 function CalendarGlyph({ size = 16 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -19,7 +16,10 @@ function CalendarGlyph({ size = 16 }) {
   )
 }
 
-export default function CycleDashboard({ userId, settings, cycleInfo, stats, onReload, onOpenCalendar, onOpenCheckin, onOpenInsights, onOpenReminders, onClose }) {
+export default function CycleDashboard({ 
+  userId, settings, cycleInfo, stats, onReload, 
+  onOpenCalendar, onOpenCheckin, onOpenInsights, onOpenReminders, onClose 
+}) {
   const [hiding, setHiding] = useState(false)
 
   const hasData = !!cycleInfo
@@ -51,13 +51,12 @@ export default function CycleDashboard({ userId, settings, cycleInfo, stats, onR
       position: 'fixed', inset: 0, zIndex: 650, overflowY: 'auto',
       background: 'linear-gradient(160deg, #1b1730 0%, #14121f 55%)',
     }}>
-      {/* Header */}
-      <div style={{ display: 'flex', gap: 8 }}>
-  <button onClick={onOpenInsights} title="Your Patterns" style={iconBtnStyle}><IconSparkle size={15} /></button>
-  <button onClick={onOpenReminders} title="Reminders" style={iconBtnStyle}><IconBell size={15} /></button>
-  <button onClick={onOpenCalendar} title="Calendar" style={iconBtnStyle}><CalendarGlyph size={16} /></button>
-  <button onClick={onClose} style={iconBtnStyle}><IconX size={15} /></button>
-</div>
+      {/* Header bar */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 20px', gap: 8 }}>
+        <button onClick={onOpenInsights} title="Your Patterns" style={iconBtnStyle}><IconSparkle size={15} /></button>
+        <button onClick={onOpenReminders} title="Reminders" style={iconBtnStyle}><IconBell size={15} /></button>
+        <button onClick={onOpenCalendar} title="Calendar" style={iconBtnStyle}><CalendarGlyph size={16} /></button>
+        <button onClick={onClose} style={iconBtnStyle}><IconX size={15} /></button>
       </div>
 
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '8px 20px 100px', display: 'flex', flexDirection: 'column', gap: 20 }}>
