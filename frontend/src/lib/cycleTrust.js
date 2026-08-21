@@ -49,6 +49,15 @@ export async function respondToTrustedInvite(linkId, accept) {
   return data
 }
 
+ 
+export async function acceptTrustedInvite(linkId) {
+  return respondToTrustedInvite(linkId, true)
+}
+
+export async function declineTrustedInvite(linkId) {
+  return respondToTrustedInvite(linkId, false)
+}
+
 export async function updateTrustedPermission(id, patch) {
   const { error } = await sb.from('trusted_people').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id)
   if (error) throw error
