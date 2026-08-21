@@ -6,9 +6,8 @@ import CycleCalendarModal from './CycleCalendar'
 import CycleCheckinModal from './CycleCheckin'
 import CycleInsightsModal from './CycleInsights'
 import CycleRemindersModal from './CycleReminders'
-import { getCycleInfo, getCycleStats, getCycleSettings, listPeriodRecords } from '../../lib/cycle'
 import CycleWellnessModal from './CycleWellnessModal'
-import { listDailyLogs } from '../../lib/cycle'
+import { getCycleInfo, getCycleStats, getCycleSettings, listPeriodRecords, listDailyLogs } from '../../lib/cycle'
 
 export default function CyclePage({ userId, onClose, onOpenConversation, conversations, getConvoName, getOtherUserId }) {
   const [view, setView] = useState('dashboard')
@@ -24,41 +23,21 @@ export default function CyclePage({ userId, onClose, onOpenConversation, convers
   const [periodRecords, setPeriodRecords] = useState([])
   const [loading, setLoading] = useState(true)
   const [recentDailyLogs, setRecentDailyLogs] = useState([])
-const [showWellness, setShowWellness] = useState(false)
-const [wellnessTab, setWellnessTab] = useState('foods')
+  const [showWellness, setShowWellness] = useState(false)
+  const [wellnessTab, setWellnessTab] = useState('foods')
 
   const loadData = async () => {
-  try {
-    const fromDate = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-    const toDate = new Date().toISOString().slice(0, 10)
-    const [s, records, logs] = await Promise.all([
-      getCycleSettings(userId),
-      listPeriodRecords(userId),
-      listDailyLogs(userId, { fromDate, toDate }),
-    ])
-    setSettings(s)
-    setPeriodRecords(records || [])
-    setRecentDailyLogs(logs || [])
-    if (s?.last_period_start) {
-      setCycleInfo(getCycleInfo(s))
-      setStats(await getCycleStats(userId))
-    } else {
-      setCycleInfo(null)
-      setStats(null)
-    }
-  } catch (e) {
-    console.error('Error loading cycle data:', e)
-  } finally {
-    setLoading(false)
-  }
-  const loadData = async () => {
     try {
-      const [s, records] = await Promise.all([
+      const fromDate = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+      const toDate = new Date().toISOString().slice(0, 10)
+      const [s, records, logs] = await Promise.all([
         getCycleSettings(userId),
         listPeriodRecords(userId),
+        listDailyLogs(userId, { fromDate, toDate }),
       ])
       setSettings(s)
       setPeriodRecords(records || [])
+      setRecentDailyLogs(logs || [])
       if (s?.last_period_start) {
         setCycleInfo(getCycleInfo(s))
         setStats(await getCycleStats(userId))
@@ -96,21 +75,22 @@ const [wellnessTab, setWellnessTab] = useState('foods')
   return (
     <>
       {view === 'dashboard' && (
-       <CycleDashboard
-  userId={userId}
-  settings={settings}
-  cycleInfo={cycleInfo}
-  stats={stats}
-  recentDailyLogs={recentDailyLogs}
-  onReload={loadData}
-  onOpenCalendar={() => setShowCalendar(true)}
-  onOpenCheckin={openTodayCheckin}
-  onOpenInsights={() => setShowInsights(true)}
-  onOpenReminders={() => setShowReminders(true)}
-  onOpenTrustedCircle={() => setShowTrusted(true)}
-  onOpenWellness={(tab) => { setWellnessTab(tab); setShowWellness(true) }}
-  onClose={onClose}
-/>
+        <CycleDashboard
+          userId={userId}
+          settings={settings}
+          cycleInfo={cycleInfo}
+          stats={stats}
+          recentDailyLogs={recentDailyLogs}
+          onReload={loadData}
+          onOpenCalendar={() => setShowCalendar(true)}
+          onOpenCheckin={openTodayCheckin}
+          onOpenInsights={() => setShowInsights(true)}
+          onOpenReminders={() => setShowReminders(true)}
+          onOpenTrustedCircle={() => setShowTrusted(true)}
+          onOpenTrustedDashboard={() => setView('trusted_dashboard')}
+          onOpenWellness={(tab) => { setWellnessTab(tab); setShowWellness(true) }}
+          onClose={onClose}
+        />
       )}
 
       {view === 'trusted_dashboard' && (
@@ -121,24 +101,24 @@ const [wellnessTab, setWellnessTab] = useState('foods')
       )}
 
       {showTrusted && (
-  <TrustedCircle
-    userId={userId}
-    conversations={conversations}
-    getConvoName={getConvoName}
-    getOtherUserId={getOtherUserId}
-    onClose={() => setShowTrusted(false)}
-    onOpenConversation={onOpenConversation}  
-  />
-)}
+        <TrustedCircle
+          userId={userId}
+          conversations={conversations}
+          getConvoName={getConvoName}
+          getOtherUserId={getOtherUserId}
+          onClose={() => setShowTrusted(false)}
+          onOpenConversation={onOpenConversation}
+        />
+      )}
 
       {showWellness && cycleInfo && (
-  <CycleWellnessModal
-    phase={cycleInfo.phase}
-    initialTab={wellnessTab}
-    onClose={() => setShowWellness(false)}
-  />
-)}
-      
+        <CycleWellnessModal
+          phase={cycleInfo.phase}
+          initialTab={wellnessTab}
+          onClose={() => setShowWellness(false)}
+        />
+      )}
+
       {showCalendar && (
         <CycleCalendarModal
           userId={userId}
