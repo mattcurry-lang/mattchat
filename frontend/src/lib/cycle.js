@@ -148,7 +148,12 @@ export async function upsertDailyLog(userId, dateStr, patch) {
     )
   if (error) throw error
 }
-
+ 
+export async function syncUserTimezone(userId, currentSettings) {
+  const detected = Intl.DateTimeFormat().resolvedOptions().timeZone
+  if (!detected || detected === currentSettings?.timezone) return
+  await upsertCycleSettings(userId, { timezone: detected })
+}
 export async function listDailyLogs(userId, { fromDate, toDate } = {}) {
   let query = supabase.from('daily_logs').select('*').eq('user_id', userId)
   if (fromDate) query = query.gte('log_date', fromDate)
