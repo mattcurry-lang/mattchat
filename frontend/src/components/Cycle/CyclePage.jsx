@@ -6,17 +6,15 @@ import CycleCalendarModal from './CycleCalendar'
 import CycleCheckinModal from './CycleCheckin'
 import CycleInsightsModal from './CycleInsights'
 import CycleRemindersModal from './CycleReminders'
-
 import { getCycleInfo, getCycleStats, getCycleSettings } from '../../lib/cycle'
 
-export default function CyclePage({ userId, onClose, onOpenConversation }) {
+export default function CyclePage({ userId, onClose, onOpenConversation, conversations, getConvoName, getOtherUserId }) {
   const [view, setView] = useState('dashboard') // 'dashboard' | 'trusted_dashboard'
   const [showTrusted, setShowTrusted] = useState(false)
   const [showCalendar, setShowCalendar] = useState(false)
   const [showCheckin, setShowCheckin] = useState(false)
   const [showInsights, setShowInsights] = useState(false)
   const [showReminders, setShowReminders] = useState(false)
-
   const [settings, setSettings] = useState(null)
   const [cycleInfo, setCycleInfo] = useState(null)
   const [stats, setStats] = useState(null)
@@ -67,22 +65,22 @@ export default function CyclePage({ userId, onClose, onOpenConversation }) {
           onClose={onClose}
         />
       )}
-
       {view === 'trusted_dashboard' && (
         <TrustedPersonDashboard
           onOpenConversation={onOpenConversation}
           onClose={() => setView('dashboard')}
         />
       )}
-
       {/* Modals */}
       {showTrusted && (
-        <TrustedCircle 
-          userId={userId} 
-          onClose={() => setShowTrusted(false)} 
+        <TrustedCircle
+          userId={userId}
+          conversations={conversations}
+          getConvoName={getConvoName}
+          getOtherUserId={getOtherUserId}
+          onClose={() => setShowTrusted(false)}
         />
       )}
-
       {showCalendar && (
         <CycleCalendarModal 
           userId={userId} 
@@ -91,21 +89,18 @@ export default function CyclePage({ userId, onClose, onOpenConversation }) {
           onClose={() => setShowCalendar(false)} 
         />
       )}
-
       {showCheckin && (
         <CycleCheckinModal 
           userId={userId} 
           onClose={() => setShowCheckin(false)} 
         />
       )}
-
       {showInsights && (
         <CycleInsightsModal 
           userId={userId} 
           onClose={() => setShowInsights(false)} 
         />
       )}
-
       {showReminders && (
         <CycleRemindersModal 
           userId={userId} 
