@@ -4,6 +4,7 @@ import { PHASE_INFO } from '../../lib/cycleMath'
 import { IconX, IconCalendar, IconEyeOff, IconSettings } from '../Icons'
 import { logPeriodStart, setHideCycle } from '../../lib/cycle'
 import { format } from 'date-fns'
+import { IconSparkle, IconBell } from '../Icons'
 
 // IconCalendar doesn't exist in your set yet — fall back to IconClock-style
 // glyph inline rather than adding a whole new icon for phase 1.
@@ -18,7 +19,7 @@ function CalendarGlyph({ size = 16 }) {
   )
 }
 
-export default function CycleDashboard({ userId, settings, cycleInfo, stats, onReload, onOpenCalendar, onOpenCheckin, onClose }) {
+export default function CycleDashboard({ userId, settings, cycleInfo, stats, onReload, onOpenCalendar, onOpenCheckin, onOpenInsights, onOpenReminders, onClose }) {
   const [hiding, setHiding] = useState(false)
 
   const hasData = !!cycleInfo
