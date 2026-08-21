@@ -51,12 +51,12 @@ export default function CycleDashboard({ userId, settings, cycleInfo, stats, onR
       background: 'linear-gradient(160deg, #1b1730 0%, #14121f 55%)',
     }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px' }}>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#fff', margin: 0 }}>Your Cycle</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={onOpenCalendar} title="Calendar" style={iconBtnStyle}><CalendarGlyph size={16} /></button>
-          <button onClick={onClose} style={iconBtnStyle}><IconX size={15} /></button>
-        </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+  <button onClick={onOpenInsights} title="Your Patterns" style={iconBtnStyle}><IconSparkle size={15} /></button>
+  <button onClick={onOpenReminders} title="Reminders" style={iconBtnStyle}><IconBell size={15} /></button>
+  <button onClick={onOpenCalendar} title="Calendar" style={iconBtnStyle}><CalendarGlyph size={16} /></button>
+  <button onClick={onClose} style={iconBtnStyle}><IconX size={15} /></button>
+</div>
       </div>
 
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '8px 20px 100px', display: 'flex', flexDirection: 'column', gap: 20 }}>
