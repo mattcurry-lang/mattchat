@@ -6,7 +6,7 @@ import CycleCalendarModal from './CycleCalendar'
 import CycleCheckinModal from './CycleCheckin'
 import CycleInsightsModal from './CycleInsights'
 import CycleRemindersModal from './CycleReminders'
-import CycleWellnessModal from './CycleWellnessModal'
+import CycleWellnessModal from './CycleWellness'
 import { getCycleInfo, getCycleStats, getCycleSettings, listPeriodRecords, listDailyLogs } from '../../lib/cycle'
 
 export default function CyclePage({ userId, onClose, onOpenConversation, conversations, getConvoName, getOtherUserId }) {
