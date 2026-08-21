@@ -7,7 +7,7 @@ import CycleCheckinModal from './CycleCheckin'
 import CycleInsightsModal from './CycleInsights'
 import CycleRemindersModal from './CycleReminders'
 import CycleWellnessModal from './CycleWellnessModal'
-import { getCycleInfo, getCycleStats, getCycleSettings, listPeriodRecords, listDailyLogs } from '../../lib/cycle'
+import { getCycleInfo, getCycleStats, getCycleSettings, listPeriodRecords, listDailyLogs, syncUserTimezone } from '../../lib/cycle'
 import { computeCheckinStreak } from '../../lib/cycleWellness'
 
 export default function CyclePage({ userId, onClose, onOpenConversation, conversations, getConvoName, getOtherUserId }) {
