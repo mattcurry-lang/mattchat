@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { IconX, IconUserPlus, IconTrash, IconUsers, IconCopy } from '../Icons'
+import { IconX, IconUserPlus, IconTrash, IconUsers } from '../Icons'
 import { listTrustedPeople, createTrustedInvite, updateTrustedPermission, revokeTrustedPerson } from '../../lib/cycleTrust'
+import TrustedPersonPicker from './TrustedPersonPicker'
 
 const LEVEL_LABELS = { 1: 'Private', 2: 'Support', 3: 'Cycle Sharing' }
 
-export default function TrustedCircle({ userId, onClose }) {
+export default function TrustedCircle({ userId, conversations, getConvoName, getOtherUserId, onClose }) {
   const [people, setPeople] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showPicker, setShowPicker] = useState(false)
   const [inviting, setInviting] = useState(false)
-  const [inviteLink, setInviteLink] = useState(null)
-  const [managing, setManaging] = useState(null) // trusted_people row being edited
+  const [managing, setManaging] = useState(null)
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -19,20 +20,16 @@ export default function TrustedCircle({ userId, onClose }) {
 
   useEffect(() => { reload() }, [reload])
 
-  const invite = async () => {
+  const handlePick = async (person) => {
     setInviting(true)
+    setShowPicker(false)
     try {
-      const row = await createTrustedInvite(userId, null)
-      setInviteLink(row.inviteUrl)
-      reload()
+      await createTrustedInvite(userId, person.id)
+      await reload()
     } catch (e) {
       alert(e.message)
     }
     setInviting(false)
-  }
-
-  const copyLink = () => {
-    navigator.clipboard.writeText(inviteLink)
   }
 
   const revoke = async (id) => {
@@ -63,14 +60,14 @@ export default function TrustedCircle({ userId, onClose }) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>
-                  {p.status === 'accepted' ? (p.profiles?.username || 'Trusted person') : 'Invite pending'}
+                  {p.profiles?.username || 'Unknown'}
                 </div>
                 <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.4)' }}>
-                  {LEVEL_LABELS[p.permission_level]} access
+                  {p.status === 'pending' ? 'Invite sent — waiting for them to accept' : `${LEVEL_LABELS[p.permission_level]} access`}
                 </div>
               </div>
               <button onClick={() => revoke(p.id)} style={{ background: 'rgba(239,68,68,0.12)', border: 'none', borderRadius: 10, padding: '6px 10px', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600 }}>
-                <IconTrash size={12} /> Remove
+                <IconTrash size={12} /> {p.status === 'pending' ? 'Cancel' : 'Remove'}
               </button>
             </div>
             {p.status === 'accepted' && (
@@ -88,27 +85,26 @@ export default function TrustedCircle({ userId, onClose }) {
         ))}
 
         {!loading && people.length < 2 && (
-          <>
-            {inviteLink ? (
-              <div style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 16, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#c4b5fd' }}>Share this invite link</div>
-                <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.5)', wordBreak: 'break-all' }}>{inviteLink}</div>
-                <button onClick={copyLink} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'linear-gradient(135deg,#6c63ff,#a78bfa)', border: 'none', borderRadius: 12, padding: 10, color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  <IconCopy size={13} /> Copy link
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={invite}
-                disabled={inviting}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'rgba(255,255,255,0.05)', border: '1.5px dashed rgba(167,139,250,0.4)', borderRadius: 16, padding: 16, color: '#c4b5fd', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
-              >
-                <IconUserPlus size={16} /> {inviting ? 'Creating invite…' : 'Add a trusted person'}
-              </button>
-            )}
-          </>
+          <button
+            onClick={() => setShowPicker(true)}
+            disabled={inviting}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'rgba(255,255,255,0.05)', border: '1.5px dashed rgba(167,139,250,0.4)', borderRadius: 16, padding: 16, color: '#c4b5fd', fontSize: 13.5, fontWeight: 700, cursor: inviting ? 'default' : 'pointer', fontFamily: 'inherit', opacity: inviting ? 0.6 : 1 }}
+          >
+            <IconUserPlus size={16} /> {inviting ? 'Sending invite…' : 'Add a trusted person'}
+          </button>
         )}
       </div>
+
+      {showPicker && (
+        <TrustedPersonPicker
+          userId={userId}
+          conversations={conversations}
+          getConvoName={getConvoName}
+          getOtherUserId={getOtherUserId}
+          onPick={handlePick}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
     </div>
   )
 }
@@ -123,7 +119,6 @@ function PermissionEditor({ row, onSaved }) {
   const save = async () => {
     setSaving(true)
     try {
-      const { updateTrustedPermission } = await import('../../lib/cycleTrust')
       await updateTrustedPermission(row.id, { permission_level: level, shared_fields: level === 3 ? fields : {} })
       onSaved()
     } catch (e) {
