@@ -8,10 +8,9 @@ import EmailFormPage from './pages/EmailFormPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import MfaChallengePage from './pages/MfaChallengePage'
 import LandingPage from './components/Landing/LandingPage'
-
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
-
+import ExplorePage from './pages/ExplorePage'
 import './App.css'
 import { unlockFileAudio } from './lib/mattchatSounds'
 
@@ -154,9 +153,14 @@ if (session === undefined || !aalChecked) {
           element={<Privacy />}
         />
 
-        <Route
+               <Route
           path="/terms"
           element={<Terms />}
+        />
+
+        <Route
+          path="/explore"
+          element={<ExplorePage />}
         />
 
 
