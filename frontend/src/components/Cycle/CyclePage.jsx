@@ -6,27 +6,36 @@ import CycleCalendarModal from './CycleCalendar'
 import CycleCheckinModal from './CycleCheckin'
 import CycleInsightsModal from './CycleInsights'
 import CycleRemindersModal from './CycleReminders'
-import { getCycleInfo, getCycleStats, getCycleSettings } from '../../lib/cycle'
+import { getCycleInfo, getCycleStats, getCycleSettings, listPeriodRecords } from '../../lib/cycle'
 
 export default function CyclePage({ userId, onClose, onOpenConversation, conversations, getConvoName, getOtherUserId }) {
-  const [view, setView] = useState('dashboard') // 'dashboard' | 'trusted_dashboard'
+  const [view, setView] = useState('dashboard')
   const [showTrusted, setShowTrusted] = useState(false)
   const [showCalendar, setShowCalendar] = useState(false)
   const [showCheckin, setShowCheckin] = useState(false)
+  const [checkinDate, setCheckinDate] = useState(null)
   const [showInsights, setShowInsights] = useState(false)
   const [showReminders, setShowReminders] = useState(false)
   const [settings, setSettings] = useState(null)
   const [cycleInfo, setCycleInfo] = useState(null)
   const [stats, setStats] = useState(null)
+  const [periodRecords, setPeriodRecords] = useState([])
   const [loading, setLoading] = useState(true)
 
   const loadData = async () => {
     try {
-      const s = await getCycleSettings(userId)
+      const [s, records] = await Promise.all([
+        getCycleSettings(userId),
+        listPeriodRecords(userId),
+      ])
       setSettings(s)
+      setPeriodRecords(records || [])
       if (s?.last_period_start) {
         setCycleInfo(getCycleInfo(s))
         setStats(await getCycleStats(userId))
+      } else {
+        setCycleInfo(null)
+        setStats(null)
       }
     } catch (e) {
       console.error('Error loading cycle data:', e)
@@ -35,9 +44,17 @@ export default function CyclePage({ userId, onClose, onOpenConversation, convers
     }
   }
 
-  useEffect(() => {
-    loadData()
-  }, [userId])
+  useEffect(() => { loadData() }, [userId])
+
+  const openDay = (dateStr) => {
+    setCheckinDate(dateStr)
+    setShowCheckin(true)
+  }
+
+  const openTodayCheckin = () => {
+    setCheckinDate(new Date().toISOString().slice(0, 10))
+    setShowCheckin(true)
+  }
 
   if (loading) {
     return (
@@ -57,7 +74,7 @@ export default function CyclePage({ userId, onClose, onOpenConversation, convers
           stats={stats}
           onReload={loadData}
           onOpenCalendar={() => setShowCalendar(true)}
-          onOpenCheckin={() => setShowCheckin(true)}
+          onOpenCheckin={openTodayCheckin}
           onOpenInsights={() => setShowInsights(true)}
           onOpenReminders={() => setShowReminders(true)}
           onOpenTrustedCircle={() => setShowTrusted(true)}
@@ -65,13 +82,14 @@ export default function CyclePage({ userId, onClose, onOpenConversation, convers
           onClose={onClose}
         />
       )}
+
       {view === 'trusted_dashboard' && (
         <TrustedPersonDashboard
           onOpenConversation={onOpenConversation}
           onClose={() => setView('dashboard')}
         />
       )}
-      {/* Modals */}
+
       {showTrusted && (
         <TrustedCircle
           userId={userId}
@@ -81,30 +99,42 @@ export default function CyclePage({ userId, onClose, onOpenConversation, convers
           onClose={() => setShowTrusted(false)}
         />
       )}
+
       {showCalendar && (
-        <CycleCalendarModal 
-          userId={userId} 
-          settings={settings} 
-          onReload={loadData} 
-          onClose={() => setShowCalendar(false)} 
+        <CycleCalendarModal
+          userId={userId}
+          settings={settings}
+          periodRecords={periodRecords}
+          cycleInfo={cycleInfo}
+          onOpenDay={(dateStr) => { setShowCalendar(false); openDay(dateStr) }}
+          onClose={() => setShowCalendar(false)}
         />
       )}
+
       {showCheckin && (
-        <CycleCheckinModal 
-          userId={userId} 
-          onClose={() => setShowCheckin(false)} 
+        <CycleCheckinModal
+          userId={userId}
+          dateStr={checkinDate || new Date().toISOString().slice(0, 10)}
+          onSaved={loadData}
+          onClose={() => { setShowCheckin(false); setCheckinDate(null) }}
         />
       )}
+
       {showInsights && (
-        <CycleInsightsModal 
-          userId={userId} 
-          onClose={() => setShowInsights(false)} 
+        <CycleInsightsModal
+          userId={userId}
+          periodRecords={periodRecords}
+          stats={stats}
+          onClose={() => setShowInsights(false)}
         />
       )}
+
       {showReminders && (
-        <CycleRemindersModal 
-          userId={userId} 
-          onClose={() => setShowReminders(false)} 
+        <CycleRemindersModal
+          userId={userId}
+          settings={settings}
+          onSaved={loadData}
+          onClose={() => setShowReminders(false)}
         />
       )}
     </>
