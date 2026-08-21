@@ -4,6 +4,7 @@ import { PHASE_INFO } from '../../lib/cycleMath'
 import { IconX, IconEyeOff, IconSparkle, IconBell } from '../Icons'
 import { logPeriodStart, setHideCycle } from '../../lib/cycle'
 import { format } from 'date-fns'
+import TodayForYouCard from './TodayForYouCard'
 
 // Inline SVG Icon for Users to eliminate ReferenceError
 function IconUsers({ size = 15, color = 'currentColor', ...props }) {
@@ -39,8 +40,8 @@ function CalendarGlyph({ size = 16 }) {
 }
 
 export default function CycleDashboard({ 
-  userId, settings, cycleInfo, stats, onReload, 
-  onOpenCalendar, onOpenCheckin, onOpenInsights, onOpenReminders, onOpenTrustedCircle, onClose 
+  userId, settings, cycleInfo, stats, recentDailyLogs, onReload, 
+  onOpenCalendar, onOpenCheckin, onOpenInsights, onOpenReminders, onOpenTrustedCircle, onOpenWellness, onClose 
 }) {
   const [hiding, setHiding] = useState(false)
 
@@ -132,8 +133,7 @@ export default function CycleDashboard({
               </div>
             </div>
 
-            {/* Phase card with optional chaining safeguards */}
-            {phase && (
+                        {phase && (
               <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: '16px 18px' }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#c4b5fd', marginBottom: 6 }}>
                   {phase?.label || 'Cycle Update'}
@@ -143,6 +143,15 @@ export default function CycleDashboard({
                 </div>
               </div>
             )}
+
+            {/* NEW — Today for you card */}
+            <TodayForYouCard
+              phase={cycleInfo.phase}
+              recentDailyLogs={recentDailyLogs}
+              onOpenWellness={onOpenWellness}
+            />
+
+            {/* Stats grid */}
 
             {/* Stats grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
