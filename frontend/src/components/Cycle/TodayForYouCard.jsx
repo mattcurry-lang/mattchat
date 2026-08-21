@@ -14,7 +14,7 @@ export default function TodayForYouCard({ phase, recentDailyLogs = [], onOpenWel
     <div style={{
       background: 'linear-gradient(135deg, rgba(102,126,234,0.1), rgba(118,75,162,0.1))',
       border: '1px solid rgba(167,139,250,0.25)', borderRadius: 20, padding: '18px 20px',
-      display: 'flex', flexDirection: 'column', gap: 12, margin: '0 18px',
+      display: 'flex', flexDirection: 'column', gap: 12, margin: 0,
     }}>
       <div style={{ fontSize: 13, fontWeight: 800, color: '#c4b5fd', display: 'flex', alignItems: 'center', gap: 6 }}>
         <IconSparkle size={13} /> Today for you
