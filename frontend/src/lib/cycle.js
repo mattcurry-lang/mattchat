@@ -79,10 +79,12 @@ export async function getCycleSettings(userId) {
 export async function upsertCycleSettings(userId, patch) {
   const { error } = await supabase
     .from('cycle_settings')
-    .upsert({ user_id: userId, ...patch, updated_at: new Date().toISOString() })
+    .upsert(
+      { user_id: userId, ...patch, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    )
   if (error) throw error
 }
-
 export async function completeCycleOnboarding(userId, { lastPeriodStart, averageCycleLength, averagePeriodLength }) {
   await upsertCycleSettings(userId, {
     onboarded: true,
