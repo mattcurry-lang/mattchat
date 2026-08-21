@@ -8,7 +8,7 @@ import CycleInsights from './CycleInsights'
 import CycleReminders from './CycleReminders'
 
 
-export default function CyclePage({ userId, onClose }) {
+export default function CyclePage({ userId, onClose, onOpenConversation }) {
   const { settings, periodRecords, cycleInfo, stats, loading, reload } = useCycleData(userId)
   const [showCheckin, setShowCheckin] = useState(false)
   const [checkinDate, setCheckinDate] = useState(null)
@@ -17,12 +17,17 @@ export default function CyclePage({ userId, onClose }) {
   const [showReminders, setShowReminders] = useState(false)
 
   if (loading) {
-    return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 650, background: '#14121f', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>
-        Loading your cycle…
-      </div>
-    )
-  }
+   return (
+    <>  
+      {view === 'trusted_dashboard' && (
+        <TrustedPersonDashboard 
+          onOpenConversation={onOpenConversation}
+          onClose={() => setView('dashboard')}
+        />
+      )}
+    </>
+  )
+}
 
   if (!settings?.onboarded) {
     return <CycleOnboarding userId={userId} onComplete={reload} onClose={onClose} />
