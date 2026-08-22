@@ -108,19 +108,19 @@ export default function TeamSection({ userId, teamId, onChangeTeam }) {
         </div>
       )}
 
-      {data.standing && (
-  <div style={{ paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+{data.standing && (
+  <div style={{ paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>League Position</div>
-      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+      <div style={{ fontSize: 11, color: 'rgba(0,0,0,0.5)' }}>League Position</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>
         #{data.standing.position} · {data.standing.points} pts
       </div>
     </div>
     <button
       onClick={() => setShowStandings(true)}
       style={{
-        width: '100%', background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.25)',
-        borderRadius: 12, padding: '8px 10px', color: '#c4b5fd', fontSize: 12, fontWeight: 700,
+        width: '100%', background: 'linear-gradient(135deg,#6c63ff,#a78bfa)', border: 'none',
+        borderRadius: 12, padding: '8px 10px', color: '#fff', fontSize: 12, fontWeight: 700,
         cursor: 'pointer', fontFamily: 'inherit',
       }}
     >
