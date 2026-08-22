@@ -113,15 +113,11 @@ function getMessagePreview(content) {
     return `${emoji} Sticker`
   }
   if (content.startsWith('gif:')) return 'GIF'
- if (content.startsWith('pinterest:')) return '📌 Pin'
+  if (content.startsWith('pinterest:')) return '📌 Pin'
   if (content.startsWith('drawing:')) return '🎨 Drawing'
   if (content.startsWith('partner_nudge:')) return '💗 Sent with care'
   if (content.startsWith('call_log:') || content.startsWith('missed_call:')) return 'Call'
   if (content.startsWith('short:')) return '📹 Short'
-  // Newer format: message_type === 'short' stores a JSON payload as the
-  // message content, so conversations.last_message ends up being that
-  // JSON string. Detect it structurally (starts with "{" and carries a
-  // videoId) since message_type itself isn't available on last_message.
   if (content.startsWith('{')) {
     try {
       const parsed = JSON.parse(content)
@@ -1649,6 +1645,10 @@ const handleSend = async () => {
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <IconStatus size={11} /> Replied to a status
                 </span>
+               ) : c.last_message?.startsWith('partner_nudge:') ? (
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+    💗 Sent with care
+  </span>
               ) : c.last_message?.startsWith('gif:') ? (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <IconFilm size={11} /> GIF
