@@ -43,13 +43,13 @@ export default function CyclePage({ userId, onClose, onOpenConversation, convers
       setRecentDailyLogs(logs || [])
       setCheckinStreak(computeCheckinStreak((logs || []).map(l => l.log_date)))
 
-      if (s?.last_period_start) {
-        setCycleInfo(getCycleInfo(s))
-        setStats(await getCycleStats(userId))
-      } else {
-        setCycleInfo(null)
-        setStats(null)
-      }
+     if (s?.last_period_start && s?.onboarded) {
+  setCycleInfo(getCycleInfo(s))
+  setStats(await getCycleStats(userId))
+} else {
+  setCycleInfo(null)
+  setStats(null)
+}
     } catch (e) {
       console.error('Error loading cycle data:', e)
     } finally {
