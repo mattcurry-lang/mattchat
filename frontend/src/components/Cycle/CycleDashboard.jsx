@@ -87,6 +87,18 @@ const hasData = !!cycleInfo && !!settings?.onboarded
         <button onClick={onOpenReminders} title="Reminders" style={iconBtnStyle}><IconBell size={15} /></button>
         <button onClick={onOpenCalendar} title="Calendar" style={iconBtnStyle}><CalendarGlyph size={16} /></button>
         <button onClick={onClose} style={iconBtnStyle}><IconX size={15} /></button>
+        <button onClick={onOpenTrustedDashboard} title="People you support" style={{ ...iconBtnStyle, position: 'relative' }}>
+  <IconUsers size={15} />
+  {pendingInviteCount > 0 && (
+    <span style={{
+      position: 'absolute', top: -2, right: -2, background: '#ef4444', color: '#fff',
+      borderRadius: '50%', width: 15, height: 15, fontSize: 9, fontWeight: 800,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid #1b1730',
+    }}>
+      {pendingInviteCount > 9 ? '9+' : pendingInviteCount}
+    </span>
+  )}
+</button>
       </div>
 
       <div className="cycle-dash-container">
