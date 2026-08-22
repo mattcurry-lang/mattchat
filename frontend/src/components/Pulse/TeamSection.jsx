@@ -4,6 +4,7 @@ import { useFootballData } from '../../hooks/useFootballData'
 import { useTeamNews } from '../../hooks/useTeamNews'
 import { supabase } from '../../lib/supabase'
 import NewsArticleModal from './NewsArticleModal'
+import PLStandingsModal from './PLStandingsModal'
 
 
 function formatMatchDate(iso) {
@@ -16,8 +17,10 @@ export default function TeamSection({ userId, teamId, onChangeTeam }) {
   const { data, loading, error } = useFootballData(teamId)
   const [expanded, setExpanded] = useState(false)
   const [openArticle, setOpenArticle] = useState(null)
+  const [showStandings, setShowStandings] = useState(false)
   const teamName = data?.team?.shortName || data?.team?.name
   const { articles, loading: newsLoading } = useTeamNews(teamId, teamName)
+  
 
   const clearTeam = async () => {
     await supabase.from('profiles').update({ favorite_pl_team: null }).eq('id', userId)
@@ -106,13 +109,25 @@ export default function TeamSection({ userId, teamId, onChangeTeam }) {
       )}
 
       {data.standing && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>League Position</div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
-            #{data.standing.position} · {data.standing.points} pts
-          </div>
-        </div>
-      )}
+  <div style={{ paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>League Position</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+        #{data.standing.position} · {data.standing.points} pts
+      </div>
+    </div>
+    <button
+      onClick={() => setShowStandings(true)}
+      style={{
+        width: '100%', background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.25)',
+        borderRadius: 12, padding: '8px 10px', color: '#c4b5fd', fontSize: 12, fontWeight: 700,
+        cursor: 'pointer', fontFamily: 'inherit',
+      }}
+    >
+      View full table
+    </button>
+  </div>
+)}
 
       <AnimatePresence>
         {expanded && data.standing && (
@@ -125,6 +140,8 @@ export default function TeamSection({ userId, teamId, onChangeTeam }) {
       <button onClick={() => setExpanded(v => !v)} style={{ marginTop: 8, fontSize: 11.5, color: '#c4b5fd', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700 }}>
         {expanded ? 'Show less' : 'See more'}
       </button>
+      
+{showStandings && <PLStandingsModal highlightTeamId={teamId} onClose={() => setShowStandings(false)} />}
       {openArticle && <NewsArticleModal article={openArticle} onClose={() => setOpenArticle(null)} />}
     </motion.div>
   )
