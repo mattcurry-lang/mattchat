@@ -107,9 +107,15 @@ export default function PulsePage({
 
       <PulseSummaryCard name={profile?.username} items={items} loading={loading} aiSummary={aiSummary} />
 
-      {favoriteTeam ? (
-        <TeamSection userId={userId} teamId={favoriteTeam} onChangeTeam={(id) => setTeamOverride(id)} />
-      ) : (
+     {favoriteTeam ? (
+  <TeamSection
+    userId={userId}
+    teamId={favoriteTeam}
+    onChangeTeam={(id) => setTeamOverride(id)}
+    session={session}
+    onSelectVideo={onSelectVideo}
+  />
+) : (
         <div style={{ borderRadius: 18, padding: 16, background: 'var(--bg-surface-2)', border: '1px solid var(--border)' }}>
           <TeamPicker onSelect={selectTeam} />
         </div>
