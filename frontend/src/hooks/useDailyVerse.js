@@ -21,7 +21,7 @@ export function useDailyVerse() {
       if (cancelled) return
       if (error || !data?.ok) { setVerse(null); setLoading(false); return }
 
-      const v = { reference: data.reference, text: data.verse_text, version: data.version }
+     const v = { reference: data.reference, text: data.verse_text, fullText: data.full_text, version: data.version }
       try { sessionStorage.setItem(VERSE_CACHE_KEY, JSON.stringify({ date: today, verse: v })) } catch {}
       setVerse(v)
       setLoading(false)
