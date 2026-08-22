@@ -1,19 +1,16 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { createPortal } from 'react-dom'
 
+function formatPublished(iso) {
+  if (!iso) return ''
+  try {
+    return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+  } catch {
+    return ''
+  }
+}
+
 export default function NewsArticleModal({ article, onClose }) {
-  const [loaded, setLoaded] = useState(false)
-  const [showFallback, setShowFallback] = useState(false)
-
-  useEffect(() => {
-    // Some publishers block being framed (X-Frame-Options/CSP) — we
-    // can't detect that directly cross-origin, so a load timeout is
-    // the practical signal that something's wrong and we should offer
-    // the external-open fallback instead of a permanently blank pane.
-    const timer = setTimeout(() => { if (!loaded) setShowFallback(true) }, 4000)
-    return () => clearTimeout(timer)
-  }, [loaded])
-
   return createPortal(
     <div style={{ position: 'fixed', inset: 0, zIndex: 4000, background: 'var(--bg-surface-1, #0f0f1a)', display: 'flex', flexDirection: 'column' }}>
       <div style={{
@@ -21,45 +18,50 @@ export default function NewsArticleModal({ article, onClose }) {
         borderBottom: '1px solid var(--border)', background: 'var(--bg-surface-1, #14141f)', flexShrink: 0,
       }}>
         <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 20, cursor: 'pointer', padding: 4, lineHeight: 1 }}>←</button>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {article.title}
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{article.source}</div>
-        </div>
-        
-        <a
-          href={article.url} target="_blank" rel="noopener noreferrer"
-          style={{ fontSize: 11.5, color: '#c4b5fd', fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}
-        >
-          Open in browser ↗
-        </a>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Article</div>
       </div>
 
-      <div style={{ flex: 1, position: 'relative' }}>
-        {!loaded && !showFallback && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 12.5 }}>
-            Loading article…
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ maxWidth: 640, margin: '0 auto', padding: '20px 20px 60px' }}>
+          {article.image && (
+            <img
+              src={article.image}
+              alt=""
+              style={{ width: '100%', maxHeight: 260, objectFit: 'cover', borderRadius: 16, marginBottom: 18, display: 'block' }}
+            />
+          )}
+
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#c4b5fd', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8 }}>
+            {article.source} {article.publishedAt && `· ${formatPublished(article.publishedAt)}`}
           </div>
-        )}
-        {showFallback && !loaded && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24, textAlign: 'center' }}>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>This site can't be shown inside Mattchat.</div>
-            
-            <a
-              href={article.url} target="_blank" rel="noopener noreferrer"
-              style={{ background: 'linear-gradient(135deg,#667eea,#764ba2)', borderRadius: 20, color: '#fff', fontSize: 12.5, fontWeight: 700, padding: '8px 16px', textDecoration: 'none' }}
-            >
-              Open in browser
-            </a>
-          </div>
-        )}
-        <iframe
-          src={article.url}
-          title={article.title}
-          onLoad={() => setLoaded(true)}
-          style={{ width: '100%', height: '100%', border: 'none', background: '#fff', visibility: showFallback && !loaded ? 'hidden' : 'visible' }}
-        />
+
+          <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.35, margin: '0 0 16px' }}>
+            {article.title}
+          </h1>
+
+          {article.summary ? (
+            <p style={{ fontSize: 14.5, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 24px' }}>
+              {article.summary}
+            </p>
+          ) : (
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic', margin: '0 0 24px' }}>
+              No summary available for this article.
+            </p>
+          )}
+
+          
+            href={article.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: 'linear-gradient(135deg,#667eea,#764ba2)', borderRadius: 20,
+              color: '#fff', fontSize: 13, fontWeight: 700, padding: '10px 18px', textDecoration: 'none',
+            }}
+          >
+            Read full article on {article.source} ↗
+          </a>
+        </div>
       </div>
     </div>,
     document.body
