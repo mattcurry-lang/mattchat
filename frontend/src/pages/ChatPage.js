@@ -113,6 +113,7 @@ function getMessagePreview(content) {
   if (content.startsWith('gif:')) return 'GIF'
  if (content.startsWith('pinterest:')) return '📌 Pin'
   if (content.startsWith('drawing:')) return '🎨 Drawing'
+  if (content.startsWith('partner_nudge:')) return '💗 Sent with care'
   if (content.startsWith('call_log:') || content.startsWith('missed_call:')) return 'Call'
   if (content.startsWith('short:')) return '📹 Short'
   // Newer format: message_type === 'short' stores a JSON payload as the
@@ -284,10 +285,23 @@ function DrawingBubble({ content }) {
   )
 }
 
-// Reply-to-status bubble — a small "📸 Replied to a status" tag above
-// the actual reply text, same visual language as a WhatsApp/Instagram
-// status-reply quote, but simple: just a tag + the caption snippet,
-// not a full media thumbnail.
+function PartnerNudgeBubble({ content, isMe }) {
+  const text = decodeURIComponent(content.replace('partner_nudge:', ''))
+  return (
+    <div className={`msg-bubble ${isMe ? 'mine' : ''}`} style={{
+      background: 'linear-gradient(135deg, rgba(108,99,255,0.22), rgba(167,139,250,0.22))',
+      border: '1px solid rgba(167,139,250,0.4)',
+      boxShadow: '0 0 18px rgba(167,139,250,0.25)',
+      display: 'flex', flexDirection: 'column', gap: 4,
+    }}>
+      <div style={{ fontSize: 10.5, fontWeight: 800, color: '#c4b5fd', display: 'flex', alignItems: 'center', gap: 4 }}>
+        💗 Sent with care
+      </div>
+      <div>{text}</div>
+    </div>
+  )
+}
+ 
 function StatusReplyBubble({ content, isMe }) {
   const withoutPrefix = content.replace('status_reply:', '')
   const [encodedCaption, ...rest] = withoutPrefix.split('::')
@@ -440,7 +454,19 @@ if (msg.content?.startsWith('status_reply:')) {
     </div>
   )
 }
-
+if (msg.content?.startsWith('partner_nudge:')) {
+  return (
+    <div className={`msg-row ${isMe ? 'mine' : ''}`}>
+      {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
+      <div>
+        {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
+        <PartnerNudgeBubble content={msg.content} isMe={isMe} />
+        <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+        <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
+      </div>
+    </div>
+  )
+}
 // Handles both the new message_type === 'short' JSON payload and, for
 // backward compatibility, any message sent before the migration under
 // the old 'short:videoId::title::thumb::channel' text encoding — those
