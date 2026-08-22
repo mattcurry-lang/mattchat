@@ -6,6 +6,7 @@ import {
   listPendingTrustedInvites,
   respondToTrustedInvite
 } from '../../lib/cycleTrust'
+import PartnerSupportCard from './PartnerSupportCard'
 
 const PRESET_MESSAGES = [
   'Hey ❤️ just checking in. Need anything?',
@@ -154,10 +155,18 @@ export default function TrustedPersonDashboard({ onOpenConversation, onClose }) 
   </div>
 )}
 
-              {!status?.available && (
+                           {(!status?.available) && (
                 <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
                   Nothing to show right now — they may have privacy mode on, or haven't added enough data yet.
                 </div>
+              )}
+
+              {/* NEW — support tips + gift ideas, scoped to whatever she's already permitted */}
+              {status?.available && (
+                <PartnerSupportCard
+                  phase={link.permission_level === 3 ? status.phase : null}
+                  approachingPeriod={link.permission_level === 2 ? status.approachingPeriod : null}
+                />
               )}
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
