@@ -13,11 +13,23 @@ function formatPublished(iso) {
 export default function NewsArticleModal({ article, onClose }) {
   return createPortal(
     <div style={{ position: 'fixed', inset: 0, zIndex: 4000, background: 'var(--bg-surface-1, #0f0f1a)', display: 'flex', flexDirection: 'column' }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
-        borderBottom: '1px solid var(--border)', background: 'var(--bg-surface-1, #14141f)', flexShrink: 0,
-      }}>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 20, cursor: 'pointer', padding: 4, lineHeight: 1 }}>←</button>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '12px 16px',
+          borderBottom: '1px solid var(--border)',
+          background: 'var(--bg-surface-1, #14141f)',
+          flexShrink: 0,
+        }}
+      >
+        <button
+          onClick={onClose}
+          style={{ background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 20, cursor: 'pointer', padding: 4, lineHeight: 1 }}
+        >
+          ←
+        </button>
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Article</div>
       </div>
 
@@ -54,9 +66,16 @@ export default function NewsArticleModal({ article, onClose }) {
             target="_blank"
             rel="noopener noreferrer"
             style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: 'linear-gradient(135deg,#667eea,#764ba2)', borderRadius: 20,
-              color: '#fff', fontSize: 13, fontWeight: 700, padding: '10px 18px', textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'linear-gradient(135deg,#667eea,#764ba2)',
+              borderRadius: 20,
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 700,
+              padding: '10px 18px',
+              textDecoration: 'none',
             }}
           >
             Read full article on {article.source} ↗
