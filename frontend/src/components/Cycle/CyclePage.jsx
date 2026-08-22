@@ -119,6 +119,7 @@ export default function CyclePage({ userId, onClose, onOpenConversation, convers
 
 {view === 'trusted_dashboard' && (
   <TrustedPersonDashboard
+    userId={userId}
     onOpenConversation={onOpenConversation}
     onSwitchToOwnDashboard={() => setView('dashboard')}
     showOwnDashboardSwitch={true}
