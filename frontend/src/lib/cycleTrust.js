@@ -148,9 +148,12 @@ export async function getOrCreateConversationByUserId(myUserId, otherUserId) {
   return newConvo.id
 }
 
-export async function sendPartnerNudge(fromUserId, toUserId, text) {
+// Backward-compatible with the old format (no color segment) — old
+// messages already sent as `partner_nudge:${encodedText}` still parse
+// fine and fall back to the default color.
+export async function sendPartnerNudge(fromUserId, toUserId, text, color = '#6c63ff') {
   const conversationId = await getOrCreateConversationByUserId(fromUserId, toUserId)
-  const tagged = `partner_nudge:${encodeURIComponent(text)}`
+  const tagged = `partner_nudge:${color}:${encodeURIComponent(text)}`
 
   const { error: e1 } = await sb.from('messages').insert({
     conversation_id: conversationId,
