@@ -50,15 +50,16 @@ export default function CycleDashboard({
 const hasData = !!cycleInfo && !!settings?.onboarded
   const phase = hasData ? PHASE_INFO[cycleInfo.phase] : null
 
-  const recordTodayAsPeriodStart = async () => {
-    try {
-      await logPeriodStart(userId, new Date().toISOString().slice(0, 10))
-      onReload()
-    } catch (e) {
-      console.error(e)
-      alert('Could not record period start.')
-    }
+ const recordTodayAsPeriodStart = async () => {
+  try {
+    await logPeriodStart(userId, new Date().toISOString().slice(0, 10))
+    await upsertCycleSettings(userId, { onboarded: true }) // ← added
+    onReload()
+  } catch (e) {
+    console.error(e)
+    alert('Could not record period start.')
   }
+}
 
   const toggleHideCycle = async () => {
     setHiding(true)
