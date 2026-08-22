@@ -16,6 +16,8 @@ import { supabase } from '../../lib/supabase'
 import YouTubePulsePage from './YouTubePulsePage'
 import CyclePage from '../Cycle/CyclePage'
 import { IconFlower } from '../Icons'
+import { usePendingTrustedInvites } from '../../hooks/usePendingTrustedInvites'
+
 
 
 const LOCKED_PLATFORMS = Object.entries(PLATFORM_META).filter(([, meta]) => meta.supportLevel === 'native_only')
@@ -31,6 +33,7 @@ export default function PulsePage({
   const { privacyMode, setPrivacyMode } = usePulseSettings(userId)
   const { items, loading, error, reload } = usePulseData(session, { conversations, unreadCounts, getConvoName })
   const birthday = useBirthday(userId, profile)
+  const { count: pendingCycleInvites } = usePendingTrustedInvites(userId)
 
   // Local override so picking/clearing a team updates Pulse instantly —
   // `profile` is a prop from ChatPage and PulsePage has no way to push
@@ -189,12 +192,12 @@ export default function PulsePage({
                 <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Search and browse videos</div>
               </div>
             </button>
-            <button
+ <button
   onClick={() => setShowCycle(true)}
   style={{
     display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-surface-2)',
     border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px',
-    cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%',
+    cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%', position: 'relative',
   }}
 >
   <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -204,6 +207,15 @@ export default function PulsePage({
     <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>Cycle Care</div>
     <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Private cycle & wellness tracking</div>
   </div>
+  {pendingCycleInvites > 0 && (
+    <span style={{
+      position: 'absolute', top: 10, right: 10, background: '#ef4444', color: '#fff',
+      borderRadius: '50%', width: 18, height: 18, fontSize: 10, fontWeight: 800,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      {pendingCycleInvites > 9 ? '9+' : pendingCycleInvites}
+    </span>
+  )}
 </button>
 
             <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', marginTop: 8, marginBottom: 2 }}>
