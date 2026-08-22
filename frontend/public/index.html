@@ -56,6 +56,50 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
     rel="stylesheet"
   />
+  <!-- Boot splash: shown instantly (no JS needed) until React mounts and replaces #root -->
+  <style>
+    html, body {
+      margin: 0;
+      background: #14121f;
+    }
+
+    /* SEO content stays in the DOM for crawlers/indexing, but is visually hidden */
+    #seo-content {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+
+    /* Visible splash — mirrors the in-app loading screen so there's no flash/mismatch */
+    #boot-splash {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #14121f;
+    }
+
+    #boot-splash img {
+      width: 110px;
+      height: 110px;
+    }
+
+    #boot-splash span {
+      margin-top: 18px;
+      font-family: 'Inter', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #0ea5ff, #9333ea);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+  </style>
   <!-- Structured Data -->
   <script type="application/ld+json">
   {
@@ -72,48 +116,39 @@
     }
   }
   </script>
-  <!-- Hide pre-rendered SEO fallback visually (kept in DOM for crawlers) and
-       match the background to the in-app loading screen so there's no flash
-       before React mounts. -->
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: #14121f;
-    }
-    #root > header,
-    #root > main {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip: rect(0 0 0 0);
-      white-space: nowrap;
-    }
-  </style>
 </head>
 <body>
   <!-- Required for Meta/Facebook JS SDK -->
   <div id="fb-root"></div>
-  <!-- Content pre-rendered inside root to prevent empty HTML indexing delays -->
+
+  <!-- React mounts here. Everything below is replaced automatically the instant it does -->
   <div id="root">
-    <header>
-      <h1>Mattchat | The Intelligent Communication Platform</h1>
-    </header>
-    <main>
-      <section>
-        <p>
-          Mattchat is the intelligent communication platform that unifies conversations, email, 
-          meetings, AI assistance featuring Curry AI, and productivity into one seamless experience.
-        </p>
-      </section>
-      <footer>
-        <nav>
-          <a href="/privacy">Privacy Policy</a> | 
-          <a href="/terms">Terms of Service</a>
-        </nav>
-      </footer>
-    </main>
+    <!-- Hidden SEO content: keeps crawlers happy, invisible to users -->
+    <div id="seo-content">
+      <header>
+        <h1>Mattchat | The Intelligent Communication Platform</h1>
+      </header>
+      <main>
+        <section>
+          <p>
+            Mattchat is the intelligent communication platform that unifies conversations, email,
+            meetings, AI assistance featuring Curry AI, and productivity into one seamless experience.
+          </p>
+        </section>
+        <footer>
+          <nav>
+            <a href="/privacy">Privacy Policy</a> |
+            <a href="/terms">Terms of Service</a>
+          </nav>
+        </footer>
+      </main>
+    </div>
+
+    <!-- Visible boot splash: matches the in-app loader exactly -->
+    <div id="boot-splash">
+      <img src="/logo.png" alt="Mattchat" />
+      <span>Mattchat</span>
+    </div>
   </div>
 </body>
 </html>
