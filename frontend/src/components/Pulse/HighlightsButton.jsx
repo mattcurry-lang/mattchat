@@ -51,12 +51,12 @@ export default function HighlightsButton({ session, match, onSelectVideo }) {
   }
 
   if (state === 'not_found') {
-    return (
-      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 6 }}>
-        Highlights not available yet
-      </div>
-    )
-  }
+  return (
+    <div style={{ fontSize: 11, color: '#ffffff', mixBlendMode: 'difference', opacity: 0.75, marginTop: 6 }}>
+      Highlights not available yet
+    </div>
+  )
+}
 
   return (
     <button
