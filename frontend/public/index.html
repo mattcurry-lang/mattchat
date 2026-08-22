@@ -4,27 +4,21 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="google-site-verification" content="siefAvgcECHrZdmv8SknkvI25iHPk70qROwPwnVCwjg" />
-
   <!-- Primary SEO -->
   <title>Mattchat | The Intelligent Communication Platform</title>
-
   <meta
     name="description"
     content="Mattchat is the intelligent communication platform that unifies conversations, email, meetings, AI assistance, and productivity into one seamless experience."
   />
-
   <meta
     name="keywords"
     content="Mattchat, intelligent communication platform, AI assistant, Curry AI, productivity, collaboration, messaging, email messaging, meetings, scheduling"
   />
-
   <meta name="author" content="Mathew Mutai" />
   <meta name="robots" content="index, follow" />
   <meta name="theme-color" content="#6C63FF" />
-
   <!-- Canonical URL -->
   <link rel="canonical" href="https://mattchat-nine.vercel.app/" />
-
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Mattchat | The Intelligent Communication Platform" />
@@ -38,7 +32,6 @@
     property="og:image"
     content="https://mattchat-nine.vercel.app/preview.png"
   />
-
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Mattchat | The Intelligent Communication Platform" />
@@ -50,14 +43,12 @@
     name="twitter:image"
     content="https://mattchat-nine.vercel.app/preview.png"
   />
-
   <!-- Icons -->
   <link rel="icon" href="/favicon.ico" sizes="any" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="manifest" href="/site.webmanifest" />
-
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -65,7 +56,6 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
     rel="stylesheet"
   />
-
   <!-- Structured Data -->
   <script type="application/ld+json">
   {
@@ -82,12 +72,29 @@
     }
   }
   </script>
+  <!-- Hide pre-rendered SEO fallback visually (kept in DOM for crawlers) and
+       match the background to the in-app loading screen so there's no flash
+       before React mounts. -->
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #14121f;
+    }
+    #root > header,
+    #root > main {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+  </style>
 </head>
-
 <body>
   <!-- Required for Meta/Facebook JS SDK -->
   <div id="fb-root"></div>
-
   <!-- Content pre-rendered inside root to prevent empty HTML indexing delays -->
   <div id="root">
     <header>
