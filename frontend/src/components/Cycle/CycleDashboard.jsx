@@ -42,7 +42,7 @@ function CalendarGlyph({ size = 16 }) {
 }
 
 export default function CycleDashboard({
-  userId, settings, cycleInfo, stats, recentDailyLogs, checkinStreak, onReload,
+  userId, settings, cycleInfo, stats, recentDailyLogs, checkinStreak, hasAcceptedTrustLinks, onReload,
   onOpenCalendar, onOpenCheckin, onOpenInsights, onOpenReminders, onOpenTrustedCircle,
   onOpenTrustedDashboard, onOpenWellness, onClose
 }) {
@@ -186,7 +186,18 @@ const hasData = !!cycleInfo && !!settings?.onboarded
       {showDataSettings && (
         <CycleDataSettingsModal userId={userId} settings={settings} onSaved={onReload} onCleared={onReload} onClose={() => setShowDataSettings(false)} />
       )}
-
+{hasAcceptedTrustLinks && (
+  <button
+    onClick={onOpenTrustedDashboard}
+    style={{
+      background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 20,
+      padding: '6px 14px', color: '#c4b5fd', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+      fontFamily: 'inherit', marginRight: 4,
+    }}
+  >
+    People You Support
+  </button>
+)}
       <style>{`
         .cycle-dash-container {
           max-width: 480px;
