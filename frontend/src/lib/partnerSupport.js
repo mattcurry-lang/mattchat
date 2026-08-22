@@ -74,7 +74,57 @@ export const GIFT_IDEAS = {
     { id: 'snack', emoji: '🍫', label: 'A treat she likes', note: 'Small gestures count.', searchCategory: 'grocery store' },
   ],
 }
+ 
+const PHASE_RING_FRACTION = {
+  menstrual: 0.05,
+  follicular: 0.35,
+  ovulation: 0.65,
+  luteal: 0.85,
+}
 
+function daysUntil(dateStr) {
+  try {
+    const target = new Date(dateStr.length === 10 ? dateStr + 'T00:00:00' : dateStr)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    target.setHours(0, 0, 0, 0)
+    return Math.round((target - today) / (1000 * 60 * 60 * 24))
+  } catch {
+    return null
+  }
+}
+
+// status: the object returned by getSharedCycleStatus (already scoped
+// to whatever permission level/fields she's enabled). Returns null if
+// there's nothing shareable to visualize.
+export function getPartnerRingProps(status) {
+  if (!status?.available) return null
+
+  if (status.phase) {
+    const fraction = PHASE_RING_FRACTION[status.phase] ?? 0.5
+    const label = status.phase.charAt(0).toUpperCase() + status.phase.slice(1)
+    let subLabel = `${label} phase`
+    if (status.estimatedNextPeriod) {
+      const d = daysUntil(status.estimatedNextPeriod)
+      if (d !== null) subLabel = d <= 0 ? 'Period may have started' : `~${d} day${d === 1 ? '' : 's'} until estimated period`
+    }
+    return { progressFraction: fraction, dayLabel: label, subLabel }
+  }
+
+  if (status.estimatedNextPeriod) {
+    const d = daysUntil(status.estimatedNextPeriod)
+    if (d === null) return null
+    const assumedCycleLength = 28 // no exact cycle length is shared, so this is a rough visual only
+    const fraction = Math.max(0, Math.min(1, 1 - d / assumedCycleLength))
+    return {
+      progressFraction: fraction,
+      dayLabel: '🌸',
+      subLabel: d <= 0 ? 'Period may have started' : `~${d} day${d === 1 ? '' : 's'} until estimated period`,
+    }
+  }
+
+  return null
+}
 export function getPartnerTips(phase) {
   if (phase && PARTNER_PHASE_TIPS[phase]) return PARTNER_PHASE_TIPS[phase]
   return PARTNER_PHASE_TIPS.generic
