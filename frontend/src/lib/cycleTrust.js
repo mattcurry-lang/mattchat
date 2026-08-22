@@ -28,7 +28,15 @@ export async function createTrustedInvite(ownerId, trustedUserId) {
   if (error) throw error
   return data
 }
-
+export async function countPendingTrustedInvites(userId) {
+  const { count, error } = await sb
+    .from('trusted_people')
+    .select('id', { count: 'exact', head: true })
+    .eq('trusted_user_id', userId)
+    .eq('status', 'pending')
+  if (error) throw error
+  return count || 0
+}
 export async function listPendingTrustedInvites() {
   const { data: userData, error: userErr } = await sb.auth.getUser()
   if (userErr) throw userErr
