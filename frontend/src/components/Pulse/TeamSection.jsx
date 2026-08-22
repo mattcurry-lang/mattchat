@@ -21,7 +21,7 @@ const autoContrastText = {
   mixBlendMode: 'difference',
 }
 
-export default function TeamSection({ userId, teamId, onChangeTeam }) {
+export default function TeamSection({ userId, teamId, onChangeTeam, session, onSelectVideo }) {
   const { data, loading, error } = useFootballData(teamId)
   const [expanded, setExpanded] = useState(false)
   const [openArticle, setOpenArticle] = useState(null)
