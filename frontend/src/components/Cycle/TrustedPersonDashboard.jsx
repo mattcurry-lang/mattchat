@@ -4,6 +4,7 @@ import { listPeopleITrust, getSharedCycleStatus, listPendingTrustedInvites, resp
 import { getPartnerRingProps } from '../../lib/partnerSupport'
 import CycleRing from './CycleRing'
 import PartnerSupportCard from './PartnerSupportCard'
+import { sendPartnerNudge } from '../../lib/cycleTrust'
 
 const PRESET_MESSAGES = [
   'Hey ❤️ just checking in. Need anything?',
@@ -11,12 +12,14 @@ const PRESET_MESSAGES = [
   "Let me know if you need anything at all",
 ]
 
-export default function TrustedPersonDashboard({ onOpenConversation, onSwitchToOwnDashboard, showOwnDashboardSwitch, onClose }) {
+export default function TrustedPersonDashboard({ userId, onOpenConversation, onSwitchToOwnDashboard, showOwnDashboardSwitch, onClose }) {
   const [links, setLinks] = useState([])
   const [pending, setPending] = useState([])
   const [statuses, setStatuses] = useState({})
   const [loading, setLoading] = useState(true)
   const [responding, setResponding] = useState(null)
+  const [sendingNudge, setSendingNudge] = useState(null)
+  
 
   const load = async () => {
     try {
@@ -46,7 +49,21 @@ export default function TrustedPersonDashboard({ onOpenConversation, onSwitchToO
     }
     setResponding(null)
   }
-
+  const sendNudge = async (link, text) => {
+    setSendingNudge({ linkId: link.id, text })
+    try {
+      const conversationId = await sendPartnerNudge(userId, link.owner_id, text)
+      // brief glow beat before handing off — the actual navigation
+      // (and closing Cycle Care) happens via onOpenConversation, which
+      // already unmounts this whole screen once it fires.
+      await new Promise(r => setTimeout(r, 650))
+      onOpenConversation?.(conversationId)
+    } catch (e) {
+      console.error('sendNudge failed:', e)
+      alert("Couldn't send that — please try again.")
+      setSendingNudge(null)
+    }
+  }
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 700, background: 'linear-gradient(160deg, #1b1730 0%, #14121f 55%)', overflowY: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px' }}>
@@ -155,21 +172,29 @@ export default function TrustedPersonDashboard({ onOpenConversation, onSwitchToO
                       approachingPeriod={link.permission_level === 2 ? status.approachingPeriod : null}
                     />
                   )}
-
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {PRESET_MESSAGES.map((msg, i) => (
-                      <button
-                        key={i}
-                        onClick={() => onOpenConversation?.(link.owner_id, msg)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(167,139,250,0.12)',
-                          border: '1px solid rgba(167,139,250,0.3)', borderRadius: 20, padding: '7px 12px',
-                          color: '#c4b5fd', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                        }}
-                      >
-                        <IconHeart size={11} /> {msg}
-                      </button>
-                    ))}
+                    {PRESET_MESSAGES.map((msg, i) => {
+                      const isSendingThis = sendingNudge?.linkId === link.id && sendingNudge?.text === msg
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => sendNudge(link, msg)}
+                          disabled={!!sendingNudge}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            background: isSendingThis ? 'linear-gradient(135deg,#6c63ff,#a78bfa)' : 'rgba(167,139,250,0.12)',
+                            border: '1px solid rgba(167,139,250,0.3)', borderRadius: 20, padding: '7px 12px',
+                            color: isSendingThis ? '#fff' : '#c4b5fd', fontSize: 12, fontWeight: 600,
+                            cursor: sendingNudge ? 'default' : 'pointer', fontFamily: 'inherit',
+                            opacity: sendingNudge && !isSendingThis ? 0.4 : 1,
+                            boxShadow: isSendingThis ? '0 0 16px rgba(167,139,250,0.6)' : 'none',
+                            transition: 'all 0.25s ease',
+                          }}
+                        >
+                          <IconHeart size={11} /> {isSendingThis ? 'Sent ✨' : msg}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               </div>
