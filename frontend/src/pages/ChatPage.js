@@ -89,6 +89,8 @@ import AdminAnnouncements from '../components/AdminAnnouncements'
 import ChangeProfilePictureModal from '../components/ChangeProfilePictureModal'
 import DrawingModal from '../components/Drawing/DrawingModal'
 import { createPortal } from 'react-dom'
+import { parsePartnerNudge, getReadableTextColor } from '../lib/nudgeColor'
+
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -286,15 +288,17 @@ function DrawingBubble({ content }) {
 }
 
 function PartnerNudgeBubble({ content, isMe }) {
-  const text = decodeURIComponent(content.replace('partner_nudge:', ''))
+  const { color, text } = parsePartnerNudge(content)
+  const textColor = getReadableTextColor(color)
   return (
     <div className={`msg-bubble ${isMe ? 'mine' : ''}`} style={{
-      background: 'linear-gradient(135deg, rgba(108,99,255,0.22), rgba(167,139,250,0.22))',
-      border: '1px solid rgba(167,139,250,0.4)',
-      boxShadow: '0 0 18px rgba(167,139,250,0.25)',
+      background: color,
+      border: `1px solid ${color}`,
+      boxShadow: `0 0 18px ${color}66`,
+      color: textColor,
       display: 'flex', flexDirection: 'column', gap: 4,
     }}>
-      <div style={{ fontSize: 10.5, fontWeight: 800, color: '#c4b5fd', display: 'flex', alignItems: 'center', gap: 4 }}>
+      <div style={{ fontSize: 10.5, fontWeight: 800, opacity: 0.85, display: 'flex', alignItems: 'center', gap: 4 }}>
         💗 Sent with care
       </div>
       <div>{text}</div>
