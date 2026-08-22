@@ -9,7 +9,6 @@ export function usePLStandings() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    supabase.functions.invoke('pulse-football', { body: {}, method: 'GET' })
     ;(async () => {
       try {
         const { data, error: fnError } = await supabase.functions.invoke(
