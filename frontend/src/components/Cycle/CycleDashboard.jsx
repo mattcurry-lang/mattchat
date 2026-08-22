@@ -6,6 +6,7 @@ import { logPeriodStart, setHideCycle } from '../../lib/cycle'
 import { format } from 'date-fns'
 import TodayForYouCard from './TodayForYouCard'
 import CycleDataSettingsModal from './CycleDataSettingsModal'
+import { usePendingTrustedInvites } from '../../hooks/usePendingTrustedInvites'
 
 // Inline SVG Icon for Users to eliminate ReferenceError
 function IconUsers({ size = 15, color = 'currentColor', ...props }) {
@@ -42,10 +43,12 @@ function CalendarGlyph({ size = 16 }) {
 
 export default function CycleDashboard({
   userId, settings, cycleInfo, stats, recentDailyLogs, checkinStreak, onReload,
-  onOpenCalendar, onOpenCheckin, onOpenInsights, onOpenReminders, onOpenTrustedCircle, onOpenWellness, onClose
+  onOpenCalendar, onOpenCheckin, onOpenInsights, onOpenReminders, onOpenTrustedCircle,
+  onOpenTrustedDashboard, onOpenWellness, onClose
 }) {
   const [hiding, setHiding] = useState(false)
   const [showDataSettings, setShowDataSettings] = useState(false)
+  const { count: pendingInviteCount } = usePendingTrustedInvites(userId)
 
 const hasData = !!cycleInfo && !!settings?.onboarded
   const phase = hasData ? PHASE_INFO[cycleInfo.phase] : null
