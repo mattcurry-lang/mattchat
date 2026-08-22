@@ -5,6 +5,7 @@ import { useTeamNews } from '../../hooks/useTeamNews'
 import { supabase } from '../../lib/supabase'
 import NewsArticleModal from './NewsArticleModal'
 import PLStandingsModal from './PLStandingsModal'
+import HighlightsButton from './HighlightsButton'
 
 function formatMatchDate(iso) {
   const d = new Date(iso)
@@ -101,16 +102,23 @@ export default function TeamSection({ userId, teamId, onChangeTeam }) {
         </div>
       )}
 
-      {data.lastResult && (
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, ...autoContrastText, opacity: 0.6, marginBottom: 4 }}>Latest Result</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, ...autoContrastText, fontWeight: 600 }}>
-            <img src={data.lastResult.homeCrest} alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} />
-            {data.lastResult.homeTeam} {data.lastResult.homeScore} - {data.lastResult.awayScore} {data.lastResult.awayTeam}
-            <img src={data.lastResult.awayCrest} alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} />
-          </div>
-        </div>
-      )}
+    {data.lastResult && (
+  <div style={{ marginBottom: 10 }}>
+    <div style={{ fontSize: 11, fontWeight: 700, ...autoContrastText, opacity: 0.6, marginBottom: 4 }}>Latest Result</div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, ...autoContrastText, fontWeight: 600 }}>
+      <img src={data.lastResult.homeCrest} alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} />
+      {data.lastResult.homeTeam} {data.lastResult.homeScore} - {data.lastResult.awayScore} {data.lastResult.awayTeam}
+      <img src={data.lastResult.awayCrest} alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} />
+    </div>
+    {data.lastResult.id && (
+      <HighlightsButton
+        session={session}
+        match={{ id: data.lastResult.id, homeTeam: data.lastResult.homeTeam, awayTeam: data.lastResult.awayTeam }}
+        onSelectVideo={onSelectVideo}
+      />
+    )}
+  </div>
+)}
 
       {!newsLoading && articles.length > 0 && (
         <div style={{ marginBottom: 10 }}>
