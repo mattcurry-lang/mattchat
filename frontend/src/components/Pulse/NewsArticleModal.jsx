@@ -12,25 +12,13 @@ function formatPublished(iso) {
 
 export default function NewsArticleModal({ article, onClose }) {
   return createPortal(
-    <div style={{ position: 'fixed', inset: 0, zIndex: 4000, background: 'var(--bg-surface-1, #0f0f1a)', display: 'flex', flexDirection: 'column' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '12px 16px',
-          borderBottom: '1px solid var(--border)',
-          background: 'var(--bg-surface-1, #14141f)',
-          flexShrink: 0,
-        }}
-      >
-        <button
-          onClick={onClose}
-          style={{ background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 20, cursor: 'pointer', padding: 4, lineHeight: 1 }}
-        >
-          ←
-        </button>
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Article</div>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 4000, background: 'linear-gradient(160deg, #1b1730 0%, #14121f 55%)', display: 'flex', flexDirection: 'column' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
+        borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0,
+      }}>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 20, cursor: 'pointer', padding: 4, lineHeight: 1 }}>←</button>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Article</div>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -47,16 +35,16 @@ export default function NewsArticleModal({ article, onClose }) {
             {article.source} {article.publishedAt && `· ${formatPublished(article.publishedAt)}`}
           </div>
 
-          <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.35, margin: '0 0 16px' }}>
+          <h1 style={{ fontSize: 20, fontWeight: 800, color: '#fff', lineHeight: 1.35, margin: '0 0 16px' }}>
             {article.title}
           </h1>
 
           {article.summary ? (
-            <p style={{ fontSize: 14.5, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 24px' }}>
+            <p style={{ fontSize: 14.5, color: 'rgba(255,255,255,0.75)', lineHeight: 1.7, margin: '0 0 24px' }}>
               {article.summary}
             </p>
           ) : (
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic', margin: '0 0 24px' }}>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', margin: '0 0 24px' }}>
               No summary available for this article.
             </p>
           )}
