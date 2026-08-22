@@ -61,23 +61,18 @@ export default function NewsArticleModal({ article, onClose }) {
             </p>
           )}
 
-          
-            href={article.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              background: 'linear-gradient(135deg,#667eea,#764ba2)',
-              borderRadius: 20,
-              color: '#fff',
-              fontSize: 13,
-              fontWeight: 700,
-              padding: '10px 18px',
-              textDecoration: 'none',
-            }}
-          >
+          <a href={article.url} target="_blank" rel="noopener noreferrer" style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            background: 'linear-gradient(135deg,#667eea,#764ba2)',
+            borderRadius: 20,
+            color: '#fff',
+            fontSize: 13,
+            fontWeight: 700,
+            padding: '10px 18px',
+            textDecoration: 'none',
+          }}>
             Read full article on {article.source} ↗
           </a>
         </div>
