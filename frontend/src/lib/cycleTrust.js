@@ -102,3 +102,68 @@ export async function searchProfilesByUsername(query, excludeUserId) {
   if (error) throw error
   return data || []
 }
+// ── Sending a "nudge" to the person you support ──
+// Resolves (or creates) the 1:1 conversation, then inserts a
+// specially-tagged message that renders as a glowing bubble in the
+// real chat (see ChatPage's partner_nudge: handling below).
+
+export async function getOrCreateConversationByUserId(myUserId, otherUserId) {
+  if (myUserId === otherUserId) throw new Error("You can't message yourself")
+
+  const { data: myConvos, error: e1 } = await sb
+    .from('conversation_members')
+    .select('conversation_id, conversations!inner(is_group)')
+    .eq('user_id', myUserId)
+  if (e1) throw e1
+
+  const candidateIds = (myConvos || [])
+    .filter(c => !c.conversations?.is_group)
+    .map(c => c.conversation_id)
+
+  if (candidateIds.length > 0) {
+    const { data: shared, error: e2 } = await sb
+      .from('conversation_members')
+      .select('conversation_id')
+      .eq('user_id', otherUserId)
+      .in('conversation_id', candidateIds)
+    if (e2) throw e2
+    if (shared && shared.length > 0) return shared[0].conversation_id
+  }
+
+  const { data: newConvo, error: e3 } = await sb
+    .from('conversations')
+    .insert({ is_group: false })
+    .select('id')
+    .single()
+  if (e3) throw e3
+
+  const { error: e4 } = await sb
+    .from('conversation_members')
+    .insert([
+      { conversation_id: newConvo.id, user_id: myUserId },
+      { conversation_id: newConvo.id, user_id: otherUserId },
+    ])
+  if (e4) throw e4
+
+  return newConvo.id
+}
+
+export async function sendPartnerNudge(fromUserId, toUserId, text) {
+  const conversationId = await getOrCreateConversationByUserId(fromUserId, toUserId)
+  const tagged = `partner_nudge:${encodeURIComponent(text)}`
+
+  const { error: e1 } = await sb.from('messages').insert({
+    conversation_id: conversationId,
+    sender_id: fromUserId,
+    content: tagged,
+    message_type: 'text',
+  })
+  if (e1) throw e1
+
+  const { error: e2 } = await sb.from('conversations')
+    .update({ updated_at: new Date().toISOString(), last_message: tagged })
+    .eq('id', conversationId)
+  if (e2) throw e2
+
+  return conversationId
+}
