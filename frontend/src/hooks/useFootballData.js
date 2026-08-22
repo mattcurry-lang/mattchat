@@ -1,36 +1,50 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-
-let standingsCache = null // { data, fetchedAt } — module-level, same pattern as useFootballData's memCache
-const STANDINGS_MEM_TTL_MS = 3 * 60 * 1000 // short client-side reuse window; server cache handles the real TTL
-
-export function usePLStandings() {
-  const [table, setTable] = useState(() => standingsCache?.data || [])
-  const [loading, setLoading] = useState(!standingsCache)
+const memCache = new Map() // teamId -> { data, fetchedAt } — survives team switches within a session
+export function usePlTeamsList() {
+  const [teams, setTeams] = useState([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const inFlight = useRef(false)
-
+  useEffect(() => {
+    let cancelled = false
+    supabase.functions.invoke('pulse-football?action=teams')
+      .then(({ data, error: fnError }) => {
+        if (cancelled) return
+        if (fnError || !data?.ok) { setError('Could not load clubs'); setLoading(false); return }
+        setTeams(data.teams || [])
+        setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [])
+  return { teams, loading, error }
+}
+export function useFootballData(teamId) {
+  const [data, setData] = useState(() => memCache.get(teamId)?.data || null)
+  const [loading, setLoading] = useState(!memCache.has(teamId))
+  const [error, setError] = useState(null)
+  const inFlight = useRef(new Set())
   const load = useCallback(async (force = false) => {
-    const isFresh = standingsCache && (Date.now() - standingsCache.fetchedAt) < STANDINGS_MEM_TTL_MS
-    if (isFresh && !force) { setTable(standingsCache.data); setLoading(false); return }
-    if (inFlight.current) return
-    inFlight.current = true
-    setLoading(!standingsCache)
+    if (!teamId) return
+    const cached = memCache.get(teamId)
+    if (cached && !force) { setData(cached.data); setLoading(false); return }
+    if (inFlight.current.has(teamId)) return
+    inFlight.current.add(teamId)
+    setLoading(!cached) // optimistic UI: keep showing stale cached data while refreshing, if we have any
     setError(null)
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('pulse-football?action=standings')
-      if (fnError || !data?.ok) throw new Error(data?.error || 'Could not load standings')
-      standingsCache = { data: data.table || [], fetchedAt: Date.now() }
-      setTable(standingsCache.data)
+      const { data: resp, error: fnError } = await supabase.functions.invoke(`pulse-football?action=team&teamId=${teamId}`)
+      if (fnError || !resp?.ok) throw new Error(resp?.error || 'fetch failed')
+      const bundle = { team: resp.team, nextMatch: resp.nextMatch, lastResult: resp.lastResult, standing: resp.standing }
+      memCache.set(teamId, { data: bundle, fetchedAt: Date.now() })
+      setData(bundle)
     } catch (e) {
-      console.error('usePLStandings failed:', e)
-      if (!standingsCache) setError('Could not load the table right now')
+      console.error('useFootballData failed:', e)
+      // Keep whatever stale cache we had rather than blanking the section
+      if (!cached) setError('Could not load team data')
     }
-    inFlight.current = false
+    inFlight.current.delete(teamId)
     setLoading(false)
-  }, [])
-
+  }, [teamId])
   useEffect(() => { load() }, [load])
-
-  return { table, loading, error, refresh: () => load(true) }
+  return { data, loading, error, refresh: () => load(true) }
 }
