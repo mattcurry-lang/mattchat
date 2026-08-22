@@ -47,7 +47,7 @@ export default function CycleDashboard({
   const [hiding, setHiding] = useState(false)
   const [showDataSettings, setShowDataSettings] = useState(false)
 
-  const hasData = !!cycleInfo
+const hasData = !!cycleInfo && !!settings?.onboarded
   const phase = hasData ? PHASE_INFO[cycleInfo.phase] : null
 
   const recordTodayAsPeriodStart = async () => {
