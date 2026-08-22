@@ -5,6 +5,7 @@ import { getPartnerRingProps } from '../../lib/partnerSupport'
 import CycleRing from './CycleRing'
 import PartnerSupportCard from './PartnerSupportCard'
 import { sendPartnerNudge } from '../../lib/cycleTrust'
+import { NUDGE_COLOR_PRESETS, loadSavedNudgeColor, saveNudgeColor, getReadableTextColor } from '../../lib/nudgeColor'
 
 const PRESET_MESSAGES = [
   'Hey ❤️ just checking in. Need anything?',
@@ -19,7 +20,9 @@ export default function TrustedPersonDashboard({ userId, onOpenConversation, onS
   const [loading, setLoading] = useState(true)
   const [responding, setResponding] = useState(null)
   const [sendingNudge, setSendingNudge] = useState(null)
-  
+  const [nudgeColors, setNudgeColors] = useState({}) 
+const [customPickerFor, setCustomPickerFor] = useState(null)  
+
 
   const load = async () => {
     try {
@@ -49,21 +52,33 @@ export default function TrustedPersonDashboard({ userId, onOpenConversation, onS
     }
     setResponding(null)
   }
-  const sendNudge = async (link, text) => {
-    setSendingNudge({ linkId: link.id, text })
-    try {
-      const conversationId = await sendPartnerNudge(userId, link.owner_id, text)
-      // brief glow beat before handing off — the actual navigation
-      // (and closing Cycle Care) happens via onOpenConversation, which
-      // already unmounts this whole screen once it fires.
-      await new Promise(r => setTimeout(r, 650))
-      onOpenConversation?.(conversationId)
-    } catch (e) {
-      console.error('sendNudge failed:', e)
-      alert("Couldn't send that — please try again.")
-      setSendingNudge(null)
-    }
+ const sendNudge = async (link, text) => {
+  setSendingNudge({ linkId: link.id, text })
+  try {
+    const color = nudgeColors[link.id] || '#6c63ff'
+    const conversationId = await sendPartnerNudge(userId, link.owner_id, text, color)
+    await new Promise(r => setTimeout(r, 650))
+    onOpenConversation?.(conversationId)
+  } catch (e) {
+    console.error('sendNudge failed:', e)
+    alert("Couldn't send that — please try again.")
+    setSendingNudge(null)
   }
+}
+
+  useEffect(() => {
+  if (links.length === 0) return
+  setNudgeColors(prev => {
+    const next = { ...prev }
+    links.forEach(l => { if (!next[l.id]) next[l.id] = loadSavedNudgeColor(l.id) })
+    return next
+  })
+}, [links])
+
+const setLinkColor = (linkId, hex) => {
+  setNudgeColors(prev => ({ ...prev, [linkId]: hex }))
+  saveNudgeColor(linkId, hex)
+}
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 700, background: 'linear-gradient(160deg, #1b1730 0%, #14121f 55%)', overflowY: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px' }}>
@@ -172,9 +187,51 @@ export default function TrustedPersonDashboard({ userId, onOpenConversation, onS
                       approachingPeriod={link.permission_level === 2 ? status.approachingPeriod : null}
                     />
                   )}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                    {/* Color picker for the nudge bubble */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Bubble color — pick what she'd love
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                      {NUDGE_COLOR_PRESETS.map(preset => {
+                        const isActive = (nudgeColors[link.id] || '#6c63ff') === preset.hex
+                        return (
+                          <button
+                            key={preset.id}
+                            onClick={() => setLinkColor(link.id, preset.hex)}
+                            title={preset.label}
+                            style={{
+                              width: 28, height: 28, borderRadius: '50%', background: preset.hex,
+                              border: isActive ? '2.5px solid #fff' : '2px solid rgba(255,255,255,0.15)',
+                              cursor: 'pointer', boxShadow: isActive ? `0 0 10px ${preset.hex}` : 'none',
+                              transition: 'all 0.15s ease',
+                            }}
+                          />
+                        )
+                      })}
+                      <button
+                        onClick={() => setCustomPickerFor(customPickerFor === link.id ? null : link.id)}
+                        title="Custom color"
+                        style={{
+                          width: 28, height: 28, borderRadius: '50%',
+                          background: 'conic-gradient(red, yellow, lime, cyan, blue, magenta, red)',
+                          border: '2px solid rgba(255,255,255,0.15)', cursor: 'pointer',
+                        }}
+                      />
+                      {customPickerFor === link.id && (
+                        <input
+                          type="color"
+                          value={nudgeColors[link.id] || '#6c63ff'}
+                          onChange={(e) => setLinkColor(link.id, e.target.value)}
+                          style={{ width: 32, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     {PRESET_MESSAGES.map((msg, i) => {
                       const isSendingThis = sendingNudge?.linkId === link.id && sendingNudge?.text === msg
+                      const color = nudgeColors[link.id] || '#6c63ff'
                       return (
                         <button
                           key={i}
@@ -182,12 +239,14 @@ export default function TrustedPersonDashboard({ userId, onOpenConversation, onS
                           disabled={!!sendingNudge}
                           style={{
                             display: 'flex', alignItems: 'center', gap: 6,
-                            background: isSendingThis ? 'linear-gradient(135deg,#6c63ff,#a78bfa)' : 'rgba(167,139,250,0.12)',
-                            border: '1px solid rgba(167,139,250,0.3)', borderRadius: 20, padding: '7px 12px',
-                            color: isSendingThis ? '#fff' : '#c4b5fd', fontSize: 12, fontWeight: 600,
+                            background: isSendingThis ? color : 'rgba(167,139,250,0.12)',
+                            border: `1px solid ${isSendingThis ? color : 'rgba(167,139,250,0.3)'}`,
+                            borderRadius: 20, padding: '7px 12px',
+                            color: isSendingThis ? getReadableTextColor(color) : '#c4b5fd',
+                            fontSize: 12, fontWeight: 600,
                             cursor: sendingNudge ? 'default' : 'pointer', fontFamily: 'inherit',
                             opacity: sendingNudge && !isSendingThis ? 0.4 : 1,
-                            boxShadow: isSendingThis ? '0 0 16px rgba(167,139,250,0.6)' : 'none',
+                            boxShadow: isSendingThis ? `0 0 16px ${color}99` : 'none',
                             transition: 'all 0.25s ease',
                           }}
                         >
