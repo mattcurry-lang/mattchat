@@ -96,34 +96,35 @@ export default function CyclePage({ userId, onClose, onOpenConversation, convers
 
   return (
     <>
-      {view === 'dashboard' && (
-        <CycleDashboard
-          userId={userId}
-          settings={settings}
-          cycleInfo={cycleInfo}
-          stats={stats}
-          recentDailyLogs={recentDailyLogs}
-          checkinStreak={checkinStreak}
-          onReload={loadData}
-          onOpenCalendar={() => setShowCalendar(true)}
-          onOpenCheckin={openTodayCheckin}
-          onOpenInsights={() => setShowInsights(true)}
-          onOpenReminders={() => setShowReminders(true)}
-          onOpenTrustedCircle={() => setShowTrusted(true)}
-          onOpenTrustedDashboard={() => setView('trusted_dashboard')}
-          onOpenWellness={(tab) => { setWellnessTab(tab); setShowWellness(true) }}
-          onClose={onClose}
-        />
-      )}
+     {view === 'dashboard' && (
+  <CycleDashboard
+    userId={userId}
+    settings={settings}
+    cycleInfo={cycleInfo}
+    stats={stats}
+    recentDailyLogs={recentDailyLogs}
+    checkinStreak={checkinStreak}
+    hasAcceptedTrustLinks={hasAcceptedTrustLinks}
+    onReload={loadData}
+    onOpenCalendar={() => setShowCalendar(true)}
+    onOpenCheckin={openTodayCheckin}
+    onOpenInsights={() => setShowInsights(true)}
+    onOpenReminders={() => setShowReminders(true)}
+    onOpenTrustedCircle={() => setShowTrusted(true)}
+    onOpenTrustedDashboard={() => setView('trusted_dashboard')}
+    onOpenWellness={(tab) => { setWellnessTab(tab); setShowWellness(true) }}
+    onClose={onClose}
+  />
+)}
 
-      {view === 'trusted_dashboard' && (
-        <TrustedPersonDashboard
-          onOpenConversation={onOpenConversation}
-          onSwitchToOwnDashboard={() => setView('dashboard')}
-          showOwnDashboardSwitch={ownCycleReady}
-          onClose={() => (ownCycleReady ? setView('dashboard') : onClose())}
-        />
-      )}
+{view === 'trusted_dashboard' && (
+  <TrustedPersonDashboard
+    onOpenConversation={onOpenConversation}
+    onSwitchToOwnDashboard={() => setView('dashboard')}
+    showOwnDashboardSwitch={true}
+    onClose={onClose}
+  />
+)}
 
       {showTrusted && (
         <TrustedCircle
