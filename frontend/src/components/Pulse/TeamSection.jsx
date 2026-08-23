@@ -9,6 +9,7 @@ import HighlightsButton from './HighlightsButton'
 import { computeForm } from '../../lib/footballForm'
 import FormStrip from './FormStrip'
 import FixtureTimeline from './FixtureTimeline'
+import NewsTabs from './NewsTabs'
 import MatchCard from './MatchCard'
 import MatchCentreModal from './MatchCentreModal'
 import PlayerSpotlight from './PlayerSpotlight'
@@ -25,6 +26,19 @@ function formatMatchDate(iso) {
 const autoContrastText = {
   color: '#ffffff',
   mixBlendMode: 'difference',
+}
+
+function StatPill({ label, value }) {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      borderRadius: 12, padding: '6px 12px', background: 'rgba(127,127,127,0.08)', border: '1px solid var(--border)',
+      minWidth: 56,
+    }}>
+      <div style={{ fontSize: 13, fontWeight: 800, ...autoContrastText }}>{value}</div>
+      <div style={{ fontSize: 9, fontWeight: 700, ...autoContrastText, opacity: 0.5, textTransform: 'uppercase', letterSpacing: 0.3 }}>{label}</div>
+    </div>
+  )
 }
 
 export default function TeamSection({ userId, teamId, onChangeTeam, session, onSelectVideo }) {
@@ -76,6 +90,16 @@ export default function TeamSection({ userId, teamId, onChangeTeam, session, onS
     Change
   </button>
 </div>
+
+{data.standing && (
+  <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+    <StatPill label="Position" value={`#${data.standing.position}`} />
+    <StatPill label="Points" value={data.standing.points} />
+    {data.standing.goalDifference != null && (
+      <StatPill label="GD" value={(data.standing.goalDifference > 0 ? '+' : '') + data.standing.goalDifference} />
+    )}
+  </div>
+)}
 
 {data.recentFixtures?.length > 0 && (
   <div style={{ marginBottom: 10 }}>
@@ -138,34 +162,7 @@ export default function TeamSection({ userId, teamId, onChangeTeam, session, onS
 </div>
       {!newsLoading && articles.length > 0 && (
         <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, ...autoContrastText, opacity: 0.6, marginBottom: 6 }}>Latest News</div>
-          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 2 }}>
-            {articles.slice(0, expanded ? 6 : 3).map((a, i) => (
-              <button
-                key={i}
-                onClick={() => setOpenArticle(a)}
-                style={{
-                  flexShrink: 0, width: 160, borderRadius: 12, overflow: 'hidden', position: 'relative',
-                  background: '#0f0f1a', border: '1px solid rgba(255,255,255,0.1)', textAlign: 'left',
-                  padding: 0, cursor: 'pointer', fontFamily: 'inherit', height: 140,
-                }}
-              >
-                {a.image && (
-                  <img src={a.image} alt="" loading="lazy" decoding="async" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-                )}
-                {/* Solid dark scrim so caption text is always legible over any photo, in any theme */}
-                <div style={{
-                  position: 'absolute', left: 0, right: 0, bottom: 0, padding: '20px 8px 8px',
-                  background: 'linear-gradient(180deg, transparent, rgba(0,0,0,0.9))',
-                }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {a.title}
-                  </div>
-                  <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.65)', marginTop: 4 }}>{a.source}</div>
-                </div>
-              </button>
-            ))}
-          </div>
+          <NewsTabs articles={articles} teamName={teamName} onOpenArticle={setOpenArticle} />
         </div>
       )}
 {showMatchCentre && (
@@ -180,12 +177,6 @@ export default function TeamSection({ userId, teamId, onChangeTeam, session, onS
 )}
       {data.standing && (
         <div style={{ paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <div style={{ fontSize: 11, ...autoContrastText, opacity: 0.6 }}>League Position</div>
-            <div style={{ fontSize: 13, fontWeight: 700, ...autoContrastText }}>
-              #{data.standing.position} · {data.standing.points} pts
-            </div>
-          </div>
           <button
             onClick={() => setShowStandings(true)}
             style={{
