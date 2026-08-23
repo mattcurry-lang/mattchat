@@ -10,6 +10,8 @@ import { computeForm } from '../../lib/footballForm'
 import FormStrip from './FormStrip'
 import FixtureTimeline from './FixtureTimeline'
 import MatchCard from './MatchCard'
+import MatchCentreModal from './MatchCentreModal'
+import PlayerSpotlight from './PlayerSpotlight'
 
 function formatMatchDate(iso) {
   const d = new Date(iso)
@@ -30,6 +32,7 @@ export default function TeamSection({ userId, teamId, onChangeTeam, session, onS
   const [expanded, setExpanded] = useState(false)
   const [openArticle, setOpenArticle] = useState(null)
   const [showStandings, setShowStandings] = useState(false)
+  const [showMatchCentre, setShowMatchCentre] = useState(null)
   const teamName = data?.team?.shortName || data?.team?.name
   const { articles, loading: newsLoading } = useTeamNews(teamId, teamName)
 
@@ -80,7 +83,21 @@ export default function TeamSection({ userId, teamId, onChangeTeam, session, onS
   </div>
 )}
 
-<div style={{ marginBottom: 10 }}>
+<div style={{ marginBottom: 10 }} onClick={() => {
+  if (data.liveMatch) {
+    setShowMatchCentre({
+      match: { id: data.liveMatch.id || data.lastResult?.id, teamId, teamName: data.team.shortName || data.team.name, utcDate: new Date().toISOString(), isFinal: false },
+      homeTeam: data.liveMatch.homeTeam, awayTeam: data.liveMatch.awayTeam,
+      homeScore: data.liveMatch.homeScore, awayScore: data.liveMatch.awayScore,
+    })
+  } else if (!data.nextMatch && data.lastResult) {
+    setShowMatchCentre({
+      match: { id: data.lastResult.id, teamId, teamName: data.team.shortName || data.team.name, utcDate: data.lastResult.utcDate, isFinal: true },
+      homeTeam: data.lastResult.homeTeam, awayTeam: data.lastResult.awayTeam,
+      homeScore: data.lastResult.homeScore, awayScore: data.lastResult.awayScore,
+    })
+  }
+}} style={{ cursor: (data.liveMatch || (!data.nextMatch && data.lastResult)) ? 'pointer' : 'default' }}>
   <MatchCard
     liveMatch={data.liveMatch}
     nextMatch={!data.liveMatch ? data.nextMatch : null}
@@ -94,6 +111,9 @@ export default function TeamSection({ userId, teamId, onChangeTeam, session, onS
     <FixtureTimeline past={data.recentFixtures} upcoming={data.upcomingFixtures} onSelectMatch={() => {}} />
   </div>
 )}
+      <div style={{ marginBottom: 10 }}>
+  <PlayerSpotlight />
+</div>
       {!newsLoading && articles.length > 0 && (
         <div style={{ marginBottom: 10 }}>
           <div style={{ fontSize: 11, fontWeight: 700, ...autoContrastText, opacity: 0.6, marginBottom: 6 }}>Latest News</div>
@@ -126,7 +146,16 @@ export default function TeamSection({ userId, teamId, onChangeTeam, session, onS
           </div>
         </div>
       )}
-
+{showMatchCentre && (
+  <MatchCentreModal
+    match={showMatchCentre.match}
+    homeTeam={showMatchCentre.homeTeam}
+    awayTeam={showMatchCentre.awayTeam}
+    homeScore={showMatchCentre.homeScore}
+    awayScore={showMatchCentre.awayScore}
+    onClose={() => setShowMatchCentre(null)}
+  />
+)}
       {data.standing && (
         <div style={{ paddingTop: 8, borderTop: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
