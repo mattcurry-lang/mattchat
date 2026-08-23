@@ -17,6 +17,7 @@ import { getMatchdayPhase } from '../../lib/matchday'
 import MatchdayBanner from './MatchdayBanner'
 import PreMatchLineups from './PreMatchLineups'
 import TeamSectionSkeleton from './TeamSectionSkeleton'
+import FanPoll from './FanPoll'
 
 function formatMatchDate(iso) {
   const d = new Date(iso)
@@ -133,6 +134,21 @@ export default function TeamSection({ userId, teamId, onChangeTeam, session, onS
     onSelectVideo={onSelectVideo}
   />
 </div>
+      {(matchdayPhase === 'pre' || matchdayPhase === 'live') && data.nextMatch != null && (
+  <div style={{ marginBottom: 10 }}>
+    <FanPoll
+      matchId={data.liveMatch?.id || data.nextMatch.id}
+      pollType="winner"
+      question="Who will win?"
+      options={[
+        { key: 'home', label: (data.liveMatch || data.nextMatch).homeTeam },
+        { key: 'draw', label: 'Draw' },
+        { key: 'away', label: (data.liveMatch || data.nextMatch).awayTeam },
+      ]}
+      userId={session?.user?.id}
+    />
+  </div>
+)}
 {matchdayPhase === 'pre' && data.nextMatch && (
   <PreMatchLineups
     match={{ id: data.nextMatch.id, teamId, teamName: data.team.shortName || data.team.name, utcDate: data.nextMatch.utcDate }}
