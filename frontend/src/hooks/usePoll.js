@@ -26,7 +26,7 @@ export function usePoll(matchId, pollType, options, userId) {
     setResults(byKey)
     setMyVote(mine?.option_key || null)
     setLoading(false)
-  }, [matchId, pollType, userId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [matchId, pollType, userId]) 
 
   useEffect(() => { load() }, [load])
 
