@@ -16,6 +16,7 @@ import PlayerSpotlight from './PlayerSpotlight'
 import { getMatchdayPhase } from '../../lib/matchday'
 import MatchdayBanner from './MatchdayBanner'
 import PreMatchLineups from './PreMatchLineups'
+import TeamSectionSkeleton from './TeamSectionSkeleton'
 
 function formatMatchDate(iso) {
   const d = new Date(iso)
@@ -58,12 +59,8 @@ export default function TeamSection({ userId, teamId, onChangeTeam, session, onS
     onChangeTeam(null)
   }
 
-  if (loading && !data) {
-    return (
-      <div style={{ borderRadius: 18, padding: 16, background: 'var(--bg-surface-2)', border: '1px solid var(--border)', fontSize: 12.5, ...autoContrastText }}>
-        Loading your team…
-      </div>
-    )
+ if (loading && !data) {
+    return <TeamSectionSkeleton />
   }
 
   if (error && !data) {
@@ -162,6 +159,15 @@ export default function TeamSection({ userId, teamId, onChangeTeam, session, onS
   </div>
 )}
 
+      {!data.liveMatch && !data.nextMatch && !data.lastResult && (
+  <div style={{
+    borderRadius: 14, padding: '16px 12px', textAlign: 'center', marginBottom: 10,
+    background: 'rgba(127,127,127,0.05)', border: '1px dashed var(--border)',
+  }}>
+    <div style={{ fontSize: 12, ...autoContrastText, opacity: 0.5 }}>No fixtures scheduled right now.</div>
+  </div>
+)}
+      
 {(data.recentFixtures?.length > 0 || data.upcomingFixtures?.length > 0) && (
   <div style={{ marginBottom: 10 }}>
     <FixtureTimeline past={data.recentFixtures} upcoming={data.upcomingFixtures} onSelectMatch={() => {}} />
