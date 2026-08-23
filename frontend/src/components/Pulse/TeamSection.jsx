@@ -47,7 +47,7 @@ function StatPill({ label, value }) {
 }
 
 export default function TeamSection({ userId, teamId, onChangeTeam, session, onSelectVideo }) {
-  const { data, loading, error } = useFootballData(teamId)
+ const { data, loading, error, rateLimited } = useFootballData(teamId)
   const [expanded, setExpanded] = useState(false)
   const [openArticle, setOpenArticle] = useState(null)
   const [showStandings, setShowStandings] = useState(false)
@@ -64,16 +64,22 @@ export default function TeamSection({ userId, teamId, onChangeTeam, session, onS
     return <TeamSectionSkeleton />
   }
 
-  if (error && !data) {
-    return (
-      <div style={{ borderRadius: 18, padding: 16, background: 'var(--bg-surface-2)', border: '1px solid var(--border)' }}>
-        <div style={{ fontSize: 12.5, color: '#f87171' }}>Couldn't load your team right now.</div>
+ if (error && !data) {
+  return (
+    <div style={{ borderRadius: 18, padding: 16, background: 'var(--bg-surface-2)', border: '1px solid var(--border)' }}>
+      <div style={{ fontSize: 12.5, color: error === 'rate_limited' ? '#fbbf24' : '#f87171' }}>
+        {error === 'rate_limited'
+          ? "Football data is briefly rate-limited — retrying automatically…"
+          : "Couldn't load your team right now."}
+      </div>
+      {error !== 'rate_limited' && (
         <button onClick={clearTeam} style={{ marginTop: 8, fontSize: 12, ...autoContrastText, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
           Change team
         </button>
-      </div>
-    )
-  }
+      )}
+    </div>
+  )
+}
 
   const isLive = data.liveMatch != null
   const matchdayPhase = getMatchdayPhase(data)
