@@ -6,6 +6,10 @@ import { supabase } from '../../lib/supabase'
 import NewsArticleModal from './NewsArticleModal'
 import PLStandingsModal from './PLStandingsModal'
 import HighlightsButton from './HighlightsButton'
+import { computeForm } from '../../lib/footballForm'
+import FormStrip from './FormStrip'
+import FixtureTimeline from './FixtureTimeline'
+import MatchCard from './MatchCard'
 
 function formatMatchDate(iso) {
   const d = new Date(iso)
@@ -57,69 +61,39 @@ export default function TeamSection({ userId, teamId, onChangeTeam, session, onS
 
   return (
     <motion.div layout style={{ borderRadius: 18, padding: 16, background: 'var(--bg-surface-2)', border: '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src={data.team.crest} alt={data.team.name} style={{ width: 30, height: 30, objectFit: 'contain' }} />
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, ...autoContrastText, opacity: 0.6, textTransform: 'uppercase', letterSpacing: 0.4 }}>Your Team</div>
-            <div style={{ fontSize: 15, fontWeight: 800, ...autoContrastText }}>{data.team.name}</div>
-          </div>
-        </div>
-        <button onClick={clearTeam} title="Change team" style={{ fontSize: 11, ...autoContrastText, opacity: 0.6, background: 'none', border: '1px solid var(--border)', borderRadius: 20, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
-          Change
-        </button>
-      </div>
-
-      {/* LIVE match banner */}
-      {isLive && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '8px 12px',
-          borderRadius: 12, background: 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.05))',
-          border: '1px solid rgba(239,68,68,0.35)',
-        }}>
-          <span style={{
-            width: 8, height: 8, borderRadius: '50%', background: '#ef4444', flexShrink: 0,
-            animation: 'livePulse 1.4s ease infinite',
-          }} />
-          <span style={{ fontSize: 11, fontWeight: 800, color: '#ef4444', textTransform: 'uppercase', letterSpacing: 0.4 }}>
-            Live{data.liveMatch.minute ? ` · ${data.liveMatch.minute}'` : ''}
-          </span>
-          <span style={{ flex: 1, fontSize: 13, fontWeight: 700, ...autoContrastText, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-            {data.liveMatch.homeTeam} {data.liveMatch.homeScore} - {data.liveMatch.awayScore} {data.liveMatch.awayTeam}
-          </span>
-        </div>
-      )}
-
-      {data.nextMatch && (
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, ...autoContrastText, opacity: 0.6, marginBottom: 4 }}>Next Match</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, ...autoContrastText, fontWeight: 600 }}>
-            <img src={data.nextMatch.homeCrest} alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} />
-            {data.nextMatch.homeTeam} vs {data.nextMatch.awayTeam}
-            <img src={data.nextMatch.awayCrest} alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} />
-          </div>
-          <div style={{ fontSize: 11.5, ...autoContrastText, opacity: 0.55, marginTop: 2 }}>{formatMatchDate(data.nextMatch.utcDate)}</div>
-        </div>
-      )}
-
-    {data.lastResult && (
-  <div style={{ marginBottom: 10 }}>
-    <div style={{ fontSize: 11, fontWeight: 700, ...autoContrastText, opacity: 0.6, marginBottom: 4 }}>Latest Result</div>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, ...autoContrastText, fontWeight: 600 }}>
-      <img src={data.lastResult.homeCrest} alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} />
-      {data.lastResult.homeTeam} {data.lastResult.homeScore} - {data.lastResult.awayScore} {data.lastResult.awayTeam}
-      <img src={data.lastResult.awayCrest} alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} />
+     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+    <img src={data.team.crest} alt={data.team.name} style={{ width: 30, height: 30, objectFit: 'contain' }} />
+    <div>
+      <div style={{ fontSize: 11, fontWeight: 700, ...autoContrastText, opacity: 0.6, textTransform: 'uppercase', letterSpacing: 0.4 }}>Your Team</div>
+      <div style={{ fontSize: 15, fontWeight: 800, ...autoContrastText }}>{data.team.name}</div>
     </div>
-    {data.lastResult.id && (
-      <HighlightsButton
-        session={session}
-        match={{ id: data.lastResult.id, homeTeam: data.lastResult.homeTeam, awayTeam: data.lastResult.awayTeam }}
-        onSelectVideo={onSelectVideo}
-      />
-    )}
+  </div>
+  <button onClick={clearTeam} title="Change team" style={{ fontSize: 11, ...autoContrastText, opacity: 0.6, background: 'none', border: '1px solid var(--border)', borderRadius: 20, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
+    Change
+  </button>
+</div>
+
+{data.recentFixtures?.length > 0 && (
+  <div style={{ marginBottom: 10 }}>
+    <FormStrip form={computeForm(data.recentFixtures, data.team.shortName)} />
   </div>
 )}
 
+<div style={{ marginBottom: 10 }}>
+  <MatchCard
+    liveMatch={data.liveMatch}
+    nextMatch={!data.liveMatch ? data.nextMatch : null}
+    lastResult={!data.liveMatch && !data.nextMatch ? data.lastResult : null}
+    session={session}
+    onSelectVideo={onSelectVideo}
+  />
+</div>
+{(data.recentFixtures?.length > 0 || data.upcomingFixtures?.length > 0) && (
+  <div style={{ marginBottom: 10 }}>
+    <FixtureTimeline past={data.recentFixtures} upcoming={data.upcomingFixtures} onSelectMatch={() => {}} />
+  </div>
+)}
       {!newsLoading && articles.length > 0 && (
         <div style={{ marginBottom: 10 }}>
           <div style={{ fontSize: 11, fontWeight: 700, ...autoContrastText, opacity: 0.6, marginBottom: 6 }}>Latest News</div>
