@@ -2,6 +2,15 @@ import React from 'react'
 import { createPortal } from 'react-dom'
 import { usePLStandings } from '../../hooks/usePLStandings'
 
+const GRID_COLS = '40px 1fr 32px 32px 32px 32px 44px 44px'
+
+function MovementArrow({ movement }) {
+  if (movement === 'up') return <span style={{ color: '#22c55e', fontSize: 10, fontWeight: 900 }}>▲</span>
+  if (movement === 'down') return <span style={{ color: '#ef4444', fontSize: 10, fontWeight: 900 }}>▼</span>
+  if (movement === 'same') return <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: 900 }}>▬</span>
+  return null // no prior snapshot yet — hide rather than guess
+}
+
 export default function PLStandingsModal({ highlightTeamId, onClose }) {
   const { table, loading, error } = usePLStandings()
 
@@ -14,34 +23,34 @@ export default function PLStandingsModal({ highlightTeamId, onClose }) {
         <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>Premier League Table</div>
         <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 30, height: 30, color: '#fff', cursor: 'pointer' }}>✕</button>
       </div>
-
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 32px' }}>
         {loading && <div style={{ textAlign: 'center', padding: 30, fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Loading table…</div>}
         {error && <div style={{ textAlign: 'center', padding: 30, fontSize: 13, color: '#f87171' }}>Couldn't load the table right now.</div>}
-
         {!loading && !error && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <div style={{
-              display: 'grid', gridTemplateColumns: '28px 1fr 32px 32px 32px 32px 44px 44px',
+              display: 'grid', gridTemplateColumns: GRID_COLS,
               gap: 6, padding: '6px 8px', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.4)',
               textTransform: 'uppercase', letterSpacing: 0.3,
             }}>
               <div>#</div><div>Club</div><div>P</div><div>W</div><div>D</div><div>L</div><div>GD</div><div>Pts</div>
             </div>
-
             {table.map(row => {
               const isMine = highlightTeamId && row.teamId === String(highlightTeamId)
               return (
                 <div
                   key={row.teamId}
                   style={{
-                    display: 'grid', gridTemplateColumns: '28px 1fr 32px 32px 32px 32px 44px 44px',
+                    display: 'grid', gridTemplateColumns: GRID_COLS,
                     gap: 6, alignItems: 'center', padding: '8px 8px', borderRadius: 10,
                     background: isMine ? 'rgba(167,139,250,0.14)' : 'transparent',
                     border: isMine ? '1px solid rgba(167,139,250,0.3)' : '1px solid transparent',
                   }}
                 >
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.65)' }}>{row.position}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.65)' }}>{row.position}</span>
+                    <MovementArrow movement={row.movement} />
+                  </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                     <img src={row.crest} alt="" style={{ width: 18, height: 18, objectFit: 'contain', flexShrink: 0 }} />
                     <span style={{ fontSize: 12.5, fontWeight: isMine ? 800 : 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
