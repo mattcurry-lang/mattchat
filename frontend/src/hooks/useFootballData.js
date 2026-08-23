@@ -25,7 +25,9 @@ export function useFootballData(teamId) {
   const [data, setData] = useState(() => memCache.get(teamId)?.data || null)
   const [loading, setLoading] = useState(!memCache.has(teamId))
   const [error, setError] = useState(null)
+  const [rateLimited, setRateLimited] = useState(false)
   const inFlight = useRef(new Set())
+  const retryTimer = useRef(null)
 
   const load = useCallback(async (force = false) => {
     if (!teamId) return
@@ -33,32 +35,44 @@ export function useFootballData(teamId) {
     if (cached && !force) { setData(cached.data); setLoading(false); return }
     if (inFlight.current.has(teamId)) return
     inFlight.current.add(teamId)
-    setLoading(!cached) // optimistic UI: keep showing stale cached data while refreshing, if we have any
+    setLoading(!cached)
     setError(null)
     try {
       const { data: resp, error: fnError } = await supabase.functions.invoke(`pulse-football?action=team&teamId=${teamId}`)
-      if (fnError || !resp?.ok) throw new Error(resp?.error || 'fetch failed')
+      if (fnError || !resp?.ok) {
+        const err = new Error(resp?.error || 'fetch failed')
+        err.rateLimited = !!resp?.rateLimited
+        throw err
+      }
 
-      // Pass through everything the edge function returns (team,
-      // liveMatch, nextMatch, lastResult, standing, recentFixtures,
-      // upcomingFixtures, and anything added later) instead of
-      // whitelisting specific fields — a hardcoded field list here
-      // silently drops any new field the bundle grows to include.
       const bundle = { ...resp }
       delete bundle.ok
 
       memCache.set(teamId, { data: bundle, fetchedAt: Date.now() })
       setData(bundle)
+      setRateLimited(false)
     } catch (e) {
       console.error('useFootballData failed:', e)
-      // Keep whatever stale cache we had rather than blanking the section
-      if (!cached) setError('Could not load team data')
+      if (e.rateLimited) {
+        // football-data.org's free tier is 10 req/min — this is a
+        // temporary condition, not a real failure. Auto-retry once
+        // instead of leaving the user stuck on a dead-end error.
+        setRateLimited(true)
+        if (!cached) setError('rate_limited')
+        clearTimeout(retryTimer.current)
+        retryTimer.current = setTimeout(() => load(true), 15000)
+      } else if (!cached) {
+        setError('generic')
+      }
     }
     inFlight.current.delete(teamId)
     setLoading(false)
   }, [teamId])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+    return () => clearTimeout(retryTimer.current)
+  }, [load])
 
-  return { data, loading, error, refresh: () => load(true) }
+  return { data, loading, error, rateLimited, refresh: () => load(true) }
 }
