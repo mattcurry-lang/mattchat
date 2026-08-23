@@ -15,6 +15,7 @@ import MatchCentreModal from './MatchCentreModal'
 import PlayerSpotlight from './PlayerSpotlight'
 import { getMatchdayPhase } from '../../lib/matchday'
 import MatchdayBanner from './MatchdayBanner'
+import PreMatchLineups from './PreMatchLineups'
 
 function formatMatchDate(iso) {
   const d = new Date(iso)
@@ -135,7 +136,11 @@ export default function TeamSection({ userId, teamId, onChangeTeam, session, onS
     onSelectVideo={onSelectVideo}
   />
 </div>
-
+{matchdayPhase === 'pre' && data.nextMatch && (
+  <PreMatchLineups
+    match={{ id: data.nextMatch.id, teamId, teamName: data.team.shortName || data.team.name, utcDate: data.nextMatch.utcDate }}
+  />
+)}
 {(data.liveMatch || data.nextMatch) && data.lastResult?.id && (
   <div style={{ marginBottom: 10 }}>
     <div style={{ fontSize: 11, fontWeight: 700, ...autoContrastText, opacity: 0.6, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 }}>
