@@ -92,7 +92,10 @@ export default function MatchCard({ liveMatch, nextMatch, lastResult, session, o
           <TeamColumn crest={lastResult.awayCrest} name={lastResult.awayTeam} />
         </div>
         {lastResult.id && (
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}
+          >
             <HighlightsButton session={session} match={{ id: lastResult.id, homeTeam: lastResult.homeTeam, awayTeam: lastResult.awayTeam }} onSelectVideo={onSelectVideo} />
           </div>
         )}
