@@ -106,6 +106,28 @@ export default function TeamSection({ userId, teamId, onChangeTeam, session, onS
     onSelectVideo={onSelectVideo}
   />
 </div>
+
+{(data.liveMatch || data.nextMatch) && data.lastResult?.id && (
+  <div style={{ marginBottom: 10 }}>
+    <div style={{ fontSize: 11, fontWeight: 700, ...autoContrastText, opacity: 0.6, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+      Last Match
+    </div>
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+      borderRadius: 14, padding: '10px 12px', background: 'rgba(127,127,127,0.08)', border: '1px solid var(--border)',
+    }}>
+      <div style={{ fontSize: 12, fontWeight: 700, ...autoContrastText, minWidth: 0 }}>
+        {data.lastResult.homeTeam} {data.lastResult.homeScore}-{data.lastResult.awayScore} {data.lastResult.awayTeam}
+      </div>
+      <HighlightsButton
+        session={session}
+        match={{ id: data.lastResult.id, homeTeam: data.lastResult.homeTeam, awayTeam: data.lastResult.awayTeam }}
+        onSelectVideo={onSelectVideo}
+      />
+    </div>
+  </div>
+)}
+
 {(data.recentFixtures?.length > 0 || data.upcomingFixtures?.length > 0) && (
   <div style={{ marginBottom: 10 }}>
     <FixtureTimeline past={data.recentFixtures} upcoming={data.upcomingFixtures} onSelectMatch={() => {}} />
