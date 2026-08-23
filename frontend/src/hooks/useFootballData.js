@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+
 const memCache = new Map() // teamId -> { data, fetchedAt } — survives team switches within a session
+
 export function usePlTeamsList() {
   const [teams, setTeams] = useState([])
   const [loading, setLoading] = useState(true)
@@ -18,11 +20,13 @@ export function usePlTeamsList() {
   }, [])
   return { teams, loading, error }
 }
+
 export function useFootballData(teamId) {
   const [data, setData] = useState(() => memCache.get(teamId)?.data || null)
   const [loading, setLoading] = useState(!memCache.has(teamId))
   const [error, setError] = useState(null)
   const inFlight = useRef(new Set())
+
   const load = useCallback(async (force = false) => {
     if (!teamId) return
     const cached = memCache.get(teamId)
@@ -34,7 +38,15 @@ export function useFootballData(teamId) {
     try {
       const { data: resp, error: fnError } = await supabase.functions.invoke(`pulse-football?action=team&teamId=${teamId}`)
       if (fnError || !resp?.ok) throw new Error(resp?.error || 'fetch failed')
-      const bundle = { team: resp.team, nextMatch: resp.nextMatch, lastResult: resp.lastResult, standing: resp.standing }
+
+      // Pass through everything the edge function returns (team,
+      // liveMatch, nextMatch, lastResult, standing, recentFixtures,
+      // upcomingFixtures, and anything added later) instead of
+      // whitelisting specific fields — a hardcoded field list here
+      // silently drops any new field the bundle grows to include.
+      const bundle = { ...resp }
+      delete bundle.ok
+
       memCache.set(teamId, { data: bundle, fetchedAt: Date.now() })
       setData(bundle)
     } catch (e) {
@@ -45,6 +57,8 @@ export function useFootballData(teamId) {
     inFlight.current.delete(teamId)
     setLoading(false)
   }, [teamId])
+
   useEffect(() => { load() }, [load])
+
   return { data, loading, error, refresh: () => load(true) }
 }
