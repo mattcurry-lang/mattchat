@@ -7,6 +7,14 @@ function formatMatchDate(iso) {
     ' · ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
 }
 
+// Same trick used in TeamSection.jsx — text auto-inverts against whatever
+// is behind it (light card or dark card), guaranteeing legibility without
+// depending on knowing which theme is active.
+const autoContrastText = {
+  color: '#ffffff',
+  mixBlendMode: 'difference',
+}
+
 function useCountdown(targetIso) {
   const [label, setLabel] = React.useState('')
   React.useEffect(() => {
@@ -40,11 +48,11 @@ export default function MatchCard({ liveMatch, nextMatch, lastResult, session, o
           <span style={{ fontSize: 11, fontWeight: 800, color: '#ef4444', textTransform: 'uppercase', letterSpacing: 0.4 }}>
             Live{liveMatch.minute ? ` · ${liveMatch.minute}'` : ''}
           </span>
-          <span style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.4)', marginLeft: 'auto' }}>{liveMatch.competition}</span>
+          <span style={{ fontSize: 10.5, ...autoContrastText, opacity: 0.5, marginLeft: 'auto' }}>{liveMatch.competition}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <TeamColumn crest={liveMatch.homeCrest} name={liveMatch.homeTeam} />
-          <div style={{ fontSize: 24, fontWeight: 900, color: '#fff' }}>{liveMatch.homeScore} - {liveMatch.awayScore}</div>
+          <div style={{ fontSize: 24, fontWeight: 900, ...autoContrastText }}>{liveMatch.homeScore} - {liveMatch.awayScore}</div>
           <TeamColumn crest={liveMatch.awayCrest} name={liveMatch.awayTeam} />
         </div>
         <style>{`@keyframes livePulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }`}</style>
@@ -54,19 +62,19 @@ export default function MatchCard({ liveMatch, nextMatch, lastResult, session, o
 
   if (nextMatch) {
     return (
-      <div style={{ borderRadius: 16, padding: '14px 16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(167,139,250,0.2)' }}>
+      <div style={{ borderRadius: 16, padding: '14px 16px', background: 'rgba(127,127,127,0.08)', border: '1px solid rgba(167,139,250,0.3)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-          <span style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>{nextMatch.competition}</span>
+          <span style={{ fontSize: 10.5, fontWeight: 700, ...autoContrastText, opacity: 0.5, textTransform: 'uppercase' }}>{nextMatch.competition}</span>
           {countdown && (
-            <span style={{ fontSize: 10.5, fontWeight: 800, color: '#c4b5fd' }}>⏱ {countdown}</span>
+            <span style={{ fontSize: 10.5, fontWeight: 800, color: '#7c3aed' }}>⏱ {countdown}</span>
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <TeamColumn crest={nextMatch.homeCrest} name={nextMatch.homeTeam} />
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>vs</div>
+          <div style={{ fontSize: 13, fontWeight: 700, ...autoContrastText, opacity: 0.6 }}>vs</div>
           <TeamColumn crest={nextMatch.awayCrest} name={nextMatch.awayTeam} />
         </div>
-        <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.55)', textAlign: 'center', marginTop: 10 }}>
+        <div style={{ fontSize: 11.5, ...autoContrastText, opacity: 0.65, textAlign: 'center', marginTop: 10 }}>
           {formatMatchDate(nextMatch.utcDate)}
           {nextMatch.venue && ` · ${nextMatch.venue}`}
         </div>
@@ -76,11 +84,11 @@ export default function MatchCard({ liveMatch, nextMatch, lastResult, session, o
 
   if (lastResult) {
     return (
-      <div style={{ borderRadius: 16, padding: '14px 16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-        <div style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 10 }}>Full Time</div>
+      <div style={{ borderRadius: 16, padding: '14px 16px', background: 'rgba(127,127,127,0.08)', border: '1px solid rgba(127,127,127,0.18)' }}>
+        <div style={{ fontSize: 10.5, fontWeight: 700, ...autoContrastText, opacity: 0.5, textTransform: 'uppercase', marginBottom: 10 }}>Full Time</div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <TeamColumn crest={lastResult.homeCrest} name={lastResult.homeTeam} />
-          <div style={{ fontSize: 20, fontWeight: 900, color: '#fff' }}>{lastResult.homeScore} - {lastResult.awayScore}</div>
+          <div style={{ fontSize: 20, fontWeight: 900, ...autoContrastText }}>{lastResult.homeScore} - {lastResult.awayScore}</div>
           <TeamColumn crest={lastResult.awayCrest} name={lastResult.awayTeam} />
         </div>
         {lastResult.id && (
@@ -99,7 +107,7 @@ function TeamColumn({ crest, name }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 80 }}>
       <img src={crest} alt={name} style={{ width: 32, height: 32, objectFit: 'contain' }} />
-      <div style={{ fontSize: 11, fontWeight: 600, color: '#fff', textAlign: 'center', lineHeight: 1.2 }}>{name}</div>
+      <div style={{ fontSize: 11, fontWeight: 600, ...autoContrastText, textAlign: 'center', lineHeight: 1.2 }}>{name}</div>
     </div>
   )
 }
