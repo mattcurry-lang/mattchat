@@ -13,6 +13,8 @@ import NewsTabs from './NewsTabs'
 import MatchCard from './MatchCard'
 import MatchCentreModal from './MatchCentreModal'
 import PlayerSpotlight from './PlayerSpotlight'
+import { getMatchdayPhase } from '../../lib/matchday'
+import MatchdayBanner from './MatchdayBanner'
 
 function formatMatchDate(iso) {
   const d = new Date(iso)
@@ -75,6 +77,7 @@ export default function TeamSection({ userId, teamId, onChangeTeam, session, onS
   }
 
   const isLive = data.liveMatch != null
+  const matchdayPhase = getMatchdayPhase(data)
 
   return (
     <motion.div layout style={{ borderRadius: 18, padding: 16, background: 'var(--bg-surface-2)', border: '1px solid var(--border)' }}>
@@ -122,6 +125,8 @@ export default function TeamSection({ userId, teamId, onChangeTeam, session, onS
     })
   }
 }} style={{ cursor: (data.liveMatch || (!data.nextMatch && data.lastResult)) ? 'pointer' : 'default' }}>
+
+  <MatchdayBanner phase={matchdayPhase} />
   <MatchCard
     liveMatch={data.liveMatch}
     nextMatch={!data.liveMatch ? data.nextMatch : null}
