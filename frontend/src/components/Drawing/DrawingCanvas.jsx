@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef } from 'react'
-import { simplifyPoints, renderStroke, renderShape, renderText, replayStrokes, recognizeShape, CANVAS_LOGICAL_WIDTH, CANVAS_LOGICAL_HEIGHT } from './drawingEngine'
+import { simplifyPoints, renderStroke, renderShape, renderText, replayStrokes, recognizeShape, isGraphiteTool, renderGraphiteStroke, resolvePointPressure, DEFAULT_PENCIL_TYPE, CANVAS_LOGICAL_WIDTH, CANVAS_LOGICAL_HEIGHT } from './drawingEngine'
 
 const SHAPE_TOOLS = new Set(['rect', 'circle', 'line', 'arrow', 'triangle'])
 const STROKE_UPDATE_THROTTLE_MS = 40
@@ -98,6 +98,12 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
 const selectDragRef = useRef(null)
   const [textEditor, setTextEditor] = useState(null)
   const [annotatingImageId, setAnnotatingImageId] = useState(null)
+   const pointerInfoRef = useRef({ pressure: 0.5, tiltX: 0, tiltY: 0, pointerType: 'mouse' })
+  const lastGraphiteSampleRef = useRef(null) // { x, y, t } — for speed-based simulated pressure
+  const handleRawPointerSample = (e) => {
+    if (typeof e.pointerType === 'undefined') return
+    pointerInfoRef.current = { pressure: e.pressure, tiltX: e.tiltX || 0, tiltY: e.tiltY || 0, pointerType: e.pointerType }
+  }
   const pointingRef = useRef(pointing)
   pointingRef.current = pointing
 
@@ -135,7 +141,7 @@ const hitTestEditable = (p) => {
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.restore()
   }
 
-  const redrawLiveLayer = useCallback(() => {
+    const redrawLiveLayer = useCallback(() => {
     const ctx = liveCtxRef.current
     const canvas = liveCanvasRef.current
     if (!ctx || !canvas) return
@@ -143,10 +149,12 @@ const hitTestEditable = (p) => {
     const meta = currentStrokeMetaRef.current
     if (meta && currentPointsRef.current.length) {
       if (SHAPE_TOOLS.has(meta.tool)) renderShape(ctx, { ...meta, points: currentPointsRef.current })
+      else if (isGraphiteTool(meta.tool)) renderGraphiteStroke(ctx, { ...meta, points: currentPointsRef.current })
       else renderStroke(ctx, { ...meta, points: currentPointsRef.current })
     }
     remoteLiveStrokesRef.current.forEach((s) => {
       if (SHAPE_TOOLS.has(s.tool)) renderShape(ctx, s)
+      else if (isGraphiteTool(s.tool)) renderGraphiteStroke(ctx, s)
       else renderStroke(ctx, s)
     })
   }, [])
@@ -338,15 +346,19 @@ const hitTestEditable = (p) => {
       requestAnimationFrame(() => textInputRef.current?.focus())
       return
     }
-    e.preventDefault()
+       e.preventDefault()
     drawingRef.current = true
     const p = getPoint(e)
+    if (isGraphiteTool(tool)) {
+      const info = pointerInfoRef.current
+      p.pressure = resolvePointPressure(info.pressure, info.pointerType, 0, 0)
+      lastGraphiteSampleRef.current = { x: p.x, y: p.y, t: performance.now() }
+    }
     currentPointsRef.current = [p]
     const id = newLocalId()
     currentStrokeMetaRef.current = { id, tool, color, size, opacity, userId }
     redrawLiveLayer()
     onLocalStrokeStart?.({ id, tool, color, size, opacity, points: [p] })
-  }
 
  const handlePointerMove = (e) => {
     if (tool === 'select' && selectDragRef.current) {
@@ -362,10 +374,22 @@ const hitTestEditable = (p) => {
     const p = getPoint(e)
     if (pointingRef.current) { e.preventDefault(); onLocalPointerMove?.(p.x, p.y); return }
     onLocalCursorMove?.(p.x, p.y)
-    if (!drawingRef.current) return
+      if (!drawingRef.current) return
     e.preventDefault()
-    if (SHAPE_TOOLS.has(tool)) currentPointsRef.current = [currentPointsRef.current[0], p]
-    else currentPointsRef.current.push(p)
+    if (SHAPE_TOOLS.has(tool)) {
+      currentPointsRef.current = [currentPointsRef.current[0], p]
+    } else {
+      if (isGraphiteTool(tool)) {
+        const last = lastGraphiteSampleRef.current
+        const now = performance.now()
+        const dist = last ? Math.hypot(p.x - last.x, p.y - last.y) : 0
+        const dt = last ? now - last.t : 0
+        const info = pointerInfoRef.current
+        p.pressure = resolvePointPressure(info.pressure, info.pointerType, dist, dt)
+        lastGraphiteSampleRef.current = { x: p.x, y: p.y, t: now }
+      }
+      currentPointsRef.current.push(p)
+    }
     redrawLiveLayer()
     const now = Date.now()
     if (now - lastUpdateSentRef.current > STROKE_UPDATE_THROTTLE_MS) {
@@ -778,10 +802,11 @@ const deleteSelectedStrokeLocal = () => {
   return (
     <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%', background: backgroundColor, borderRadius: 16, overflow: 'hidden', touchAction: 'none' }}>
       <canvas ref={baseCanvasRef} style={{ position: 'absolute', inset: 0, display: 'block', width: '100%', height: '100%', pointerEvents: 'none' }} />
-      <canvas
+     <canvas
         ref={liveCanvasRef}
         onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseLeaveCanvas}
         onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
+        onPointerDown={handleRawPointerSample} onPointerMove={handleRawPointerSample}
         style={{
           position: 'absolute', inset: 0, display: 'block', width: '100%', height: '100%',
           cursor: panCursor || (armedReaction ? 'copy' : pointing ? 'crosshair' : tool === 'eraser' ? 'cell' : tool === 'text' ? 'text' : 'crosshair'),
