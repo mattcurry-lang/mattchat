@@ -25,6 +25,13 @@ const DRAW_TOOLS = [
   { id: 'eraser', label: 'Eraser', Icon: IconEraser },
   { id: 'select', label: 'Select', Icon: IconCheckSquare },
 ]
+const PENCIL_TYPES = [
+  { id: 'pencil-hb', label: 'HB' },
+  { id: 'pencil-2b', label: '2B' },
+  { id: 'pencil-4b', label: '4B' },
+  { id: 'pencil-6b', label: '6B' },
+  { id: 'pencil-mechanical', label: 'Mech.' },
+]
 const SHAPE_TOOLS = [
   { id: 'line', label: 'Line' }, { id: 'arrow', label: 'Arrow' }, { id: 'rect', label: 'Rectangle' },
   { id: 'circle', label: 'Circle' }, { id: 'triangle', label: 'Triangle' },
@@ -65,6 +72,8 @@ export default function DrawingToolbar({
   const [voteQuestion, setVoteQuestion] = useState('')
   const [voteOptions, setVoteOptions] = useState(['', ''])
   const isShapeActive = SHAPE_TOOLS.some(s => s.id === tool)
+    const [showPencilMenu, setShowPencilMenu] = useState(false)
+  const isPencilActive = tool.startsWith('pencil-')
 
   const submitVote = () => {
     const opts = voteOptions.map(o => o.trim()).filter(Boolean)
@@ -80,7 +89,21 @@ export default function DrawingToolbar({
       {DRAW_TOOLS.map(({ id, label, Icon }) => (
         <ToolButton key={id} active={tool === id} onClick={() => onToolChange(id)} title={label}><Icon size={17} /></ToolButton>
       ))}
-
+      <div style={{ position: 'relative' }}>
+        <ToolButton active={isPencilActive} onClick={() => setShowPencilMenu(v => !v)} title="Pencil">
+          <IconPencil size={17} />
+        </ToolButton>
+        {showPencilMenu && (
+          <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, background: '#1e1e2e', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 12, padding: 6, display: 'flex', flexDirection: 'column', gap: 2, zIndex: 30, minWidth: 130, boxShadow: '0 8px 30px rgba(0,0,0,0.4)' }}>
+            {PENCIL_TYPES.map(p => (
+              <button key={p.id} onClick={() => { onToolChange(p.id); setShowPencilMenu(false) }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: tool === p.id ? 'rgba(167,139,250,0.15)' : 'none', border: 'none', color: tool === p.id ? '#c4b5fd' : 'rgba(255,255,255,0.75)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
       <div style={{ position: 'relative' }}>
         <ToolButton active={isShapeActive} onClick={() => setShowShapes(v => !v)} title="Shapes"><IconShapes size={17} /></ToolButton>
         {showShapes && (
