@@ -354,11 +354,12 @@ const hitTestEditable = (p) => {
       p.pressure = resolvePointPressure(info.pressure, info.pointerType, 0, 0)
       lastGraphiteSampleRef.current = { x: p.x, y: p.y, t: performance.now() }
     }
-    currentPointsRef.current = [p]
+       currentPointsRef.current = [p]
     const id = newLocalId()
     currentStrokeMetaRef.current = { id, tool, color, size, opacity, userId }
     redrawLiveLayer()
     onLocalStrokeStart?.({ id, tool, color, size, opacity, points: [p] })
+  }
 
  const handlePointerMove = (e) => {
     if (tool === 'select' && selectDragRef.current) {
