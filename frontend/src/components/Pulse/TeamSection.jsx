@@ -18,6 +18,7 @@ import MatchdayBanner from './MatchdayBanner'
 import PreMatchLineups from './PreMatchLineups'
 import TeamSectionSkeleton from './TeamSectionSkeleton'
 import FanPoll from './FanPoll'
+import NotificationPrefsSheet from './NotificationPrefsSheet'
 
 function formatMatchDate(iso) {
   const d = new Date(iso)
@@ -47,11 +48,12 @@ function StatPill({ label, value }) {
 }
 
 export default function TeamSection({ userId, teamId, onChangeTeam, session, onSelectVideo }) {
- const { data, loading, error, rateLimited } = useFootballData(teamId)
+  const { data, loading, error, rateLimited } = useFootballData(teamId)
   const [expanded, setExpanded] = useState(false)
   const [openArticle, setOpenArticle] = useState(null)
   const [showStandings, setShowStandings] = useState(false)
   const [showMatchCentre, setShowMatchCentre] = useState(null)
+  const [showNotifPrefs, setShowNotifPrefs] = useState(false)
   const teamName = data?.team?.shortName || data?.team?.name
   const { articles, loading: newsLoading } = useTeamNews(teamId, teamName)
 
@@ -60,159 +62,170 @@ export default function TeamSection({ userId, teamId, onChangeTeam, session, onS
     onChangeTeam(null)
   }
 
- if (loading && !data) {
+  if (loading && !data) {
     return <TeamSectionSkeleton />
   }
 
- if (error && !data) {
-  return (
-    <div style={{ borderRadius: 18, padding: 16, background: 'var(--bg-surface-2)', border: '1px solid var(--border)' }}>
-      <div style={{ fontSize: 12.5, color: error === 'rate_limited' ? '#fbbf24' : '#f87171' }}>
-        {error === 'rate_limited'
-          ? "Football data is briefly rate-limited — retrying automatically…"
-          : "Couldn't load your team right now."}
+  if (error && !data) {
+    return (
+      <div style={{ borderRadius: 18, padding: 16, background: 'var(--bg-surface-2)', border: '1px solid var(--border)' }}>
+        <div style={{ fontSize: 12.5, color: error === 'rate_limited' ? '#fbbf24' : '#f87171' }}>
+          {error === 'rate_limited'
+            ? 'Football data is briefly rate-limited — retrying automatically…'
+            : "Couldn't load your team right now."}
+        </div>
+        {error !== 'rate_limited' && (
+          <button onClick={clearTeam} style={{ marginTop: 8, fontSize: 12, ...autoContrastText, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+            Change team
+          </button>
+        )}
       </div>
-      {error !== 'rate_limited' && (
-        <button onClick={clearTeam} style={{ marginTop: 8, fontSize: 12, ...autoContrastText, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
-          Change team
-        </button>
-      )}
-    </div>
-  )
-}
+    )
+  }
 
   const isLive = data.liveMatch != null
   const matchdayPhase = getMatchdayPhase(data)
 
   return (
     <motion.div layout style={{ borderRadius: 18, padding: 16, background: 'var(--bg-surface-2)', border: '1px solid var(--border)' }}>
-     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-    <img src={data.team.crest} alt={data.team.name} style={{ width: 30, height: 30, objectFit: 'contain' }} />
-    <div>
-      <div style={{ fontSize: 11, fontWeight: 700, ...autoContrastText, opacity: 0.6, textTransform: 'uppercase', letterSpacing: 0.4 }}>Your Team</div>
-      <div style={{ fontSize: 15, fontWeight: 800, ...autoContrastText }}>{data.team.name}</div>
-    </div>
-  </div>
-  <button onClick={clearTeam} title="Change team" style={{ fontSize: 11, ...autoContrastText, opacity: 0.6, background: 'none', border: '1px solid var(--border)', borderRadius: 20, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
-    Change
-  </button>
-</div>
-
-{data.standing && (
-  <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-    <StatPill label="Position" value={`#${data.standing.position}`} />
-    <StatPill label="Points" value={data.standing.points} />
-    {data.standing.goalDifference != null && (
-      <StatPill label="GD" value={(data.standing.goalDifference > 0 ? '+' : '') + data.standing.goalDifference} />
-    )}
-  </div>
-)}
-
-{data.recentFixtures?.length > 0 && (
-  <div style={{ marginBottom: 10 }}>
-    <FormStrip form={computeForm(data.recentFixtures, data.team.shortName)} />
-  </div>
-)}
-
-<div style={{ marginBottom: 10 }} onClick={() => {
-  if (data.liveMatch) {
-    setShowMatchCentre({
-      match: { id: data.liveMatch.id || data.lastResult?.id, teamId, teamName: data.team.shortName || data.team.name, utcDate: new Date().toISOString(), isFinal: false },
-      homeTeam: data.liveMatch.homeTeam, awayTeam: data.liveMatch.awayTeam,
-      homeScore: data.liveMatch.homeScore, awayScore: data.liveMatch.awayScore,
-    })
-  } else if (!data.nextMatch && data.lastResult) {
-    setShowMatchCentre({
-      match: { id: data.lastResult.id, teamId, teamName: data.team.shortName || data.team.name, utcDate: data.lastResult.utcDate, isFinal: true },
-      homeTeam: data.lastResult.homeTeam, awayTeam: data.lastResult.awayTeam,
-      homeScore: data.lastResult.homeScore, awayScore: data.lastResult.awayScore,
-    })
-  }
-}} style={{ cursor: (data.liveMatch || (!data.nextMatch && data.lastResult)) ? 'pointer' : 'default' }}>
-
-  <MatchdayBanner phase={matchdayPhase} />
-  <MatchCard
-    liveMatch={data.liveMatch}
-    nextMatch={!data.liveMatch ? data.nextMatch : null}
-    lastResult={!data.liveMatch && !data.nextMatch ? data.lastResult : null}
-    session={session}
-    onSelectVideo={onSelectVideo}
-  />
-</div>
-      {(matchdayPhase === 'pre' || matchdayPhase === 'live') && data.nextMatch != null && (
-  <div style={{ marginBottom: 10 }}>
-    <FanPoll
-      matchId={data.liveMatch?.id || data.nextMatch.id}
-      pollType="winner"
-      question="Who will win?"
-      options={[
-        { key: 'home', label: (data.liveMatch || data.nextMatch).homeTeam },
-        { key: 'draw', label: 'Draw' },
-        { key: 'away', label: (data.liveMatch || data.nextMatch).awayTeam },
-      ]}
-      userId={session?.user?.id}
-    />
-  </div>
-)}
-{matchdayPhase === 'pre' && data.nextMatch && (
-  <PreMatchLineups
-    match={{ id: data.nextMatch.id, teamId, teamName: data.team.shortName || data.team.name, utcDate: data.nextMatch.utcDate }}
-  />
-)}
-{(data.liveMatch || data.nextMatch) && data.lastResult?.id && (
-  <div style={{ marginBottom: 10 }}>
-    <div style={{ fontSize: 11, fontWeight: 700, ...autoContrastText, opacity: 0.6, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-      Last Match
-    </div>
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-      borderRadius: 14, padding: '10px 12px', background: 'rgba(127,127,127,0.08)', border: '1px solid var(--border)',
-    }}>
-      <div style={{ fontSize: 12, fontWeight: 700, ...autoContrastText, minWidth: 0 }}>
-        {data.lastResult.homeTeam} {data.lastResult.homeScore}-{data.lastResult.awayScore} {data.lastResult.awayTeam}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img src={data.team.crest} alt={data.team.name} style={{ width: 30, height: 30, objectFit: 'contain' }} />
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, ...autoContrastText, opacity: 0.6, textTransform: 'uppercase', letterSpacing: 0.4 }}>Your Team</div>
+            <div style={{ fontSize: 15, fontWeight: 800, ...autoContrastText }}>{data.team.name}</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={() => setShowNotifPrefs(true)} title="Notification settings" style={{ fontSize: 12, ...autoContrastText, opacity: 0.6, background: 'none', border: '1px solid var(--border)', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            🔔
+          </button>
+          <button onClick={clearTeam} title="Change team" style={{ fontSize: 11, ...autoContrastText, opacity: 0.6, background: 'none', border: '1px solid var(--border)', borderRadius: 20, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
+            Change
+          </button>
+        </div>
       </div>
-      <HighlightsButton
-        session={session}
-        match={{ id: data.lastResult.id, homeTeam: data.lastResult.homeTeam, awayTeam: data.lastResult.awayTeam }}
-        onSelectVideo={onSelectVideo}
-      />
-    </div>
-  </div>
-)}
+
+      {data.standing && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+          <StatPill label="Position" value={`#${data.standing.position}`} />
+          <StatPill label="Points" value={data.standing.points} />
+          {data.standing.goalDifference != null && (
+            <StatPill label="GD" value={(data.standing.goalDifference > 0 ? '+' : '') + data.standing.goalDifference} />
+          )}
+        </div>
+      )}
+
+      {data.recentFixtures?.length > 0 && (
+        <div style={{ marginBottom: 10 }}>
+          <FormStrip form={computeForm(data.recentFixtures, data.team.shortName)} />
+        </div>
+      )}
+
+      <div style={{ marginBottom: 10 }} onClick={() => {
+        if (data.liveMatch) {
+          setShowMatchCentre({
+            match: { id: data.liveMatch.id || data.lastResult?.id, teamId, teamName: data.team.shortName || data.team.name, utcDate: new Date().toISOString(), isFinal: false },
+            homeTeam: data.liveMatch.homeTeam, awayTeam: data.liveMatch.awayTeam,
+            homeScore: data.liveMatch.homeScore, awayScore: data.liveMatch.awayScore,
+          })
+        } else if (!data.nextMatch && data.lastResult) {
+          setShowMatchCentre({
+            match: { id: data.lastResult.id, teamId, teamName: data.team.shortName || data.team.name, utcDate: data.lastResult.utcDate, isFinal: true },
+            homeTeam: data.lastResult.homeTeam, awayTeam: data.lastResult.awayTeam,
+            homeScore: data.lastResult.homeScore, awayScore: data.lastResult.awayScore,
+          })
+        }
+      }} style={{ cursor: (data.liveMatch || (!data.nextMatch && data.lastResult)) ? 'pointer' : 'default' }}>
+        <MatchdayBanner phase={matchdayPhase} />
+        <MatchCard
+          liveMatch={data.liveMatch}
+          nextMatch={!data.liveMatch ? data.nextMatch : null}
+          lastResult={!data.liveMatch && !data.nextMatch ? data.lastResult : null}
+          session={session}
+          onSelectVideo={onSelectVideo}
+        />
+      </div>
+
+      {(matchdayPhase === 'pre' || matchdayPhase === 'live') && data.nextMatch != null && (
+        <div style={{ marginBottom: 10 }}>
+          <FanPoll
+            matchId={data.liveMatch?.id || data.nextMatch.id}
+            pollType="winner"
+            question="Who will win?"
+            options={[
+              { key: 'home', label: (data.liveMatch || data.nextMatch).homeTeam },
+              { key: 'draw', label: 'Draw' },
+              { key: 'away', label: (data.liveMatch || data.nextMatch).awayTeam },
+            ]}
+            userId={session?.user?.id}
+          />
+        </div>
+      )}
+
+      {matchdayPhase === 'pre' && data.nextMatch && (
+        <PreMatchLineups
+          match={{ id: data.nextMatch.id, teamId, teamName: data.team.shortName || data.team.name, utcDate: data.nextMatch.utcDate }}
+        />
+      )}
+
+      {(data.liveMatch || data.nextMatch) && data.lastResult?.id && (
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, ...autoContrastText, opacity: 0.6, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+            Last Match
+          </div>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+            borderRadius: 14, padding: '10px 12px', background: 'rgba(127,127,127,0.08)', border: '1px solid var(--border)',
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 700, ...autoContrastText, minWidth: 0 }}>
+              {data.lastResult.homeTeam} {data.lastResult.homeScore}-{data.lastResult.awayScore} {data.lastResult.awayTeam}
+            </div>
+            <HighlightsButton
+              session={session}
+              match={{ id: data.lastResult.id, homeTeam: data.lastResult.homeTeam, awayTeam: data.lastResult.awayTeam }}
+              onSelectVideo={onSelectVideo}
+            />
+          </div>
+        </div>
+      )}
 
       {!data.liveMatch && !data.nextMatch && !data.lastResult && (
-  <div style={{
-    borderRadius: 14, padding: '16px 12px', textAlign: 'center', marginBottom: 10,
-    background: 'rgba(127,127,127,0.05)', border: '1px dashed var(--border)',
-  }}>
-    <div style={{ fontSize: 12, ...autoContrastText, opacity: 0.5 }}>No fixtures scheduled right now.</div>
-  </div>
-)}
-      
-{(data.recentFixtures?.length > 0 || data.upcomingFixtures?.length > 0) && (
-  <div style={{ marginBottom: 10 }}>
-    <FixtureTimeline past={data.recentFixtures} upcoming={data.upcomingFixtures} onSelectMatch={() => {}} />
-  </div>
-)}
+        <div style={{
+          borderRadius: 14, padding: '16px 12px', textAlign: 'center', marginBottom: 10,
+          background: 'rgba(127,127,127,0.05)', border: '1px dashed var(--border)',
+        }}>
+          <div style={{ fontSize: 12, ...autoContrastText, opacity: 0.5 }}>No fixtures scheduled right now.</div>
+        </div>
+      )}
+
+      {(data.recentFixtures?.length > 0 || data.upcomingFixtures?.length > 0) && (
+        <div style={{ marginBottom: 10 }}>
+          <FixtureTimeline past={data.recentFixtures} upcoming={data.upcomingFixtures} onSelectMatch={() => {}} />
+        </div>
+      )}
+
       <div style={{ marginBottom: 10 }}>
-  <PlayerSpotlight />
-</div>
+        <PlayerSpotlight />
+      </div>
+
       {!newsLoading && articles.length > 0 && (
         <div style={{ marginBottom: 10 }}>
           <NewsTabs articles={articles} teamName={teamName} onOpenArticle={setOpenArticle} />
         </div>
       )}
-{showMatchCentre && (
-  <MatchCentreModal
-    match={showMatchCentre.match}
-    homeTeam={showMatchCentre.homeTeam}
-    awayTeam={showMatchCentre.awayTeam}
-    homeScore={showMatchCentre.homeScore}
-    awayScore={showMatchCentre.awayScore}
-    onClose={() => setShowMatchCentre(null)}
-  />
-)}
+
+      {showMatchCentre && (
+        <MatchCentreModal
+          match={showMatchCentre.match}
+          homeTeam={showMatchCentre.homeTeam}
+          awayTeam={showMatchCentre.awayTeam}
+          homeScore={showMatchCentre.homeScore}
+          awayScore={showMatchCentre.awayScore}
+          onClose={() => setShowMatchCentre(null)}
+        />
+      )}
+
       {data.standing && (
         <div style={{ paddingTop: 8, borderTop: '1px solid var(--border)' }}>
           <button
@@ -242,6 +255,14 @@ export default function TeamSection({ userId, teamId, onChangeTeam, session, onS
 
       {openArticle && <NewsArticleModal article={openArticle} onClose={() => setOpenArticle(null)} />}
       {showStandings && <PLStandingsModal highlightTeamId={teamId} onClose={() => setShowStandings(false)} />}
+
+      {showNotifPrefs && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 4000, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowNotifPrefs(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%' }}>
+            <NotificationPrefsSheet userId={session?.user?.id} onClose={() => setShowNotifPrefs(false)} />
+          </div>
+        </div>
+      )}
 
       <style>{`@keyframes livePulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }`}</style>
     </motion.div>
