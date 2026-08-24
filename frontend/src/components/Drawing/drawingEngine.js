@@ -1,4 +1,3 @@
- 
 export const CANVAS_LOGICAL_WIDTH = 1600
 export const CANVAS_LOGICAL_HEIGHT = 1000
 
@@ -145,6 +144,125 @@ export function renderText(ctx, stroke) {
   ctx.restore()
 }
 
+// ── Graphite pencil engine (Phase 5a) ──────────────────────────
+// Pencil type rides INSIDE the tool string ('pencil-hb', 'pencil-2b',
+// 'pencil-4b', 'pencil-6b', 'pencil-mechanical') rather than as a
+// separate field — this is deliberate: it means every existing
+// broadcast/persist/replay code path (which only ever looks at
+// `stroke.tool`) already carries pencil type for free, with zero
+// schema changes and zero changes to useDrawingSession.js.
+export const PENCIL_PRESETS = {
+  hb: { label: 'HB', darkness: 0.55, grain: 0.35, minWidthFactor: 0.35, maxWidthFactor: 1.0, jitter: 0.06 },
+  '2b': { label: '2B', darkness: 0.68, grain: 0.45, minWidthFactor: 0.4, maxWidthFactor: 1.15, jitter: 0.08 },
+  '4b': { label: '4B', darkness: 0.82, grain: 0.55, minWidthFactor: 0.45, maxWidthFactor: 1.3, jitter: 0.1 },
+  '6b': { label: '6B', darkness: 0.95, grain: 0.65, minWidthFactor: 0.5, maxWidthFactor: 1.5, jitter: 0.13 },
+  mechanical: { label: 'Mechanical', darkness: 0.75, grain: 0.12, minWidthFactor: 0.9, maxWidthFactor: 1.0, jitter: 0.015 },
+}
+export const DEFAULT_PENCIL_TYPE = 'hb'
+export const PENCIL_TOOL_PREFIX = 'pencil-'
+export const isGraphiteTool = (tool) => typeof tool === 'string' && tool.startsWith(PENCIL_TOOL_PREFIX)
+export const pencilTypeFromTool = (tool) => (isGraphiteTool(tool) ? tool.slice(PENCIL_TOOL_PREFIX.length) : DEFAULT_PENCIL_TYPE)
+
+// Deterministic hash-based "noise" — NOT Math.random(). Grain must
+// look identical every time the SAME stroke is rendered, whether
+// that's on your screen, Alex's screen, or during ▶️ Replay — using
+// real randomness would make grain re-roll on every render and break
+// that. Seeded purely from data already in the stroke.
+function hashNoise(x, y, seed) {
+  const h = Math.sin(x * 127.1 + y * 311.7 + seed * 74.7) * 43758.5453
+  return h - Math.floor(h)
+}
+function hashSeedFromId(id) {
+  if (!id) return 1
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0
+  return (h % 1000) / 137.0
+}
+
+// Real hardware pressure is only trustworthy from an actual stylus —
+// mouse and plain touch report a constant 0.5 (or 0 when not
+// pressed), which would otherwise make every mouse stroke identically
+// "medium pressure". SPEED_NORMALIZER: a logical px/ms above which
+// pressure bottoms out — tuned for the 1600×1000 logical canvas.
+const SPEED_NORMALIZER = 3.2
+function clampPressure(p) { return Math.max(0.12, Math.min(1, p)) }
+export function simulatePressureFromSpeed(distPx, dtMs) {
+  if (dtMs <= 0) return 0.75
+  return clampPressure(1 - (distPx / dtMs) / SPEED_NORMALIZER)
+}
+export function resolvePointPressure(rawPressure, pointerType, distPx, dtMs) {
+  const hasRealPressure = pointerType === 'pen' && rawPressure > 0 && rawPressure !== 0.5
+  if (hasRealPressure) return clampPressure(rawPressure)
+  return simulatePressureFromSpeed(distPx, dtMs)
+}
+
+// Canvas can't natively vary lineWidth mid-path, so a graphite stroke
+// is drawn as many short segments, each with its own width/alpha
+// derived from that segment's pressure — plus a light pass of tiny
+// deterministic grain dabs. Falls back to pressure 0.6 for any point
+// missing it (e.g. an old plain stroke reused as a pencil stroke).
+export function renderGraphiteStroke(ctx, stroke) {
+  const { points, size, color, opacity, tool, id } = stroke
+  if (!points || points.length === 0) return
+  const preset = PENCIL_PRESETS[pencilTypeFromTool(tool)] || PENCIL_PRESETS[DEFAULT_PENCIL_TYPE]
+  const seed = hashSeedFromId(id)
+  const strokeColor = color || '#2b2b2e'
+
+  ctx.save()
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.strokeStyle = strokeColor
+  ctx.fillStyle = strokeColor
+
+  if (points.length === 1) {
+    const p = points[0]
+    const pr = p.pressure ?? 0.6
+    const w = size * (preset.minWidthFactor + (preset.maxWidthFactor - preset.minWidthFactor) * pr)
+    ctx.globalAlpha = (opacity ?? 1) * preset.darkness * (0.5 + 0.5 * pr)
+    ctx.beginPath()
+    ctx.arc(p.x, p.y, w / 2, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+    return
+  }
+
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1], b = points[i]
+    const pr = ((a.pressure ?? 0.6) + (b.pressure ?? 0.6)) / 2
+    const jitter = 1 + (hashNoise(a.x, a.y, seed) - 0.5) * preset.jitter
+    const w = Math.max(0.6, size * (preset.minWidthFactor + (preset.maxWidthFactor - preset.minWidthFactor) * pr) * jitter)
+
+    ctx.globalAlpha = (opacity ?? 1) * preset.darkness * (0.45 + 0.55 * pr)
+    ctx.lineWidth = w
+    ctx.beginPath()
+    ctx.moveTo(a.x, a.y)
+    ctx.lineTo(b.x, b.y)
+    ctx.stroke()
+
+    // Grain: a couple of tiny stamped dabs per segment, positions and
+    // alpha derived from hashNoise — deliberately subtle (spec section
+    // 5: "do not make textures overpowering"), and cheap: a handful of
+    // small arcs, not a texture image or per-pixel operation.
+    if (preset.grain > 0.15) {
+      const dabCount = Math.max(1, Math.round(preset.grain * 3))
+      for (let d = 0; d < dabCount; d++) {
+        const t = (d + 0.5) / dabCount
+        const nx = a.x + (b.x - a.x) * t
+        const ny = a.y + (b.y - a.y) * t
+        const n1 = hashNoise(nx, ny, seed + d)
+        const n2 = hashNoise(nx + 1.7, ny + 3.1, seed + d)
+        const dx = (n1 - 0.5) * w * 0.8
+        const dy = (n2 - 0.5) * w * 0.8
+        ctx.globalAlpha = (opacity ?? 1) * preset.darkness * preset.grain * n1 * 0.5
+        ctx.beginPath()
+        ctx.arc(nx + dx, ny + dy, Math.max(0.4, w * 0.18), 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+  }
+  ctx.restore()
+}
+
 export function replayStrokes(ctx, canvas, strokes) {
   // Clear the FULL backing store (not just the logical area) — the ctx
   // transform is already applied, but clearRect needs device pixels.
@@ -156,6 +274,7 @@ export function replayStrokes(ctx, canvas, strokes) {
     if (s.deleted) continue
     if (s.tool === 'text') renderText(ctx, s)
     else if (['rect', 'circle', 'line', 'arrow', 'triangle'].includes(s.tool)) renderShape(ctx, s)
+    else if (isGraphiteTool(s.tool)) renderGraphiteStroke(ctx, s)
     else renderStroke(ctx, s)
   }
 }
