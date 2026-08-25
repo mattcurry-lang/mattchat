@@ -1494,13 +1494,12 @@ const handleSend = async () => {
   </button>
 </div>
 
+{showWhatsApp && (
+  <WhatsAppPage session={session} userId={userId} onClose={() => setShowWhatsApp(false)} />
+)}
 
 
-          {/* FIX (bug #2): this AICommandBar + SpotifyMiniPlayer block used to
-              be duplicated verbatim right after this comment (two identical
-              AICommandBars sandwiching one SpotifyMiniPlayer), which rendered
-              two stacked search bars any time activeTab === 'chats'. Now
-              there is exactly one of each. */}
+           
           {activeTab === 'chats' && (
             <div style={{ padding: '8px 16px 0' }}>
               <AICommandBar
@@ -1682,9 +1681,6 @@ const handleSend = async () => {
   )
 })}
 
-{showWhatsApp && (
-  <WhatsAppPage session={session} userId={userId} onClose={() => setShowWhatsApp(false)} />
-)}
 
                 {!convLoading && filtered.length === 0 && (
                   <div className="empty-state">
