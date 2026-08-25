@@ -59,7 +59,17 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
     }))
     handlersRef.current.onInitialStrokes?.(strokes)
   }, [session?.id])
-
+ const loadObjects = useCallback(async () => {
+    if (!session?.id) return
+    const { data } = await supabase.from('canvas_objects').select('*')
+      .eq('session_id', session.id).order('created_at', { ascending: true })
+    const objects = (data || []).map(row => ({
+      id: row.client_object_id, userId: row.user_id, type: row.type, data: row.data,
+      x: row.x, y: row.y, width: row.width, height: row.height,
+      rotation: row.rotation, zIndex: row.z_index, deleted: row.deleted,
+    }))
+    handlersRef.current.onInitialObjects?.(objects)
+  }, [session?.id])
   const loadLayers = useCallback(async () => {
     if (!session?.id) return
     const { data } = await supabase.from('drawing_layers').select('*')
