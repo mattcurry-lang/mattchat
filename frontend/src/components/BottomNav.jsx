@@ -1,22 +1,9 @@
 import React from 'react'
 import { IconHome, IconPhone, IconStatus, IconUser, IconSparkle, IconPlus } from './Icons'
-/**
- * Mobile-style bottom navigation bar.
- * The center "+" (new chat) button has been removed from the nav strip
- * itself — Pulse now occupies that middle slot as a normal tab. The "+"
- * lives on its own now as a floating action button, positioned just
- * above the nav bar (WhatsApp-style compose button), and only shows on
- * the Home/chats tab since that's the only place "new chat" makes sense.
- *
- * variant="default" — the original centered pill (used in the main sidebar).
- * variant="floating" — a compact bottom-left cluster (used inside Shorts,
- * so navigation stays reachable without a full-width bar sitting over the
- * video). Hidden on narrow/mobile widths — see .bottom-nav-floating CSS —
- * since there's no room for a floating cluster on a small screen, and the
- * native scroll/swipe navigation already covers that case there.
- */
+ 
 export default function BottomNav({ activeTab, onTabChange, onNewChat, onProfileClick, variant = 'default' }) {
   const isFloating = variant === 'floating'
+  const pulseActive = activeTab === 'pulse'
   return (
     <>
       {activeTab === 'chats' && !isFloating && (
@@ -41,14 +28,19 @@ export default function BottomNav({ activeTab, onTabChange, onNewChat, onProfile
           <IconPhone size={19} className="bnav-icon" />
           <span className="bnav-label">Calls</span>
         </button>
+
+        {/* ── PULSE — the one visually-distinct nav item ── */}
         <button
-          className={`bnav-btn ${activeTab === 'pulse' ? 'active' : ''}`}
+          className={`bnav-btn bnav-btn-pulse ${pulseActive ? 'active pulse-active' : 'pulse-inactive'}`}
           onClick={() => onTabChange('pulse')}
           title="Pulse"
         >
-          <IconSparkle size={19} className="bnav-icon" />
-          <span className="bnav-label">Pulse</span>
+          <span className="pulse-icon-wrap">
+            <IconSparkle size={21} className="bnav-icon pulse-icon" />
+          </span>
+          <span className="bnav-label pulse-label">Pulse</span>
         </button>
+
         <button
           className={`bnav-btn ${activeTab === 'status' ? 'active' : ''}`}
           onClick={() => onTabChange('status')}
@@ -62,6 +54,136 @@ export default function BottomNav({ activeTab, onTabChange, onNewChat, onProfile
           <span className="bnav-label">Profile</span>
         </button>
       </div>
+
+      {/* Scoped styling for the Pulse nav item only — everything else in
+          the bar keeps whatever bnav-btn/bnav-icon/bnav-label styling
+          already exists in the app's global stylesheet. */}
+      <style>{`
+        .bnav-btn-pulse {
+          position: relative;
+          border-radius: 16px;
+          transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1),
+                      background 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        /* Glassmorphic pill container, purple/indigo family to match
+           Mattchat's existing accent (#667eea → #764ba2 / #a78bfa). */
+        .pulse-inactive {
+          background: linear-gradient(135deg, rgba(102,126,234,0.10), rgba(118,75,162,0.10));
+          border: 1px solid rgba(167,139,250,0.28);
+          box-shadow: 0 0 10px rgba(124,58,237,0.12);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+        }
+        .pulse-inactive .pulse-icon {
+          color: #8b7ff0;
+          filter: drop-shadow(0 0 4px rgba(139,127,240,0.45));
+        }
+        .pulse-inactive .pulse-label {
+          color: #9d8ff5;
+          font-weight: 700;
+        }
+
+        .pulse-active {
+          background: linear-gradient(135deg, rgba(102,126,234,0.28), rgba(167,139,250,0.28));
+          border: 1px solid rgba(196,181,253,0.6);
+          box-shadow:
+            0 0 18px rgba(167,139,250,0.55),
+            0 0 36px rgba(118,75,162,0.30),
+            0 4px 14px rgba(0,0,0,0.18);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          transform: translateY(-3px);
+          animation: pulseBreathe 2.8s ease-in-out infinite;
+        }
+        .pulse-active .pulse-icon-wrap {
+          position: relative;
+        }
+        .pulse-active .pulse-icon-wrap::before {
+          content: '';
+          position: absolute;
+          inset: -7px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(196,181,253,0.55), rgba(167,139,250,0) 70%);
+          animation: pulseGlowRing 2.8s ease-in-out infinite;
+          z-index: 0;
+        }
+        .pulse-active .pulse-icon {
+          position: relative;
+          z-index: 1;
+          color: #f3f0ff;
+          filter: drop-shadow(0 0 7px rgba(196,181,253,0.9)) drop-shadow(0 0 14px rgba(139,92,246,0.55));
+        }
+        .pulse-active .pulse-label {
+          color: #f3f0ff;
+          font-weight: 800;
+          text-shadow: 0 0 8px rgba(167,139,250,0.6);
+        }
+
+        @keyframes pulseBreathe {
+          0%, 100% {
+            box-shadow:
+              0 0 18px rgba(167,139,250,0.55),
+              0 0 36px rgba(118,75,162,0.30),
+              0 4px 14px rgba(0,0,0,0.18);
+          }
+          50% {
+            box-shadow:
+              0 0 26px rgba(167,139,250,0.75),
+              0 0 46px rgba(118,75,162,0.42),
+              0 4px 14px rgba(0,0,0,0.18);
+          }
+        }
+
+        @keyframes pulseGlowRing {
+          0%, 100% { opacity: 0.55; transform: scale(1); }
+          50% { opacity: 0.9; transform: scale(1.12); }
+        }
+
+        /* Light mode: keep Pulse from washing out against a light
+           background — deepen the border/text so contrast holds up. */
+        :root[data-theme="light"] .pulse-inactive,
+        .light .pulse-inactive {
+          background: linear-gradient(135deg, rgba(102,126,234,0.14), rgba(118,75,162,0.14));
+          border: 1px solid rgba(124,58,237,0.35);
+          box-shadow: 0 0 10px rgba(124,58,237,0.18);
+        }
+        :root[data-theme="light"] .pulse-inactive .pulse-icon,
+        .light .pulse-inactive .pulse-icon {
+          color: #6d4fd6;
+          filter: drop-shadow(0 0 4px rgba(109,79,214,0.35));
+        }
+        :root[data-theme="light"] .pulse-inactive .pulse-label,
+        .light .pulse-inactive .pulse-label {
+          color: #6d4fd6;
+        }
+        :root[data-theme="light"] .pulse-active,
+        .light .pulse-active {
+          background: linear-gradient(135deg, rgba(102,126,234,0.22), rgba(139,92,246,0.24));
+          border: 1px solid rgba(109,79,214,0.55);
+        }
+        :root[data-theme="light"] .pulse-active .pulse-icon,
+        .light .pulse-active .pulse-icon {
+          color: #4c2fb0;
+          filter: drop-shadow(0 0 6px rgba(139,92,246,0.6));
+        }
+        :root[data-theme="light"] .pulse-active .pulse-label,
+        .light .pulse-active .pulse-label {
+          color: #4c2fb0;
+          text-shadow: none;
+        }
+
+        @media (max-width: 480px) {
+          .bnav-btn-pulse { border-radius: 13px; }
+          .pulse-active { transform: translateY(-2px); }
+          .pulse-active .pulse-icon-wrap::before { inset: -5px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .pulse-active { animation: none; }
+          .pulse-active .pulse-icon-wrap::before { animation: none; }
+        }
+      `}</style>
     </>
   )
 }
