@@ -671,6 +671,7 @@ function getOtherUserAvatar(convo, myUserId) {
 export default function ChatPage({ session }) {
   const [activeConvo, setActiveConvo]   = useState(null)
   const [newContact, setNewContact]     = useState('')
+   const [showWhatsApp, setShowWhatsApp] = useState(false)
   const [showNewChat, setShowNewChat]   = useState(false)
   const [inputText, setInputText]       = useState('')
   const [search, setSearch]             = useState('')
@@ -719,7 +720,6 @@ const [shortsInitialVideo, setShortsInitialVideo] = useState(null) // now holds 
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)
 const [curryPrefill, setCurryPrefill] = useState(null)
   const [showEmailWorkspace, setShowEmailWorkspace] = useState(false)
-  const [showWhatsApp, setShowWhatsApp] = useState(false)
   const [showAnnouncements, setShowAnnouncements] = useState(false)
   const [showChangePicture, setShowChangePicture] = useState(false)
   const [showDrawing, setShowDrawing] = useState(false)
