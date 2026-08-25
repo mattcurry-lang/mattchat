@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef } from 'react'
 import { simplifyPoints, renderStroke, renderShape, renderText, replayStrokes, recognizeShape, isGraphiteTool, renderGraphiteStroke, resolvePointPressure, DEFAULT_PENCIL_TYPE, CANVAS_LOGICAL_WIDTH, CANVAS_LOGICAL_HEIGHT } from './drawingEngine'
+import LayersPanel from './LayersPanel'
 
 const SHAPE_TOOLS = new Set(['rect', 'circle', 'line', 'arrow', 'triangle'])
 const STROKE_UPDATE_THROTTLE_MS = 40
@@ -27,7 +28,7 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     tool, color, size, opacity, userId, participantUserIds,
     onLocalStrokeStart, onLocalStrokeUpdate, onLocalStrokeEnd,
     onLocalUndo, onLocalRedo, onLocalClear, onLocalCursorMove,
-    onLocalObjectCreate, onLocalObjectMoving, onLocalObjectUpdate, onLocalObjectDelete,
+    onLocalObjectCreate, onLocalObjectMoving, onLocalObjectUpdate, onLocalObjectDelete,    layers, activeLayerId, onLocalLayerCreate, onLocalLayerUpdate, onLocalLayerDelete,
     onCanUndoChange, onCanRedoChange,
     pointing, onLocalPointerMove, onLocalPointerOff,
     armedReaction, onReactionPlaced, onLocalReaction,
@@ -96,6 +97,7 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
   const textInputRef = useRef(null)
   const [selectedStrokeId, setSelectedStrokeId] = useState(null)
 const selectDragRef = useRef(null)
+  
   const [textEditor, setTextEditor] = useState(null)
   const [annotatingImageId, setAnnotatingImageId] = useState(null)
    const pointerInfoRef = useRef({ pressure: 0.5, tiltX: 0, tiltY: 0, pointerType: 'mouse' })
@@ -104,6 +106,21 @@ const selectDragRef = useRef(null)
     if (typeof e.pointerType === 'undefined') return
     pointerInfoRef.current = { pressure: e.pressure, tiltX: e.tiltX || 0, tiltY: e.tiltY || 0, pointerType: e.pointerType }
   }
+    const [layers, setLayers] = useState([])
+  const layersRef = useRef([])
+  layersRef.current = layers
+  const [activeLayerId, setActiveLayerId] = useState(null)
+  const activeLayerIdRef = useRef(null)
+  activeLayerIdRef.current = activeLayerId
+  const [showLayersPanel, setShowLayersPanel] = useState(false)
+  const layersByIdRef = useRef(new Map())
+  layersByIdRef.current = new Map(layers.map(l => [l.id, l]))
+
+  const buildLayer = (overrides = {}) => ({
+    id: newLocalId(), userId, name: overrides.name || `Layer ${layersRef.current.length + 1}`,
+    position: overrides.position ?? (layersRef.current.length ? Math.max(...layersRef.current.map(l => l.position)) + 1 : 0),
+    opacity: overrides.opacity ?? 1, visible: overrides.visible ?? true, locked: overrides.locked ?? false,
+  })
   const pointingRef = useRef(pointing)
   pointingRef.current = pointing
 
@@ -208,7 +225,7 @@ const hitTestEditable = (p) => {
     const live = liveCanvasRef.current
     if (base && baseCtxRef.current) applyTransform(baseCtxRef.current, scale, offsetX, offsetY)
     if (live && liveCtxRef.current) applyTransform(liveCtxRef.current, scale, offsetX, offsetY)
-    if (base && baseCtxRef.current) replayStrokes(baseCtxRef.current, base, strokesRef.current)
+       if (base && baseCtxRef.current) replayStrokes(baseCtxRef.current, base, strokesRef.current, layersByIdRef.current)
     redrawLiveLayer()
     positionAllObjects()
     positionConnections()
@@ -277,11 +294,11 @@ const hitTestEditable = (p) => {
     return () => ro.disconnect()
   }, [])
 
-  useEffect(() => {
+   useEffect(() => {
     const ctx = baseCtxRef.current, canvas = baseCanvasRef.current
     if (!ctx || !canvas) return
-    replayStrokes(ctx, canvas, strokes)
-  }, [strokes])
+    replayStrokes(ctx, canvas, strokes, layersByIdRef.current)
+  }, [strokes, layers])
 
   useEffect(() => { positionAllObjects(); positionConnections() }, [objects])
   useEffect(() => { onCanUndoChange?.(strokes.some(s => s.userId === userId && !s.deleted)) }, [strokes, onCanUndoChange, userId])
@@ -327,7 +344,7 @@ const hitTestEditable = (p) => {
 
   const newLocalId = () => `${userId}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
- const handlePointerDown = (e) => {
+  const handlePointerDown = (e) => {
     if (armedReaction)  
     if (pointingRef.current) return
     if (tool === 'select') {
@@ -340,13 +357,15 @@ const hitTestEditable = (p) => {
       }
       return
     }
+    const activeLayer = layersByIdRef.current.get(activeLayerIdRef.current)
+    if (activeLayer?.locked) return // drawing/text blocked on a locked layer
     if (tool === 'text') {
       const p = getPoint(e)
       setTextEditor({ x: p.x, y: p.y })
       requestAnimationFrame(() => textInputRef.current?.focus())
       return
     }
-       e.preventDefault()
+    e.preventDefault()
     drawingRef.current = true
     const p = getPoint(e)
     if (isGraphiteTool(tool)) {
@@ -354,13 +373,12 @@ const hitTestEditable = (p) => {
       p.pressure = resolvePointPressure(info.pressure, info.pointerType, 0, 0)
       lastGraphiteSampleRef.current = { x: p.x, y: p.y, t: performance.now() }
     }
-       currentPointsRef.current = [p]
+    currentPointsRef.current = [p]
     const id = newLocalId()
-    currentStrokeMetaRef.current = { id, tool, color, size, opacity, userId }
+    currentStrokeMetaRef.current = { id, tool, color, size, opacity, userId, layerId: activeLayerIdRef.current }
     redrawLiveLayer()
-    onLocalStrokeStart?.({ id, tool, color, size, opacity, points: [p] })
+    onLocalStrokeStart?.({ id, tool, color, size, opacity, points: [p], layerId: activeLayerIdRef.current })
   }
-
  const handlePointerMove = (e) => {
     if (tool === 'select' && selectDragRef.current) {
       e.preventDefault()
@@ -596,9 +614,9 @@ const addImageAnnotation = (imageId, annotation) => {
     onLocalObjectCreate?.(obj)
   }
 
-  const submitText = (value) => {
+   const submitText = (value) => {
     if (value.trim() && textEditor) {
-      const stroke = { id: newLocalId(), tool: 'text', color, size, opacity, userId, points: [{ x: textEditor.x, y: textEditor.y }], textContent: value, deleted: false }
+      const stroke = { id: newLocalId(), tool: 'text', color, size, opacity, userId, points: [{ x: textEditor.x, y: textEditor.y }], textContent: value, deleted: false, layerId: activeLayerIdRef.current }
       setStrokes(prev => [...prev, stroke])
       redoStackRef.current = []
       onLocalStrokeEnd?.(stroke)
@@ -660,7 +678,7 @@ const addImageAnnotation = (imageId, annotation) => {
       octx.setTransform(EXPORT_SCALE, 0, 0, EXPORT_SCALE, 0, 0)
       octx.fillStyle = backgroundColor
       octx.fillRect(0, 0, CANVAS_LOGICAL_WIDTH, CANVAS_LOGICAL_HEIGHT)
-      replayStrokes(octx, out, strokes)
+           replayStrokes(octx, out, strokes, layersByIdRef.current)
       return out.toDataURL('image/png')
     },
     
@@ -789,6 +807,104 @@ getSelectedStroke: () => strokesRef.current.find(s => s.id === selectedStrokeId)
         return [...prev, ...buffered.filter(s => !existingIds.has(s.id))]
       })
     },
+        // ── Layers (Phase 5b) ──
+    createLayer: (name) => {
+      const layer = buildLayer({ name })
+      setLayers(prev => [...prev, layer])
+      setActiveLayerId(layer.id)
+      onLocalLayerCreate?.(layer)
+      return layer.id
+    },
+    duplicateLayer: (id) => {
+      const src = layersRef.current.find(l => l.id === id)
+      if (!src) return
+      const layer = buildLayer({ name: `${src.name} copy`, opacity: src.opacity, visible: src.visible, position: Math.max(...layersRef.current.map(l => l.position)) + 1 })
+      setLayers(prev => [...prev, layer])
+      // Copies the layer's content too, not just its settings.
+      const copiedStrokes = strokesRef.current
+        .filter(s => s.layerId === id && !s.deleted)
+        .map(s => ({ ...s, id: newLocalId(), layerId: layer.id }))
+      if (copiedStrokes.length) {
+        setStrokes(prev => [...prev, ...copiedStrokes])
+        copiedStrokes.forEach(s => onLocalStrokeEnd?.(s))
+      }
+      onLocalLayerCreate?.(layer)
+      setActiveLayerId(layer.id)
+    },
+    renameLayer: (id, name) => {
+      setLayers(prev => prev.map(l => (l.id === id ? { ...l, name } : l)))
+      onLocalLayerUpdate?.(id, { name })
+    },
+    toggleLayerVisible: (id) => {
+      const l = layersRef.current.find(x => x.id === id)
+      if (!l) return
+      setLayers(prev => prev.map(x => (x.id === id ? { ...x, visible: !x.visible } : x)))
+      onLocalLayerUpdate?.(id, { visible: !l.visible })
+    },
+    toggleLayerLocked: (id) => {
+      const l = layersRef.current.find(x => x.id === id)
+      if (!l) return
+      setLayers(prev => prev.map(x => (x.id === id ? { ...x, locked: !x.locked } : x)))
+      onLocalLayerUpdate?.(id, { locked: !l.locked })
+    },
+    setLayerOpacity: (id, opacityVal) => {
+      setLayers(prev => prev.map(x => (x.id === id ? { ...x, opacity: opacityVal } : x)))
+      onLocalLayerUpdate?.(id, { opacity: opacityVal })
+    },
+    reorderLayer: (id, direction) => {
+      const sorted = [...layersRef.current].sort((a, b) => a.position - b.position)
+      const idx = sorted.findIndex(l => l.id === id)
+      const swapWith = direction === 'up' ? idx + 1 : idx - 1
+      if (idx === -1 || swapWith < 0 || swapWith >= sorted.length) return
+      const a = sorted[idx], b = sorted[swapWith]
+      const posA = a.position, posB = b.position
+      setLayers(prev => prev.map(l => {
+        if (l.id === a.id) return { ...l, position: posB }
+        if (l.id === b.id) return { ...l, position: posA }
+        return l
+      }))
+      onLocalLayerUpdate?.(a.id, { position: posB })
+      onLocalLayerUpdate?.(b.id, { position: posA })
+    },
+    deleteLayer: (id) => {
+      if (layersRef.current.length <= 1) return // always keep at least one layer
+      setLayers(prev => prev.filter(l => l.id !== id))
+      setStrokes(prev => prev.map(s => (s.layerId === id ? { ...s, layerId: null } : s)))
+      if (activeLayerIdRef.current === id) {
+        const fallback = layersRef.current.find(l => l.id !== id)
+        setActiveLayerId(fallback ? fallback.id : null)
+      }
+      onLocalLayerDelete?.(id)
+    },
+    setActiveLayer: (id) => setActiveLayerId(id),
+    clearActiveLayer: () => {
+      const id = activeLayerIdRef.current
+      const toClear = strokesRef.current.filter(s => s.layerId === id && !s.deleted)
+      toClear.forEach(s => onLocalUndo?.(s.id))
+      setStrokes(prev => prev.map(s => (s.layerId === id ? { ...s, deleted: true } : s)))
+    },
+    getLayers: () => layersRef.current,
+    getActiveLayerId: () => activeLayerIdRef.current,
+    applyInitialLayers: (loaded) => {
+      if (loaded && loaded.length) {
+        setLayers(loaded)
+        setActiveLayerId(loaded.slice().sort((a, b) => a.position - b.position).pop().id)
+      } else {
+        // Fresh session, no layers yet — bootstrap one. If both
+        // participants open simultaneously this can create two
+        // "Layer 1"s; same harmless-race tolerance as session creation.
+        const layer = buildLayer({ name: 'Layer 1', position: 0 })
+        setLayers([layer])
+        setActiveLayerId(layer.id)
+        onLocalLayerCreate?.(layer)
+      }
+    },
+    applyRemoteLayerCreated: (payload) => setLayers(prev => (prev.some(l => l.id === payload.id) ? prev : [...prev, payload])),
+    applyRemoteLayerUpdated: ({ layerId, patch }) => setLayers(prev => prev.map(l => (l.id === layerId ? { ...l, ...patch } : l))),
+    applyRemoteLayerDeleted: ({ layerId }) => {
+      setLayers(prev => (prev.length <= 1 ? prev : prev.filter(l => l.id !== layerId)))
+      setStrokes(prev => prev.map(s => (s.layerId === layerId ? { ...s, layerId: null } : s)))
+    },
     clearSecretBuffer: () => { secretBufferRef.current = [] },
   }), [strokes, objects, userId, onLocalUndo, onLocalRedo, onLocalClear, onLocalObjectCreate, redrawLiveLayer, backgroundColor])
 
@@ -915,7 +1031,36 @@ const deleteSelectedStrokeLocal = () => {
           🤫 Secret mode — their strokes are hidden until reveal
         </div>
       )}
-
+      <button
+        onClick={() => setShowLayersPanel(v => !v)}
+        title="Layers"
+        style={{
+          position: 'absolute', top: 12, right: 12, zIndex: 15,
+          display: 'flex', alignItems: 'center', gap: 6,
+          background: 'rgba(15,15,26,0.85)', border: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: 20, padding: '6px 12px', color: '#c4b5fd', fontSize: 11, fontWeight: 700,
+          cursor: 'pointer', fontFamily: 'inherit',
+        }}
+      >
+        📄 {layersRef.current.find(l => l.id === activeLayerId)?.name || 'Layers'}
+      </button>
+      {showLayersPanel && (
+        <LayersPanel
+          layers={layers}
+          activeLayerId={activeLayerId}
+          onSelect={(id) => setActiveLayerId(id)}
+          onToggleVisible={(id) => ref.current?.toggleLayerVisible(id)}
+          onToggleLocked={(id) => ref.current?.toggleLayerLocked(id)}
+          onRename={(id, name) => ref.current?.renameLayer(id, name)}
+          onOpacityChange={(id, val) => ref.current?.setLayerOpacity(id, val)}
+          onReorder={(id, dir) => ref.current?.reorderLayer(id, dir)}
+          onDuplicate={(id) => ref.current?.duplicateLayer(id)}
+          onDelete={(id) => ref.current?.deleteLayer(id)}
+          onCreate={() => ref.current?.createLayer()}
+          onClearActive={() => ref.current?.clearActiveLayer()}
+          onClose={() => setShowLayersPanel(false)}
+        />
+      )}
       <div style={{ position: 'absolute', left: 12, bottom: 12, zIndex: 15, display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(15,15,26,0.85)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, padding: '4px 10px' }}>
         <span ref={zoomLabelRef} style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.75)', minWidth: 32, textAlign: 'center' }}>100%</span>
         <button onClick={resetView} title="Reset zoom & pan" style={{ background: 'none', border: 'none', color: '#c4b5fd', fontSize: 10.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Reset</button>
