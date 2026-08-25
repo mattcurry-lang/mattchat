@@ -96,6 +96,10 @@ const [activePoll, setActivePoll] = useState(null)     // { id, question, option
     onRemotePointer: (payload) => canvasApiRef.current?.applyRemotePointer(payload),
     onRemotePointerOff: (payload) => canvasApiRef.current?.applyRemotePointerOff(payload),
     onInitialComments: (byObject) => setComments(byObject || {}),
+        onInitialLayers: (layers) => canvasApiRef.current?.applyInitialLayers(layers),
+    onRemoteLayerCreated: (payload) => canvasApiRef.current?.applyRemoteLayerCreated(payload),
+    onRemoteLayerUpdated: (payload) => canvasApiRef.current?.applyRemoteLayerUpdated(payload),
+    onRemoteLayerDeleted: (payload) => canvasApiRef.current?.applyRemoteLayerDeleted(payload),
       onRemoteGameStart: (game) => {
     setActiveGame(game)
     setGameGuesses([])
@@ -125,7 +129,7 @@ const {
   broadcastStrokeStart, broadcastStrokeUpdate, broadcastStrokeEnd,
   broadcastUndo, broadcastRedo, broadcastClear, broadcastCursor,
   broadcastObjectCreated, broadcastObjectMoving, broadcastObjectUpdated, broadcastObjectDeleted,
-  uploadObjectImage, saveToChat,
+  uploadObjectImage, saveToChat,  broadcastLayerCreated, broadcastLayerUpdated, broadcastLayerDeleted,
   broadcastReaction, broadcastPointerMove, broadcastPointerOff,
   addComment, resolveComment, deleteComment,
   startVote, castVote, endVote, startTimer, cancelTimer,
@@ -619,6 +623,9 @@ const handleApplyTemplate = useCallback((templateId) => {
                 onResolveComment={resolveComment}
                 onDeleteComment={deleteComment}
                 smartShapeActive={smartShapeActive}
+                                onLocalLayerCreate={broadcastLayerCreated}
+                onLocalLayerUpdate={broadcastLayerUpdated}
+                onLocalLayerDelete={broadcastLayerDeleted}
                 secretModeActive={activeGame?.type === 'secret_drawing' && activeGame.phase !== 'revealed'}
               />
 
