@@ -17,7 +17,7 @@ import YouTubePulsePage from './YouTubePulsePage'
 import CyclePage from '../Cycle/CyclePage'
 import { IconFlower } from '../Icons'
 import { usePendingTrustedInvites } from '../../hooks/usePendingTrustedInvites'
-
+import DeKUTHubCard from './DeKUTHubCard'
 
 
 const LOCKED_PLATFORMS = Object.entries(PLATFORM_META).filter(([, meta]) => meta.supportLevel === 'native_only')
@@ -122,6 +122,7 @@ export default function PulsePage({
       )}
 
       <BibleCard />
+      <DeKUTHubCard />
 
       {/* ── OTHER PULSE CONTENT (existing activity feed, unchanged) ── */}
       <input
