@@ -28,7 +28,7 @@ const DrawingCanvas = forwardRef(function DrawingCanvas(
     tool, color, size, opacity, userId, participantUserIds,
     onLocalStrokeStart, onLocalStrokeUpdate, onLocalStrokeEnd,
     onLocalUndo, onLocalRedo, onLocalClear, onLocalCursorMove,
-    onLocalObjectCreate, onLocalObjectMoving, onLocalObjectUpdate, onLocalObjectDelete,    layers, activeLayerId, onLocalLayerCreate, onLocalLayerUpdate, onLocalLayerDelete,
+    onLocalObjectCreate, onLocalObjectMoving, onLocalObjectUpdate, onLocalObjectDelete, activeLayerId, onLocalLayerCreate, onLocalLayerUpdate, onLocalLayerDelete,
     onCanUndoChange, onCanRedoChange,
     pointing, onLocalPointerMove, onLocalPointerOff,
     armedReaction, onReactionPlaced, onLocalReaction,
