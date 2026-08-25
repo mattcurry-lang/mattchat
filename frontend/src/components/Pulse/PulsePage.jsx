@@ -18,6 +18,8 @@ import CyclePage from '../Cycle/CyclePage'
 import { IconFlower } from '../Icons'
 import { usePendingTrustedInvites } from '../../hooks/usePendingTrustedInvites'
 import DeKUTHubCard from './DeKUTHubCard'
+import MattchatToolsCard from './MattchatToolsCard'
+import ScientificCalculator from './ScientificCalculator'
 
 
 const LOCKED_PLATFORMS = Object.entries(PLATFORM_META).filter(([, meta]) => meta.supportLevel === 'native_only')
@@ -30,6 +32,7 @@ export default function PulsePage({
   const [search, setSearch] = useState('')
   const [showYouTubePulse, setShowYouTubePulse] = useState(false)
   const [showCycle, setShowCycle] = useState(false)
+  const [showCalculator, setShowCalculator] = useState(false)
   const { privacyMode, setPrivacyMode } = usePulseSettings(userId)
   const { items, loading, error, reload } = usePulseData(session, { conversations, unreadCounts, getConvoName })
   const birthday = useBirthday(userId, profile)
@@ -48,6 +51,21 @@ export default function PulsePage({
       console.error('selectTeam failed:', saveError)
       setTeamOverride(undefined) // revert on failure
     }
+  }
+
+  const handleOpenTool = (toolId) => {
+    if (toolId === 'scientific-calculator') setShowCalculator(true)
+  }
+
+  // Wires the calculator's "Explain with Curry" button into Mattchat's Curry AI.
+  // TODO: replace this with however Curry AI conversations/messages are actually
+  // triggered elsewhere in Mattchat (e.g. onOpenConversation to a Curry thread,
+  // or a dedicated sendToCurry helper) — left as a clear integration point so
+  // nothing here guesses at an API that doesn't exist.
+  const handleExplainWithCurry = ({ expression, result }) => {
+    const prompt = `Explain how to calculate ${expression} = ${result}, step by step, in simple language.`
+    console.log('[Mattchat Tools] Explain with Curry requested:', prompt)
+    // Example once wired up: onOpenConversation?.(CURRY_USER_ID, prompt)
   }
 
   const filtered = useMemo(() => {
@@ -87,6 +105,17 @@ export default function PulsePage({
             </button>
           )}
           <button
+            onClick={() => setShowCalculator(true)}
+            title="Scientific Calculator"
+            style={{
+              background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.3)',
+              borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', color: '#c4b5fd', fontSize: 14,
+            }}
+          >
+            🧮
+          </button>
+          <button
             onClick={() => setPrivacyMode(!privacyMode)}
             title={privacyMode ? 'Privacy mode is on — tap to turn off' : 'Turn on Privacy Mode'}
             style={{
@@ -123,6 +152,9 @@ export default function PulsePage({
 
       <BibleCard />
       <DeKUTHubCard />
+
+      {/* ── MATTCHAT TOOLS ── */}
+      <MattchatToolsCard onOpenTool={handleOpenTool} />
 
       {/* ── OTHER PULSE CONTENT (existing activity feed, unchanged) ── */}
       <input
@@ -259,6 +291,14 @@ export default function PulsePage({
     }}
   />
 )}
+
+      {showCalculator && (
+        <ScientificCalculator
+          userId={userId}
+          onClose={() => setShowCalculator(false)}
+          onExplainWithCurry={handleExplainWithCurry}
+        />
+      )}
 
       {birthday.shouldShowExperience && (
         <BirthdayExperience profile={profile} onClose={birthday.dismiss} />
