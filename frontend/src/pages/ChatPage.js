@@ -1691,7 +1691,9 @@ const handleSend = async () => {
               </div>
             </>
           )}
-
+<button className="top-header-search-btn" onClick={() => setShowWhatsApp(true)} title="WhatsApp">
+  <WhatsAppIcon size={16} />
+</button>
           {activeTab === 'status' && (
             <div className="status-tab">
               <div className="status-tab-mine" onClick={() => openViewer('mine')}>
@@ -2018,9 +2020,7 @@ const handleSend = async () => {
 )}
 {showAISettings && <AISettingsModal userId={userId} onClose={() => setShowAISettings(false)} />}
 
- <button className="top-header-search-btn" onClick={() => setShowWhatsApp(true)} title="WhatsApp">
-  <WhatsAppIcon size={16} />
-</button>
+ 
 
 {showInstagramFull && (
   <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto' }}>
