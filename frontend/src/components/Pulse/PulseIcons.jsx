@@ -82,11 +82,7 @@ export const AppIcon = {
       <svg width="55%" height="55%" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3" {...stroke} /><path {...stroke} d="M3 20c0-4 3-6 6-6s6 2 6 6" /><circle cx="17" cy="7" r="2" {...stroke} /></svg>
     </Badge>
   ),
-  whatsapp: ({ size = 40 }) => (
-    <Badge color="linear-gradient(135deg,#3ddc7c,#25d366)" size={size}>
-      <svg width="60%" height="60%" viewBox="0 0 24 24"><path {...stroke} d="M4 20l1.4-4.2A8 8 0 1 1 9 19l-5 1z" /></svg>
-    </Badge>
-  ),
+ 
   messenger: ({ size = 40 }) => (
     <Badge color="linear-gradient(135deg,#00c6ff,#0072ff)" size={size}>
       <svg width="60%" height="60%" viewBox="0 0 24 24"><path {...stroke} d="M12 3C6.5 3 3 6.9 3 12c0 2.8 1.4 5.2 3.6 6.8V21l3.3-1.8c.7.2 1.4.3 2.1.3 5.5 0 9-3.9 9-9S17.5 3 12 3z" /></svg>
@@ -151,7 +147,6 @@ export const PLATFORM_META = {
   google_calendar: { label: 'Google Calendar', supportLevel: 'oauth' },
   slack:     { label: 'Slack',     supportLevel: 'oauth_planned' },
   teams:     { label: 'Microsoft Teams', supportLevel: 'oauth_planned' },
-  whatsapp:  { label: 'WhatsApp',  supportLevel: 'native_only' },
   messenger: { label: 'Messenger', supportLevel: 'native_only' },
   telegram:  { label: 'Telegram',  supportLevel: 'native_only' },
   discord:   { label: 'Discord',   supportLevel: 'native_only' },
