@@ -1,4 +1,5 @@
 import React from 'react'
+import { CalculatorGlyph } from './ScientificCalculator'
 
 // Grid designed to be expandable — add new entries here as more Mattchat
 // Tools ship (Equation Solver, Graphing Calculator, Unit Converter, etc).
@@ -6,7 +7,7 @@ import React from 'react'
 const TOOLS = [
   {
     id: 'scientific-calculator',
-    icon: '🧮',
+    icon: <CalculatorGlyph size={18} />,
     label: 'Scientific Calculator',
     description: 'Powerful calculator for everyday and advanced mathematics.',
   },
