@@ -263,19 +263,24 @@ export function renderGraphiteStroke(ctx, stroke) {
   ctx.restore()
 }
 
-export function replayStrokes(ctx, canvas, strokes) {
-  // Clear the FULL backing store (not just the logical area) — the ctx
-  // transform is already applied, but clearRect needs device pixels.
+export function replayStrokes(ctx, canvas, strokes, layersById) {
   ctx.save()
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.clearRect(0, 0, canvas.width, canvas.height)
   ctx.restore()
   for (const s of strokes) {
     if (s.deleted) continue
-    if (s.tool === 'text') renderText(ctx, s)
-    else if (['rect', 'circle', 'line', 'arrow', 'triangle'].includes(s.tool)) renderShape(ctx, s)
-    else if (isGraphiteTool(s.tool)) renderGraphiteStroke(ctx, s)
-    else renderStroke(ctx, s)
+    // Strokes with no layerId (drawn before layers existed, or on a
+    // since-deleted layer) always render — see the schema note on why
+    // layer_id is nullable rather than backfilled.
+    const layer = layersById && s.layerId ? layersById.get(s.layerId) : null
+    if (layer && layer.visible === false) continue
+    const layerOpacity = layer ? (layer.opacity ?? 1) : 1
+    const effective = layerOpacity === 1 ? s : { ...s, opacity: (s.opacity ?? 1) * layerOpacity }
+    if (s.tool === 'text') renderText(ctx, effective)
+    else if (['rect', 'circle', 'line', 'arrow', 'triangle'].includes(s.tool)) renderShape(ctx, effective)
+    else if (isGraphiteTool(s.tool)) renderGraphiteStroke(ctx, effective)
+    else renderStroke(ctx, effective)
   }
 }
 
