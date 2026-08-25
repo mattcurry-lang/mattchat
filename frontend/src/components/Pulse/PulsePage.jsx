@@ -19,7 +19,7 @@ import { IconFlower } from '../Icons'
 import { usePendingTrustedInvites } from '../../hooks/usePendingTrustedInvites'
 import DeKUTHubCard from './DeKUTHubCard'
 import MattchatToolsCard from './MattchatToolsCard'
-import ScientificCalculator from './ScientificCalculator'
+import ScientificCalculator, { CalculatorGlyph } from './ScientificCalculator'
 
 
 const LOCKED_PLATFORMS = Object.entries(PLATFORM_META).filter(([, meta]) => meta.supportLevel === 'native_only')
@@ -108,12 +108,12 @@ export default function PulsePage({
             onClick={() => setShowCalculator(true)}
             title="Scientific Calculator"
             style={{
-              background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.3)',
+              background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', border: 'none',
               borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', color: '#c4b5fd', fontSize: 14,
+              cursor: 'pointer',
             }}
           >
-            🧮
+            <CalculatorGlyph size={15} />
           </button>
           <button
             onClick={() => setPrivacyMode(!privacyMode)}
