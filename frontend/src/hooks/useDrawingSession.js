@@ -52,26 +52,24 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
     if (!session?.id) return
     const { data } = await supabase.from('drawing_strokes').select('*')
       .eq('session_id', session.id).order('created_at', { ascending: true })
-    const strokes = (data || []).map(row => ({
+        const strokes = (data || []).map(row => ({
       id: row.client_stroke_id, userId: row.user_id, tool: row.tool, color: row.color,
       size: row.size, opacity: row.opacity, points: row.points,
-      textContent: row.text_content, deleted: row.deleted,
+      textContent: row.text_content, deleted: row.deleted, layerId: row.layer_id,
     }))
     handlersRef.current.onInitialStrokes?.(strokes)
   }, [session?.id])
 
-  const loadObjects = useCallback(async () => {
+  const loadLayers = useCallback(async () => {
     if (!session?.id) return
-    const { data } = await supabase.from('canvas_objects').select('*')
-      .eq('session_id', session.id).order('created_at', { ascending: true })
-    const objects = (data || []).map(row => ({
-      id: row.client_object_id, userId: row.user_id, type: row.type, data: row.data,
-      x: row.x, y: row.y, width: row.width, height: row.height,
-      rotation: row.rotation, zIndex: row.z_index, deleted: row.deleted,
+    const { data } = await supabase.from('drawing_layers').select('*')
+      .eq('session_id', session.id).order('position', { ascending: true })
+    const layers = (data || []).map(row => ({
+      id: row.id, userId: row.created_by, name: row.name, position: row.position,
+      opacity: row.opacity, visible: row.visible, locked: row.locked,
     }))
-    handlersRef.current.onInitialObjects?.(objects)
+    handlersRef.current.onInitialLayers?.(layers)
   }, [session?.id])
-
   // Comments grouped by object_id, keyed to client_object_id — same
   // key space canvas_objects already round-trips on.
   const loadComments = useCallback(async () => {
@@ -92,6 +90,7 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
   useEffect(() => { loadStrokes() }, [loadStrokes])
   useEffect(() => { loadObjects() }, [loadObjects])
   useEffect(() => { loadComments() }, [loadComments])
+  useEffect(() => { loadLayers() }, [loadLayers])
 
   useEffect(() => {
     if (!session?.id) return
@@ -127,6 +126,9 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
       .on('broadcast', { event: 'comment_created' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onRemoteCommentCreated?.(payload) })
       .on('broadcast', { event: 'comment_resolved' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onRemoteCommentResolved?.(payload) })
       .on('broadcast', { event: 'comment_deleted' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onRemoteCommentDeleted?.(payload) })
+            .on('broadcast', { event: 'layer_created' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onRemoteLayerCreated?.(payload) })
+      .on('broadcast', { event: 'layer_updated' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onRemoteLayerUpdated?.(payload) })
+      .on('broadcast', { event: 'layer_deleted' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onRemoteLayerDeleted?.(payload) })
        .on('broadcast', { event: 'game_move' }, ({ payload }) => { handlersRef.current.onRemoteGameMove?.(payload) })
       .on('broadcast', { event: 'voice-signal' }, ({ payload }) => { if (payload.userId !== userId) handlersRef.current.onVoiceSignal?.(payload) })
       .on('presence', { event: 'sync' }, () => {
@@ -148,16 +150,16 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
     }
 
     const unsubscribe = subscribeToChannel(channelKey, buildChannel, {
-      onResync: () => {
+         onResync: () => {
         setConnectionStatus('reconnecting')
-        loadStrokes(); loadObjects(); loadComments()
+        loadStrokes(); loadObjects(); loadComments(); loadLayers()
         track()
       },
     })
     track()
 
     return () => { getChannel(channelKey)?.untrack?.(); unsubscribe() }
-  }, [session?.id, userId, profile?.username, profile?.avatar_url, myColor, loadStrokes, loadObjects, loadComments])
+  }, [session?.id, userId, profile?.username, profile?.avatar_url, myColor, loadStrokes, loadObjects, loadComments,loadLayers])
 
   useEffect(() => {
     const goOffline = () => setConnectionStatus('offline')
@@ -178,10 +180,11 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
   const broadcastStrokeEnd = useCallback(async (stroke) => {
     send('stroke_end', { ...stroke, userId })
     if (!session?.id) return
-    const { error } = await supabase.from('drawing_strokes').insert({
+       const { error } = await supabase.from('drawing_strokes').insert({
       client_stroke_id: stroke.id, session_id: session.id, user_id: userId,
       tool: stroke.tool, color: stroke.color, size: stroke.size, opacity: stroke.opacity,
       points: stroke.points, text_content: stroke.textContent || null, deleted: false,
+      layer_id: stroke.layerId || null,
     })
     if (error) console.error('[useDrawingSession] persist stroke failed:', error)
   }, [send, session?.id, userId])
@@ -215,6 +218,33 @@ export function useDrawingSession(conversationId, userId, profile, handlers = {}
     })
     if (error) console.error('[useDrawingSession] persist object failed:', error)
   }, [send, session?.id, userId])
+    const broadcastLayerCreated = useCallback(async (layer) => {
+    send('layer_created', { ...layer, userId })
+    if (!session?.id) return
+    const { error } = await supabase.from('drawing_layers').insert({
+      id: layer.id, session_id: session.id, name: layer.name, position: layer.position,
+      opacity: layer.opacity, visible: layer.visible, locked: layer.locked, created_by: userId,
+    })
+    if (error) console.error('[useDrawingSession] persist layer failed:', error)
+  }, [send, session?.id, userId])
+
+  const broadcastLayerUpdated = useCallback(async (layerId, patch) => {
+    send('layer_updated', { layerId, patch, userId })
+    const dbPatch = {}
+    if ('name' in patch) dbPatch.name = patch.name
+    if ('position' in patch) dbPatch.position = patch.position
+    if ('opacity' in patch) dbPatch.opacity = patch.opacity
+    if ('visible' in patch) dbPatch.visible = patch.visible
+    if ('locked' in patch) dbPatch.locked = patch.locked
+    dbPatch.updated_at = new Date().toISOString()
+    const { error } = await supabase.from('drawing_layers').update(dbPatch).eq('id', layerId)
+    if (error) console.error('[useDrawingSession] persist layer update failed:', error)
+  }, [send, userId])
+
+  const broadcastLayerDeleted = useCallback(async (layerId) => {
+    send('layer_deleted', { layerId, userId })
+    await supabase.from('drawing_layers').delete().eq('id', layerId)
+  }, [send, userId])
   const broadcastObjectMoving = useCallback((objectId, patch) => { send('object_moving', { objectId, patch, userId }) }, [send, userId])
   const broadcastObjectUpdated = useCallback(async (objectId, patch) => {
     send('object_updated', { objectId, patch, userId })
@@ -362,7 +392,7 @@ const sendGameMove = useCallback((gameId, move) => {
     broadcastStrokeStart, broadcastStrokeUpdate, broadcastStrokeEnd,
     broadcastUndo, broadcastRedo, broadcastClear, broadcastCursor,
     broadcastObjectCreated, broadcastObjectMoving, broadcastObjectUpdated, broadcastObjectDeleted,
-    uploadObjectImage, saveToChat,
+    uploadObjectImage, saveToChat,broadcastLayerCreated, broadcastLayerUpdated, broadcastLayerDeleted,
     broadcastReaction, broadcastPointerMove, broadcastPointerOff,startGame, sendGuess, revealGame, endGame,
     addComment, resolveComment, deleteComment,startVote, castVote, endVote, startTimer, cancelTimer, sendGameMove,
   }
