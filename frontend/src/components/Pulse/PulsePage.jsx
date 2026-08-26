@@ -19,6 +19,7 @@ import { IconFlower } from '../Icons'
 import { usePendingTrustedInvites } from '../../hooks/usePendingTrustedInvites'
 import DeKUTHubCard from './DeKUTHubCard'
 import RoomFinder from './RoomFinder'
+import FresherMode from './FresherMode'
 import MattchatToolsCard from './MattchatToolsCard'
 import ScientificCalculator, { CalculatorGlyph } from './ScientificCalculator'
 
@@ -305,6 +306,12 @@ export default function PulsePage({
       {dekutView === 'room-finder' && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
           <RoomFinder onClose={() => setDekutView(null)} />
+        </div>
+      )}
+
+      {dekutView === 'fresher-mode' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
+          <FresherMode onNavigate={(route) => setDekutView(route)} onClose={() => setDekutView(null)} />
         </div>
       )}
 
