@@ -68,7 +68,7 @@ function LocationVideo({ videoType, videoUrl }) {
 
   return (
     
-      href={videoUrl}
+      <a href={videoUrl}
       target="_blank"
       rel="noopener noreferrer"
       style={{
