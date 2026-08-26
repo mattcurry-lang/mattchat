@@ -1,156 +1,74 @@
 // src/components/Pulse/RoomFinder.jsx
 //
-// "Where are you going?" — search DeKUT rooms/offices/facilities by name,
-// room number or keyword, then see building/floor/room detail. The
-// "Take Me There" button calls onStartNavigation if the host app passes
-// one in; until real pedestrian navigation (spec section 5) exists, it
-// falls back to a disabled state rather than pretending to navigate.
-//
-// Mounted as the target of the 'room-finder' internal service — see
-// dekutOpenService.js and the 'room-finder' entry in dekutServices.js.
+// "Where are you going?" (spec §4). Backed by the dekut_locations Supabase
+// table — verified rows are searchable by everyone; students can suggest
+// new ones; admins moderate the queue and place pins on the schematic map.
 
-import React, { useMemo, useState } from 'react'
-import { DekutIcon } from './dekutIcons'
-import { DEKUT_LOCATIONS, LOCATION_CATEGORIES, searchLocations } from '../../data/dekutLocations'
+import React, { useState, useMemo } from 'react'
+import { DekutIcon, ICON_GRADIENTS } from './dekutIcons'
+import { useDekutLocations } from '../../hooks/useDekutLocations'
+import SuggestLocationForm from './SuggestLocationForm'
+import DekutCampusMap from './DekutCampusMap'
 
-function LocationMetaLine({ location }) {
-  const parts = [location.building, location.floor, location.roomNumber].filter(Boolean)
-  if (parts.length === 0) return null
+const CATEGORY_LABELS = {
+  lecture: 'Lecture Room', office: 'Office', facility: 'Facility',
+  hostel: 'Hostel', dining: 'Dining', other: 'Location',
+}
+
+function matchesQuery(loc, q) {
+  if (!q) return true
+  const s = q.toLowerCase()
   return (
-    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{parts.join(' · ')}</div>
+    loc.name.toLowerCase().includes(s) ||
+    (loc.building || '').toLowerCase().includes(s) ||
+    (loc.room_number || '').toLowerCase().includes(s) ||
+    (loc.description || '').toLowerCase().includes(s) ||
+    (loc.landmark || '').toLowerCase().includes(s) ||
+    (loc.keywords || []).some((k) => k.toLowerCase().includes(s))
   )
 }
 
-function ResultRow({ location, onSelect }) {
-  const [hovered, setHovered] = useState(false)
+function LocationCard({ loc }) {
   return (
-    <button
-      onClick={() => onSelect(location)}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        width: '100%', textAlign: 'left', fontFamily: 'inherit',
-        background: hovered ? 'var(--bg-surface-1, rgba(0,0,0,0.04))' : 'transparent',
-        border: '1px solid var(--border)', borderRadius: 14,
-        padding: '11px 12px', cursor: 'pointer',
-        transition: 'background 160ms ease',
-      }}
-    >
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>{location.name}</div>
-        <LocationMetaLine location={location} />
+    <div style={{
+      background: 'var(--bg-surface-2)', border: '1px solid var(--border)',
+      borderRadius: 14, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4,
+    }}>
+      <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>{loc.name}</div>
+      <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
+        {CATEGORY_LABELS[loc.category] || 'Location'}
+        {loc.building ? ` · ${loc.building}` : ''}
+        {loc.floor ? ` · ${loc.floor}` : ''}
+        {loc.room_number ? ` · Room ${loc.room_number}` : ''}
       </div>
-      <span style={{
-        fontSize: 10.5, fontWeight: 700, color: 'var(--text-secondary)',
-        border: '1px solid var(--border)', borderRadius: 999, padding: '2px 8px', flexShrink: 0,
-      }}>
-        {LOCATION_CATEGORIES[location.category] || 'Location'}
-      </span>
-    </button>
-  )
-}
-
-function DetailRow({ label, value }) {
-  if (!value) return null
-  return (
-    <div style={{ display: 'flex', gap: 8, fontSize: 12.5 }}>
-      <span style={{ color: 'var(--text-secondary)', minWidth: 90, flexShrink: 0 }}>{label}</span>
-      <span style={{ color: 'var(--text-primary)' }}>{value}</span>
-    </div>
-  )
-}
-
-function LocationDetail({ location, onBack, onStartNavigation }) {
-  return (
-    <div>
-      <button
-        onClick={onBack}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 4, marginBottom: 14,
-          background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-          fontSize: 12.5, fontWeight: 700, color: 'var(--text-secondary)', padding: 0,
-        }}
-      >
-        <span aria-hidden="true">←</span>
-        Back to results
-      </button>
-
-      <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-primary)' }}>{location.name}</div>
-      <div style={{
-        display: 'inline-block', fontSize: 10.5, fontWeight: 700, color: 'var(--text-secondary)',
-        border: '1px solid var(--border)', borderRadius: 999, padding: '2px 8px', margin: '6px 0 14px',
-      }}>
-        {LOCATION_CATEGORIES[location.category] || 'Location'}
-      </div>
-
-      {location.description && (
-        <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 14 }}>
-          {location.description}
-        </div>
-      )}
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-        <DetailRow label="Building" value={location.building} />
-        <DetailRow label="Floor" value={location.floor} />
-        <DetailRow label="Room" value={location.roomNumber} />
-        <DetailRow label="Hours" value={location.openingHours} />
-        <DetailRow label="Distance" value={location.walkingDistance} />
-        {location.services && location.services.length > 0 && (
-          <DetailRow label="Services" value={location.services.join(', ')} />
-        )}
-        {location.landmarks && location.landmarks.length > 0 && (
-          <DetailRow label="Near" value={location.landmarks.join(', ')} />
-        )}
-      </div>
-
-      {typeof onStartNavigation === 'function' ? (
-        <button
-          onClick={() => onStartNavigation(location)}
-          style={{
-            width: '100%', padding: '12px 16px', borderRadius: 14, border: 'none',
-            background: 'linear-gradient(135deg, #6C63FF, #A78BFA)', color: '#fff',
-            fontFamily: 'inherit', fontSize: 13.5, fontWeight: 800, cursor: 'pointer',
-          }}
-        >
-          Take Me There →
-        </button>
-      ) : (
-        <div style={{
-          width: '100%', padding: '12px 16px', borderRadius: 14,
-          border: '1px dashed var(--border)', color: 'var(--text-secondary)',
-          fontSize: 12.5, textAlign: 'center',
-        }}>
-          Turn-by-turn navigation isn't available yet.
-        </div>
+      {loc.landmark && <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>📍 {loc.landmark}</div>}
+      {loc.walking_distance_min && (
+        <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>🚶 ~{loc.walking_distance_min} min walk</div>
       )}
     </div>
   )
 }
 
-// onClose: optional () => void — pass this when RoomFinder is mounted as a
-// full-screen page (matches YouTubePulsePage / CyclePage's pattern in
-// PulsePage.jsx). Omit it if you ever embed RoomFinder inline instead.
-// locations: defaults to real DEKUT_LOCATIONS. Pass DEV_SAMPLE_LOCATIONS
-// explicitly in a dev harness if you want to see the UI populated.
-// onStartNavigation: optional (location) => void, for when campus
-// navigation (spec section 5) exists.
-export default function RoomFinder({ locations = DEKUT_LOCATIONS, onStartNavigation, onClose }) {
+// onClose: renders a close button when present (mounted full-screen).
+export default function RoomFinder({ onClose, userId, isAdmin }) {
+  const { locations, pending, loading, submitLocation, approveLocation, rejectLocation, setMapPosition } =
+    useDekutLocations({ userId, isAdmin })
   const [query, setQuery] = useState('')
-  const [selected, setSelected] = useState(null)
+  const [tab, setTab] = useState('search') // 'search' | 'map' | 'pending'
+  const [showSuggest, setShowSuggest] = useState(false)
 
-  const results = useMemo(() => searchLocations(query, locations), [query, locations])
+  const results = useMemo(() => locations.filter((l) => matchesQuery(l, query)), [locations, query])
 
   return (
-    <div
-      style={{
-        borderRadius: 20, padding: 16,
-        background: 'var(--bg-surface-2)', border: '1px solid var(--border)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>
-          📍 Where are you going?
+    <div style={{ maxWidth: 640, margin: '0 auto' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span aria-hidden="true">📍</span> Find a Room
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4 }}>
+            Search for a room, office or facility on campus.
+          </div>
         </div>
         {typeof onClose === 'function' && (
           <button
@@ -158,27 +76,53 @@ export default function RoomFinder({ locations = DEKUT_LOCATIONS, onStartNavigat
             aria-label="Close Room Finder"
             style={{
               background: 'var(--bg-surface-1, rgba(0,0,0,0.06))', border: '1px solid var(--border)',
-              borderRadius: 10, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              borderRadius: 10, width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', flexShrink: 0,
             }}
           >
-            <DekutIcon type="x" size={14} color="var(--text-primary)" strokeWidth={2.2} />
+            <DekutIcon type="x" size={16} color="var(--text-primary)" strokeWidth={2.2} />
           </button>
         )}
       </div>
 
-      {!selected && (
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 6, margin: '16px 0 14px' }}>
+        {[
+          { id: 'search', label: 'Search' },
+          { id: 'map', label: 'Map' },
+          ...(isAdmin ? [{ id: 'pending', label: `Pending${pending.length ? ` (${pending.length})` : ''}` }] : []),
+        ].map((t) => {
+          const active = tab === t.id
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              style={{
+                fontSize: 11.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+                borderRadius: 999, padding: '6px 14px',
+                border: `1px solid ${active ? 'transparent' : 'var(--border)'}`,
+                background: active ? 'linear-gradient(135deg,#a78bfa,#6c63ff)' : 'transparent',
+                color: active ? '#fff' : 'var(--text-secondary)',
+              }}
+            >
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {tab === 'search' && (
         <>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8,
-            border: '1px solid var(--border)', borderRadius: 12, padding: '9px 12px',
+            border: '1px solid var(--border)', borderRadius: 12, padding: '10px 12px',
             background: 'var(--bg-surface-1, rgba(0,0,0,0.03))', marginBottom: 12,
           }}>
             <DekutIcon type="search" size={16} color="var(--text-secondary)" strokeWidth={2} />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="RC18, Library, Finance Office..."
+              placeholder="e.g. RC18, library, finance office…"
               autoFocus
               style={{
                 border: 'none', outline: 'none', background: 'transparent',
@@ -187,41 +131,80 @@ export default function RoomFinder({ locations = DEKUT_LOCATIONS, onStartNavigat
             />
           </div>
 
-          {locations.length === 0 && (
-            <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-              Room and location data hasn't been loaded yet. Once DeKUT ICT provides campus
-              data, you'll be able to search rooms, offices and facilities here.
+          {loading && <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', padding: '10px 2px' }}>Loading locations…</div>}
+
+          {!loading && results.length === 0 && (
+            <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', padding: '10px 2px' }}>
+              {locations.length === 0 ? "No verified locations yet — be the first to suggest one." : 'No matches. Try a different word.'}
             </div>
           )}
 
-          {locations.length > 0 && query.trim() === '' && (
-            <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
-              Start typing a room number, building or office name.
-            </div>
-          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {results.map((loc) => <LocationCard key={loc.id} loc={loc} />)}
+          </div>
 
-          {locations.length > 0 && query.trim() !== '' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {results.length === 0 ? (
-                <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
-                  No matches for "{query}". Try a room code, building or office name.
-                </div>
-              ) : (
-                results.map((loc) => (
-                  <ResultRow key={loc.id} location={loc} onSelect={setSelected} />
-                ))
-              )}
-            </div>
-          )}
+          <button
+            onClick={() => setShowSuggest(true)}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              width: '100%', marginTop: 14, background: 'transparent', border: '1px dashed var(--border)',
+              borderRadius: 14, padding: '11px 12px', cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 13, fontWeight: 700, color: 'var(--text-primary)',
+            }}
+          >
+            + Suggest a location
+          </button>
         </>
       )}
 
-      {selected && (
-        <LocationDetail
-          location={selected}
-          onBack={() => setSelected(null)}
-          onStartNavigation={onStartNavigation}
+      {tab === 'map' && (
+        <DekutCampusMap
+          locations={locations}
+          isAdmin={!!isAdmin}
+          onSetPosition={setMapPosition}
         />
+      )}
+
+      {tab === 'pending' && isAdmin && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {pending.length === 0 && (
+            <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', padding: '10px 2px' }}>Nothing to review.</div>
+          )}
+          {pending.map((loc) => (
+            <div key={loc.id} style={{
+              background: 'var(--bg-surface-2)', border: '1px solid var(--border)',
+              borderRadius: 14, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6,
+            }}>
+              <LocationCard loc={loc} />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => approveLocation(loc.id)}
+                  style={{
+                    flex: 1, background: 'linear-gradient(135deg,#4ade80,#22c55e)', border: 'none',
+                    borderRadius: 10, color: '#fff', fontWeight: 700, fontSize: 12, padding: '8px 0',
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  Approve
+                </button>
+                <button
+                  onClick={() => rejectLocation(loc.id)}
+                  style={{
+                    flex: 1, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                    borderRadius: 10, color: '#f87171', fontWeight: 700, fontSize: 12, padding: '8px 0',
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  Reject
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showSuggest && (
+        <SuggestLocationForm onSubmit={submitLocation} onClose={() => setShowSuggest(false)} />
       )}
     </div>
   )
