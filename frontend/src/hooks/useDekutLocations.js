@@ -46,9 +46,34 @@ export function useDekutLocations({ userId, isAdmin } = {}) {
   useEffect(() => { loadVerified() }, [loadVerified])
   useEffect(() => { loadPending() }, [loadPending])
 
-  // payload: { name, category, building, floor, room_number, description,
-  // landmark, walking_distance_min, keywords }. Always lands unverified —
-  // RLS rejects any insert that tries to set is_verified: true directly.
+    // Uploads a video file to Storage and returns its public URL — call this
+  // BEFORE submitLocation/attachVideo so you have the url to save on the row.
+  const uploadLocationVideo = useCallback(async (file) => {
+    if (!userId) throw new Error('You need to be signed in to upload a video.')
+    const ext = file.name.split('.').pop() || 'mp4'
+    const path = `${userId}/${crypto.randomUUID()}.${ext}`
+    const { error } = await supabase.storage
+      .from('dekut-location-videos')
+      .upload(path, file, { contentType: file.type, upsert: false })
+    if (error) throw error
+    const { data } = supabase.storage.from('dekut-location-videos').getPublicUrl(path)
+    return data.publicUrl
+  }, [userId])
+
+  // Attaches a video (uploaded or an external link) to an EXISTING
+  // verified location. Anyone can suggest one — it doesn't need admin
+  // approval separately since it's just enriching an already-verified
+  // room, not adding a new unverified one.
+  const attachVideo = useCallback(async (locationId, { videoType, videoUrl }) => {
+    if (!userId) throw new Error('You need to be signed in to add a video.')
+    const { error } = await supabase
+      .from('dekut_locations')
+      .update({ video_type: videoType, video_url: videoUrl, video_uploaded_by: userId })
+      .eq('id', locationId)
+    if (error) throw error
+    await loadVerified()
+  }, [userId, loadVerified])
+  
   const submitLocation = useCallback(async (payload) => {
     if (!userId) throw new Error('You need to be signed in to suggest a location.')
     const { error } = await supabase.from('dekut_locations').insert({
@@ -87,8 +112,9 @@ export function useDekutLocations({ userId, isAdmin } = {}) {
   }, [loadVerified])
 
   return {
-    locations, pending, loading, error,
-    submitLocation, approveLocation, rejectLocation, setMapPosition,
-    reload: loadVerified,
-  }
+  locations, pending, loading, error,
+  submitLocation, approveLocation, rejectLocation, setMapPosition,
+  uploadLocationVideo, attachVideo,  
+  reload: loadVerified,
+}
 }
