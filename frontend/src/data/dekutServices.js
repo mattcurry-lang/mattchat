@@ -20,11 +20,6 @@ export const UNIVERSITIES = {
 // type: 'external' -> opens service.url in a new tab.
 // type: 'internal' -> hands off to the app's own router via
 //                      service.route (see src/utils/dekutOpenService.js).
-//                      Nothing below is 'internal' yet — Phase 1 features
-//                      (Campus Map, Room Finder, Ask DeKUT AI, Wi-Fi
-//                      Finder) will be added as internal entries once
-//                      those views exist, without touching this file's
-//                      consumers.
 export const DEKUT_CATEGORIES = [
   {
     id: 'campus',
@@ -52,6 +47,28 @@ export const DEKUT_CATEGORIES = [
         status: 'active',
         type: 'internal',
         route: 'fresher-mode',
+      },
+      {
+        id: 'faq',
+        name: 'Ask DeKUT',
+        description: 'Answers to common questions about email, fees, registration and more.',
+        url: null,
+        icon: 'star',
+        keywords: ['faq', 'help', 'questions', 'ask', 'ask dekut', 'ai', 'support'],
+        status: 'active',
+        type: 'internal',
+        route: 'faq',
+      },
+      {
+        id: 'email-setup',
+        name: 'Set Up University Email',
+        description: 'Step-by-step guide to activating your DeKUT student email.',
+        url: null,
+        icon: 'cpu',
+        keywords: ['email', 'gmail', 'google workspace', 'activate email', 'setup', 'password'],
+        status: 'active',
+        type: 'internal',
+        route: 'email-setup',
       },
     ],
   },
@@ -324,12 +341,13 @@ export const DEKUT_CATEGORIES = [
       {
         id: 'contacts',
         name: 'Location & Contacts',
-        description: 'Campus location, office contacts and phone numbers.',
-        url: 'https://www.dkut.ac.ke/index.php/about-dekut/s5-accordion-menu/location-and-contacts',
+        description: 'Verified DeKUT office contacts and phone numbers.',
+        url: null,
         icon: 'megaphone',
         keywords: ['contact', 'location', 'address', 'phone', 'directions'],
         status: 'active',
-        type: 'external',
+        type: 'internal',
+        route: 'contacts',
       },
     ],
   },
