@@ -128,11 +128,14 @@ function LocationDetail({ location, onBack, onStartNavigation }) {
   )
 }
 
+// onClose: optional () => void — pass this when RoomFinder is mounted as a
+// full-screen page (matches YouTubePulsePage / CyclePage's pattern in
+// PulsePage.jsx). Omit it if you ever embed RoomFinder inline instead.
 // locations: defaults to real DEKUT_LOCATIONS. Pass DEV_SAMPLE_LOCATIONS
 // explicitly in a dev harness if you want to see the UI populated.
 // onStartNavigation: optional (location) => void, for when campus
 // navigation (spec section 5) exists.
-export default function RoomFinder({ locations = DEKUT_LOCATIONS, onStartNavigation }) {
+export default function RoomFinder({ locations = DEKUT_LOCATIONS, onStartNavigation, onClose }) {
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(null)
 
@@ -145,8 +148,23 @@ export default function RoomFinder({ locations = DEKUT_LOCATIONS, onStartNavigat
         background: 'var(--bg-surface-2)', border: '1px solid var(--border)',
       }}
     >
-      <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 12 }}>
-        📍 Where are you going?
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>
+          📍 Where are you going?
+        </div>
+        {typeof onClose === 'function' && (
+          <button
+            onClick={onClose}
+            aria-label="Close Room Finder"
+            style={{
+              background: 'var(--bg-surface-1, rgba(0,0,0,0.06))', border: '1px solid var(--border)',
+              borderRadius: 10, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', flexShrink: 0,
+            }}
+          >
+            <DekutIcon type="x" size={14} color="var(--text-primary)" strokeWidth={2.2} />
+          </button>
+        )}
       </div>
 
       {!selected && (
