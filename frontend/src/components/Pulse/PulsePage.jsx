@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import PulseSummaryCard from './PulseSummaryCard'
 import PulseFilterBar from './PulseFilterBar'
 import PulseActivityCard from './PulseActivityCard'
@@ -32,21 +32,20 @@ const LOCKED_PLATFORMS = Object.entries(PLATFORM_META).filter(([, meta]) => meta
 export default function PulsePage({
   session, userId, profile, conversations, unreadCounts, getConvoName, getOtherUserId,
   onOpenConversation, onSelectVideo, aiSummary, onOpenShorts,
+  onFullscreenChange,
 }) {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [showYouTubePulse, setShowYouTubePulse] = useState(false)
   const [showCycle, setShowCycle] = useState(false)
   const [showCalculator, setShowCalculator] = useState(false)
-  const [dekutView, setDekutView] = useState(null) // null | 'room-finder' | 'fresher-mode' | 'faq' | 'email-setup' | 'contacts'
+  const [dekutView, setDekutView] = useState(null)  
   const { privacyMode, setPrivacyMode } = usePulseSettings(userId)
   const { items, loading, error, reload } = usePulseData(session, { conversations, unreadCounts, getConvoName })
   const birthday = useBirthday(userId, profile)
   const { count: pendingCycleInvites } = usePendingTrustedInvites(userId)
 
-  // Local override so picking/clearing a team updates Pulse instantly —
-  // `profile` is a prop from ChatPage and PulsePage has no way to push
-  // updates back up into it, same pattern as other Pulse writes here.
+   
   const [teamOverride, setTeamOverride] = useState(undefined) // undefined = "use profile", null = "explicitly cleared"
   const favoriteTeam = teamOverride !== undefined ? teamOverride : profile?.favorite_pl_team
 
@@ -62,12 +61,7 @@ export default function PulsePage({
   const handleOpenTool = (toolId) => {
     if (toolId === 'scientific-calculator') setShowCalculator(true)
   }
-
-  // Wires the calculator's "Explain with Curry" button into Mattchat's Curry AI.
-  // TODO: replace this with however Curry AI conversations/messages are actually
-  // triggered elsewhere in Mattchat (e.g. onOpenConversation to a Curry thread,
-  // or a dedicated sendToCurry helper) — left as a clear integration point so
-  // nothing here guesses at an API that doesn't exist.
+ 
   const handleExplainWithCurry = ({ expression, result }) => {
     const prompt = `Explain how to calculate ${expression} = ${result}, step by step, in simple language.`
     console.log('[Mattchat Tools] Explain with Curry requested:', prompt)
@@ -136,7 +130,10 @@ export default function PulsePage({
           </button>
         </div>
       </div>
-
+ useEffect(() => {
+    onFullscreenChange?.(dekutView !== null)
+    return () => onFullscreenChange?.(false)
+  }, [dekutView, onFullscreenChange])
       {/* ── PERSONALIZED HIERARCHY ── */}
       {!birthday.hasBirthday && <BirthdayCard onSave={birthday.saveBirthday} />}
 
