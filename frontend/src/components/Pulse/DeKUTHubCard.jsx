@@ -1,15 +1,17 @@
- 
+// src/components/Pulse/DeKUTHubCard.jsx
 import React, { useState } from 'react'
 import { DekutIcon, ICON_GRADIENTS } from './dekutIcons'
 import { DEKUT_CATEGORIES, DEFAULT_FEATURED_IDS, getServiceById } from '../../data/dekutServices'
 import { useDekutUsage } from '../../hooks/useDekutUsage'
-import { openDekutService } from '../../utils/dekutOpenService'
 import DekutServicesModal from './DekutServicesModal'
+import { openDekutService } from '../../utils/dekutOpenService'
 
-// onNavigate: optional (route, service) => void, forwarded to internal
-// services (see src/utils/dekutOpenService.js). Omit it until an internal
-// route actually exists — external services work fine without it.
-export default function DeKUTHubCard({ onNavigate } = {}) {
+// onNavigate: (route, service) => void — forwarded from PulsePage so
+// internal services (Room Finder, Fresher Guide, Ask DeKUT, etc.) can
+// route to their in-app page. Previously this prop existed on the
+// caller's side (PulsePage) but was never declared/used here, so every
+// internal click silently did nothing — fixed below.
+export default function DeKUTHubCard({ onNavigate }) {
   const [hovered, setHovered] = useState(null)
   const [pressed, setPressed] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
@@ -17,7 +19,20 @@ export default function DeKUTHubCard({ onNavigate } = {}) {
 
   const featured = DEFAULT_FEATURED_IDS.map((id) => getServiceById(id, DEKUT_CATEGORIES)).filter(Boolean)
 
+  // Was previously a hand-rolled window.open that ignored service.type
+  // entirely — internal services (route: 'room-finder' etc.) would try
+  // to open `null` as a URL and fail silently. Routes through the same
+  // shared helper everything else uses.
   const openService = (service) => openDekutService(service, { usage, onNavigate })
+
+  // The "See More" modal needs its own onNavigate wrapper: navigating to
+  // an internal service from inside the modal should also close the
+  // modal, or the user ends up looking at Room Finder with the modal
+  // still open behind it.
+  const navigateAndCloseModal = (route, service) => {
+    setModalOpen(false)
+    onNavigate?.(route, service)
+  }
 
   return (
     <div
@@ -60,7 +75,7 @@ export default function DeKUTHubCard({ onNavigate } = {}) {
               onMouseLeave={() => { setHovered(null); setPressed(null) }}
               onMouseDown={() => setPressed(service.id)}
               onMouseUp={() => setPressed(null)}
-              aria-label={`Open DeKUT ${service.name}${service.type === 'external' ? ' in a new tab' : ''}`}
+              aria-label={service.type === 'internal' ? `Open ${service.name}` : `Open DeKUT ${service.name} in a new tab`}
               style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 background: isHovered ? 'var(--bg-surface-1, rgba(0,0,0,0.04))' : 'transparent',
@@ -94,9 +109,7 @@ export default function DeKUTHubCard({ onNavigate } = {}) {
               </div>
 
               <span style={{ flexShrink: 0, opacity: isHovered ? 1 : 0, transition: 'opacity 160ms ease' }}>
-                {service.type === 'external' && (
-                  <DekutIcon type="externalLink" size={14} color="var(--text-secondary)" strokeWidth={2} />
-                )}
+                <DekutIcon type={service.type === 'internal' ? 'chevronRight' : 'externalLink'} size={14} color="var(--text-secondary)" strokeWidth={2} />
               </span>
             </button>
           )
@@ -125,7 +138,7 @@ export default function DeKUTHubCard({ onNavigate } = {}) {
         <DekutServicesModal
           categories={DEKUT_CATEGORIES}
           usage={usage}
-          onNavigate={onNavigate}
+          onNavigate={navigateAndCloseModal}
           onClose={() => setModalOpen(false)}
         />
       )}
