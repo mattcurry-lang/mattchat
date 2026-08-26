@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { DekutIcon, ICON_GRADIENTS } from './dekutIcons'
 import { getAllServices, DEFAULT_FEATURED_IDS } from '../../data/dekutServices'
 import { timeAgo } from '../../hooks/useDekutUsage'
+import { openDekutService } from '../../utils/dekutOpenService'
 
 function matchesQuery(service, query) {
   if (!query) return true
@@ -11,14 +12,14 @@ function matchesQuery(service, query) {
   return (
     service.name.toLowerCase().includes(q) ||
     service.description.toLowerCase().includes(q) ||
-    service.categoryLabel.toLowerCase().includes(q) ||
+    (service.categoryLabel || '').toLowerCase().includes(q) ||
     (service.keywords || []).some((k) => k.toLowerCase().includes(q))
   )
 }
 
 function ServiceCard({ service, isFavorite, onToggleFavorite, onOpen }) {
   const [hovered, setHovered] = useState(false)
-  const active = service.status === 'active' && service.url
+  const active = service.type === 'internal' ? true : service.status === 'active' && service.url
 
   return (
     <div
@@ -63,7 +64,7 @@ function ServiceCard({ service, isFavorite, onToggleFavorite, onOpen }) {
               color={isFavorite ? '#f59e0b' : 'var(--text-secondary)'}
             />
           </button>
-          {active && (
+          {active && service.type !== 'internal' && (
             <span style={{ opacity: hovered ? 1 : 0, transition: 'opacity 160ms ease', display: 'flex' }}>
               <DekutIcon type="externalLink" size={14} color="var(--text-secondary)" strokeWidth={2} />
             </span>
@@ -121,14 +122,40 @@ function ServiceGrid({ services, favorites, onToggleFavorite, onOpen }) {
   )
 }
 
-export default function DekutServicesModal({ categories, usage, onClose }) {
+// onNavigate: optional (route, service) => void, forwarded to internal
+// services (see src/utils/dekutOpenService.js).
+export default function DekutServicesModal({ categories, usage, onNavigate, onClose }) {
   const [query, setQuery] = useState('')
   const inputRef = useRef(null)
+  const panelRef = useRef(null)
   const allServices = useMemo(() => getAllServices(categories), [categories])
 
   useEffect(() => {
     inputRef.current?.focus()
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        onClose()
+        return
+      }
+      if (e.key !== 'Tab' || !panelRef.current) return
+
+      const focusable = panelRef.current.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+
     window.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
     return () => {
@@ -137,10 +164,7 @@ export default function DekutServicesModal({ categories, usage, onClose }) {
     }
   }, [onClose])
 
-  const openService = (service) => {
-    usage.recordUsage(service.id)
-    window.open(service.url, '_blank', 'noopener,noreferrer')
-  }
+  const openService = (service) => openDekutService(service, { usage, onNavigate })
 
   const filtered = useMemo(
     () => allServices.filter((s) => matchesQuery(s, query)),
@@ -188,6 +212,7 @@ export default function DekutServicesModal({ categories, usage, onClose }) {
         @keyframes dekutScaleIn { from { opacity: 0; transform: scale(0.97) translateY(8px) } to { opacity: 1; transform: scale(1) translateY(0) } }
       `}</style>
       <div
+        ref={panelRef}
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%', maxWidth: 1100, height: '85vh', maxHeight: 900,
