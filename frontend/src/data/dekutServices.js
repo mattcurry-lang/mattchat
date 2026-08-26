@@ -27,6 +27,24 @@ export const UNIVERSITIES = {
 //                      consumers.
 export const DEKUT_CATEGORIES = [
   {
+    id: 'campus',
+    label: 'Campus & Navigation',
+    icon: 'file',
+    services: [
+      {
+        id: 'room-finder',
+        name: 'Find a Room',
+        description: 'Search for a room, office or facility on campus.',
+        url: null,
+        icon: 'file',
+        keywords: ['room', 'building', 'rc18', 'lecture hall', 'classroom', 'office', 'navigate', 'find room', 'directions'],
+        status: 'active',
+        type: 'internal',
+        route: 'room-finder',
+      },
+    ],
+  },
+  {
     id: 'academic',
     label: 'Academic',
     icon: 'cap',
