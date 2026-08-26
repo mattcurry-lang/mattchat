@@ -1769,7 +1769,7 @@ const handleSend = async () => {
       }}
       onSelectVideo={(videoId) => setYoutubePlayer({ videoId, mini: false })}
       onOpenShorts={() => setShowShorts(true)}
-      onFullscreenChange={setDekutFullscreen}   {/* NEW */}
+      onFullscreenChange={setDekutFullscreen}  
     />
   </div>
 )}
