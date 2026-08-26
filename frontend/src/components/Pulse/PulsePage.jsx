@@ -18,6 +18,7 @@ import CyclePage from '../Cycle/CyclePage'
 import { IconFlower } from '../Icons'
 import { usePendingTrustedInvites } from '../../hooks/usePendingTrustedInvites'
 import DeKUTHubCard from './DeKUTHubCard'
+import RoomFinder from './RoomFinder'
 import MattchatToolsCard from './MattchatToolsCard'
 import ScientificCalculator, { CalculatorGlyph } from './ScientificCalculator'
 
@@ -33,6 +34,7 @@ export default function PulsePage({
   const [showYouTubePulse, setShowYouTubePulse] = useState(false)
   const [showCycle, setShowCycle] = useState(false)
   const [showCalculator, setShowCalculator] = useState(false)
+  const [dekutView, setDekutView] = useState(null) // null | 'room-finder'
   const { privacyMode, setPrivacyMode } = usePulseSettings(userId)
   const { items, loading, error, reload } = usePulseData(session, { conversations, unreadCounts, getConvoName })
   const birthday = useBirthday(userId, profile)
@@ -151,7 +153,7 @@ export default function PulsePage({
       )}
 
       <BibleCard />
-      <DeKUTHubCard />
+      <DeKUTHubCard onNavigate={(route) => setDekutView(route)} />
 
       {/* ── MATTCHAT TOOLS ── */}
       <MattchatToolsCard onOpenTool={handleOpenTool} />
@@ -298,6 +300,12 @@ export default function PulsePage({
           onClose={() => setShowCalculator(false)}
           onExplainWithCurry={handleExplainWithCurry}
         />
+      )}
+
+      {dekutView === 'room-finder' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
+          <RoomFinder onClose={() => setDekutView(null)} />
+        </div>
       )}
 
       {birthday.shouldShowExperience && (
