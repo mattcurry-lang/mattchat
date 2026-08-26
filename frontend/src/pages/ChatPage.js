@@ -723,6 +723,7 @@ const [curryPrefill, setCurryPrefill] = useState(null)
   const [showAnnouncements, setShowAnnouncements] = useState(false)
   const [showChangePicture, setShowChangePicture] = useState(false)
   const [showDrawing, setShowDrawing] = useState(false)
+  const [dekutFullscreen, setDekutFullscreen] = useState(false)
   
   // that appears AFTER a plain message has already been sent, if
   // Curry thinks it might land colder than intended. Never blocks or
@@ -1761,13 +1762,14 @@ const handleSend = async () => {
       conversations={conversations}
       unreadCounts={unreadCounts}
       getConvoName={getConvoName}
- getOtherUserId={getOtherUserId}
+      getOtherUserId={getOtherUserId}
       onOpenConversation={(convoId) => {
         const found = conversations.find(c => c.id === convoId)
         if (found) { openConvo(found); setActiveTab('chats') }
       }}
       onSelectVideo={(videoId) => setYoutubePlayer({ videoId, mini: false })}
- onOpenShorts={() => setShowShorts(true)}   // ← new prop
+      onOpenShorts={() => setShowShorts(true)}
+      onFullscreenChange={setDekutFullscreen}   {/* NEW */}
     />
   </div>
 )}
@@ -2074,12 +2076,14 @@ const handleSend = async () => {
             The central "+" button is context-aware, just like WhatsApp:
             on the Calls tab it opens the new-call picker, everywhere else
             it opens the new-chat form. */}
-        <BottomNav
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          onNewChat={() => (activeTab === 'calls' ? setShowNewCall(true) : setShowNewChat(true))}
-          onProfileClick={() => setShowProfileMenu(v => !v)}
-        />
+        {!dekutFullscreen && (
+  <BottomNav
+    activeTab={activeTab}
+    onTabChange={setActiveTab}
+    onNewChat={() => (activeTab === 'calls' ? setShowNewCall(true) : setShowNewChat(true))}
+    onProfileClick={() => setShowProfileMenu(v => !v)}
+  />
+)}
       </div>
 {!showShorts && (
 <AIInsightsPanel
