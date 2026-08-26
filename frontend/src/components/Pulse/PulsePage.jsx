@@ -20,6 +20,9 @@ import { usePendingTrustedInvites } from '../../hooks/usePendingTrustedInvites'
 import DeKUTHubCard from './DeKUTHubCard'
 import RoomFinder from './RoomFinder'
 import FresherMode from './FresherMode'
+import DekutFAQ from './DekutFAQ'
+import EmailSetupGuide from './EmailSetupGuide'
+import ContactsPage from './ContactsPage'
 import MattchatToolsCard from './MattchatToolsCard'
 import ScientificCalculator, { CalculatorGlyph } from './ScientificCalculator'
 
@@ -35,7 +38,7 @@ export default function PulsePage({
   const [showYouTubePulse, setShowYouTubePulse] = useState(false)
   const [showCycle, setShowCycle] = useState(false)
   const [showCalculator, setShowCalculator] = useState(false)
-  const [dekutView, setDekutView] = useState(null) // null | 'room-finder'
+  const [dekutView, setDekutView] = useState(null) // null | 'room-finder' | 'fresher-mode' | 'faq' | 'email-setup' | 'contacts'
   const { privacyMode, setPrivacyMode } = usePulseSettings(userId)
   const { items, loading, error, reload } = usePulseData(session, { conversations, unreadCounts, getConvoName })
   const birthday = useBirthday(userId, profile)
@@ -312,6 +315,24 @@ export default function PulsePage({
       {dekutView === 'fresher-mode' && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
           <FresherMode onNavigate={(route) => setDekutView(route)} onClose={() => setDekutView(null)} />
+        </div>
+      )}
+
+      {dekutView === 'faq' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
+          <DekutFAQ onNavigate={(route) => setDekutView(route)} onClose={() => setDekutView(null)} />
+        </div>
+      )}
+
+      {dekutView === 'email-setup' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
+          <EmailSetupGuide onNavigate={(route) => setDekutView(route)} onClose={() => setDekutView(null)} />
+        </div>
+      )}
+
+      {dekutView === 'contacts' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
+          <ContactsPage onClose={() => setDekutView(null)} />
         </div>
       )}
 
