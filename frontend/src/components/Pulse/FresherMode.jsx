@@ -5,9 +5,9 @@
 //  - real ones, backed by an actual entry in dekutServices.js — tapping
 //    opens it via the same openDekutService used everywhere else.
 //  - "coming soon" ones, for features the spec wants that don't exist yet
-//    (Wi-Fi Finder, Ask DeKUT AI, email setup guide, campus tour,
-//    timetable). These are inert by design — no fabricated links, no
-//    placeholder content standing in for real DeKUT info.
+//    (Wi-Fi Finder, email setup guide, campus tour, timetable). These are
+//    inert by design — no fabricated links, no placeholder content
+//    standing in for real DeKUT info.
 //
 // Mounted as the target of the 'fresher-mode' internal service.
 
@@ -18,8 +18,11 @@ import { useDekutUsage } from '../../hooks/useDekutUsage'
 import { openDekutService } from '../../utils/dekutOpenService'
 
 // Real services this screen surfaces, in display order.
+// 'faq' and 'email-setup' added now that both are real pages, not stubs.
 const FRESHER_SERVICE_IDS = [
   'room-finder',
+  'faq',
+  'email-setup',
   'elearning',
   'student-portal',
   'catering',
@@ -31,12 +34,11 @@ const FRESHER_SERVICE_IDS = [
 
 // Features the spec calls for that aren't built yet. Intentionally no
 // url/route — rendered disabled, never wired to a guess.
+// 'ask-ai' and 'email-setup' removed — both now live in FRESHER_SERVICE_IDS above.
 const COMING_SOON_TILES = [
   { id: 'explore-campus', name: 'Explore Campus', description: 'An interactive campus tour.', icon: 'megaphone' },
   { id: 'find-my-class', name: 'Find My Class', description: 'Look up your timetable and classroom.', icon: 'calendar' },
-  { id: 'email-setup', name: 'Set Up University Email', description: 'Step-by-step activation guide.', icon: 'cpu' },
   { id: 'wifi-finder', name: 'Find Wi-Fi', description: 'Campus Wi-Fi hotspots and signal info.', icon: 'cpu' },
-  { id: 'ask-ai', name: 'Ask DeKUT AI', description: 'Ask questions about university life.', icon: 'star' },
 ]
 
 function FresherTile({ name, description, icon, comingSoon, onOpen }) {
