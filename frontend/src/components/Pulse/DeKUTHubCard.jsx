@@ -1,11 +1,15 @@
-// src/components/Pulse/DeKUTHubCard.jsx
+ 
 import React, { useState } from 'react'
 import { DekutIcon, ICON_GRADIENTS } from './dekutIcons'
 import { DEKUT_CATEGORIES, DEFAULT_FEATURED_IDS, getServiceById } from '../../data/dekutServices'
 import { useDekutUsage } from '../../hooks/useDekutUsage'
+import { openDekutService } from '../../utils/dekutOpenService'
 import DekutServicesModal from './DekutServicesModal'
 
-export default function DeKUTHubCard() {
+// onNavigate: optional (route, service) => void, forwarded to internal
+// services (see src/utils/dekutOpenService.js). Omit it until an internal
+// route actually exists — external services work fine without it.
+export default function DeKUTHubCard({ onNavigate } = {}) {
   const [hovered, setHovered] = useState(null)
   const [pressed, setPressed] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
@@ -13,10 +17,7 @@ export default function DeKUTHubCard() {
 
   const featured = DEFAULT_FEATURED_IDS.map((id) => getServiceById(id, DEKUT_CATEGORIES)).filter(Boolean)
 
-  const openService = (service) => {
-    usage.recordUsage(service.id)
-    window.open(service.url, '_blank', 'noopener,noreferrer')
-  }
+  const openService = (service) => openDekutService(service, { usage, onNavigate })
 
   return (
     <div
@@ -59,7 +60,7 @@ export default function DeKUTHubCard() {
               onMouseLeave={() => { setHovered(null); setPressed(null) }}
               onMouseDown={() => setPressed(service.id)}
               onMouseUp={() => setPressed(null)}
-              aria-label={`Open DeKUT ${service.name} in a new tab`}
+              aria-label={`Open DeKUT ${service.name}${service.type === 'external' ? ' in a new tab' : ''}`}
               style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 background: isHovered ? 'var(--bg-surface-1, rgba(0,0,0,0.04))' : 'transparent',
@@ -93,7 +94,9 @@ export default function DeKUTHubCard() {
               </div>
 
               <span style={{ flexShrink: 0, opacity: isHovered ? 1 : 0, transition: 'opacity 160ms ease' }}>
-                <DekutIcon type="externalLink" size={14} color="var(--text-secondary)" strokeWidth={2} />
+                {service.type === 'external' && (
+                  <DekutIcon type="externalLink" size={14} color="var(--text-secondary)" strokeWidth={2} />
+                )}
               </span>
             </button>
           )
@@ -122,6 +125,7 @@ export default function DeKUTHubCard() {
         <DekutServicesModal
           categories={DEKUT_CATEGORIES}
           usage={usage}
+          onNavigate={onNavigate}
           onClose={() => setModalOpen(false)}
         />
       )}
