@@ -210,6 +210,7 @@ export default function DekutServicesModal({ categories, usage, onNavigate, onCl
       <style>{`
         @keyframes dekutFadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes dekutScaleIn { from { opacity: 0; transform: scale(0.97) translateY(8px) } to { opacity: 1; transform: scale(1) translateY(0) } }
+        .dekut-search-input::placeholder { color: rgba(245,245,250,0.45); }
       `}</style>
       <div
         ref={panelRef}
@@ -250,20 +251,31 @@ export default function DekutServicesModal({ categories, usage, onNavigate, onCl
             </button>
           </div>
 
+          {/*
+            FIX: this box's background is intentionally always-dark
+            (rgba(15,15,26,...)) regardless of app theme, matching the
+            fullscreen DeKUT overlays elsewhere. Previously the box used
+            var(--bg-surface-1) (which stays dark) but the TEXT used
+            var(--text-primary) (which turns dark in light mode) — dark
+            text on a dark box, invisible while typing. Both sides are
+            now hardcoded to guarantee contrast no matter what theme
+            variables resolve to.
+          */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8,
             border: '1px solid var(--border)', borderRadius: 12, padding: '9px 12px',
-            background: 'var(--bg-surface-1, rgba(0,0,0,0.03))',
+            background: 'rgba(15,15,26,0.9)',
           }}>
-            <DekutIcon type="search" size={16} color="var(--text-secondary)" strokeWidth={2} />
+            <DekutIcon type="search" size={16} color="rgba(245,245,250,0.6)" strokeWidth={2} />
             <input
               ref={inputRef}
+              className="dekut-search-input"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search DeKUT services..."
               style={{
                 border: 'none', outline: 'none', background: 'transparent',
-                fontSize: 13.5, color: 'var(--text-primary)', width: '100%', fontFamily: 'inherit',
+                fontSize: 13.5, color: '#f5f5fa', width: '100%', fontFamily: 'inherit',
               }}
             />
           </div>
