@@ -303,11 +303,11 @@ export default function PulsePage({
         />
       )}
 
-      {dekutView === 'room-finder' && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
-          <RoomFinder onClose={() => setDekutView(null)} />
-        </div>
-      )}
+    {dekutView === 'room-finder' && (
+  <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
+    <RoomFinder onClose={() => setDekutView(null)} userId={userId} isAdmin={profile?.is_admin} />
+  </div>
+)}
 
       {dekutView === 'fresher-mode' && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
