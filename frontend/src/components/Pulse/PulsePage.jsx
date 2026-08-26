@@ -85,7 +85,10 @@ export default function PulsePage({
     const plugin = getPulsePlugin(item.app)
     plugin?.onOpen?.(item, { onOpenConversation })
   }
-
+ useEffect(() => {
+    onFullscreenChange?.(dekutView !== null)
+    return () => onFullscreenChange?.(false)
+  }, [dekutView, onFullscreenChange])
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 16, maxWidth: 640, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -130,10 +133,7 @@ export default function PulsePage({
           </button>
         </div>
       </div>
- useEffect(() => {
-    onFullscreenChange?.(dekutView !== null)
-    return () => onFullscreenChange?.(false)
-  }, [dekutView, onFullscreenChange])
+
       {/* ── PERSONALIZED HIERARCHY ── */}
       {!birthday.hasBirthday && <BirthdayCard onSave={birthday.saveBirthday} />}
 
