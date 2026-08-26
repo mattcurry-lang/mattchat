@@ -16,6 +16,15 @@ export const UNIVERSITIES = {
 // status: 'active'  -> real, verified official URL, clickable
 // status: 'pending' -> real service, no verified official URL yet.
 //                      Never invent one — show as "Link coming soon".
+//
+// type: 'external' -> opens service.url in a new tab.
+// type: 'internal' -> hands off to the app's own router via
+//                      service.route (see src/utils/dekutOpenService.js).
+//                      Nothing below is 'internal' yet — Phase 1 features
+//                      (Campus Map, Room Finder, Ask DeKUT AI, Wi-Fi
+//                      Finder) will be added as internal entries once
+//                      those views exist, without touching this file's
+//                      consumers.
 export const DEKUT_CATEGORIES = [
   {
     id: 'academic',
@@ -30,6 +39,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'book',
         keywords: ['courses', 'moodle', 'classes', 'assignments', 'notes'],
         status: 'active',
+        type: 'external',
       },
       {
         id: 'student-portal',
@@ -39,6 +49,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'cap',
         keywords: ['portal', 'results', 'fees', 'email', 'registration'],
         status: 'active',
+        type: 'external',
       },
       {
         id: 'registration',
@@ -48,6 +59,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'file',
         keywords: ['registration', 'clearance', 'units', 'joining instructions'],
         status: 'active',
+        type: 'external',
       },
       {
         id: 'academic-calendar',
@@ -57,6 +69,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'calendar',
         keywords: ['calendar', 'term dates', 'semester'],
         status: 'pending',
+        type: 'external',
       },
       {
         id: 'examinations',
@@ -67,6 +80,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'file',
         keywords: ['exams', 'transcripts', 'certificates', 'results'],
         status: 'pending',
+        type: 'external',
       },
     ],
   },
@@ -83,6 +97,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'book',
         keywords: ['books', 'catalogue', 'borrow', 'library'],
         status: 'active',
+        type: 'external',
       },
       {
         id: 'library-info',
@@ -92,6 +107,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'book',
         keywords: ['library hours', 'e-resources', 'research support'],
         status: 'active',
+        type: 'external',
       },
       {
         id: 'repository',
@@ -101,6 +117,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'file',
         keywords: ['thesis', 'dissertation', 'research', 'repository', 'journals'],
         status: 'active',
+        type: 'external',
       },
     ],
   },
@@ -117,6 +134,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'wallet',
         keywords: ['fees', 'statement', 'billing', 'payment'],
         status: 'active',
+        type: 'external',
       },
       {
         id: 'financial-aid',
@@ -126,6 +144,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'wallet',
         keywords: ['bursary', 'helb', 'financial aid', 'scholarship'],
         status: 'pending',
+        type: 'external',
       },
     ],
   },
@@ -142,6 +161,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'utensils',
         keywords: ['food', 'meals', 'mess', 'catering'],
         status: 'active',
+        type: 'external',
       },
       {
         id: 'accommodation',
@@ -151,6 +171,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'home',
         keywords: ['hostel', 'accommodation', 'housing'],
         status: 'pending',
+        type: 'external',
       },
       {
         id: 'student-welfare',
@@ -160,6 +181,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'home',
         keywords: ['welfare', 'student affairs', 'clubs', 'societies', 'sports'],
         status: 'pending',
+        type: 'external',
       },
     ],
   },
@@ -176,6 +198,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'heart',
         keywords: ['clinic', 'health', 'medical'],
         status: 'pending',
+        type: 'external',
       },
       {
         id: 'disability',
@@ -185,6 +208,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'heart',
         keywords: ['disability', 'accessibility'],
         status: 'pending',
+        type: 'external',
       },
       {
         id: 'chaplaincy',
@@ -194,6 +218,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'heart',
         keywords: ['chaplaincy', 'spiritual', 'counseling'],
         status: 'pending',
+        type: 'external',
       },
     ],
   },
@@ -210,6 +235,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'cpu',
         keywords: ['ict', 'it support', 'wifi', 'network'],
         status: 'active',
+        type: 'external',
       },
       {
         id: 'it-helpdesk',
@@ -220,6 +246,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'cpu',
         keywords: ['help desk', 'password', 'email issue', 'wifi'],
         status: 'pending',
+        type: 'external',
       },
     ],
   },
@@ -236,6 +263,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'briefcase',
         keywords: ['admissions', 'apply', 'application', 'kuccps'],
         status: 'active',
+        type: 'external',
       },
       {
         id: 'admissions-info',
@@ -245,6 +273,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'briefcase',
         keywords: ['admissions office', 'records', 'forms'],
         status: 'active',
+        type: 'external',
       },
     ],
   },
@@ -261,6 +290,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'megaphone',
         keywords: ['news', 'events', 'announcements', 'about', 'website'],
         status: 'active',
+        type: 'external',
       },
       {
         id: 'contacts',
@@ -270,6 +300,7 @@ export const DEKUT_CATEGORIES = [
         icon: 'megaphone',
         keywords: ['contact', 'location', 'address', 'phone', 'directions'],
         status: 'active',
+        type: 'external',
       },
     ],
   },
