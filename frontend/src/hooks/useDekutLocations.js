@@ -14,6 +14,7 @@ export function useDekutLocations({ userId, isAdmin } = {}) {
   const [pending, setPending] = useState([])     // admin-only queue
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+    const [pendingVideos, setPendingVideos] = useState([])
 
   const loadVerified = useCallback(async () => {
     setLoading(true)
@@ -33,14 +34,19 @@ export function useDekutLocations({ userId, isAdmin } = {}) {
   }, [])
 
   const loadPending = useCallback(async () => {
-    if (!isAdmin) { setPending([]); return }
-    const { data, error } = await supabase
-      .from('dekut_locations')
-      .select('*')
-      .eq('is_verified', false)
-      .order('created_at', { ascending: false })
-    if (error) console.error('loadPending failed:', error)
-    else setPending(data || [])
+    if (!isAdmin) { setPending([]); setPendingVideos([]); return }
+    const [{ data: locData, error: locErr }, { data: vidData, error: vidErr }] = await Promise.all([
+      supabase.from('dekut_locations').select('*').eq('is_verified', false).order('created_at', { ascending: false }),
+      supabase.from('dekut_locations').select('*')
+        .eq('is_verified', true) // only verified locations can have a video queue
+        .neq('video_type', 'none')
+        .eq('is_video_verified', false)
+        .order('created_at', { ascending: false }),
+    ])
+    if (locErr) console.error('loadPending (locations) failed:', locErr)
+    else setPending(locData || [])
+    if (vidErr) console.error('loadPending (videos) failed:', vidErr)
+    else setPendingVideos(vidData || [])
   }, [isAdmin])
 
   useEffect(() => { loadVerified() }, [loadVerified])
@@ -64,15 +70,43 @@ export function useDekutLocations({ userId, isAdmin } = {}) {
   // verified location. Anyone can suggest one — it doesn't need admin
   // approval separately since it's just enriching an already-verified
   // room, not adding a new unverified one.
+  // Attaches a video (upload or external link) to an EXISTING verified
+  // location. Always lands unverified — same moderation model as new
+  // location suggestions. Nothing shows publicly until approveVideo.
   const attachVideo = useCallback(async (locationId, { videoType, videoUrl }) => {
     if (!userId) throw new Error('You need to be signed in to add a video.')
     const { error } = await supabase
       .from('dekut_locations')
-      .update({ video_type: videoType, video_url: videoUrl, video_uploaded_by: userId })
+      .update({
+        video_type: videoType,
+        video_url: videoUrl,
+        video_uploaded_by: userId,
+        is_video_verified: false,
+      })
       .eq('id', locationId)
     if (error) throw error
-    await loadVerified()
-  }, [userId, loadVerified])
+    await Promise.all([loadVerified(), loadPending()])
+  }, [userId, loadVerified, loadPending])
+
+  const approveVideo = useCallback(async (locationId) => {
+    const { error } = await supabase
+      .from('dekut_locations')
+      .update({ is_video_verified: true })
+      .eq('id', locationId)
+    if (error) throw error
+    await Promise.all([loadVerified(), loadPending()])
+  }, [loadVerified, loadPending])
+
+  // Rejecting a video removes it entirely rather than leaving a dead
+  // is_video_verified:false row hanging around forever unresolved.
+  const rejectVideo = useCallback(async (locationId) => {
+    const { error } = await supabase
+      .from('dekut_locations')
+      .update({ video_type: 'none', video_url: null, video_uploaded_by: null, is_video_verified: false })
+      .eq('id', locationId)
+    if (error) throw error
+    await loadPending()
+  }, [loadPending])
   
   const submitLocation = useCallback(async (payload) => {
     if (!userId) throw new Error('You need to be signed in to suggest a location.')
@@ -112,9 +146,9 @@ export function useDekutLocations({ userId, isAdmin } = {}) {
   }, [loadVerified])
 
   return {
-  locations, pending, loading, error,
-  submitLocation, approveLocation, rejectLocation, setMapPosition,
-  uploadLocationVideo, attachVideo,  
-  reload: loadVerified,
-}
+    locations, pending, pendingVideos, loading, error,
+    submitLocation, approveLocation, rejectLocation, setMapPosition,
+    uploadLocationVideo, attachVideo, approveVideo, rejectVideo,
+    reload: loadVerified,
+  }
 }
