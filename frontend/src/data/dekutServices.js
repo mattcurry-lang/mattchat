@@ -42,6 +42,17 @@ export const DEKUT_CATEGORIES = [
         type: 'internal',
         route: 'room-finder',
       },
+      {
+        id: 'fresher-mode',
+        name: 'Fresher Guide',
+        description: 'New to DeKUT? Start here for the essentials.',
+        url: null,
+        icon: 'cap',
+        keywords: ['fresher', 'new student', 'orientation', 'first year', 'guide', 'getting started'],
+        status: 'active',
+        type: 'internal',
+        route: 'fresher-mode',
+      },
     ],
   },
   {
