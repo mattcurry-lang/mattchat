@@ -166,6 +166,31 @@ useEffect(() => {
     await supabase.from('watch_together_sessions').update({ status: 'ended' }).eq('id', session.id)
     setSession(null)
   }, [session])
+  try {
+      const { data: members } = await supabase
+        .from('conversation_members').select('user_id').eq('conversation_id', conversationId)
+      const participantIds = (members || []).map(m => m.user_id)
 
-  return { session, inviteToWatch, acceptInvite, declineInvite, updatePlayback, endSession }
+      await supabase.from('watch_together_history').insert({
+        conversation_id: conversationId,
+        video_id: session.video_id,
+        video_title: videoMeta?.title || null,
+        video_thumbnail_url: videoMeta?.thumbnailUrl || null,
+        started_by: session.started_by,
+        participant_ids: participantIds,
+        transcript: transcriptRef.current,
+        started_at: session.created_at,
+      })
+    } catch (e) {
+      console.error('Could not save watch history:', e)
+    }
+
+    setSession(null)
+  }, [session, conversationId])
+
+  return {
+    session, inviteToWatch, acceptInvite, declineInvite, updatePlayback, endSession,
+    chatMessages, sendWatchMessage,    
+  }
 }
+   
