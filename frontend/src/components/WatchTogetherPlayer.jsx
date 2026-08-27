@@ -16,7 +16,7 @@ function loadYouTubeAPI() {
 
 export default function WatchTogetherPlayer({
   watchSession, onUpdatePlayback, onClose, isHost, mini,
-  currentUserId, chatMessages, onSendChatMessage,
+  currentUserId, chatMessages, onSendChatMessage, typingUsers, onTyping,
 }) {
   const containerRef = useRef(null)
   const playerRef = useRef(null)
@@ -103,6 +103,8 @@ export default function WatchTogetherPlayer({
             currentUserId={currentUserId}
             onSend={onSendChatMessage}
             mini={mini}
+            typingUsers={typingUsers || []}
+            onTyping={onTyping}
           />
         )}
       </div>
