@@ -753,7 +753,8 @@ const { isOnline, getLastSeenLabel } = usePresence(userId)
   const igQuick = useInstagramConnection(session, userId)
    const watchTogether = useWatchTogether(
   activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
-  userId
+  userId,
+  profile?.username
 )
 
   const { callStatus, activeCall, callToken, callError, startCall, answerCall, declineCall, endCall } =
@@ -2105,13 +2106,16 @@ const handleSend = async () => {
   onActivate={() => setActiveConvo(CURRY_AI_CONTACT)}
 />
 
-                {watchTogether.session?.status === 'active' && (
+     {watchTogether.session?.status === 'active' && (
   <WatchTogetherPlayer
     watchSession={watchTogether.session}
     onUpdatePlayback={watchTogether.updatePlayback}
-    onClose={watchTogether.endSession}
+    onClose={() => watchTogether.endSession(watchTogether.videoMeta)}
     isHost={watchTogether.session.started_by === userId}
     mini={activeConvo?.id !== watchTogether.session.conversation_id}
+    currentUserId={userId}
+    chatMessages={watchTogether.chatMessages}
+    onSendChatMessage={watchTogether.sendWatchMessage}
   />
 )}
 
