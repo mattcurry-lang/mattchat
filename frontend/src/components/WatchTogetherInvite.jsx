@@ -2,6 +2,7 @@ import React from 'react'
 
 export default function WatchTogetherInvite({ session, currentUserId, inviterName, onAccept, onDecline }) {
   const isInviter = session.started_by === currentUserId
+  const videoLabel = session.video_title ? `"${session.video_title}"` : 'a video'
 
   return (
     <div style={{
@@ -9,7 +10,9 @@ export default function WatchTogetherInvite({ session, currentUserId, inviterNam
       borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8,
     }}>
       <div style={{ fontSize: 13, color: '#e5e7eb', display: 'flex', alignItems: 'center', gap: 6 }}>
-        🎬 {isInviter ? `Waiting for ${inviterName} to join Watch Together…` : `${inviterName} wants to watch together`}
+        🎬 {isInviter
+          ? `Waiting for ${inviterName} to join Watch Together${session.video_title ? `: ${videoLabel}` : ''}…`
+          : `${inviterName} wants to watch ${videoLabel} together`}
       </div>
       {!isInviter && (
         <div style={{ display: 'flex', gap: 8 }}>
