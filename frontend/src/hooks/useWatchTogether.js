@@ -7,14 +7,18 @@ import { subscribeToChannel } from '../lib/realtimeManager'
 // inviter just closed the tab), treat it as expired client-side rather
 // than showing a stale invite as if it just happened.
 const PENDING_EXPIRY_MS = 5 * 60 * 1000 // 5 minutes
+const TYPING_IDLE_MS = 3000 // clear a peer's "typing" state if no refresh comes in
 
 export function useWatchTogether(conversationId, userId, username) {
   const [session, setSession] = useState(null)
   const [chatMessages, setChatMessages] = useState([])
+  const [typingUsers, setTypingUsers] = useState([]) // [{ userId, username }]
   const lastLocalUpdate = useRef(0)
   const dismissedIdsRef = useRef(new Set())
   const chatChannelRef = useRef(null)
   const transcriptRef = useRef([])
+  const typingTimersRef = useRef(new Map()) // userId -> timeout handle
+  const ownTypingTimerRef = useRef(null)
 
   const loadActive = useCallback(() => {
     if (!conversationId) return
@@ -26,7 +30,8 @@ export function useWatchTogether(conversationId, userId, username) {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) { console.error('[watchTogether] loadActive failed:', error); return }
         const row = data || null
         if (row && dismissedIdsRef.current.has(row.id)) { setSession(null); return }
 
@@ -45,6 +50,7 @@ export function useWatchTogether(conversationId, userId, username) {
 
         setSession(row)
       })
+      .catch((err) => console.error('[watchTogether] loadActive threw:', err))
   }, [conversationId])
 
   useEffect(() => { loadActive() }, [loadActive])
@@ -59,7 +65,6 @@ export function useWatchTogether(conversationId, userId, username) {
       }, (payload) => emit('change', payload)),
       {
         onEvent: (type, payload) => {
-          console.log('[watchTogether] realtime event received:', payload.new)
           const row = payload.new
           if (!row || row.status === 'ended' || row.status === 'declined') { setSession(null); return }
           loadActive()
@@ -70,8 +75,14 @@ export function useWatchTogether(conversationId, userId, username) {
     return unsubscribe
   }, [conversationId, userId, loadActive])
 
-  // ── Watch-together chat (ephemeral broadcast) ──
+  // ── Watch-together chat (ephemeral broadcast: messages + typing) ──
   useEffect(() => {
+    // Clear any leftover typing timers from a previous session
+    typingTimersRef.current.forEach((t) => clearTimeout(t))
+    typingTimersRef.current.clear()
+    if (ownTypingTimerRef.current) { clearTimeout(ownTypingTimerRef.current); ownTypingTimerRef.current = null }
+    setTypingUsers([])
+
     if (!session?.id) {
       chatChannelRef.current?.unsubscribe()
       chatChannelRef.current = null
@@ -82,25 +93,82 @@ export function useWatchTogether(conversationId, userId, username) {
     const channel = supabase.channel(`watch-chat:${session.id}`)
     channel
       .on('broadcast', { event: 'msg' }, ({ payload }) => {
-        setChatMessages(prev => [...prev, payload])
+        // A message arriving is a definitive signal that user stopped typing
+        clearTypingTimer(payload.userId)
+        setTypingUsers((prev) => prev.filter((u) => u.userId !== payload.userId))
+        setChatMessages((prev) => [...prev, payload])
         transcriptRef.current = [...transcriptRef.current, payload]
+      })
+      .on('broadcast', { event: 'typing' }, ({ payload }) => {
+        if (payload.userId === userId) return // ignore our own echo
+        clearTypingTimer(payload.userId)
+
+        if (payload.isTyping) {
+          setTypingUsers((prev) =>
+            prev.some((u) => u.userId === payload.userId)
+              ? prev
+              : [...prev, { userId: payload.userId, username: payload.username || 'Someone' }]
+          )
+          const timer = setTimeout(() => {
+            setTypingUsers((prev) => prev.filter((u) => u.userId !== payload.userId))
+            typingTimersRef.current.delete(payload.userId)
+          }, TYPING_IDLE_MS)
+          typingTimersRef.current.set(payload.userId, timer)
+        } else {
+          setTypingUsers((prev) => prev.filter((u) => u.userId !== payload.userId))
+        }
       })
       .subscribe()
     chatChannelRef.current = channel
-    return () => { channel.unsubscribe() }
-  }, [session?.id])
+
+    function clearTypingTimer(uid) {
+      const t = typingTimersRef.current.get(uid)
+      if (t) { clearTimeout(t); typingTimersRef.current.delete(uid) }
+    }
+
+    return () => {
+      channel.unsubscribe()
+      typingTimersRef.current.forEach((t) => clearTimeout(t))
+      typingTimersRef.current.clear()
+    }
+  }, [session?.id, userId])
 
   const sendWatchMessage = useCallback((text) => {
     if (!session?.id || !chatChannelRef.current) return
     const payload = { userId, username: username || 'Someone', text, ts: Date.now() }
     chatChannelRef.current.send({ type: 'broadcast', event: 'msg', payload })
-    setChatMessages(prev => [...prev, payload])
+    setChatMessages((prev) => [...prev, payload])
     transcriptRef.current = [...transcriptRef.current, payload]
+
+    // Sending a message implicitly ends the typing state
+    if (ownTypingTimerRef.current) { clearTimeout(ownTypingTimerRef.current); ownTypingTimerRef.current = null }
+    chatChannelRef.current.send({ type: 'broadcast', event: 'typing', payload: { userId, username, isTyping: false } })
+  }, [session, userId, username])
+
+  // Call on every keystroke in the composer (debounced internally).
+  // Sends "typing: true" immediately, then auto-clears after idle.
+  const setTyping = useCallback((isTyping) => {
+    if (!session?.id || !chatChannelRef.current) return
+
+    if (isTyping) {
+      chatChannelRef.current.send({ type: 'broadcast', event: 'typing', payload: { userId, username, isTyping: true } })
+      if (ownTypingTimerRef.current) clearTimeout(ownTypingTimerRef.current)
+      ownTypingTimerRef.current = setTimeout(() => {
+        chatChannelRef.current?.send({ type: 'broadcast', event: 'typing', payload: { userId, username, isTyping: false } })
+        ownTypingTimerRef.current = null
+      }, TYPING_IDLE_MS)
+    } else {
+      if (ownTypingTimerRef.current) { clearTimeout(ownTypingTimerRef.current); ownTypingTimerRef.current = null }
+      chatChannelRef.current.send({ type: 'broadcast', event: 'typing', payload: { userId, username, isTyping: false } })
+    }
   }, [session, userId, username])
 
   // Creates a PENDING invite, not a live session — the other person
   // must accept before either side actually watches anything.
-const inviteToWatch = useCallback(async (videoId, videoTitle, videoThumbnailUrl) => {
+  // videoTitle/videoThumbnailUrl are captured at invite-time (from the
+  // YouTubeCard's oEmbed data, which is already loaded there) so
+  // endSession never needs a fresh fetch just to know what to save.
+  const inviteToWatch = useCallback(async (videoId, videoTitle, videoThumbnailUrl) => {
     await supabase.from('watch_together_sessions')
       .update({ status: 'ended' })
       .eq('conversation_id', conversationId)
@@ -151,8 +219,9 @@ const inviteToWatch = useCallback(async (videoId, videoTitle, videoThumbnailUrl)
     }).eq('id', session.id)
   }, [session, userId])
 
-  // Ends the session AND saves it into per-user watch history.
-  // videoMeta is optional: { title, thumbnailUrl }
+  // Ends the session AND saves it into per-user watch history, using
+  // the title/thumbnail captured on the session row at invite-time —
+  // no mid-session fetch needed.
   const endSession = useCallback(async () => {
     if (!session) return
     await supabase.from('watch_together_sessions').update({ status: 'ended' }).eq('id', session.id)
@@ -179,10 +248,8 @@ const inviteToWatch = useCallback(async (videoId, videoTitle, videoThumbnailUrl)
     setSession(null)
   }, [session, conversationId])
 
-  
-
   return {
     session, inviteToWatch, acceptInvite, declineInvite, updatePlayback, endSession,
-    chatMessages, sendWatchMessage,
+    chatMessages, sendWatchMessage, typingUsers, setTyping,
   }
 }
