@@ -126,6 +126,7 @@ function getMessagePreview(content) {
       // not a short payload — fall through to returning raw content
     }
   }
+  if (extractYouTubeId(content)) return 'sent youvid'   // ← ADD HERE, right before the final return
   return content
 }
 
@@ -1665,11 +1666,15 @@ const handleSend = async () => {
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <IconPhone size={11} /> Call
                 </span>
-              ) : (c.last_message?.startsWith('short:') || (c.last_message?.startsWith('{') && c.last_message.includes('"videoId"'))) ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <IconFilm size={11} /> Short
-                </span>
-              ) : getMessagePreview(c.last_message)}
+             ) : (c.last_message?.startsWith('short:') || (c.last_message?.startsWith('{') && c.last_message.includes('"videoId"'))) ? (
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+    <IconFilm size={11} /> Short
+  </span>
+) : extractYouTubeId(c.last_message) ? (          // ← ADD HERE
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+    <IconVideo size={11} /> sent youvid
+  </span>
+) : getMessagePreview(c.last_message)}
             </div>
           )}
         </div>
