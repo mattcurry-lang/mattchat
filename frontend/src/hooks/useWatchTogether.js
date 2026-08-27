@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { subscribeToChannel } from '../lib/realtimeManager'
+import WatchTogetherChatOverlay from './WatchTogetherChatOverlay'
 
 // A 'pending' invite nobody acted on shouldn't keep resurfacing forever
 // — if decline/accept never persisted (e.g. blocked by RLS, or the
@@ -8,10 +9,13 @@ import { subscribeToChannel } from '../lib/realtimeManager'
 // than showing a stale invite as if it just happened.
 const PENDING_EXPIRY_MS = 5 * 60 * 1000 // 5 minutes
 
-export function useWatchTogether(conversationId, userId) {
+export function useWatchTogether(conversationId, userId, username) {
   const [session, setSession] = useState(null)
+  const [chatMessages, setChatMessages] = useState([])    
   const lastLocalUpdate = useRef(0)
-  const dismissedIdsRef = useRef(new Set()) 
+  const dismissedIdsRef = useRef(new Set())
+  const chatChannelRef = useRef(null)                     
+  const transcriptRef = useRef([])  
 
   const loadActive = useCallback(() => {
     if (!conversationId) return
@@ -49,6 +53,7 @@ export function useWatchTogether(conversationId, userId) {
         setSession(row)
       })
   }, [conversationId])
+  
 
   useEffect(() => { loadActive() }, [loadActive])
 useEffect(() => {
@@ -78,11 +83,36 @@ useEffect(() => {
   // must accept before either side actually watches anything.
   const inviteToWatch = useCallback(async (videoId) => {
     // Defensive cleanup: close out any stale pending/active sessions
-    // for this conversation before starting a new one, mirroring the
-    // "one active session per conversation" pattern used for drawing
-    // sessions elsewhere in this app. Without this, old abandoned rows
-    // pile up and can resurface later even after a fresh invite is
-    // handled correctly.
+     useEffect(() => {
+    if (!session?.id) {
+      chatChannelRef.current?.unsubscribe()
+      chatChannelRef.current = null
+      setChatMessages([])
+      transcriptRef.current = []
+      return
+    }
+    const channel = supabase.channel(`watch-chat:${session.id}`)
+    channel
+      .on('broadcast', { event: 'msg' }, ({ payload }) => {
+        setChatMessages(prev => [...prev, payload])
+        transcriptRef.current = [...transcriptRef.current, payload]
+      })
+      .subscribe()
+    chatChannelRef.current = channel
+    return () => { channel.unsubscribe() }
+  }, [session?.id])
+
+  const sendWatchMessage = useCallback((text) => {
+    if (!session?.id || !chatChannelRef.current) return
+    const payload = { userId, username: username || 'Someone', text, ts: Date.now() }
+    chatChannelRef.current.send({ type: 'broadcast', event: 'msg', payload })
+    // Show it locally too — broadcast doesn't echo back to the sender
+    setChatMessages(prev => [...prev, payload])
+    transcriptRef.current = [...transcriptRef.current, payload]
+  }, [session, userId, username])
+
+      const endSession = useCallback(async (videoMeta) => {
+    if (!session) return
     await supabase.from('watch_together_sessions')
       .update({ status: 'ended' })
       .eq('conversation_id', conversationId)
@@ -99,7 +129,14 @@ useEffect(() => {
     setSession(data)
     return data
   }, [conversationId, userId])
-
+{!mini && (
+  <WatchTogetherChatOverlay
+    messages={chatMessages}           
+    currentUserId={currentUserId}      
+    onSend={sendWatchMessage}          
+    mini={mini}
+  />
+)}
   const acceptInvite = useCallback(async () => {
     if (!session) return
     lastLocalUpdate.current = Date.now()
@@ -112,7 +149,7 @@ useEffect(() => {
 
   const declineInvite = useCallback(async () => {
     if (!session) return
-    dismissedIdsRef.current.add(session.id)          // ← NEW: never show this id again locally
+    dismissedIdsRef.current.add(session.id)          
     setSession(null)
     const { error, data } = await supabase.from('watch_together_sessions')
       .update({ status: 'declined' })
