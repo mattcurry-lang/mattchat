@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { subscribeToChannel } from '../lib/realtimeManager'
-import WatchTogetherChatOverlay from './WatchTogetherChatOverlay'
+ 
 
 // A 'pending' invite nobody acted on shouldn't keep resurfacing forever
 // — if decline/accept never persisted (e.g. blocked by RLS, or the
@@ -129,14 +129,7 @@ useEffect(() => {
     setSession(data)
     return data
   }, [conversationId, userId])
-{!mini && (
-  <WatchTogetherChatOverlay
-    messages={chatMessages}           
-    currentUserId={currentUserId}      
-    onSend={sendWatchMessage}          
-    mini={mini}
-  />
-)}
+ 
   const acceptInvite = useCallback(async () => {
     if (!session) return
     lastLocalUpdate.current = Date.now()
