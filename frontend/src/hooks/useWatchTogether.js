@@ -179,8 +179,7 @@ const inviteToWatch = useCallback(async (videoId, videoTitle, videoThumbnailUrl)
     setSession(null)
   }, [session, conversationId])
 
-    setSession(null)
-  }, [session, conversationId])
+  
 
   return {
     session, inviteToWatch, acceptInvite, declineInvite, updatePlayback, endSession,
