@@ -4,6 +4,15 @@
 // table — verified rows are searchable by everyone; students can suggest
 // new ones and attach walkthrough videos; admins moderate both queues and
 // place pins on the schematic map.
+//
+// FIX: this component is always mounted inside a hardcoded-dark fullscreen
+// overlay (see PulsePage.jsx — background: var(--bg-surface-1, #0f0f1a)),
+// but it was using var(--text-primary)/var(--text-secondary) for its own
+// text. Those variables flip to dark colors in light mode, so on a
+// permanently-dark background you got dark text on a dark box — invisible.
+// Same root cause as the DekutServicesModal search-box bug. Fixed here by
+// hardcoding light, guaranteed-contrast colors for every piece of text and
+// icon in this file instead of trusting theme variables.
 
 import React, { useState, useMemo } from 'react'
 import { DekutIcon, ICON_GRADIENTS } from './dekutIcons'
@@ -11,6 +20,11 @@ import { useDekutLocations } from '../../hooks/useDekutLocations'
 import SuggestLocationForm from './SuggestLocationForm'
 import AddVideoModal from './AddVideoModal'
 import DekutCampusMap from './DekutCampusMap'
+
+const TEXT_PRIMARY = '#f5f5fa'
+const TEXT_SECONDARY = 'rgba(245,245,250,0.6)'
+const BORDER = 'rgba(245,245,250,0.14)'
+const SURFACE = 'rgba(245,245,250,0.06)'
 
 const CATEGORY_LABELS = {
   lecture: 'Lecture Room', office: 'Office', facility: 'Facility',
@@ -48,9 +62,6 @@ function LocationVideo({ videoType, videoUrl }) {
     )
   }
 
-  // Link mode — try to embed YouTube specifically, since it's the most
-  // likely source and embeds cleanly; anything else gets a clear link
-  // out rather than a broken iframe.
   const ytMatch = videoUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{6,})/)
   if (ytMatch) {
     return (
@@ -67,16 +78,16 @@ function LocationVideo({ videoType, videoUrl }) {
   }
 
   return (
-    
-      <a href={videoUrl}
+    <a
+      href={videoUrl}
       target="_blank"
       rel="noopener noreferrer"
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8,
-        fontSize: 11.5, fontWeight: 700, color: '#a78bfa', textDecoration: 'none',
+        fontSize: 11.5, fontWeight: 700, color: '#c4b5fd', textDecoration: 'none',
       }}
     >
-      🎥 Watch walkthrough video <DekutIcon type="externalLink" size={12} color="#a78bfa" strokeWidth={2} />
+      🎥 Watch walkthrough video <DekutIcon type="externalLink" size={12} color="#c4b5fd" strokeWidth={2} />
     </a>
   )
 }
@@ -86,29 +97,29 @@ function LocationCard({ loc, onAddVideo }) {
 
   return (
     <div style={{
-      background: 'var(--bg-surface-2)', border: '1px solid var(--border)',
+      background: SURFACE, border: `1px solid ${BORDER}`,
       borderRadius: 14, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4,
     }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>{loc.name}</div>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: TEXT_PRIMARY }}>{loc.name}</div>
         {hasApprovedVideo && (
           <span style={{
-            fontSize: 10, fontWeight: 700, color: '#a78bfa', border: '1px solid rgba(167,139,250,0.35)',
+            fontSize: 10, fontWeight: 700, color: '#c4b5fd', border: '1px solid rgba(167,139,250,0.4)',
             borderRadius: 999, padding: '2px 8px', flexShrink: 0, whiteSpace: 'nowrap',
           }}>
             🎥 Has video
           </span>
         )}
       </div>
-      <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
+      <div style={{ fontSize: 11.5, color: TEXT_SECONDARY }}>
         {CATEGORY_LABELS[loc.category] || 'Location'}
         {loc.building ? ` · ${loc.building}` : ''}
         {loc.floor ? ` · ${loc.floor}` : ''}
         {loc.room_number ? ` · Room ${loc.room_number}` : ''}
       </div>
-      {loc.landmark && <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>📍 {loc.landmark}</div>}
+      {loc.landmark && <div style={{ fontSize: 11.5, color: TEXT_SECONDARY }}>📍 {loc.landmark}</div>}
       {loc.walking_distance_min && (
-        <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>🚶 ~{loc.walking_distance_min} min walk</div>
+        <div style={{ fontSize: 11.5, color: TEXT_SECONDARY }}>🚶 ~{loc.walking_distance_min} min walk</div>
       )}
 
       {hasApprovedVideo && <LocationVideo videoType={loc.video_type} videoUrl={loc.video_url} />}
@@ -117,9 +128,9 @@ function LocationCard({ loc, onAddVideo }) {
         <button
           onClick={() => onAddVideo(loc)}
           style={{
-            marginTop: 8, alignSelf: 'flex-start', background: 'none', border: '1px dashed var(--border)',
+            marginTop: 8, alignSelf: 'flex-start', background: 'none', border: `1px dashed ${BORDER}`,
             borderRadius: 999, padding: '5px 11px', cursor: 'pointer', fontFamily: 'inherit',
-            fontSize: 11, fontWeight: 700, color: 'var(--text-primary)',
+            fontSize: 11, fontWeight: 700, color: TEXT_PRIMARY,
           }}
         >
           {hasApprovedVideo ? '+ Add another video' : '🎥 Add a video'}
@@ -148,10 +159,10 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
     <div style={{ maxWidth: 640, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: TEXT_PRIMARY, display: 'flex', alignItems: 'center', gap: 6 }}>
             <span aria-hidden="true">📍</span> Find a Room
           </div>
-          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4 }}>
+          <div style={{ fontSize: 12.5, color: TEXT_SECONDARY, marginTop: 4 }}>
             Search for a room, office or facility on campus.
           </div>
         </div>
@@ -160,12 +171,12 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
             onClick={onClose}
             aria-label="Close Room Finder"
             style={{
-              background: 'var(--bg-surface-1, rgba(0,0,0,0.06))', border: '1px solid var(--border)',
+              background: SURFACE, border: `1px solid ${BORDER}`,
               borderRadius: 10, width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', flexShrink: 0,
             }}
           >
-            <DekutIcon type="x" size={16} color="var(--text-primary)" strokeWidth={2.2} />
+            <DekutIcon type="x" size={16} color={TEXT_PRIMARY} strokeWidth={2.2} />
           </button>
         )}
       </div>
@@ -185,9 +196,9 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
               style={{
                 fontSize: 11.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
                 borderRadius: 999, padding: '6px 14px',
-                border: `1px solid ${active ? 'transparent' : 'var(--border)'}`,
+                border: `1px solid ${active ? 'transparent' : BORDER}`,
                 background: active ? 'linear-gradient(135deg,#a78bfa,#6c63ff)' : 'transparent',
-                color: active ? '#fff' : 'var(--text-secondary)',
+                color: active ? '#fff' : TEXT_SECONDARY,
               }}
             >
               {t.label}
@@ -200,10 +211,10 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
         <>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8,
-            border: '1px solid var(--border)', borderRadius: 12, padding: '10px 12px',
-            background: 'var(--bg-surface-1, rgba(0,0,0,0.03))', marginBottom: 12,
+            border: `1px solid ${BORDER}`, borderRadius: 12, padding: '10px 12px',
+            background: SURFACE, marginBottom: 12,
           }}>
-            <DekutIcon type="search" size={16} color="var(--text-secondary)" strokeWidth={2} />
+            <DekutIcon type="search" size={16} color={TEXT_SECONDARY} strokeWidth={2} />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -211,15 +222,15 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
               autoFocus
               style={{
                 border: 'none', outline: 'none', background: 'transparent',
-                fontSize: 13.5, color: 'var(--text-primary)', width: '100%', fontFamily: 'inherit',
+                fontSize: 13.5, color: TEXT_PRIMARY, width: '100%', fontFamily: 'inherit',
               }}
             />
           </div>
 
-          {loading && <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', padding: '10px 2px' }}>Loading locations…</div>}
+          {loading && <div style={{ fontSize: 12.5, color: TEXT_SECONDARY, padding: '10px 2px' }}>Loading locations…</div>}
 
           {!loading && results.length === 0 && (
-            <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', padding: '10px 2px' }}>
+            <div style={{ fontSize: 12.5, color: TEXT_SECONDARY, padding: '10px 2px' }}>
               {locations.length === 0 ? "No verified locations yet — be the first to suggest one." : 'No matches. Try a different word.'}
             </div>
           )}
@@ -238,9 +249,9 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
             onClick={() => setShowSuggest(true)}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              width: '100%', marginTop: 14, background: 'transparent', border: '1px dashed var(--border)',
+              width: '100%', marginTop: 14, background: 'transparent', border: `1px dashed ${BORDER}`,
               borderRadius: 14, padding: '11px 12px', cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: 13, fontWeight: 700, color: 'var(--text-primary)',
+              fontSize: 13, fontWeight: 700, color: TEXT_PRIMARY,
             }}
           >
             + Suggest a location
@@ -259,16 +270,16 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
       {tab === 'pending' && isAdmin && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: TEXT_PRIMARY, marginBottom: 8 }}>
               New locations
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {pending.length === 0 && (
-                <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', padding: '4px 2px' }}>Nothing to review.</div>
+                <div style={{ fontSize: 12.5, color: TEXT_SECONDARY, padding: '4px 2px' }}>Nothing to review.</div>
               )}
               {pending.map((loc) => (
                 <div key={loc.id} style={{
-                  background: 'var(--bg-surface-2)', border: '1px solid var(--border)',
+                  background: SURFACE, border: `1px solid ${BORDER}`,
                   borderRadius: 14, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6,
                 }}>
                   <LocationCard loc={loc} />
@@ -286,7 +297,7 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
                     <button
                       onClick={() => rejectLocation(loc.id)}
                       style={{
-                        flex: 1, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                        flex: 1, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)',
                         borderRadius: 10, color: '#f87171', fontWeight: 700, fontSize: 12, padding: '8px 0',
                         cursor: 'pointer', fontFamily: 'inherit',
                       }}
@@ -300,19 +311,19 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
           </div>
 
           <div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: TEXT_PRIMARY, marginBottom: 8 }}>
               Videos awaiting review
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {pendingVideos.length === 0 && (
-                <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', padding: '4px 2px' }}>Nothing to review.</div>
+                <div style={{ fontSize: 12.5, color: TEXT_SECONDARY, padding: '4px 2px' }}>Nothing to review.</div>
               )}
               {pendingVideos.map((loc) => (
                 <div key={loc.id} style={{
-                  background: 'var(--bg-surface-2)', border: '1px solid var(--border)',
+                  background: SURFACE, border: `1px solid ${BORDER}`,
                   borderRadius: 14, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6,
                 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>{loc.name}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: TEXT_PRIMARY }}>{loc.name}</div>
                   <LocationVideo videoType={loc.video_type} videoUrl={loc.video_url} />
                   <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                     <button
@@ -328,7 +339,7 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
                     <button
                       onClick={() => rejectVideo(loc.id)}
                       style={{
-                        flex: 1, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                        flex: 1, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)',
                         borderRadius: 10, color: '#f87171', fontWeight: 700, fontSize: 12, padding: '8px 0',
                         cursor: 'pointer', fontFamily: 'inherit',
                       }}
