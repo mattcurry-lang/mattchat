@@ -121,10 +121,10 @@ export default function YouTubeCard({ videoId, onPlay, onWatchTogether, session 
       </button>
 
       {onWatchTogether && (
-        <button onClick={() => onWatchTogether(videoId)} style={{ marginTop: 6, background: 'rgba(102,126,234,0.15)', border: '1px solid rgba(102,126,234,0.4)', borderRadius: 10, color: '#a5b4fc', fontSize: 11.5, fontWeight: 700, padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}>
-          🎬 Watch Together
-        </button>
-      )}
+  <button onClick={() => onWatchTogether(videoId, meta.title, meta.thumbnailUrl)} style={{ ... }}>
+    🎬 Watch Together
+  </button>
+)}
 
       {showAI && (
         <div style={{ marginTop: 8, background: 'var(--bg-surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
