@@ -29,6 +29,10 @@ import {
 // deterministic (active hour, message length, voice-note usage all
 // come straight from timestamps/message_type), with a small AI-read
 // layer on top for topics/traits, same live-per-open pattern as Mood.
+//
+// Phase 5 adds a fifth "Watch" tab — Watch Together history, read
+// straight from the watch_together_history table (populated by
+// useWatchTogether's endSession). Purely factual, no AI.
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -463,14 +467,110 @@ function PersonalityView({ conversationId, session, contactName, active }) {
   )
 }
 
+// ── Watch History (Phase 5) ───────────────────────────────────────
+// Purely factual — reads directly from watch_together_history, which
+// useWatchTogether's endSession writes to. No AI, nothing derived.
+function useWatchHistory(conversationId, active) {
+  const [items, setItems] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [fetchedFor, setFetchedFor] = useState(null)
+
+  const fetchHistory = useCallback(async () => {
+    if (!conversationId) return
+    setLoading(true)
+    setError('')
+    const { data, error } = await supabase
+      .from('watch_together_history')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('ended_at', { ascending: false })
+      .limit(25)
+    if (error) {
+      setError('Could not load watch history')
+    } else {
+      setItems(data || [])
+      setFetchedFor(conversationId)
+    }
+    setLoading(false)
+  }, [conversationId])
+
+  useEffect(() => {
+    if (active && conversationId && fetchedFor !== conversationId) fetchHistory()
+  }, [active, conversationId, fetchedFor, fetchHistory])
+
+  return { items, loading, error, refresh: fetchHistory }
+}
+
+function formatWatchDate(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const now = new Date()
+  const sameYear = d.getFullYear() === now.getFullYear()
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) })
+}
+
+function WatchHistoryView({ conversationId, contactName, active, onRewatch }) {
+  const { items, loading, error, refresh } = useWatchHistory(conversationId, active)
+
+  if (loading && !items) return <div style={s.empty}>Loading watch history…</div>
+
+  if (error) {
+    return (
+      <div style={s.empty}>
+        {error}{' '}
+        <button style={s.retryBtn} onClick={refresh}>Try again</button>
+      </div>
+    )
+  }
+
+  if (!items || items.length === 0) {
+    return <div style={s.empty}>No Watch Together sessions with {contactName} yet.</div>
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {items.map((item) => {
+        const msgCount = Array.isArray(item.transcript) ? item.transcript.length : 0
+        const clickable = typeof onRewatch === 'function'
+        return (
+          <div
+            key={item.id}
+            onClick={clickable ? () => onRewatch(item.video_id) : undefined}
+            style={{ ...s.watchRow, cursor: clickable ? 'pointer' : 'default' }}
+          >
+            {item.video_thumbnail_url ? (
+              <img src={item.video_thumbnail_url} alt={item.video_title || ''} style={s.watchThumb} />
+            ) : (
+              <div style={{ ...s.watchThumb, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.06)' }}>
+                <IconVideo size={16} style={{ color: '#6b7280' }} />
+              </div>
+            )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={s.watchTitle}>{item.video_title || 'Untitled video'}</div>
+              <div style={s.watchMeta}>
+                {formatWatchDate(item.ended_at)}
+                {item.participant_ids?.length > 0 && ` · ${item.participant_ids.length} watched`}
+                {msgCount > 0 && ` · ${msgCount} chat msg${msgCount === 1 ? '' : 's'}`}
+              </div>
+            </div>
+          </div>
+        )
+      })}
+      <div style={s.footnote}>Watch Together sessions with {contactName} — logged automatically when a session ends.</div>
+    </div>
+  )
+}
+
 const TABS = [
   { id: 'score', label: 'Score', Icon: IconChart },
   { id: 'timeline', label: 'Timeline', Icon: IconHistory },
   { id: 'mood', label: 'Mood', Icon: IconThermometer },
   { id: 'profile', label: 'Profile', Icon: IconDna },
+  { id: 'watch', label: 'Watch', Icon: IconVideo },
 ]
 
-export default function RelationshipInsights({ messages, currentUserId, contactName, conversationId, session, onClose }) {
+export default function RelationshipInsights({ messages, currentUserId, contactName, conversationId, session, onClose, onRewatchVideo }) {
   const [tab, setTab] = useState('score')
   const insights = useMemo(() => computeInsights(messages, currentUserId), [messages, currentUserId])
   const activeTabMeta = TABS.find(t => t.id === tab)
@@ -480,6 +580,7 @@ export default function RelationshipInsights({ messages, currentUserId, contactN
     timeline: `Timeline with ${contactName}`,
     mood: `Mood with ${contactName}`,
     profile: `Profile of ${contactName}`,
+    watch: `Watch History with ${contactName}`,
   }
 
   return (
@@ -506,6 +607,8 @@ export default function RelationshipInsights({ messages, currentUserId, contactN
         <MoodView conversationId={conversationId} session={session} contactName={contactName} active={tab === 'mood'} />
       ) : tab === 'profile' ? (
         <PersonalityView conversationId={conversationId} session={session} contactName={contactName} active={tab === 'profile'} />
+      ) : tab === 'watch' ? (
+        <WatchHistoryView conversationId={conversationId} contactName={contactName} active={tab === 'watch'} onRewatch={onRewatchVideo} />
       ) : !insights ? (
         <div style={s.empty}>Not enough messages yet to show insights.</div>
       ) : (
@@ -564,18 +667,18 @@ const s = {
   title: { fontSize: 13, fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: 7, letterSpacing: '-0.01em' },
   closeBtn: { background: 'none', border: 'none', color: '#666', cursor: 'pointer', display: 'flex', alignItems: 'center' },
   empty: { fontSize: 13, color: '#9ca3af', padding: '8px 0' },
-  tabRow: { display: 'flex', gap: 6, marginBottom: 2 },
+  tabRow: { display: 'flex', gap: 6, marginBottom: 2, flexWrap: 'wrap' },
   tab: {
     flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
     background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
     borderRadius: 10, color: '#9ca3af', fontSize: 11.5, fontWeight: 700, padding: '7px 0', cursor: 'pointer',
-    fontFamily: 'inherit',
+    fontFamily: 'inherit', minWidth: 64,
   },
   tabActive: {
     flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
     background: 'rgba(167,139,250,0.18)', border: '1px solid rgba(167,139,250,0.4)',
     borderRadius: 10, color: '#c4b5fd', fontSize: 11.5, fontWeight: 700, padding: '7px 0', cursor: 'pointer',
-    fontFamily: 'inherit',
+    fontFamily: 'inherit', minWidth: 64,
   },
   timelineList: { display: 'flex', flexDirection: 'column', gap: 10 },
   timelineRow: { display: 'flex', alignItems: 'center', gap: 12 },
@@ -634,5 +737,16 @@ const s = {
     background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(167,139,250,0.25)',
     borderRadius: 20, color: '#e9d5ff', fontSize: 11.5, fontWeight: 600, padding: '4px 10px',
   },
+  watchRow: {
+    display: 'flex', alignItems: 'center', gap: 10,
+    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 12, padding: 8,
+  },
+  watchThumb: { width: 64, height: 36, borderRadius: 8, objectFit: 'cover', flexShrink: 0 },
+  watchTitle: {
+    fontSize: 12.5, fontWeight: 700, color: '#fff',
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+  },
+  watchMeta: { fontSize: 10.5, color: '#9ca3af', fontWeight: 600, marginTop: 2 },
   footnote: { fontSize: 10.5, color: 'rgba(255,255,255,0.3)', textAlign: 'center' },
 }
