@@ -100,9 +100,7 @@ export function useWatchTogether(conversationId, userId, username) {
 
   // Creates a PENDING invite, not a live session — the other person
   // must accept before either side actually watches anything.
-  const inviteToWatch = useCallback(async (videoId) => {
-    // Defensive cleanup: close out any stale pending/active sessions
-    // for this conversation before starting a new one.
+const inviteToWatch = useCallback(async (videoId, videoTitle, videoThumbnailUrl) => {
     await supabase.from('watch_together_sessions')
       .update({ status: 'ended' })
       .eq('conversation_id', conversationId)
@@ -111,6 +109,8 @@ export function useWatchTogether(conversationId, userId, username) {
     const { data, error } = await supabase.from('watch_together_sessions').insert({
       conversation_id: conversationId,
       video_id: videoId,
+      video_title: videoTitle || null,
+      video_thumbnail_url: videoThumbnailUrl || null,
       started_by: userId,
       last_updated_by: userId,
       status: 'pending',
