@@ -100,10 +100,9 @@ export function useWatchTogether(conversationId, userId, username) {
 
   // Creates a PENDING invite, not a live session — the other person
   // must accept before either side actually watches anything.
-  // videoTitle/videoThumbnailUrl are captured at invite-time (from the
-  // YouTubeCard's oEmbed data, which is already loaded there) so
-  // endSession never needs a fresh fetch just to know what to save.
-  const inviteToWatch = useCallback(async (videoId, videoTitle, videoThumbnailUrl) => {
+  const inviteToWatch = useCallback(async (videoId) => {
+    // Defensive cleanup: close out any stale pending/active sessions
+    // for this conversation before starting a new one.
     await supabase.from('watch_together_sessions')
       .update({ status: 'ended' })
       .eq('conversation_id', conversationId)
@@ -112,8 +111,6 @@ export function useWatchTogether(conversationId, userId, username) {
     const { data, error } = await supabase.from('watch_together_sessions').insert({
       conversation_id: conversationId,
       video_id: videoId,
-      video_title: videoTitle || null,
-      video_thumbnail_url: videoThumbnailUrl || null,
       started_by: userId,
       last_updated_by: userId,
       status: 'pending',
@@ -154,10 +151,9 @@ export function useWatchTogether(conversationId, userId, username) {
     }).eq('id', session.id)
   }, [session, userId])
 
-  // Ends the session AND saves it into per-user watch history, using
-  // the title/thumbnail captured on the session row at invite-time —
-  // no mid-session fetch needed.
-  const endSession = useCallback(async () => {
+  // Ends the session AND saves it into per-user watch history.
+  // videoMeta is optional: { title, thumbnailUrl }
+  const endSession = useCallback(async (videoMeta) => {
     if (!session) return
     await supabase.from('watch_together_sessions').update({ status: 'ended' }).eq('id', session.id)
 
@@ -169,8 +165,8 @@ export function useWatchTogether(conversationId, userId, username) {
       await supabase.from('watch_together_history').insert({
         conversation_id: conversationId,
         video_id: session.video_id,
-        video_title: session.video_title || null,
-        video_thumbnail_url: session.video_thumbnail_url || null,
+        video_title: videoMeta?.title || null,
+        video_thumbnail_url: videoMeta?.thumbnailUrl || null,
         started_by: session.started_by,
         participant_ids: participantIds,
         transcript: transcriptRef.current,
@@ -179,9 +175,6 @@ export function useWatchTogether(conversationId, userId, username) {
     } catch (e) {
       console.error('Could not save watch history:', e)
     }
-
-    setSession(null)
-  }, [session, conversationId])
 
     setSession(null)
   }, [session, conversationId])
