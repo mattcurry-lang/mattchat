@@ -2106,11 +2106,11 @@ const handleSend = async () => {
   onActivate={() => setActiveConvo(CURRY_AI_CONTACT)}
 />
 
-     {watchTogether.session?.status === 'active' && (
+    {watchTogether.session?.status === 'active' && (
   <WatchTogetherPlayer
     watchSession={watchTogether.session}
     onUpdatePlayback={watchTogether.updatePlayback}
-    onClose={() => watchTogether.endSession(watchTogether.videoMeta)}
+    onClose={watchTogether.endSession}
     isHost={watchTogether.session.started_by === userId}
     mini={activeConvo?.id !== watchTogether.session.conversation_id}
     currentUserId={userId}
@@ -2357,8 +2357,9 @@ const handleSend = async () => {
     _currentUserId: userId,
     _quotedMessage: msg.reply_to_message_id ? findMessageById(msg.reply_to_message_id) : null,
 _onPlayYouTube: (videoId, startSeconds) => setYoutubePlayer({ videoId, mini: false, startSeconds }),
-_onWatchTogether: (videoId) => {
-  watchTogether.inviteToWatch(videoId).catch((e) => alert('Could not start Watch Together: ' + e.message))
+_onWatchTogether: (videoId, videoTitle, videoThumbnailUrl) => {
+  watchTogether.inviteToWatch(videoId, videoTitle, videoThumbnailUrl)
+    .catch((e) => alert('Could not start Watch Together: ' + e.message))
 },
  _onOpenShort: (video) => { setShortsInitialVideo(video); setShowShorts(true) },
   }}
