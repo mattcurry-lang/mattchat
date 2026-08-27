@@ -14,7 +14,10 @@ function loadYouTubeAPI() {
   return apiLoadPromise
 }
 
-export default function WatchTogetherPlayer({ watchSession, onUpdatePlayback, onClose, isHost, mini }) {
+export default function WatchTogetherPlayer({
+  watchSession, onUpdatePlayback, onClose, isHost, mini,
+  currentUserId, chatMessages, onSendChatMessage,
+}) {
   const containerRef = useRef(null)
   const playerRef = useRef(null)
   const applyingRemoteUpdate = useRef(false)
@@ -33,7 +36,7 @@ export default function WatchTogetherPlayer({ watchSession, onUpdatePlayback, on
             if (watchSession.playback_state === 'playing') e.target.playVideo()
           },
           onStateChange: (e) => {
-            if (applyingRemoteUpdate.current) return // don't echo remote-driven changes back out
+            if (applyingRemoteUpdate.current) return
             const YTState = window.YT.PlayerState
             if (e.data === YTState.PLAYING) {
               onUpdatePlayback({ playback_state: 'playing', playback_position: playerRef.current.getCurrentTime() })
@@ -46,16 +49,7 @@ export default function WatchTogetherPlayer({ watchSession, onUpdatePlayback, on
     })
     return () => { cancelled = true; playerRef.current?.destroy?.() }
   }, [watchSession.video_id])
-{!mini && (
-  <WatchTogetherChatOverlay
-    messages={chatMessages}          // from useWatchTogether — see below
-    currentUserId={currentUserId}     // needs to be passed in as a prop
-    onSend={sendWatchMessage}         // from useWatchTogether
-    mini={mini}
-  />
-)}
-  // Periodically broadcast position while playing, so a late joiner
-  // or someone whose socket dropped can resync without a hard cut.
+
   useEffect(() => {
     broadcastTimer.current = setInterval(() => {
       if (!playerRef.current?.getPlayerState) return
@@ -67,15 +61,10 @@ export default function WatchTogetherPlayer({ watchSession, onUpdatePlayback, on
     return () => clearInterval(broadcastTimer.current)
   }, [onUpdatePlayback])
 
-  // Applies a remote update (someone else played/paused/seeked) to
-  // this local player instance, guarding against re-triggering our
-  // own onStateChange handler in a loop.
   const applyRemote = useCallback((state, position) => {
     if (!playerRef.current) return
     applyingRemoteUpdate.current = true
     const localTime = playerRef.current.getCurrentTime?.() || 0
-    // Only seek if drift is significant — small gaps aren't worth a
-    // jarring correction every update.
     if (Math.abs(localTime - position) > 2) {
       playerRef.current.seekTo(position, true)
     }
@@ -107,6 +96,15 @@ export default function WatchTogetherPlayer({ watchSession, onUpdatePlayback, on
           : { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '90vw', maxWidth: 900, aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden', zIndex: 600, background: '#000' }
       }>
         <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+
+        {!mini && (
+          <WatchTogetherChatOverlay
+            messages={chatMessages || []}
+            currentUserId={currentUserId}
+            onSend={onSendChatMessage}
+            mini={mini}
+          />
+        )}
       </div>
     </>
   )
