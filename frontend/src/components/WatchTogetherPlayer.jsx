@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useCallback } from 'react'
+import WatchTogetherChatOverlay from './WatchTogetherChatOverlay'
 
 let apiLoadPromise = null
 function loadYouTubeAPI() {
@@ -45,7 +46,14 @@ export default function WatchTogetherPlayer({ watchSession, onUpdatePlayback, on
     })
     return () => { cancelled = true; playerRef.current?.destroy?.() }
   }, [watchSession.video_id])
-
+{!mini && (
+  <WatchTogetherChatOverlay
+    messages={chatMessages}          // from useWatchTogether — see below
+    currentUserId={currentUserId}     // needs to be passed in as a prop
+    onSend={sendWatchMessage}         // from useWatchTogether
+    mini={mini}
+  />
+)}
   // Periodically broadcast position while playing, so a late joiner
   // or someone whose socket dropped can resync without a hard cut.
   useEffect(() => {
