@@ -153,7 +153,7 @@ const inviteToWatch = useCallback(async (videoId, videoTitle, videoThumbnailUrl)
 
   // Ends the session AND saves it into per-user watch history.
   // videoMeta is optional: { title, thumbnailUrl }
-  const endSession = useCallback(async (videoMeta) => {
+  const endSession = useCallback(async () => {
     if (!session) return
     await supabase.from('watch_together_sessions').update({ status: 'ended' }).eq('id', session.id)
 
@@ -165,8 +165,8 @@ const inviteToWatch = useCallback(async (videoId, videoTitle, videoThumbnailUrl)
       await supabase.from('watch_together_history').insert({
         conversation_id: conversationId,
         video_id: session.video_id,
-        video_title: videoMeta?.title || null,
-        video_thumbnail_url: videoMeta?.thumbnailUrl || null,
+        video_title: session.video_title || null,
+        video_thumbnail_url: session.video_thumbnail_url || null,
         started_by: session.started_by,
         participant_ids: participantIds,
         transcript: transcriptRef.current,
@@ -175,6 +175,9 @@ const inviteToWatch = useCallback(async (videoId, videoTitle, videoThumbnailUrl)
     } catch (e) {
       console.error('Could not save watch history:', e)
     }
+
+    setSession(null)
+  }, [session, conversationId])
 
     setSession(null)
   }, [session, conversationId])
