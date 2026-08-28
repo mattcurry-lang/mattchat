@@ -3,17 +3,24 @@
 // "Suggest a location" — the crowdsourcing half of the Room Finder
 // (spec §4). Any student can submit one; it's invisible to everyone but
 // them and admins until an admin approves it (see dekut_locations RLS).
+//
+// FIX: this modal always renders on a hardcoded-dark backdrop, but its
+// inputs/labels used var(--text-primary)/var(--border), which flip dark
+// in light mode — dark text on a dark input, invisible. Same bug as
+// DekutServicesModal's search box and RoomFinder.jsx. Fixed by hardcoding
+// guaranteed-contrast colors throughout instead of trusting theme vars —
+// EVERY style below now uses the constants, not just declares them.
 
 import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { DekutIcon } from './dekutIcons'
-
 
 const TEXT_PRIMARY = '#f5f5fa'
 const TEXT_SECONDARY = 'rgba(245,245,250,0.6)'
 const BORDER = 'rgba(245,245,250,0.16)'
 const SURFACE = 'rgba(245,245,250,0.07)'
 const PANEL_BG = 'rgba(20,20,31,0.98)'
+
 const CATEGORIES = [
   { id: 'lecture', label: 'Lecture Room' },
   { id: 'office', label: 'Office' },
@@ -24,11 +31,11 @@ const CATEGORIES = [
 ]
 
 const inputStyle = {
-  width: '100%', border: '1px solid var(--border)', borderRadius: 10,
-  padding: '9px 12px', fontSize: 13, color: 'var(--text-primary)',
-  background: 'var(--bg-surface-1, rgba(0,0,0,0.03))', fontFamily: 'inherit',
+  width: '100%', border: `1px solid ${BORDER}`, borderRadius: 10,
+  padding: '9px 12px', fontSize: 13, color: TEXT_PRIMARY,
+  background: SURFACE, fontFamily: 'inherit',
 }
-const labelStyle = { fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 5, display: 'block' }
+const labelStyle = { fontSize: 11.5, fontWeight: 700, color: TEXT_SECONDARY, marginBottom: 5, display: 'block' }
 
 export default function SuggestLocationForm({ onSubmit, onClose }) {
   const [name, setName] = useState('')
@@ -77,23 +84,23 @@ export default function SuggestLocationForm({ onSubmit, onClose }) {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: '100%', maxWidth: 420, background: 'var(--bg-surface-2)',
-          border: '1px solid var(--border)', borderRadius: 20, padding: 20,
+          width: '100%', maxWidth: 420, background: PANEL_BG,
+          border: `1px solid ${BORDER}`, borderRadius: 20, padding: 20,
           maxHeight: '85vh', overflowY: 'auto',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>📍 Suggest a Location</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: TEXT_PRIMARY }}>📍 Suggest a Location</div>
           <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
-            <DekutIcon type="x" size={16} color="var(--text-primary)" strokeWidth={2.2} />
+            <DekutIcon type="x" size={16} color={TEXT_PRIMARY} strokeWidth={2.2} />
           </button>
         </div>
 
         {done ? (
           <div style={{ padding: '18px 0', textAlign: 'center' }}>
             <div style={{ fontSize: 28, marginBottom: 8 }}>✅</div>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>Thanks!</div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: TEXT_PRIMARY }}>Thanks!</div>
+            <div style={{ fontSize: 12, color: TEXT_SECONDARY, marginTop: 4 }}>
               This will show up in Room Finder once it's reviewed and approved.
             </div>
             <button
@@ -109,7 +116,7 @@ export default function SuggestLocationForm({ onSubmit, onClose }) {
           </div>
         ) : (
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 14 }}>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+            <div style={{ fontSize: 12, color: TEXT_SECONDARY, lineHeight: 1.4 }}>
               Help other students find this place — only submit locations you're sure about.
             </div>
 
@@ -121,7 +128,11 @@ export default function SuggestLocationForm({ onSubmit, onClose }) {
             <div>
               <label style={labelStyle}>Category</label>
               <select style={inputStyle} value={category} onChange={(e) => setCategory(e.target.value)}>
-                {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+                {CATEGORIES.map((c) => (
+                  <option key={c.id} value={c.id} style={{ background: PANEL_BG, color: TEXT_PRIMARY }}>
+                    {c.label}
+                  </option>
+                ))}
               </select>
             </div>
 
