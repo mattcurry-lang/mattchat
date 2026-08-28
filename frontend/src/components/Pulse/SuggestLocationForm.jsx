@@ -8,6 +8,12 @@ import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { DekutIcon } from './dekutIcons'
 
+
+const TEXT_PRIMARY = '#f5f5fa'
+const TEXT_SECONDARY = 'rgba(245,245,250,0.6)'
+const BORDER = 'rgba(245,245,250,0.16)'
+const SURFACE = 'rgba(245,245,250,0.07)'
+const PANEL_BG = 'rgba(20,20,31,0.98)'
 const CATEGORIES = [
   { id: 'lecture', label: 'Lecture Room' },
   { id: 'office', label: 'Office' },
