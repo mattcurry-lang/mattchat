@@ -6,14 +6,22 @@
 // data file (or, per spec section 16, an admin editing it later).
 //
 // Mounted as the target of the 'email-setup' internal service.
+//
+// FIX: hardcoded contrast-safe colors — same dark-overlay text-visibility
+// bug as RoomFinder.jsx / SuggestLocationForm.jsx.
 
-import React, { useState } from 'react'
+import React from 'react'
 import { DekutIcon, ICON_GRADIENTS } from './dekutIcons'
 import { EMAIL_SETUP_STEPS, EMAIL_SETUP_HELP } from '../../data/dekutEmailSetup'
 import { getContactById } from '../../data/dekutContacts'
 import { DEKUT_CATEGORIES, getServiceById } from '../../data/dekutServices'
 import { useDekutUsage } from '../../hooks/useDekutUsage'
 import { openDekutService } from '../../utils/dekutOpenService'
+
+const TEXT_PRIMARY = '#f5f5fa'
+const TEXT_SECONDARY = 'rgba(245,245,250,0.6)'
+const BORDER = 'rgba(245,245,250,0.16)'
+const SURFACE = 'rgba(245,245,250,0.06)'
 
 function StepRow({ step, index, isLast }) {
   return (
@@ -27,13 +35,13 @@ function StepRow({ step, index, isLast }) {
         }}>
           {index + 1}
         </div>
-        {!isLast && <div style={{ flex: 1, width: 2, background: 'var(--border)', marginTop: 4, minHeight: 20 }} />}
+        {!isLast && <div style={{ flex: 1, width: 2, background: BORDER, marginTop: 4, minHeight: 20 }} />}
       </div>
       <div style={{ paddingBottom: isLast ? 0 : 18, flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)', marginTop: 3 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: TEXT_PRIMARY, marginTop: 3 }}>
           {step.title}
         </div>
-        <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.55 }}>
+        <div style={{ fontSize: 12.5, color: TEXT_SECONDARY, marginTop: 4, lineHeight: 1.55 }}>
           {step.content}
         </div>
       </div>
@@ -52,10 +60,10 @@ export default function EmailSetupGuide({ onNavigate, onClose }) {
     <div style={{ maxWidth: 640, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: TEXT_PRIMARY, display: 'flex', alignItems: 'center', gap: 6 }}>
             <span aria-hidden="true">📧</span> Set Up Your DeKUT Email
           </div>
-          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4, maxWidth: 420 }}>
+          <div style={{ fontSize: 12.5, color: TEXT_SECONDARY, marginTop: 4, maxWidth: 420 }}>
             Your student email runs on Google Workspace. Here's how to activate it.
           </div>
         </div>
@@ -64,19 +72,19 @@ export default function EmailSetupGuide({ onNavigate, onClose }) {
             onClick={onClose}
             aria-label="Close Email Setup Guide"
             style={{
-              background: 'var(--bg-surface-1, rgba(0,0,0,0.06))', border: '1px solid var(--border)',
+              background: SURFACE, border: `1px solid ${BORDER}`,
               borderRadius: 10, width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', flexShrink: 0,
             }}
           >
-            <DekutIcon type="x" size={16} color="var(--text-primary)" strokeWidth={2.2} />
+            <DekutIcon type="x" size={16} color={TEXT_PRIMARY} strokeWidth={2.2} />
           </button>
         )}
       </div>
 
       <div style={{
         marginTop: 18, borderRadius: 16, padding: 16,
-        background: 'var(--bg-surface-2)', border: '1px solid var(--border)',
+        background: SURFACE, border: `1px solid ${BORDER}`,
       }}>
         {EMAIL_SETUP_STEPS.map((step, i) => (
           <StepRow key={step.id} step={step} index={i} isLast={i === EMAIL_SETUP_STEPS.length - 1} />
@@ -84,7 +92,7 @@ export default function EmailSetupGuide({ onNavigate, onClose }) {
       </div>
 
       <div style={{
-        marginTop: 14, borderRadius: 14, border: '1px dashed var(--border)',
+        marginTop: 14, borderRadius: 14, border: `1px dashed ${BORDER}`,
         padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10,
       }}>
         <div style={{
@@ -94,8 +102,8 @@ export default function EmailSetupGuide({ onNavigate, onClose }) {
           <DekutIcon type="cpu" size={16} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>Need Help?</div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: TEXT_PRIMARY }}>Need Help?</div>
+          <div style={{ fontSize: 11.5, color: TEXT_SECONDARY, lineHeight: 1.4 }}>
             {EMAIL_SETUP_HELP.note}
           </div>
         </div>
@@ -107,11 +115,11 @@ export default function EmailSetupGuide({ onNavigate, onClose }) {
             href={`mailto:${helpContact.email}`}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 12, fontWeight: 700, color: '#a78bfa', textDecoration: 'none',
-              border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px',
+              fontSize: 12, fontWeight: 700, color: '#c4b5fd', textDecoration: 'none',
+              border: `1px solid ${BORDER}`, borderRadius: 999, padding: '7px 13px',
             }}
           >
-            Email {helpContact.name} <DekutIcon type="externalLink" size={12} color="#a78bfa" strokeWidth={2} />
+            Email {helpContact.name} <DekutIcon type="externalLink" size={12} color="#c4b5fd" strokeWidth={2} />
           </a>
         )}
         {portalService && (
@@ -120,11 +128,11 @@ export default function EmailSetupGuide({ onNavigate, onClose }) {
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               background: 'none', fontFamily: 'inherit', cursor: 'pointer',
-              fontSize: 12, fontWeight: 700, color: 'var(--text-primary)',
-              border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px',
+              fontSize: 12, fontWeight: 700, color: TEXT_PRIMARY,
+              border: `1px solid ${BORDER}`, borderRadius: 999, padding: '7px 13px',
             }}
           >
-            Open Student Portal <DekutIcon type="externalLink" size={12} color="var(--text-primary)" strokeWidth={2} />
+            Open Student Portal <DekutIcon type="externalLink" size={12} color={TEXT_PRIMARY} strokeWidth={2} />
           </button>
         )}
       </div>
