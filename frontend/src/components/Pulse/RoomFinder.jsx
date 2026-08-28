@@ -136,6 +136,22 @@ function LocationCard({ loc, onAddVideo }) {
           {hasApprovedVideo ? '+ Add another video' : '🎥 Add a video'}
         </button>
       )}
+        {onDelete && (
+          <button
+            onClick={() => onDelete(loc)}
+            style={{
+              alignSelf: 'flex-start', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)',
+              borderRadius: 999, padding: '5px 11px', cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 11, fontWeight: 700, color: '#f87171',
+            }}
+          >
+             Delete
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
     </div>
   )
 }
@@ -146,6 +162,7 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
     locations, pending, pendingVideos, loading,
     submitLocation, approveLocation, rejectLocation, setMapPosition,
     uploadLocationVideo, attachVideo, approveVideo, rejectVideo,
+    deleteLocation, 
   } = useDekutLocations({ userId, isAdmin })
   const [query, setQuery] = useState('')
   const [tab, setTab] = useState('search') // 'search' | 'map' | 'pending'
@@ -235,12 +252,15 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
             </div>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {results.map((loc) => (
               <LocationCard
                 key={loc.id}
                 loc={loc}
                 onAddVideo={userId ? setVideoTarget : null}
+                onDelete={isAdmin ? (l) => {
+                  if (window.confirm(`Delete "${l.name}"? This can't be undone.`)) deleteLocation(l.id)
+                } : null}
               />
             ))}
           </div>
