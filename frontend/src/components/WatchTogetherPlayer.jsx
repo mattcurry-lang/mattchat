@@ -1,5 +1,7 @@
 import React, { useRef, useEffect, useCallback } from 'react'
 import WatchTogetherChatOverlay from './WatchTogetherChatOverlay'
+import { useWatchVoice } from '../hooks/useWatchVoice'
+import { IconMic } from './Icons'
 
 let apiLoadPromise = null
 function loadYouTubeAPI() {
@@ -22,6 +24,11 @@ export default function WatchTogetherPlayer({
   const playerRef = useRef(null)
   const applyingRemoteUpdate = useRef(false)
   const broadcastTimer = useRef(null)
+
+  // Voice only runs in full (non-mini) mode — same gating as the chat
+  // overlay. P2P WebRTC, no third-party voice service, no billing.
+  const { micOn, toggleMic, otherSpeaking, connected, connecting, voiceError } =
+    useWatchVoice(watchSession?.id, currentUserId, !mini)
 
   useEffect(() => {
     let cancelled = false
@@ -98,14 +105,33 @@ export default function WatchTogetherPlayer({
         <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
 
         {!mini && (
-          <WatchTogetherChatOverlay
-            messages={chatMessages || []}
-            currentUserId={currentUserId}
-            onSend={onSendChatMessage}
-            mini={mini}
-            typingUsers={typingUsers || []}
-            onTyping={onTyping}
-          />
+          <>
+            <WatchTogetherChatOverlay
+              messages={chatMessages || []}
+              currentUserId={currentUserId}
+              onSend={onSendChatMessage}
+              mini={mini}
+              typingUsers={typingUsers || []}
+              onTyping={onTyping}
+            />
+
+            <button
+              onClick={toggleMic}
+              disabled={!connected}
+              title={voiceError ? `Voice unavailable: ${voiceError}` : connecting ? 'Connecting voice…' : micOn ? 'Mute mic' : 'Talk while you watch'}
+              style={{
+                position: 'absolute', bottom: 20, left: 20, zIndex: 608,
+                width: 44, height: 44, borderRadius: '50%', border: 'none',
+                cursor: connected ? 'pointer' : 'not-allowed',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: voiceError ? 'rgba(239,68,68,0.6)' : micOn ? 'linear-gradient(135deg,#667eea,#764ba2)' : 'rgba(0,0,0,0.55)',
+                boxShadow: otherSpeaking ? '0 0 0 4px rgba(52,211,153,0.4)' : '0 4px 16px rgba(0,0,0,0.3)',
+                opacity: connecting ? 0.5 : 1, transition: 'box-shadow 0.2s, opacity 0.2s',
+              }}
+            >
+              <IconMic size={18} style={{ color: micOn ? '#fff' : 'rgba(255,255,255,0.7)' }} />
+            </button>
+          </>
         )}
       </div>
     </>
