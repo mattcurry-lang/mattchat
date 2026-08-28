@@ -92,6 +92,8 @@ import { createPortal } from 'react-dom'
 import { parsePartnerNudge, getReadableTextColor } from '../lib/nudgeColor'
 import { useGlobalWatchInvites } from '../hooks/useGlobalWatchInvites'
 import GlobalWatchInviteBanner from '../components/GlobalWatchInviteBanner'
+import { useLastActivityStatus } from '../hooks/useLastActivityStatus'
+import { formatLastActivity } from '../lib/relativeStatus'
 
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
@@ -801,7 +803,8 @@ const listState = useConversationListState({
     activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
     userId
   )
-
+  
+const lastActivityStatus = useLastActivityStatus(conversations.map(c => c.id), userId)
   // Sends a smart-reply suggestion straight to a conversation from the
   // list, without opening the chat. Clears that row's cached suggestion
   // and unread badge afterward, same as replying normally would.
@@ -1651,9 +1654,13 @@ const handleSend = async () => {
               onSend={(text) => quickSendReply(c, text)}
               fallbackText={c.last_message}
             />
-          ) : (
-            <div className="contact-preview">
-              {c.last_message?.startsWith('status_reply:') ? (
+         ) : lastActivityStatus[c.id] ? (
+  <div className="contact-preview" style={{ color: '#8b8b9e' }}>
+    {formatLastActivity(lastActivityStatus[c.id].timestamp, lastActivityStatus[c.id].status)}
+  </div>
+) : (
+  <div className="contact-preview">
+    {c.last_message?.startsWith('status_reply:') ? (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <IconStatus size={11} /> Replied to a status
                 </span>
