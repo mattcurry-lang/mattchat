@@ -1641,7 +1641,7 @@ const handleSend = async () => {
           {state?.isTyping ? (
             <span className="typing-preview">typing…</span>
           ) : unread > 1 ? (
-            <span className="unread-count-preview">{unread} new messages</span>
+  <span className="unread-count-preview" style={{ color: '#a78bfa', fontWeight: 700 }}>{unread} new messages</span>
           ) : unread === 1 ? (
             <SmartReplyPreview
               session={session}
@@ -2092,13 +2092,13 @@ const handleSend = async () => {
             The central "+" button is context-aware, just like WhatsApp:
             on the Calls tab it opens the new-call picker, everywhere else
             it opens the new-chat form. */}
-       {!dekutFullscreen && (
+      {!dekutFullscreen && (
   <BottomNav
     activeTab={activeTab}
     onTabChange={setActiveTab}
     onNewChat={() => (activeTab === 'calls' ? setShowNewCall(true) : setShowNewChat(true))}
     onProfileClick={() => setShowProfileMenu(v => !v)}
-    badges={{ chats: totalUnread, status: unreadStatusCount }}
+    badges={{ chats: totalUnread, calls: callActive, status: unreadStatusCount > 0 }}
   />
 )}
       </div>
