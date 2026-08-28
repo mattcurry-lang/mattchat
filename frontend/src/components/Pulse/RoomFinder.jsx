@@ -92,7 +92,7 @@ function LocationVideo({ videoType, videoUrl }) {
   )
 }
 
-function LocationCard({ loc, onAddVideo }) {
+function LocationCard({ loc, onAddVideo, onDelete }) {
   const hasApprovedVideo = loc.is_video_verified && loc.video_type !== 'none' && loc.video_url
 
   return (
