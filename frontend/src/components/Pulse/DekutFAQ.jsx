@@ -9,6 +9,9 @@
 //
 // Mounted as the target of the 'faq' internal service (see
 // dekutServices.js) — same full-screen overlay pattern as RoomFinder.
+//
+// FIX: hardcoded contrast-safe colors — same dark-overlay text-visibility
+// bug as RoomFinder.jsx / SuggestLocationForm.jsx.
 
 import React, { useMemo, useState } from 'react'
 import { DekutIcon, ICON_GRADIENTS } from './dekutIcons'
@@ -16,6 +19,11 @@ import { DEKUT_FAQ, FAQ_CATEGORIES, searchFAQ } from '../../data/dekutFAQ'
 import { DEKUT_CATEGORIES, getServiceById } from '../../data/dekutServices'
 import { useDekutUsage } from '../../hooks/useDekutUsage'
 import { openDekutService } from '../../utils/dekutOpenService'
+
+const TEXT_PRIMARY = '#f5f5fa'
+const TEXT_SECONDARY = 'rgba(245,245,250,0.6)'
+const BORDER = 'rgba(245,245,250,0.16)'
+const SURFACE = 'rgba(245,245,250,0.06)'
 
 function FAQAction({ action, onNavigate, usage }) {
   if (!action || action.type === 'none') return null
@@ -26,11 +34,11 @@ function FAQAction({ action, onNavigate, usage }) {
         href={`mailto:${action.email}`}
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
-          fontSize: 12, fontWeight: 700, color: '#a78bfa',
+          fontSize: 12, fontWeight: 700, color: '#c4b5fd',
           textDecoration: 'none', marginTop: 10,
         }}
       >
-        {action.label} <DekutIcon type="externalLink" size={12} color="#a78bfa" strokeWidth={2} />
+        {action.label} <DekutIcon type="externalLink" size={12} color="#c4b5fd" strokeWidth={2} />
       </a>
     )
   }
@@ -44,13 +52,13 @@ function FAQAction({ action, onNavigate, usage }) {
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
           background: 'none', border: 'none', padding: 0, marginTop: 10,
-          fontSize: 12, fontWeight: 700, color: '#a78bfa', cursor: 'pointer', fontFamily: 'inherit',
+          fontSize: 12, fontWeight: 700, color: '#c4b5fd', cursor: 'pointer', fontFamily: 'inherit',
         }}
       >
         {action.label}
         <DekutIcon
           type={service.type === 'internal' ? 'chevronRight' : 'externalLink'}
-          size={12} color="#a78bfa" strokeWidth={2}
+          size={12} color="#c4b5fd" strokeWidth={2}
         />
       </button>
     )
@@ -62,8 +70,8 @@ function FAQAction({ action, onNavigate, usage }) {
 function FAQItem({ item, expanded, onToggle, onNavigate, usage }) {
   return (
     <div style={{
-      border: '1px solid var(--border)', borderRadius: 14,
-      background: 'var(--bg-surface-2)', overflow: 'hidden',
+      border: `1px solid ${BORDER}`, borderRadius: 14,
+      background: SURFACE, overflow: 'hidden',
     }}>
       <button
         onClick={onToggle}
@@ -73,17 +81,17 @@ function FAQItem({ item, expanded, onToggle, onNavigate, usage }) {
           textAlign: 'left', fontFamily: 'inherit',
         }}
       >
-        <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>{item.question}</span>
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: TEXT_PRIMARY }}>{item.question}</span>
         <span style={{
           flexShrink: 0, transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
           transition: 'transform 160ms ease',
         }}>
-          <DekutIcon type="chevronRight" size={14} color="var(--text-secondary)" strokeWidth={2.2} />
+          <DekutIcon type="chevronRight" size={14} color={TEXT_SECONDARY} strokeWidth={2.2} />
         </span>
       </button>
       {expanded && (
         <div style={{ padding: '0 14px 14px' }}>
-          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+          <div style={{ fontSize: 12.5, color: TEXT_SECONDARY, lineHeight: 1.55 }}>
             {item.answer}
           </div>
           <FAQAction action={item.action} onNavigate={onNavigate} usage={usage} />
@@ -110,10 +118,10 @@ export default function DekutFAQ({ onNavigate, onClose }) {
     <div style={{ maxWidth: 640, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: TEXT_PRIMARY, display: 'flex', alignItems: 'center', gap: 6 }}>
             <span aria-hidden="true">🤖</span> Ask DeKUT
           </div>
-          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4, maxWidth: 420 }}>
+          <div style={{ fontSize: 12.5, color: TEXT_SECONDARY, marginTop: 4, maxWidth: 420 }}>
             Answers sourced from official DeKUT info. If it's not verified, we'll say so and point you to the right office.
           </div>
         </div>
@@ -122,22 +130,22 @@ export default function DekutFAQ({ onNavigate, onClose }) {
             onClick={onClose}
             aria-label="Close Ask DeKUT"
             style={{
-              background: 'var(--bg-surface-1, rgba(0,0,0,0.06))', border: '1px solid var(--border)',
+              background: SURFACE, border: `1px solid ${BORDER}`,
               borderRadius: 10, width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', flexShrink: 0,
             }}
           >
-            <DekutIcon type="x" size={16} color="var(--text-primary)" strokeWidth={2.2} />
+            <DekutIcon type="x" size={16} color={TEXT_PRIMARY} strokeWidth={2.2} />
           </button>
         )}
       </div>
 
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
-        border: '1px solid var(--border)', borderRadius: 12, padding: '9px 12px',
-        background: 'var(--bg-surface-1, rgba(0,0,0,0.03))', margin: '16px 0 10px',
+        border: `1px solid ${BORDER}`, borderRadius: 12, padding: '9px 12px',
+        background: SURFACE, margin: '16px 0 10px',
       }}>
-        <DekutIcon type="search" size={16} color="var(--text-secondary)" strokeWidth={2} />
+        <DekutIcon type="search" size={16} color={TEXT_SECONDARY} strokeWidth={2} />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -145,7 +153,7 @@ export default function DekutFAQ({ onNavigate, onClose }) {
           autoFocus
           style={{
             border: 'none', outline: 'none', background: 'transparent',
-            fontSize: 13.5, color: 'var(--text-primary)', width: '100%', fontFamily: 'inherit',
+            fontSize: 13.5, color: TEXT_PRIMARY, width: '100%', fontFamily: 'inherit',
           }}
         />
       </div>
@@ -160,9 +168,9 @@ export default function DekutFAQ({ onNavigate, onClose }) {
               style={{
                 fontSize: 11.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
                 borderRadius: 999, padding: '6px 12px',
-                border: `1px solid ${active ? 'transparent' : 'var(--border)'}`,
+                border: `1px solid ${active ? 'transparent' : BORDER}`,
                 background: active ? 'linear-gradient(135deg,#a78bfa,#6c63ff)' : 'transparent',
-                color: active ? '#fff' : 'var(--text-secondary)',
+                color: active ? '#fff' : TEXT_SECONDARY,
               }}
             >
               {c.label}
@@ -173,7 +181,7 @@ export default function DekutFAQ({ onNavigate, onClose }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {results.length === 0 ? (
-          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', padding: '10px 2px' }}>
+          <div style={{ fontSize: 12.5, color: TEXT_SECONDARY, padding: '10px 2px' }}>
             No matches. Try a different word, or reach out below.
           </div>
         ) : (
@@ -191,7 +199,7 @@ export default function DekutFAQ({ onNavigate, onClose }) {
       </div>
 
       <div style={{
-        marginTop: 18, borderRadius: 14, border: '1px dashed var(--border)',
+        marginTop: 18, borderRadius: 14, border: `1px dashed ${BORDER}`,
         padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10,
       }}>
         <div style={{
@@ -201,12 +209,12 @@ export default function DekutFAQ({ onNavigate, onClose }) {
           <DekutIcon type="cpu" size={16} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>Don't see your question?</div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>We won't guess — contact ICT directly.</div>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: TEXT_PRIMARY }}>Don't see your question?</div>
+          <div style={{ fontSize: 11.5, color: TEXT_SECONDARY }}>We won't guess — contact ICT directly.</div>
         </div>
         <a
           href="mailto:studentadmin@dkut.ac.ke"
-          style={{ fontSize: 11.5, fontWeight: 700, color: '#a78bfa', textDecoration: 'none', flexShrink: 0 }}
+          style={{ fontSize: 11.5, fontWeight: 700, color: '#c4b5fd', textDecoration: 'none', flexShrink: 0 }}
         >
           Email ICT
         </a>
