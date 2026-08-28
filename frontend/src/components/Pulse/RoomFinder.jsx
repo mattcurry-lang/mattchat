@@ -152,9 +152,7 @@ function LocationCard({ loc, onAddVideo }) {
     </div>
   )
 }
-    </div>
-  )
-}
+     
 
 // onClose: renders a close button when present (mounted full-screen).
 export default function RoomFinder({ onClose, userId, isAdmin }) {
