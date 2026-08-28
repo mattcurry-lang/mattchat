@@ -818,7 +818,7 @@ const listState = useConversationListState({
   const [viewerIndex, setViewerIndex] = useState(null)
 
   const { statusGroups, myStatuses, markViewed, reload: reloadStatuses } = useStatuses(userId)
-
+const unreadStatusCount = statusGroups.filter(g => !g.allViewed).length
   const viewableGroups = [
     ...(myStatuses.length > 0
       ? [{ userId: 'mine', isMine: true, profile: { username: profile?.username || 'You' }, statuses: myStatuses }]
@@ -2092,12 +2092,13 @@ const handleSend = async () => {
             The central "+" button is context-aware, just like WhatsApp:
             on the Calls tab it opens the new-call picker, everywhere else
             it opens the new-chat form. */}
-        {!dekutFullscreen && (
+       {!dekutFullscreen && (
   <BottomNav
     activeTab={activeTab}
     onTabChange={setActiveTab}
     onNewChat={() => (activeTab === 'calls' ? setShowNewCall(true) : setShowNewChat(true))}
     onProfileClick={() => setShowProfileMenu(v => !v)}
+    badges={{ chats: totalUnread, status: unreadStatusCount }}
   />
 )}
       </div>
