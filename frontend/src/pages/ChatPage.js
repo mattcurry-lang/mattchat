@@ -740,13 +740,7 @@ const [curryPrefill, setCurryPrefill] = useState(null)
   const { tags, setTag } = useConvoTags()
   const { cache: smartReplyCache, fetchSuggestion, clear: clearSmartReply } = useSmartReplyCache()
   const { theme, toggleTheme } = useTheme()
-  const globalWatchInvite = useGlobalWatchInvites(userId, conversations.map(c => c.id))
-
-const getMemberName = (convoId, uid) => {
-  const convo = conversations.find(c => c.id === convoId)
-  const member = convo?.conversation_members?.find(m => m.user_id === uid)
-  return member?.profiles?.username || 'Someone'
-}
+  
  
  
   
@@ -772,6 +766,13 @@ const { isOnline, getLastSeenLabel } = usePresence(userId)
   useRingtone(['calling', 'ringing'].includes(callStatus), 'ringback')
   useRingtone(callStatus === 'incoming', 'ringtone')
   const { conversations, loading: convLoading, reload } = useConversations(userId)
+  const globalWatchInvite = useGlobalWatchInvites(userId, conversations.map(c => c.id))
+
+const getMemberName = (convoId, uid) => {
+  const convo = conversations.find(c => c.id === convoId)
+  const member = convo?.conversation_members?.find(m => m.user_id === uid)
+  return member?.profiles?.username || 'Someone'
+}
   const { calls: callHistory, loading: callHistoryLoading } = useCallHistory(userId, conversations)
   const [startMuted, setStartMuted] = useState(false)
   const { unreadCounts, clearUnread, totalUnread } = useUnreadCounts(
