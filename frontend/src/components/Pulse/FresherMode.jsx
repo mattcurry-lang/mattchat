@@ -10,12 +10,22 @@
 //    standing in for real DeKUT info.
 //
 // Mounted as the target of the 'fresher-mode' internal service.
+//
+// FIX: hardcoded contrast-safe colors — same dark-overlay text-visibility
+// bug as RoomFinder.jsx / SuggestLocationForm.jsx (this always mounts on
+// the hardcoded-dark fullscreen wrapper in PulsePage.jsx, but was using
+// var(--text-primary)/var(--border), which flip dark in light mode).
 
 import React, { useState } from 'react'
 import { DekutIcon, ICON_GRADIENTS } from './dekutIcons'
 import { DEKUT_CATEGORIES, getServiceById } from '../../data/dekutServices'
 import { useDekutUsage } from '../../hooks/useDekutUsage'
 import { openDekutService } from '../../utils/dekutOpenService'
+
+const TEXT_PRIMARY = '#f5f5fa'
+const TEXT_SECONDARY = 'rgba(245,245,250,0.6)'
+const BORDER = 'rgba(245,245,250,0.16)'
+const SURFACE = 'rgba(245,245,250,0.06)'
 
 // Real services this screen surfaces, in display order.
 // 'faq' and 'email-setup' added now that both are real pages, not stubs.
@@ -34,7 +44,6 @@ const FRESHER_SERVICE_IDS = [
 
 // Features the spec calls for that aren't built yet. Intentionally no
 // url/route — rendered disabled, never wired to a guess.
-// 'ask-ai' and 'email-setup' removed — both now live in FRESHER_SERVICE_IDS above.
 const COMING_SOON_TILES = [
   { id: 'explore-campus', name: 'Explore Campus', description: 'An interactive campus tour.', icon: 'megaphone' },
   { id: 'find-my-class', name: 'Find My Class', description: 'Look up your timetable and classroom.', icon: 'calendar' },
@@ -53,16 +62,16 @@ function FresherTile({ name, description, icon, comingSoon, onOpen }) {
       disabled={!active}
       style={{
         display: 'flex', flexDirection: 'column', gap: 10,
-        background: 'var(--bg-surface-2)',
-        border: '1px solid var(--border)',
+        background: SURFACE,
+        border: `1px solid ${BORDER}`,
         borderRadius: 16,
         padding: 14,
         cursor: active ? 'pointer' : 'default',
-        opacity: active ? 1 : 0.6,
+        opacity: active ? 1 : 0.55,
         textAlign: 'left',
         fontFamily: 'inherit',
         transform: hovered && active ? 'translateY(-2px)' : 'translateY(0)',
-        boxShadow: hovered && active ? '0 10px 24px -12px rgba(108,99,255,0.4)' : 'none',
+        boxShadow: hovered && active ? '0 10px 24px -12px rgba(108,99,255,0.5)' : 'none',
         transition: 'transform 160ms ease, box-shadow 200ms ease',
       }}
     >
@@ -74,15 +83,15 @@ function FresherTile({ name, description, icon, comingSoon, onOpen }) {
         <DekutIcon type={icon} size={18} />
       </div>
       <div>
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>{name}</div>
-        <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: TEXT_PRIMARY }}>{name}</div>
+        <div style={{ fontSize: 11.5, color: TEXT_SECONDARY, marginTop: 2, lineHeight: 1.4 }}>
           {description}
         </div>
       </div>
       {comingSoon && (
         <span style={{
-          fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)',
-          border: '1px solid var(--border)', borderRadius: 999,
+          fontSize: 10, fontWeight: 700, color: TEXT_SECONDARY,
+          border: `1px solid ${BORDER}`, borderRadius: 999,
           padding: '2px 8px', alignSelf: 'flex-start',
         }}>
           Coming soon
@@ -108,10 +117,10 @@ export default function FresherMode({ onNavigate, onClose }) {
     <div style={{ maxWidth: 640, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: TEXT_PRIMARY }}>
             👋 Welcome to DeKUT
           </div>
-          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4, maxWidth: 420 }}>
+          <div style={{ fontSize: 12.5, color: TEXT_SECONDARY, marginTop: 4, maxWidth: 420 }}>
             Your first days at university can be confusing. Here's where to start.
           </div>
         </div>
@@ -120,12 +129,12 @@ export default function FresherMode({ onNavigate, onClose }) {
             onClick={onClose}
             aria-label="Close Fresher Guide"
             style={{
-              background: 'var(--bg-surface-1, rgba(0,0,0,0.06))', border: '1px solid var(--border)',
+              background: SURFACE, border: `1px solid ${BORDER}`,
               borderRadius: 10, width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', flexShrink: 0,
             }}
           >
-            <DekutIcon type="x" size={16} color="var(--text-primary)" strokeWidth={2.2} />
+            <DekutIcon type="x" size={16} color={TEXT_PRIMARY} strokeWidth={2.2} />
           </button>
         )}
       </div>
