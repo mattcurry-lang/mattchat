@@ -1,9 +1,27 @@
 import React from 'react'
 import { IconHome, IconPhone, IconStatus, IconUser, IconSparkle, IconPlus } from './Icons'
- 
-export default function BottomNav({ activeTab, onTabChange, onNewChat, onProfileClick, variant = 'default' }) {
+
+function NavBadge({ count }) {
+  if (!count) return null
+  return (
+    <span className="bnav-badge">
+      {count > 99 ? '99+' : count > 9 ? '9+' : count}
+    </span>
+  )
+}
+
+export default function BottomNav({
+  activeTab,
+  onTabChange,
+  onNewChat,
+  onProfileClick,
+  variant = 'default',
+  badges = {}, // { chats?: number, calls?: number, status?: number }
+}) {
   const isFloating = variant === 'floating'
   const pulseActive = activeTab === 'pulse'
+  const { chats = 0, calls = 0, status = 0 } = badges
+
   return (
     <>
       {activeTab === 'chats' && !isFloating && (
@@ -17,7 +35,10 @@ export default function BottomNav({ activeTab, onTabChange, onNewChat, onProfile
           onClick={() => onTabChange('chats')}
           title="Chats"
         >
-          <IconHome size={19} className="bnav-icon" />
+          <span className="bnav-icon-wrap">
+            <IconHome size={19} className="bnav-icon" />
+            <NavBadge count={chats} />
+          </span>
           <span className="bnav-label">Home</span>
         </button>
         <button
@@ -25,7 +46,10 @@ export default function BottomNav({ activeTab, onTabChange, onNewChat, onProfile
           onClick={() => onTabChange('calls')}
           title="Calls"
         >
-          <IconPhone size={19} className="bnav-icon" />
+          <span className="bnav-icon-wrap">
+            <IconPhone size={19} className="bnav-icon" />
+            <NavBadge count={calls} />
+          </span>
           <span className="bnav-label">Calls</span>
         </button>
 
@@ -46,7 +70,10 @@ export default function BottomNav({ activeTab, onTabChange, onNewChat, onProfile
           onClick={() => onTabChange('status')}
           title="Status"
         >
-          <IconStatus size={19} className="bnav-icon" />
+          <span className="bnav-icon-wrap">
+            <IconStatus size={19} className="bnav-icon" />
+            <NavBadge count={status} />
+          </span>
           <span className="bnav-label">Status</span>
         </button>
         <button className="bnav-btn" onClick={onProfileClick} title="Profile">
@@ -55,10 +82,29 @@ export default function BottomNav({ activeTab, onTabChange, onNewChat, onProfile
         </button>
       </div>
 
-      {/* Scoped styling for the Pulse nav item only — everything else in
-          the bar keeps whatever bnav-btn/bnav-icon/bnav-label styling
-          already exists in the app's global stylesheet. */}
+      {/* Scoped styling for the Pulse nav item + badges */}
       <style>{`
+        .bnav-icon-wrap {
+          position: relative;
+          display: inline-flex;
+        }
+        .bnav-badge {
+          position: absolute;
+          top: -6px;
+          right: -9px;
+          min-width: 16px;
+          height: 16px;
+          padding: 0 4px;
+          border-radius: 999px;
+          background: #ef4444;
+          color: #fff;
+          font-size: 10px;
+          font-weight: 800;
+          line-height: 16px;
+          text-align: center;
+          box-shadow: 0 0 0 2px var(--bg-surface-1, #14141f);
+        }
+
         .bnav-btn-pulse {
           position: relative;
           border-radius: 16px;
