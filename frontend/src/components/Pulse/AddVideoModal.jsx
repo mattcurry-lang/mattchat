@@ -1,21 +1,31 @@
-
+// src/components/Pulse/AddVideoModal.jsx
+//
 // Attach a walkthrough video to an already-verified dekut_location —
 // either an uploaded clip (Supabase Storage) or an external link
 // (YouTube, TikTok, etc). Always lands is_video_verified:false; an
 // admin approves it in the Pending tab before it shows to anyone else.
+//
+// FIX: hardcoded contrast-safe colors — same dark-overlay text-visibility
+// bug as SuggestLocationForm.jsx / RoomFinder.jsx.
 
 import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { DekutIcon } from './dekutIcons'
 
+const TEXT_PRIMARY = '#f5f5fa'
+const TEXT_SECONDARY = 'rgba(245,245,250,0.6)'
+const BORDER = 'rgba(245,245,250,0.16)'
+const SURFACE = 'rgba(245,245,250,0.07)'
+const PANEL_BG = 'rgba(20,20,31,0.98)'
+
 const MAX_VIDEO_MB = 60
 
 const inputStyle = {
-  width: '100%', border: '1px solid var(--border)', borderRadius: 10,
-  padding: '9px 12px', fontSize: 13, color: 'var(--text-primary)',
-  background: 'var(--bg-surface-1, rgba(0,0,0,0.03))', fontFamily: 'inherit',
+  width: '100%', border: `1px solid ${BORDER}`, borderRadius: 10,
+  padding: '9px 12px', fontSize: 13, color: TEXT_PRIMARY,
+  background: SURFACE, fontFamily: 'inherit',
 }
-const labelStyle = { fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 5, display: 'block' }
+const labelStyle = { fontSize: 11.5, fontWeight: 700, color: TEXT_SECONDARY, marginBottom: 5, display: 'block' }
 
 export default function AddVideoModal({ location, onUpload, onAttach, onClose }) {
   const [mode, setMode] = useState('link') // 'link' | 'upload'
@@ -70,26 +80,26 @@ export default function AddVideoModal({ location, onUpload, onAttach, onClose })
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: '100%', maxWidth: 420, background: 'var(--bg-surface-2)',
-          border: '1px solid var(--border)', borderRadius: 20, padding: 20,
+          width: '100%', maxWidth: 420, background: PANEL_BG,
+          border: `1px solid ${BORDER}`, borderRadius: 20, padding: 20,
           maxHeight: '85vh', overflowY: 'auto',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>🎥 Add a Video</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: TEXT_PRIMARY }}>🎥 Add a Video</div>
           <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
-            <DekutIcon type="x" size={16} color="var(--text-primary)" strokeWidth={2.2} />
+            <DekutIcon type="x" size={16} color={TEXT_PRIMARY} strokeWidth={2.2} />
           </button>
         </div>
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-          Show other students exactly how to get to <strong>{location?.name}</strong>.
+        <div style={{ fontSize: 12, color: TEXT_SECONDARY, marginTop: 4 }}>
+          Show other students exactly how to get to <strong style={{ color: TEXT_PRIMARY }}>{location?.name}</strong>.
         </div>
 
         {done ? (
           <div style={{ padding: '18px 0', textAlign: 'center' }}>
             <div style={{ fontSize: 28, marginBottom: 8 }}>✅</div>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>Thanks!</div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: TEXT_PRIMARY }}>Thanks!</div>
+            <div style={{ fontSize: 12, color: TEXT_SECONDARY, marginTop: 4 }}>
               This will show up on {location?.name} once it's reviewed and approved.
             </div>
             <button
@@ -116,9 +126,9 @@ export default function AddVideoModal({ location, onUpload, onAttach, onClose })
                     style={{
                       flex: 1, fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
                       borderRadius: 999, padding: '8px 0',
-                      border: `1px solid ${active ? 'transparent' : 'var(--border)'}`,
+                      border: `1px solid ${active ? 'transparent' : BORDER}`,
                       background: active ? 'linear-gradient(135deg,#a78bfa,#6c63ff)' : 'transparent',
-                      color: active ? '#fff' : 'var(--text-secondary)',
+                      color: active ? '#fff' : TEXT_SECONDARY,
                     }}
                   >
                     {m.label}
@@ -144,13 +154,13 @@ export default function AddVideoModal({ location, onUpload, onAttach, onClose })
               <div>
                 <label style={labelStyle}>Video file</label>
                 <input
-                  style={inputStyle}
+                  style={{ ...inputStyle, color: TEXT_PRIMARY }}
                   type="file"
                   accept="video/*"
                   onChange={handleFileChange}
                   required={mode === 'upload'}
                 />
-                <div style={{ fontSize: 10.5, color: 'var(--text-secondary)', marginTop: 4 }}>
+                <div style={{ fontSize: 10.5, color: TEXT_SECONDARY, marginTop: 4 }}>
                   Max {MAX_VIDEO_MB}MB. A short walkthrough (15–30 seconds) is plenty.
                 </div>
               </div>
