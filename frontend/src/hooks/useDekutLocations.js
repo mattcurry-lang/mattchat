@@ -132,7 +132,12 @@ export function useDekutLocations({ userId, isAdmin } = {}) {
     if (error) throw error
     await loadPending()
   }, [loadPending])
-
+  
+  const deleteLocation = useCallback(async (id) => {
+    const { error } = await supabase.from('dekut_locations').delete().eq('id', id)
+    if (error) throw error
+    await loadVerified()
+  }, [loadVerified])
   // Admin-only: place (or move) a location on the schematic map. Never
   // auto-generated — always a real click from someone who actually
   // knows where the place is.
@@ -145,10 +150,11 @@ export function useDekutLocations({ userId, isAdmin } = {}) {
     await loadVerified()
   }, [loadVerified])
 
-  return {
+   return {
     locations, pending, pendingVideos, loading, error,
     submitLocation, approveLocation, rejectLocation, setMapPosition,
     uploadLocationVideo, attachVideo, approveVideo, rejectVideo,
+    deleteLocation,   
     reload: loadVerified,
   }
 }
