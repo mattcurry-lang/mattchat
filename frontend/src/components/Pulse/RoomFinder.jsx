@@ -122,20 +122,21 @@ function LocationCard({ loc, onAddVideo }) {
         <div style={{ fontSize: 11.5, color: TEXT_SECONDARY }}>🚶 ~{loc.walking_distance_min} min walk</div>
       )}
 
-      {hasApprovedVideo && <LocationVideo videoType={loc.video_type} videoUrl={loc.video_url} />}
+  {hasApprovedVideo && <LocationVideo videoType={loc.video_type} videoUrl={loc.video_url} />}
 
-      {onAddVideo && (
-        <button
-          onClick={() => onAddVideo(loc)}
-          style={{
-            marginTop: 8, alignSelf: 'flex-start', background: 'none', border: `1px dashed ${BORDER}`,
-            borderRadius: 999, padding: '5px 11px', cursor: 'pointer', fontFamily: 'inherit',
-            fontSize: 11, fontWeight: 700, color: TEXT_PRIMARY,
-          }}
-        >
-          {hasApprovedVideo ? '+ Add another video' : '🎥 Add a video'}
-        </button>
-      )}
+      <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+        {onAddVideo && (
+          <button
+            onClick={() => onAddVideo(loc)}
+            style={{
+              alignSelf: 'flex-start', background: 'none', border: `1px dashed ${BORDER}`,
+              borderRadius: 999, padding: '5px 11px', cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 11, fontWeight: 700, color: TEXT_PRIMARY,
+            }}
+          >
+            {hasApprovedVideo ? '+ Add another video' : '🎥 Add a video'}
+          </button>
+        )}
         {onDelete && (
           <button
             onClick={() => onDelete(loc)}
@@ -145,14 +146,13 @@ function LocationCard({ loc, onAddVideo }) {
               fontSize: 11, fontWeight: 700, color: '#f87171',
             }}
           >
-             Delete
+            🗑 Delete
           </button>
         )}
       </div>
     </div>
   )
 }
-     
 
 // onClose: renders a close button when present (mounted full-screen).
 export default function RoomFinder({ onClose, userId, isAdmin }) {
