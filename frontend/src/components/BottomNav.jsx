@@ -10,17 +10,21 @@ function NavBadge({ count }) {
   )
 }
 
+function NavDot() {
+  return <span className="bnav-dot" />
+}
+
 export default function BottomNav({
   activeTab,
   onTabChange,
   onNewChat,
   onProfileClick,
   variant = 'default',
-  badges = {}, // { chats?: number, calls?: number, status?: number }
+  badges = {}, // { chats?: number, calls?: boolean, status?: boolean }
 }) {
   const isFloating = variant === 'floating'
   const pulseActive = activeTab === 'pulse'
-  const { chats = 0, calls = 0, status = 0 } = badges
+  const { chats = 0, calls = false, status = false } = badges
 
   return (
     <>
@@ -48,7 +52,7 @@ export default function BottomNav({
         >
           <span className="bnav-icon-wrap">
             <IconPhone size={19} className="bnav-icon" />
-            <NavBadge count={calls} />
+            {calls && <NavDot />}
           </span>
           <span className="bnav-label">Calls</span>
         </button>
@@ -72,7 +76,7 @@ export default function BottomNav({
         >
           <span className="bnav-icon-wrap">
             <IconStatus size={19} className="bnav-icon" />
-            <NavBadge count={status} />
+            {status && <NavDot />}
           </span>
           <span className="bnav-label">Status</span>
         </button>
@@ -104,6 +108,16 @@ export default function BottomNav({
           text-align: center;
           box-shadow: 0 0 0 2px var(--bg-surface-1, #14141f);
         }
+        .bnav-dot {
+          position: absolute;
+          top: -2px;
+          right: -4px;
+          width: 9px;
+          height: 9px;
+          border-radius: 50%;
+          background: #ef4444;
+          box-shadow: 0 0 0 2px var(--bg-surface-1, #14141f);
+        }
 
         .bnav-btn-pulse {
           position: relative;
@@ -112,8 +126,6 @@ export default function BottomNav({
                       background 0.3s ease, box-shadow 0.3s ease;
         }
 
-        /* Glassmorphic pill container, purple/indigo family to match
-           Mattchat's existing accent (#667eea → #764ba2 / #a78bfa). */
         .pulse-inactive {
           background: linear-gradient(135deg, rgba(102,126,234,0.10), rgba(118,75,162,0.10));
           border: 1px solid rgba(167,139,250,0.28);
@@ -186,8 +198,6 @@ export default function BottomNav({
           50% { opacity: 0.9; transform: scale(1.12); }
         }
 
-        /* Light mode: keep Pulse from washing out against a light
-           background — deepen the border/text so contrast holds up. */
         :root[data-theme="light"] .pulse-inactive,
         .light .pulse-inactive {
           background: linear-gradient(135deg, rgba(102,126,234,0.14), rgba(118,75,162,0.14));
