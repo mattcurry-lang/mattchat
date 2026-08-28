@@ -90,6 +90,8 @@ import ChangeProfilePictureModal from '../components/ChangeProfilePictureModal'
 import DrawingModal from '../components/Drawing/DrawingModal'
 import { createPortal } from 'react-dom'
 import { parsePartnerNudge, getReadableTextColor } from '../lib/nudgeColor'
+import { useGlobalWatchInvites } from '../hooks/useGlobalWatchInvites'
+import GlobalWatchInviteBanner from '../components/GlobalWatchInviteBanner'
 
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
@@ -738,6 +740,13 @@ const [curryPrefill, setCurryPrefill] = useState(null)
   const { tags, setTag } = useConvoTags()
   const { cache: smartReplyCache, fetchSuggestion, clear: clearSmartReply } = useSmartReplyCache()
   const { theme, toggleTheme } = useTheme()
+  const globalWatchInvite = useGlobalWatchInvites(userId, conversations.map(c => c.id))
+
+const getMemberName = (convoId, uid) => {
+  const convo = conversations.find(c => c.id === convoId)
+  const member = convo?.conversation_members?.find(m => m.user_id === uid)
+  return member?.profiles?.username || 'Someone'
+}
  
  
   
@@ -2105,7 +2114,17 @@ const handleSend = async () => {
   hidden={!!activeConvo || showShorts}
   onActivate={() => setActiveConvo(CURRY_AI_CONTACT)}
 />
-
+{globalWatchInvite.invite && activeConvo?.id !== globalWatchInvite.invite.conversationId && (
+  <GlobalWatchInviteBanner
+    invite={globalWatchInvite.invite}
+    inviterName={getMemberName(globalWatchInvite.invite.conversationId, globalWatchInvite.invite.startedBy)}
+    onOpen={() => {
+      const found = conversations.find(c => c.id === globalWatchInvite.invite.conversationId)
+      if (found) { openConvo(found); setActiveTab('chats') }
+    }}
+    onDismiss={globalWatchInvite.dismiss}
+  />
+)}
       {watchTogether.session?.status === 'active' && (
   <WatchTogetherPlayer
     watchSession={watchTogether.session}
