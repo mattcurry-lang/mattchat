@@ -39,10 +39,10 @@ function StatusRow({ status, progress, retryUnavailable, onResume }) {
     return (
       <span style={{ ...statusTextStyle, color: '#f87171' }}>
         ⚠ Connection interrupted
-        {retryUnavailable ? (
+                {retryUnavailable ? (
           <span style={{ opacity: 0.75 }}>· re-select the file to retry</span>
         ) : (
-          <button onClick={onResume} style={resumeBtnStyle}>Resume</button>
+          <motion.button whileTap={{ scale: 0.9 }} onClick={onResume} style={resumeBtnStyle}>Resume</motion.button>
         )}
       </span>
     )
@@ -192,8 +192,14 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry }) {
             {asset.upload_status === 'failed' && (
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 20 }}>⚠</div>
-                {!message._retryUnavailable && (
-                  <button onClick={(e) => { e.stopPropagation(); onRetry?.(message) }} style={resumeBtnStyleDark}>Resume</button>
+                               {!message._retryUnavailable && (
+                  <motion.button
+                    whileTap={{ scale: 0.88 }}
+                    onClick={(e) => { e.stopPropagation(); onRetry?.(message) }}
+                    style={resumeBtnStyleDark}
+                  >
+                    Resume
+                  </motion.button>
                 )}
               </div>
             )}
