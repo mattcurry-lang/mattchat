@@ -23,6 +23,7 @@ import DropZone from './DropZone'
 import { validateFile, MediaValidationError } from '../../services/MediaAssetService'
 import LocationShareModal from './LocationShareModal'
 import ContactShareModal from './ContactShareModal'
+import ScreenshotCapture from './ScreenshotCapture'
 
 function classifyDroppedFile(file) {
   // Dropped GIFs are tagged 'image' (not 'gif') so they flow through
@@ -60,14 +61,15 @@ const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaM
     open: () => setStudioOpen(true),
   }))
 
-  const handleSelectOption = (id) => {
+   const handleSelectOption = (id) => {
     if (id === 'photos' || id === 'videos') setActivePicker('photos')
     else if (id === 'camera') setActivePicker('camera')
     else if (id === 'documents') setActivePicker('documents')
     else if (id === 'audio') setActivePicker('audio')
     else if (id === 'location') setLocationShareOpen(true)
     else if (id === 'contact') setContactShareOpen(true)
-    // 'screenshot', explicit 'moment' entry are separate flows not built yet.
+    else if (id === 'screenshot') setActivePicker('screenshot')
+    // explicit 'moment' studio entry still not wired to a dedicated flow.
   }
 
   const handleContactConfirm = (profile) => {
@@ -192,6 +194,11 @@ const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaM
         onClose={() => setContactShareOpen(false)}
         onConfirm={handleContactConfirm}
         currentUserId={currentUserId}
+      />
+            <ScreenshotCapture
+        isOpen={activePicker === 'screenshot'}
+        onClose={() => setActivePicker(null)}
+        onConfirm={handlePickedForEditing}
       />
     </>
   )
