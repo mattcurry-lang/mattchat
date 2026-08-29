@@ -107,25 +107,28 @@ export async function createMediaAssetRow({
    momentOrder = 0,          
   isMomentCover = false,
 }) {
-  const { data, error } = await supabase
-    .from('media_assets')
-    .insert({
-      conversation_id: conversationId,
-      sender_id: senderId,
-      media_type: mediaType,
-      mime_type: mimeType,
-      filename,
-      storage_path: storagePath,
-      size_bytes: sizeBytes,
-      width,
-      height,
-      duration,
-      is_view_once: isViewOnce,
-      expires_at: expiresAt,
-      upload_status: 'preparing',
-      processing_status: 'pending',
-      upload_progress: 0,
-    })
+ const { data, error } = await supabase
+  .from('media_assets')
+  .insert({
+    conversation_id: conversationId,
+    sender_id: senderId,
+    message_id: messageId,   // ← add this line
+    media_type: mediaType,
+    mime_type: mimeType,
+    filename,
+    storage_path: storagePath,
+    size_bytes: sizeBytes,
+    width,
+    height,
+    duration,
+    is_view_once: isViewOnce,
+    expires_at: expiresAt,
+    upload_status: 'preparing',
+    processing_status: 'pending',
+    upload_progress: 0,
+    moment_order: momentOrder,
+    is_moment_cover: isMomentCover,
+  })
     .select()
     .single()
 
