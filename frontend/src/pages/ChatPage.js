@@ -833,7 +833,6 @@ const listState = useConversationListState({
   openConvoId: activeConvo?.id,
 })
   useGlobalDelivery(userId, conversations.map(c => c.id))
-  const [momentViewerTarget, setMomentViewerTarget] = useState(null) // messageId | null
     activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
     userId
   )
