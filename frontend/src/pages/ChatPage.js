@@ -209,6 +209,23 @@ function LocationBubble({ content }) {
     </div>
   )
 }
+function ContactBubble({ content, onOpenProfile }) {
+  let userId, username, avatarUrl
+  try { ({ userId, username, avatarUrl } = JSON.parse(content)) } catch { return null }
+  if (!userId) return null
+  return (
+    <button
+      onClick={() => onOpenProfile?.({ id: userId, username, avatar_url: avatarUrl })}
+      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, background: 'var(--surface-card, rgba(148,120,255,0.08))', border: '1px solid var(--border-subtle, rgba(148,120,255,0.16))', minWidth: 200, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
+    >
+      <Avatar name={username} photoUrl={avatarUrl} size={38} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary, #f2f0f8)' }}>{username || 'Contact'}</div>
+        <div style={{ fontSize: 11, color: 'var(--text-secondary, #c9c4dd)' }}>👤 Contact card · tap to view</div>
+      </div>
+    </button>
+  )
+}
 function PinterestBubble({ content }) {
   const [loaded, setLoaded] = useState(false)
   const parts = content.replace('pinterest:', '').split('::')
@@ -608,6 +625,19 @@ if (msg.message_type === 'location') {
       <div>
         {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
         <LocationBubble content={msg.content} />
+        <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+        <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
+      </div>
+    </div>
+  )
+}
+if (msg.message_type === 'contact') {
+  return (
+    <div className={`msg-row ${isMe ? 'mine' : ''}`}>
+      {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
+      <div>
+        {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
+        <ContactBubble content={msg.content} onOpenProfile={msg._onOpenSharedContact} />
         <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
         <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
       </div>
@@ -1458,6 +1488,16 @@ const handleSend = async () => {
     message_type: 'location',
   })
   bumpConversationActivity('📍 Location')
+}
+  const handleShareContact = async (profile) => {
+  if (!activeConvo) return
+  await supabase.from('messages').insert({
+    conversation_id: activeConvo.id,
+    sender_id: userId,
+    content: JSON.stringify({ userId: profile.id, username: profile.username, avatarUrl: profile.avatar_url }),
+    message_type: 'contact',
+  })
+  bumpConversationActivity(`👤 ${profile.username || 'Contact'}`)
 }
  const findMessageById = (id) => messages.find(m => m.id === id)
   const getConvoName = (c) => {
@@ -2376,7 +2416,14 @@ const handleSend = async () => {
                 </div>
               </div>
             </div>
-<MediaAttachmentFlow ref={mediaFlowRef} sendMediaMessage={sendMediaMessage} sendMomentMessage={sendMomentMessage} onShareLocation={handleShareLocation} />
+<MediaAttachmentFlow
+  ref={mediaFlowRef}
+  sendMediaMessage={sendMediaMessage}
+  sendMomentMessage={sendMomentMessage}
+  onShareLocation={handleShareLocation}
+  onShareContact={handleShareContact}
+  currentUserId={userId}
+/>
            {showDrawing && (
               <DrawingModal
                 session={session}
