@@ -14,17 +14,20 @@
 //
 // onSend is called once per media type with the FINAL File objects, in the
 // same shape sendMediaMessage expects: onSend(files, mediaType, { caption }).
-// Video sends also get a companion thumbnail Blob per file via
-// onSend(files, 'video', { caption, thumbnails: Blob[] }) — wire that into
-// createMediaAssetRow's thumbnail upload when convenient; it's produced
-// here but not yet auto-uploaded (see note near handleSend).
+// Video sends also get a companion thumbnail Blob array per file via
+// onSend(files, mediaType, { caption, thumbnails: Blob[] }).
 //
 // Phase 4 addition: when there's more than one item, a "✨ Create Moment"
-// pill appears. It runs the SAME export pipeline as a normal send (so crop/
-// filter/trim/markup edits are honored) but hands the exported files to
-// MomentComposer instead of sending immediately, so the user can title,
-// reorder, and pick a cover before it goes out as one grouped message via
-// onSendMoment.
+// pill appears (or, under momentIntent, is the default primary action).
+// It runs the SAME export pipeline as a normal send (so crop/filter/trim/
+// markup edits are honored) but hands the exported files to MomentComposer
+// instead of sending immediately, so the user can title, reorder, and pick
+// a cover before it goes out as one grouped message via onSendMoment.
+//
+// Defensive fix: current?.file is guarded everywhere it's read — a
+// malformed item (missing file) now logs a console.error and closes the
+// composer instead of crashing the whole render with
+// "Cannot read properties of undefined (reading 'name')".
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -65,7 +68,10 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
   const markupRef = useRef(null)
 
   const current = items[index]
-  const currentId = current ? `${current.file.name}-${index}` : null
+  // Guarded against current existing but missing .file — a malformed
+  // item used to make currentId `${undefined.name}...` and throw before
+  // this component could even log which item was bad.
+  const currentId = current?.file ? `${current.file.name}-${index}` : null
   const state = currentId ? (edits[currentId] || defaultEditState(current.mediaType)) : null
 
   const updateState = useCallback((patch) => {
@@ -74,7 +80,7 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
 
   // Load image + seed initial crop once per item
   useEffect(() => {
-    if (!current || current.mediaType !== 'image') return
+    if (!current?.file || current.mediaType !== 'image') return
     const img = new Image()
     img.onload = () => {
       imageObjRef.current = img
@@ -103,7 +109,7 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
   const filterString = (s) => `brightness(${s.brightness}%) contrast(${s.contrast}%) saturate(${s.saturation}%)`
 
   function renderPreview() {
-    if (!current || current.mediaType !== 'image' || !imageObjRef.current || !canvasRef.current) return
+    if (!current?.file || current.mediaType !== 'image' || !imageObjRef.current || !canvasRef.current) return
     const s = edits[currentId] || defaultEditState('image')
     const img = imageObjRef.current
     const canvas = canvasRef.current
@@ -201,27 +207,8 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
   }
 
   // ---- export ----
-  async function exportImage(item, s, preset) {
-    let sourceCanvas
-    if (s.markupCanvas) {
-      sourceCanvas = s.markupCanvas
-    } else {
-      const crop = s.crop
-      sourceCanvas = document.createElement('canvas')
-      sourceCanvas.width = crop.w; sourceCanvas.height = crop.h
-      const ctx = sourceCanvas.getContext('2d')
-      ctx.filter = filterString(s)
-      ctx.drawImage(canvasRef.current, crop.x, crop.y, crop.w, crop.h, 0, 0, crop.w, crop.h)
-    }
-    const scale = Math.min(1, preset.maxDim / Math.max(sourceCanvas.width, sourceCanvas.height))
-    const out = document.createElement('canvas')
-    out.width = sourceCanvas.width * scale
-    out.height = sourceCanvas.height * scale
-    out.getContext('2d').drawImage(sourceCanvas, 0, 0, out.width, out.height)
-    const blob = await new Promise(res => out.toBlob(res, 'image/jpeg', preset.imageQuality))
-    return new File([blob], item.file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' })
-  }
-
+  // (Only one exportImage now — the earlier no-thumbnail duplicate that
+  // used to shadow this one has been removed.)
   async function exportImage(item, s, preset) {
     let sourceCanvas
     if (s.markupCanvas) {
@@ -260,12 +247,17 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
   // Shared by both plain send and Create Moment — runs every item through
   // its full edit pipeline (crop/rotate/filter/markup for images, trim/
   // speed/mute for video) and returns [{ file, mediaType, thumbnail }] in
-  // original item order.
+  // original item order. Malformed items (missing .file) are logged and
+  // skipped rather than throwing and killing the whole export.
   async function exportAllItems() {
     const preset = QUALITY_PRESETS[quality]
     const results = []
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
+      if (!item?.file) {
+        console.error('[MediaComposer] exportAllItems: item missing file at index', i, item)
+        continue
+      }
       const id = `${item.file.name}-${i}`
       const s = edits[id] || defaultEditState(item.mediaType)
 
@@ -287,7 +279,7 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
           canvasRef.current.width = tmp.width; canvasRef.current.height = tmp.height
           canvasRef.current.getContext('2d').drawImage(tmp, 0, 0)
         }
-               const { file: imgFile, thumbnail: imgThumb } = await exportImage(item, s, preset)
+        const { file: imgFile, thumbnail: imgThumb } = await exportImage(item, s, preset)
         results.push({ file: imgFile, mediaType: 'image', thumbnail: imgThumb })
       } else if (item.mediaType === 'video') {
         results.push({ file: await exportVideo(item, s, preset), mediaType: 'video', thumbnail: s.thumbnailBlob || null })
@@ -296,7 +288,7 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
     return results
   }
 
-   const handleSend = async () => {
+  const handleSend = async () => {
     setSending(true)
     try {
       const results = await exportAllItems()
@@ -316,7 +308,8 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
     }
     setSending(false)
   }
-   const handleCreateMoment = async () => {
+
+  const handleCreateMoment = async () => {
     setSending(true)
     try {
       const results = await exportAllItems()
@@ -328,18 +321,27 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
     }
     setSending(false)
   }
+
   const handleMomentSend = (finalItems, opts) => {
     onSendMoment?.(finalItems, opts)
     setMomentOpen(false)
     setMomentItems(null)
   }
 
+  // Guarded against a malformed item (missing .file) reaching render —
+  // logs which item and index was bad instead of throwing
+  // "Cannot read properties of undefined (reading 'name')" and
+  // white-screening the whole app.
   if (!isOpen || !current) return null
+  if (!current.file) {
+    console.error('[MediaComposer] item missing file at index', index, current)
+    return null
+  }
 
   return (
     <AnimatePresence>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={overlayStyle}>
-            <div style={topBarStyle}>
+        <div style={topBarStyle}>
           <button onClick={onCancel} style={iconBtnStyle}><IconX size={16} /></button>
           <span style={counterStyle}>{index + 1} / {items.length}</span>
           <button onClick={openMarkup} style={iconBtnStyle} title="Markup" disabled={current.mediaType !== 'image'}>
@@ -351,7 +353,6 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
           <div style={momentBannerStyle}>✨ Creating a Moment — {items.length} items</div>
         )}
 
-      
         <div style={stageStyle}>
           {current.mediaType === 'image' ? (
             <div style={{ position: 'relative', maxWidth: '100%', maxHeight: '100%' }}>
@@ -411,7 +412,7 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
             </>
           )}
 
-                  <div style={rowStyle}>
+          <div style={rowStyle}>
             {items.length > 1 && (
               <div style={{ display: 'flex', gap: 6, overflowX: 'auto' }}>
                 {items.map((it, i) => (
@@ -443,7 +444,7 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
             ))}
           </div>
 
-                   <button
+          <button
             onClick={momentIntent && items.length > 1 ? handleCreateMoment : handleSend}
             disabled={sending}
             style={sendBtnStyle}
@@ -471,7 +472,7 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
             onDone={handleMarkupDone}
           />
         )}
-         
+
         {momentOpen && (
           <MomentComposer
             isOpen={momentOpen}
