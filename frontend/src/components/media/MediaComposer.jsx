@@ -74,7 +74,7 @@ export default function MediaComposer({ isOpen, items, onCancel, onSend }) {
     }
     img.src = URL.createObjectURL(current.file)
     return () => URL.revokeObjectURL(img.src)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+ 
   }, [currentId])
 
   useEffect(() => {
@@ -86,7 +86,7 @@ export default function MediaComposer({ isOpen, items, onCancel, onSend }) {
       v.addEventListener('loadedmetadata', onMeta)
       return () => v.removeEventListener('loadedmetadata', onMeta)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [currentId])
 
   const filterString = (s) => `brightness(${s.brightness}%) contrast(${s.contrast}%) saturate(${s.saturation}%)`
@@ -110,7 +110,7 @@ export default function MediaComposer({ isOpen, items, onCancel, onSend }) {
     ctx.restore()
   }
 
-  useEffect(renderPreview, [state?.rotation, state?.brightness, state?.contrast, state?.saturation]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(renderPreview, [state?.rotation, state?.brightness, state?.contrast, state?.saturation])  
 
   const rotate = (dir) => updateState({ rotation: ((state.rotation + (dir * 90)) % 360 + 360) % 360 })
 
