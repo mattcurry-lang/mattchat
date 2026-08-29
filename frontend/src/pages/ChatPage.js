@@ -95,6 +95,8 @@ import GlobalWatchInviteBanner from '../components/GlobalWatchInviteBanner'
 import { useLastActivityStatus } from '../hooks/useLastActivityStatus'
 import { formatLastActivity } from '../lib/relativeStatus'
 import MediaAttachmentFlow from '../components/media/MediaAttachmentFlow'
+import MediaMessage from '../components/media/MediaMessage'
+import MediaViewer from '../components/media/MediaViewer'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -567,6 +569,24 @@ if (msg.message_type === 'short' || msg.content?.startsWith('short:')) {
       </div>
     )
   }
+if (msg.message_type === 'media') {
+  return (
+    <div className={`msg-row ${isMe ? 'mine' : ''}`}>
+      {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
+      <div>
+        {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
+        <MediaMessage
+          message={msg}
+          isMe={isMe}
+          onOpenViewer={msg._onOpenMediaViewer}
+          onRetry={msg._onRetryMediaUpload}
+        />
+        <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+        <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
+      </div>
+    </div>
+  )
+}
 const youtubeId = extractYouTubeId(msg.content)
 
   return (
@@ -729,6 +749,7 @@ const [curryPrefill, setCurryPrefill] = useState(null)
   const [showChangePicture, setShowChangePicture] = useState(false)
   const [showDrawing, setShowDrawing] = useState(false)
   const [dekutFullscreen, setDekutFullscreen] = useState(false)
+  const [mediaViewerTarget, setMediaViewerTarget] = useState(null) // messageId | null
   
   // that appears AFTER a plain message has already been sent, if
   // Curry thinks it might land colder than intended. Never blocks or
@@ -2172,6 +2193,18 @@ const handleSend = async () => {
     onExpand={() => setYoutubePlayer(p => ({ ...p, mini: !p.mini }))}
   />
 )}
+{mediaViewerTarget && (
+  <MediaViewer
+    messages={messages}
+    initialMessageId={mediaViewerTarget}
+    currentUserId={userId}
+    onClose={() => setMediaViewerTarget(null)}
+    onReply={(m) => setReplyingTo(m)}
+    onForward={(m) => setForwardingMessage(m.content)}
+    onReact={() => {}}
+    onDeleted={() => setMediaViewerTarget(null)}
+  />
+)}
 {profileCardTarget && (
 <ProfileCard
   targetProfile={profileCardTarget}
@@ -2392,6 +2425,8 @@ _onWatchTogether: (videoId, videoTitle, videoThumbnailUrl) => {
   watchTogether.inviteToWatch(videoId, videoTitle, videoThumbnailUrl)
     .catch((e) => alert('Could not start Watch Together: ' + e.message))
 },
+    _onOpenMediaViewer: (m) => setMediaViewerTarget(m.id),
+_onRetryMediaUpload: (m) => retryMediaUpload(m),
  _onOpenShort: (video) => { setShortsInitialVideo(video); setShowShorts(true) },
   }}
   isMe={isMine}
