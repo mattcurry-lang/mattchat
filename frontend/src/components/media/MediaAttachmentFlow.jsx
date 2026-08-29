@@ -164,32 +164,24 @@ const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaM
         onClose={() => setStudioOpen(false)}
         onSelectOption={handleSelectOption}
       />
-          <MediaPicker
+               <MediaPicker
         isOpen={activePicker === 'photos'}
-        onClose={() => { setActivePicker(null); setPickerForceMulti(false) }}
-        onConfirm={handlePickedForEditing}
+        onClose={() => { setActivePicker(null); setPickerMomentIntent(false) }}
+        onConfirm={handlePickerConfirm}
         accept="image/*,video/*"
-        forceMultiSelect={pickerForceMulti}
-        heading={pickerForceMulti ? 'Choose media for your Moment' : undefined}
+        heading={pickerMomentIntent ? 'Choose media for your Moment' : undefined}
       />
       <CameraCapture
         isOpen={activePicker === 'camera'}
         onClose={() => setActivePicker(null)}
-        onConfirm={handlePickedForEditing}
+        onConfirm={handleSingleTypeConfirm}
       />
-      <FilePicker
-        isOpen={activePicker === 'documents'}
+      <ScreenshotCapture
+        isOpen={activePicker === 'screenshot'}
         onClose={() => setActivePicker(null)}
-        onConfirm={handlePickedDirect}
-        kind="document"
+        onConfirm={handleSingleTypeConfirm}
       />
-      <FilePicker
-        isOpen={activePicker === 'audio'}
-        onClose={() => setActivePicker(null)}
-        onConfirm={handlePickedDirect}
-        kind="audio"
-      />
-           <MediaComposer
+      <MediaComposer
         isOpen={!!composerItems}
         items={composerItems || []}
         momentIntent={composerMomentIntent}
