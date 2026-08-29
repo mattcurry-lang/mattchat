@@ -298,8 +298,28 @@ export function useChat(conversationId, currentUserId) {
    * @param items [{ file, mediaType, thumbnail }] — already edited/exported by MediaComposer
    * @param opts { title, coverIndex }
    */
-  const sendMomentMessage = useCallback(async (items, opts = {}) => {
+   const sendMomentMessage = useCallback(async (items, opts = {}) => {
     if (!conversationId || !currentUserId || !items?.length) return
+
+    // Guard against malformed items reaching here (e.g. a caller that
+    // dropped `file` while reshaping the array) — this used to throw
+    // "Cannot read properties of undefined (reading 'name')" and take
+    // the whole render down with it. Bad items are dropped with a
+    // console.error instead of crashing; if that empties the batch,
+    // bail out cleanly.
+    const validItems = items.filter(it => {
+      if (!it?.file) {
+        console.error('[useChat] sendMomentMessage: item missing file, dropping it:', it)
+        return false
+      }
+      return true
+    })
+    if (!validItems.length) {
+      console.error('[useChat] sendMomentMessage: no valid items to send')
+      return
+    }
+    items = validItems
+
     const { title = null, coverIndex = 0 } = opts
     const tempId = `temp-moment-${Date.now()}-${Math.random().toString(36).slice(2)}`
     const localPreviewUrls = items.map(({ file }) => URL.createObjectURL(file))
