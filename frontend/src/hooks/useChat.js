@@ -218,7 +218,7 @@ export function useChat(conversationId, currentUserId) {
           .insert({
             conversation_id: conversationId,
             sender_id: currentUserId,
-            content: caption,
+           content: caption || '',
             message_type: 'media',
           })
           .select()
