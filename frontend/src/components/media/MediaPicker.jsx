@@ -149,7 +149,7 @@ export default function MediaPicker({ isOpen, onClose, onConfirm, accept = 'imag
                 grouped[section]?.length ? (
                   <div key={section} style={{ marginBottom: 20 }}>
                     <h4 style={sectionTitleStyle}>{section}</h4>
-                    <Reorder.Group
+                                      <Reorder.Group
                       as="div"
                       axis="x"
                       values={grouped[section]}
@@ -161,17 +161,28 @@ export default function MediaPicker({ isOpen, onClose, onConfirm, accept = 'imag
                       }}
                       style={gridStyle}
                     >
-                      {grouped[section].map(item => (
-                        <Reorder.Item key={item.id} value={item} style={thumbWrapStyle} whileDrag={{ scale: 1.05, zIndex: 5 }}>
-                          {item.mediaType === 'video' ? (
-                            <video src={item.url} style={thumbStyle} muted />
-                          ) : (
-                            <img src={item.url} alt={item.file.name} style={thumbStyle} />
-                          )}
-                          <button onClick={() => toggleRemove(item.id)} style={removeBtnStyle} aria-label="Remove">✕</button>
-                          {item.mediaType === 'video' && <span style={videoBadgeStyle}>▶</span>}
-                        </Reorder.Item>
-                      ))}
+                      <AnimatePresence initial={false} mode="popLayout">
+                        {grouped[section].map(item => (
+                          <Reorder.Item
+                            key={item.id}
+                            value={item}
+                            style={thumbWrapStyle}
+                            whileDrag={{ scale: 1.05, zIndex: 5 }}
+                            initial={{ opacity: 0, scale: 0.5 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.4 }}
+                            transition={{ type: 'spring', stiffness: 480, damping: 32 }}
+                          >
+                            {item.mediaType === 'video' ? (
+                              <video src={item.url} style={thumbStyle} muted />
+                            ) : (
+                              <img src={item.url} alt={item.file.name} style={thumbStyle} />
+                            )}
+                            <button onClick={() => toggleRemove(item.id)} style={removeBtnStyle} aria-label="Remove">✕</button>
+                            {item.mediaType === 'video' && <span style={videoBadgeStyle}>▶</span>}
+                          </Reorder.Item>
+                        ))}
+                      </AnimatePresence>
                     </Reorder.Group>
                   </div>
                 ) : null
