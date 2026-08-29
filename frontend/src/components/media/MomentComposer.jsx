@@ -3,7 +3,8 @@
 // MediaComposer (already cropped/filtered/trimmed) and lets the user turn
 // them into ONE grouped Moment: a title, a chosen cover, and a reorderable
 // sequence. Sending calls onSend(items, { title, coverIndex }), where items
-// is the same [{file, mediaType}] list in its (possibly reordered) order.
+// is the same [{file, mediaType, thumbnail}] list in its (possibly
+// reordered) order.
 
 import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
@@ -14,6 +15,7 @@ export default function MomentComposer({ isOpen, items, onCancel, onSend }) {
   const [title, setTitle] = useState('')
   const [coverId, setCoverId] = useState(null)
   const [sending, setSending] = useState(false)
+  const [justCreated, setJustCreated] = useState(false)
 
   useEffect(() => {
     if (!isOpen) return
@@ -41,7 +43,9 @@ export default function MomentComposer({ isOpen, items, onCancel, onSend }) {
   const handleSend = () => {
     if (!ordered.length || sending) return
     setSending(true)
-    const finalItems = ordered.map(({ file, mediaType }) => ({ file, mediaType }))
+    setJustCreated(true)
+    setTimeout(() => setJustCreated(false), 550)
+    const finalItems = ordered.map(({ file, mediaType, thumbnail }) => ({ file, mediaType, thumbnail }))
     onSend(finalItems, { title: title.trim() || null, coverIndex: Math.max(0, coverIndex) })
   }
 
@@ -94,9 +98,22 @@ export default function MomentComposer({ isOpen, items, onCancel, onSend }) {
 
         <div style={footerStyle}>
           <div style={countLabelStyle}>{ordered.length} {ordered.length === 1 ? 'memory' : 'memories'}</div>
-          <button onClick={handleSend} disabled={!ordered.length || sending} style={sendBtnStyle}>
-            {sending ? 'Sending…' : 'Send Moment'}
-          </button>
+          <motion.button
+            onClick={handleSend}
+            disabled={!ordered.length || sending}
+            whileTap={{ scale: 0.95 }}
+            style={sendBtnStyle}
+          >
+            {justCreated && (
+              <motion.span
+                initial={{ scale: 0, opacity: 1 }}
+                animate={{ scale: 2.2, opacity: 0 }}
+                transition={{ duration: 0.5 }}
+                style={rippleStyle}
+              />
+            )}
+            {sending ? 'Sending…' : '✨ Send Moment'}
+          </motion.button>
         </div>
       </motion.div>
     </AnimatePresence>
@@ -121,4 +138,5 @@ const removeBtnStyle = { background: 'none', border: 'none', color: 'rgba(255,25
 const emptyStyle = { textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 13, padding: '30px 0' }
 const footerStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 16px max(14px, env(safe-area-inset-bottom))', background: 'rgba(15,13,22,0.96)' }
 const countLabelStyle = { color: 'rgba(255,255,255,0.6)', fontSize: 12.5, fontWeight: 600 }
-const sendBtnStyle = { background: 'var(--accent, #7c5cff)', color: '#fff', border: 'none', borderRadius: 14, padding: '12px 24px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }
+const sendBtnStyle = { position: 'relative', overflow: 'hidden', background: 'var(--accent, #7c5cff)', color: '#fff', border: 'none', borderRadius: 14, padding: '12px 24px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }
+const rippleStyle = { position: 'absolute', inset: 0, borderRadius: 'inherit', background: 'radial-gradient(circle, rgba(167,139,250,0.5), transparent 70%)', pointerEvents: 'none' }
