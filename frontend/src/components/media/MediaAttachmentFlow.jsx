@@ -21,6 +21,7 @@ import FilePicker from './FilePicker'
 import MediaComposer from './MediaComposer'
 import DropZone from './DropZone'
 import { validateFile, MediaValidationError } from '../../services/MediaAssetService'
+import LocationShareModal from './LocationShareModal'
 
 function classifyDroppedFile(file) {
   // Dropped GIFs are tagged 'image' (not 'gif') so they flow through
@@ -48,10 +49,11 @@ function classifyDroppedFile(file) {
   return DOCUMENT_MIME.has(file.type) ? 'document' : null
 }
 
-const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaMessage, sendMomentMessage }, ref) {
+const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaMessage, sendMomentMessage, onShareLocation }, ref) {
   const [studioOpen, setStudioOpen] = useState(false)
-  const [activePicker, setActivePicker] = useState(null) // 'photos' | 'camera' | 'documents' | 'audio' | null
-  const [composerItems, setComposerItems] = useState(null) // [{ file, mediaType }] | null
+  const [activePicker, setActivePicker] = useState(null)
+  const [composerItems, setComposerItems] = useState(null)
+  const [locationShareOpen, setLocationShareOpen] = useState(false)
 
   useImperativeHandle(ref, () => ({
     open: () => setStudioOpen(true),
@@ -62,7 +64,14 @@ const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaM
     else if (id === 'camera') setActivePicker('camera')
     else if (id === 'documents') setActivePicker('documents')
     else if (id === 'audio') setActivePicker('audio')
-    // 'location', 'contact', 'moment' are separate flows not built yet.
+    else if (id === 'location') setLocationShareOpen(true)
+    // 'contact', 'screenshot', explicit 'moment' entry are separate flows not built yet.
+  }
+
+  const handleLocationConfirm = (coords) => {
+    setLocationShareOpen(false)
+    setStudioOpen(false)
+    onShareLocation?.(coords)
   }
 
   // Photos/videos from MediaPicker or CameraCapture go into the Composer
@@ -164,6 +173,11 @@ const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaM
         onCancel={() => setComposerItems(null)}
         onSend={handleComposerSend}
         onSendMoment={handleComposerSendMoment}
+      />
+            <LocationShareModal
+        isOpen={locationShareOpen}
+        onClose={() => setLocationShareOpen(false)}
+        onConfirm={handleLocationConfirm}
       />
     </>
   )
