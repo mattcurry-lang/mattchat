@@ -2,6 +2,13 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase, getMessages, sendMessage as sendMsg } from '../lib/supabase'
 import { playSound } from '../lib/mattchatSounds'
 import { subscribeToChannel, getChannel } from '../lib/realtimeManager'
+import {
+  validateFile,
+  buildStoragePath,
+  createMediaAssetRow,
+  updateMediaAssetStatus,
+} from '../services/MediaAssetService'
+import { uploadManager } from '../services/UploadManager'
 
 export function useChat(conversationId, currentUserId) {
   const [messages, setMessages] = useState([])
@@ -48,13 +55,21 @@ export function useChat(conversationId, currentUserId) {
           event: 'UPDATE', schema: 'public', table: 'messages',
           filter: `conversation_id=eq.${conversationId}`,
         }, (payload) => emit('update', payload))
+        // Media asset progress/status changes ride the SAME conversation
+        // channel — do not open a subscription per asset. This is how a
+        // second device (or the sender's own other tab) sees "Uploading 37%"
+        // → "Sent" without polling.
+        .on('postgres_changes', {
+          event: 'UPDATE', schema: 'public', table: 'media_assets',
+          filter: `conversation_id=eq.${conversationId}`,
+        }, (payload) => emit('media_update', payload))
         .on('broadcast', { event: 'typing' }, ({ payload }) => emit('typing', payload)),
       {
         onEvent: async (type, payload) => {
           if (type === 'insert') {
             const { data: msgWithProfile } = await supabase
               .from('messages')
-              .select('*, profiles!messages_sender_id_fkey(username, avatar_url)')
+              .select('*, profiles!messages_sender_id_fkey(username, avatar_url), media_assets(*)')
               .eq('id', payload.new.id)
               .single()
             if (!msgWithProfile) return
@@ -62,8 +77,13 @@ export function useChat(conversationId, currentUserId) {
             if (msgWithProfile.sender_id !== currentUserId) playSound('pulse')
 
             setMessages(prev => {
-              if (msgWithProfile.sender_id === currentUserId) {
-                const matchIdx = prev.findIndex(m => m._optimistic && m.content === msgWithProfile.content)
+              // Media messages are already reconciled to their real ID
+              // synchronously inside sendMediaMessage (see below), so by the
+              // time this realtime echo arrives the dedupe check below is
+              // enough for them. Only text messages still need content-based
+              // matching, since sendMessage's insert doesn't return early.
+              if (msgWithProfile.sender_id === currentUserId && msgWithProfile.message_type === 'text') {
+                const matchIdx = prev.findIndex(m => m._optimistic && m.message_type === 'text' && m.content === msgWithProfile.content)
                 if (matchIdx !== -1) {
                   const next = [...prev]
                   next[matchIdx] = msgWithProfile
@@ -71,10 +91,26 @@ export function useChat(conversationId, currentUserId) {
                 }
               }
               if (prev.some(m => m.id === msgWithProfile.id)) return prev
+              // Preserve a local preview URL/optimistic upload fields already
+              // in state for this id (media case) rather than clobbering them.
+              const existing = prev.find(m => m.id === msgWithProfile.id || m._tempId === msgWithProfile.id)
+              if (existing) {
+                return prev.map(m => (m.id === msgWithProfile.id || m._tempId === msgWithProfile.id)
+                  ? { ...msgWithProfile, _localPreviewUrl: existing._localPreviewUrl, media_assets: existing.media_assets || msgWithProfile.media_assets }
+                  : m
+                )
+              }
               return [...prev, msgWithProfile]
             })
           } else if (type === 'update') {
             setMessages(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new } : m))
+          } else if (type === 'media_update') {
+            const asset = payload.new
+            setMessages(prev => prev.map(m => {
+              if (m.id !== asset.message_id) return m
+              const media_assets = (m.media_assets || []).map(a => a.id === asset.id ? asset : a)
+              return { ...m, media_assets: media_assets.length ? media_assets : [asset] }
+            }))
           } else if (type === 'typing') {
             if (payload.user_id === currentUserId) return
             setTyping(prev => {
@@ -137,6 +173,152 @@ export function useChat(conversationId, currentUserId) {
     }
   }, [conversationId, currentUserId, isEmailConvo])
 
+  /**
+   * Sends one or more media files as messages. Non-blocking: inserts an
+   * optimistic bubble per file immediately (preparing → uploading →
+   * processing → sent → failed), then returns. The caller (composer) does
+   * not need to await this to keep chatting.
+   *
+   * @param files File[] - already validated/edited by MediaComposer
+   * @param opts { mediaType, caption, isViewOnce, expiresAt }
+   */
+  const sendMediaMessage = useCallback(async (files, opts = {}) => {
+    if (!conversationId || !currentUserId || !files?.length) return
+    const { mediaType, caption = null, isViewOnce = false, expiresAt = null } = opts
+
+    for (const file of files) {
+      const tempId = `temp-media-${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const localPreviewUrl = URL.createObjectURL(file)
+
+      const optimisticMsg = {
+        id: tempId,
+        _tempId: tempId,
+        conversation_id: conversationId,
+        sender_id: currentUserId,
+        content: caption,
+        message_type: 'media',
+        created_at: new Date().toISOString(),
+        profiles: null,
+        _optimistic: true,
+        _localPreviewUrl: localPreviewUrl,
+        media_assets: [{
+          media_type: mediaType,
+          filename: file.name,
+          size_bytes: file.size,
+          upload_status: 'preparing',
+          upload_progress: 0,
+          is_view_once: isViewOnce,
+        }],
+      }
+      setMessages(prev => [...prev, optimisticMsg])
+
+      try {
+        validateFile(file, mediaType)
+
+        // 1. Create the message row first so media_assets.message_id can
+        // point at something real from the start.
+        const { data: messageRow, error: msgErr } = await supabase
+          .from('messages')
+          .insert({
+            conversation_id: conversationId,
+            sender_id: currentUserId,
+            content: caption,
+            message_type: 'media',
+          })
+          .select()
+          .single()
+        if (msgErr) throw msgErr
+
+        // 2. Create the media_assets row in 'preparing' state.
+        const storagePath = buildStoragePath(currentUserId, mediaType, file.name)
+        const asset = await createMediaAssetRow({
+          conversationId,
+          senderId: currentUserId,
+          messageId: messageRow.id,
+          mediaType,
+          mimeType: file.type,
+          filename: file.name,
+          storagePath,
+          sizeBytes: file.size,
+          isViewOnce,
+          expiresAt,
+        })
+
+        // Reconcile temp bubble with real IDs, keep local preview for
+        // instant rendering while the real thumbnail/signed URL loads.
+        setMessages(prev => prev.map(m => m._tempId === tempId
+          ? { ...m, id: messageRow.id, media_assets: [asset] }
+          : m
+        ))
+
+        // 3. Kick off the (possibly resumable) upload — does not block.
+        uploadManager.start({
+          file,
+          assetId: asset.id,
+          mediaType,
+          storagePath,
+          onProgress: (pct) => {
+            setMessages(prev => prev.map(m => m.id === messageRow.id
+              ? { ...m, media_assets: [{ ...m.media_assets?.[0], upload_progress: pct }] }
+              : m
+            ))
+          },
+          onStatusChange: (status) => {
+            setMessages(prev => prev.map(m => m.id === messageRow.id
+              ? { ...m, media_assets: [{ ...m.media_assets?.[0], upload_status: status }] }
+              : m
+            ))
+            if (status === 'processing') {
+              // Byte transfer done; mark 'sent' once any server-side
+              // processing (thumbnailing, transcoding) finishes. If your
+              // pipeline runs sync at upload time, flip this straight to
+              // 'sent' here instead of waiting on a separate step.
+              updateMediaAssetStatus(asset.id, { upload_status: 'sent', processing_status: 'done' }).catch(() => {})
+            }
+          },
+        })
+      } catch (e) {
+        console.error('[useChat] sendMediaMessage failed:', e)
+        setMessages(prev => prev.map(m => m._tempId === tempId
+          ? { ...m, media_assets: [{ ...(m.media_assets?.[0] || {}), upload_status: 'failed' }] }
+          : m
+        ))
+      }
+    }
+  }, [conversationId, currentUserId])
+
+  /** Retries a failed upload without re-picking the file — pass the same
+   * File object the composer still has in memory for that message. */
+  const retryMediaUpload = useCallback((message, file) => {
+    const asset = message.media_assets?.[0]
+    if (!asset || !file) return
+    setMessages(prev => prev.map(m => m.id === message.id
+      ? { ...m, media_assets: [{ ...asset, upload_status: 'uploading', upload_progress: 0 }] }
+      : m
+    ))
+    uploadManager.retry({
+      file,
+      assetId: asset.id,
+      mediaType: asset.media_type,
+      storagePath: asset.storage_path,
+      onProgress: (pct) => {
+        setMessages(prev => prev.map(m => m.id === message.id
+          ? { ...m, media_assets: [{ ...m.media_assets?.[0], upload_progress: pct }] }
+          : m
+        ))
+      },
+      onStatusChange: (status) => {
+        setMessages(prev => prev.map(m => m.id === message.id
+          ? { ...m, media_assets: [{ ...m.media_assets?.[0], upload_status: status }] }
+          : m
+        ))
+        if (status === 'processing') {
+          updateMediaAssetStatus(asset.id, { upload_status: 'sent', processing_status: 'done' }).catch(() => {})
+        }
+      },
+    })
+  }, [])
+
   const broadcastTyping = useCallback((isTyping) => {
     if (channelKey) {
       getChannel(channelKey)?.send({
@@ -162,7 +344,7 @@ export function useChat(conversationId, currentUserId) {
     }
   }, [currentUserId, conversationId, channelKey])
 
-  return { messages, loading, typing, sendMessage, broadcastTyping }
+  return { messages, loading, typing, sendMessage, sendMediaMessage, retryMediaUpload, broadcastTyping }
 }
 
 export function useConversations(userId) {
