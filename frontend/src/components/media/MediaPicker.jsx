@@ -89,17 +89,19 @@ export default function MediaPicker({ isOpen, onClose, onConfirm, accept = 'imag
   }
 
   const handleContinue = () => {
-    if (!items.length) return
-    // Group by mediaType so sendMediaMessage gets a consistent type per call;
-    // mixed photo+video sends still work, they just batch as two calls.
-    const byType = items.reduce((acc, i) => {
-      acc[i.mediaType] = acc[i.mediaType] || []
-      acc[i.mediaType].push(i.file)
-      return acc
-    }, {})
-    Object.entries(byType).forEach(([mediaType, files]) => onConfirm(files, mediaType))
-    clearAll()
-    onClose()
+  if (!items.length) return
+  // Hand back ONE ordered array of { file, mediaType } — this is the
+  // shape MediaComposer expects for every item. Previously this grouped
+  // by type and called onConfirm once per type with bare File[], which
+  // made MediaComposer's items[i] BE the File object itself (no .file
+  // property), and silently dropped one type on mixed photo+video picks
+  // since each onConfirm call overwrote the previous one in
+  // MediaAttachmentFlow's setComposerItems.
+  const orderedItems = items.map(({ file, mediaType }) => ({ file, mediaType }))
+  onConfirm(orderedItems)
+  clearAll()
+  onClose()
+}nClose()
   }
 
   const handleClose = () => {
