@@ -12,6 +12,11 @@
 // video into MediaComposer, documents/audio straight to send.
 // Unsupported types are reported via a single alert rather than silently
 // dropped, matching FilePicker/MediaPicker's existing validation-error UX.
+//
+// Section 1 additions: Location, Contact, and Screenshot studio entries.
+// Section 5 addition: an explicit "Create Moment" studio entry — forces
+// the picker into moment-intent mode so MediaComposer defaults to
+// grouping the batch into a Moment instead of sending items separately.
 
 import { useState, useImperativeHandle, forwardRef } from 'react'
 import MediaStudio from './MediaStudio'
@@ -20,10 +25,10 @@ import CameraCapture from './CameraCapture'
 import FilePicker from './FilePicker'
 import MediaComposer from './MediaComposer'
 import DropZone from './DropZone'
-import { validateFile, MediaValidationError } from '../../services/MediaAssetService'
 import LocationShareModal from './LocationShareModal'
 import ContactShareModal from './ContactShareModal'
 import ScreenshotCapture from './ScreenshotCapture'
+import { validateFile, MediaValidationError } from '../../services/MediaAssetService'
 
 function classifyDroppedFile(file) {
   // Dropped GIFs are tagged 'image' (not 'gif') so they flow through
@@ -51,47 +56,53 @@ function classifyDroppedFile(file) {
   return DOCUMENT_MIME.has(file.type) ? 'document' : null
 }
 
-const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaMessage, sendMomentMessage, onShareLocation, onShareContact, currentUserId }, ref) {
+const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow(
+  { sendMediaMessage, sendMomentMessage, onShareLocation, onShareContact, currentUserId },
+  ref
+) {
   const [studioOpen, setStudioOpen] = useState(false)
-   const [activePicker, setActivePicker] = useState(null)
-  const [pickerForceMulti, setPickerForceMulti] = useState(false)
-  const [composerItems, setComposerItems] = useState(null)
+  const [activePicker, setActivePicker] = useState(null) // 'photos' | 'camera' | 'documents' | 'audio' | 'screenshot' | null
+  const [pickerMomentIntent, setPickerMomentIntent] = useState(false)
+  const [composerItems, setComposerItems] = useState(null) // [{ file, mediaType }] | null
   const [composerMomentIntent, setComposerMomentIntent] = useState(false)
   const [locationShareOpen, setLocationShareOpen] = useState(false)
   const [contactShareOpen, setContactShareOpen] = useState(false)
+
   useImperativeHandle(ref, () => ({
     open: () => setStudioOpen(true),
   }))
+
   const handleSelectOption = (id) => {
-    if (id === 'photos' || id === 'videos') { setPickerForceMulti(false); setActivePicker('photos') }
+    if (id === 'photos' || id === 'videos') { setPickerMomentIntent(false); setActivePicker('photos') }
     else if (id === 'camera') setActivePicker('camera')
     else if (id === 'documents') setActivePicker('documents')
     else if (id === 'audio') setActivePicker('audio')
     else if (id === 'location') setLocationShareOpen(true)
     else if (id === 'contact') setContactShareOpen(true)
     else if (id === 'screenshot') setActivePicker('screenshot')
-    else if (id === 'moment') { setPickerForceMulti(true); setActivePicker('photos') }
+    else if (id === 'moment') { setPickerMomentIntent(true); setActivePicker('photos') }
   }
 
-  const handlePickedForEditing = (files, mediaType) => {
-    const wasMomentIntent = pickerForceMulti
+  // MediaPicker hands back a single ordered [{ file, mediaType }] array
+  // (mixed photo+video included) — see the Section 5/1 fix that made
+  // MediaPicker.handleContinue call onConfirm once instead of once per
+  // mediaType.
+  const handlePickerConfirm = (orderedItems) => {
+    const wasMomentIntent = pickerMomentIntent
     setActivePicker(null)
-    setPickerForceMulti(false)
+    setPickerMomentIntent(false)
     setComposerMomentIntent(wasMomentIntent)
+    setComposerItems(orderedItems)
+  }
+
+  // Camera/Screenshot only ever produce one item of one type — keep the
+  // simpler (files, mediaType) shape for these rather than forcing them
+  // through the ordered-array shape MediaPicker uses.
+  const handleSingleTypeConfirm = (files, mediaType) => {
+    setActivePicker(null)
+    setComposerMomentIntent(false)
     setComposerItems(files.map(file => ({ file, mediaType })))
   }
-  const handleContactConfirm = (profile) => {
-    setContactShareOpen(false)
-    setStudioOpen(false)
-    onShareContact?.(profile)
-  }
-
-  const handleLocationConfirm = (coords) => {
-    setLocationShareOpen(false)
-    setStudioOpen(false)
-    onShareLocation?.(coords)
-  }
- 
 
   // Documents/audio skip editing entirely.
   const handlePickedDirect = (files, mediaType) => {
@@ -99,7 +110,7 @@ const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaM
     setActivePicker(null)
   }
 
-   const handleComposerSend = (files, mediaType, opts) => {
+  const handleComposerSend = (files, mediaType, opts) => {
     sendMediaMessage(files, { mediaType, ...opts })
     setComposerItems(null)
     setComposerMomentIntent(false)
@@ -109,6 +120,18 @@ const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaM
     sendMomentMessage(items, opts)
     setComposerItems(null)
     setComposerMomentIntent(false)
+  }
+
+  const handleLocationConfirm = (coords) => {
+    setLocationShareOpen(false)
+    setStudioOpen(false)
+    onShareLocation?.(coords)
+  }
+
+  const handleContactConfirm = (profile) => {
+    setContactShareOpen(false)
+    setStudioOpen(false)
+    onShareContact?.(profile)
   }
 
   // ---- drag-and-drop entry point (spec section 6) ----
@@ -138,7 +161,7 @@ const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaM
       }
     }
 
-    if (composerBound.length) setComposerItems(composerBound)
+    if (composerBound.length) { setComposerMomentIntent(false); setComposerItems(composerBound) }
     Object.entries(directByType).forEach(([mediaType, typeFiles]) => sendMediaMessage(typeFiles, { mediaType }))
 
     if (rejected.length) {
@@ -158,7 +181,8 @@ const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaM
         onClose={() => setStudioOpen(false)}
         onSelectOption={handleSelectOption}
       />
-               <MediaPicker
+
+      <MediaPicker
         isOpen={activePicker === 'photos'}
         onClose={() => { setActivePicker(null); setPickerMomentIntent(false) }}
         onConfirm={handlePickerConfirm}
@@ -175,6 +199,18 @@ const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaM
         onClose={() => setActivePicker(null)}
         onConfirm={handleSingleTypeConfirm}
       />
+      <FilePicker
+        isOpen={activePicker === 'documents'}
+        onClose={() => setActivePicker(null)}
+        onConfirm={handlePickedDirect}
+        kind="document"
+      />
+      <FilePicker
+        isOpen={activePicker === 'audio'}
+        onClose={() => setActivePicker(null)}
+        onConfirm={handlePickedDirect}
+        kind="audio"
+      />
       <MediaComposer
         isOpen={!!composerItems}
         items={composerItems || []}
@@ -183,21 +219,17 @@ const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaM
         onSend={handleComposerSend}
         onSendMoment={handleComposerSendMoment}
       />
-            <LocationShareModal
+
+      <LocationShareModal
         isOpen={locationShareOpen}
         onClose={() => setLocationShareOpen(false)}
         onConfirm={handleLocationConfirm}
       />
-            <ContactShareModal
+      <ContactShareModal
         isOpen={contactShareOpen}
         onClose={() => setContactShareOpen(false)}
         onConfirm={handleContactConfirm}
         currentUserId={currentUserId}
-      />
-            <ScreenshotCapture
-        isOpen={activePicker === 'screenshot'}
-        onClose={() => setActivePicker(null)}
-        onConfirm={handlePickedForEditing}
       />
     </>
   )
