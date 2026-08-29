@@ -222,60 +222,39 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
     return new File([blob], item.file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' })
   }
 
-  async function exportVideo(item, s, preset) {
-    const noEdits = s.trimStart === 0 && (!s.trimEnd || Math.abs(s.trimEnd - (videoRef.current?.duration || 0)) < 0.05)
-      && s.speed === 1 && !s.muted
-    if (noEdits) return item.file // nothing to re-encode — send original bytes
-
-    const srcUrl = URL.createObjectURL(item.file)
-    const v = document.createElement('video')
-    v.src = srcUrl
-    v.muted = false
-    await new Promise(res => { v.onloadedmetadata = res })
-
-    const scale = Math.min(1, preset.maxDim / Math.max(v.videoWidth, v.videoHeight))
-    const canvas = document.createElement('canvas')
-    canvas.width = v.videoWidth * scale
-    canvas.height = v.videoHeight * scale
-    const ctx = canvas.getContext('2d')
-
-    const canvasStream = canvas.captureStream(30)
-    let combinedStream = canvasStream
-    if (!s.muted) {
-      try {
-        const audioTracks = v.captureStream ? v.captureStream().getAudioTracks() : []
-        if (audioTracks.length) combinedStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioTracks])
-      } catch { /* some browsers restrict captureStream on cross-origin/blob sources — video-only fallback */ }
+  async function exportImage(item, s, preset) {
+    let sourceCanvas
+    if (s.markupCanvas) {
+      sourceCanvas = s.markupCanvas
+    } else {
+      const crop = s.crop
+      sourceCanvas = document.createElement('canvas')
+      sourceCanvas.width = crop.w; sourceCanvas.height = crop.h
+      const ctx = sourceCanvas.getContext('2d')
+      ctx.filter = filterString(s)
+      ctx.drawImage(canvasRef.current, crop.x, crop.y, crop.w, crop.h, 0, 0, crop.w, crop.h)
     }
+    const scale = Math.min(1, preset.maxDim / Math.max(sourceCanvas.width, sourceCanvas.height))
+    const out = document.createElement('canvas')
+    out.width = sourceCanvas.width * scale
+    out.height = sourceCanvas.height * scale
+    out.getContext('2d').drawImage(sourceCanvas, 0, 0, out.width, out.height)
+    const blob = await new Promise(res => out.toBlob(res, 'image/jpeg', preset.imageQuality))
+    const file = new File([blob], item.file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' })
 
-    const recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: preset.videoBitrate })
-    const chunks = []
-    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data) }
+    // Thumbnail: always generated from the same edited sourceCanvas (crop/
+    // rotate/filter/markup already baked in), downscaled small and
+    // compressed hard — this is the "thumbnail-first loading" asset from
+    // spec sections 12/20, distinct from the full-quality exported file.
+    const THUMB_MAX_DIM = 400
+    const thumbScale = Math.min(1, THUMB_MAX_DIM / Math.max(sourceCanvas.width, sourceCanvas.height))
+    const thumbCanvas = document.createElement('canvas')
+    thumbCanvas.width = sourceCanvas.width * thumbScale
+    thumbCanvas.height = sourceCanvas.height * thumbScale
+    thumbCanvas.getContext('2d').drawImage(sourceCanvas, 0, 0, thumbCanvas.width, thumbCanvas.height)
+    const thumbnail = await new Promise(res => thumbCanvas.toBlob(res, 'image/jpeg', 0.6))
 
-    const recordingDone = new Promise(res => { recorder.onstop = res })
-
-    v.currentTime = s.trimStart
-    v.playbackRate = s.speed
-    await new Promise(res => { v.onseeked = res })
-
-    recorder.start()
-    v.play()
-
-    const drawFrame = () => {
-      if (v.currentTime >= s.trimEnd || v.paused || v.ended) {
-        v.pause()
-        recorder.stop()
-        return
-      }
-      ctx.drawImage(v, 0, 0, canvas.width, canvas.height)
-      requestAnimationFrame(drawFrame)
-    }
-    requestAnimationFrame(drawFrame)
-
-    await recordingDone
-    URL.revokeObjectURL(srcUrl)
-    const blob = new Blob(chunks, { type: 'video/webm' })
-    return new File([blob], item.file.name.replace(/\.\w+$/, '.webm'), { type: 'video/webm' })
+    return { file, thumbnail }
   }
 
   // Shared by both plain send and Create Moment — runs every item through
@@ -308,7 +287,8 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
           canvasRef.current.width = tmp.width; canvasRef.current.height = tmp.height
           canvasRef.current.getContext('2d').drawImage(tmp, 0, 0)
         }
-        results.push({ file: await exportImage(item, s, preset), mediaType: 'image', thumbnail: null })
+               const { file: imgFile, thumbnail: imgThumb } = await exportImage(item, s, preset)
+        results.push({ file: imgFile, mediaType: 'image', thumbnail: imgThumb })
       } else if (item.mediaType === 'video') {
         results.push({ file: await exportVideo(item, s, preset), mediaType: 'video', thumbnail: s.thumbnailBlob || null })
       }
@@ -316,30 +296,31 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
     return results
   }
 
-  const handleSend = async () => {
+   const handleSend = async () => {
     setSending(true)
     try {
       const results = await exportAllItems()
       const byType = { image: [], video: [] }
-      const thumbnails = []
+      const imageThumbnails = []
+      const videoThumbnails = []
       results.forEach(r => {
         byType[r.mediaType].push(r.file)
-        if (r.mediaType === 'video' && r.thumbnail) thumbnails.push(r.thumbnail)
+        if (r.mediaType === 'image') imageThumbnails.push(r.thumbnail || null)
+        if (r.mediaType === 'video') videoThumbnails.push(r.thumbnail || null)
       })
-      if (byType.image.length) onSend(byType.image, 'image', { caption: caption.trim() || null })
-      if (byType.video.length) onSend(byType.video, 'video', { caption: caption.trim() || null, thumbnails })
+      if (byType.image.length) onSend(byType.image, 'image', { caption: caption.trim() || null, thumbnails: imageThumbnails })
+      if (byType.video.length) onSend(byType.video, 'video', { caption: caption.trim() || null, thumbnails: videoThumbnails })
     } catch (e) {
       console.error('[MediaComposer] export failed:', e)
       alert('Something went wrong preparing that media — please try again.')
     }
     setSending(false)
   }
-
-  const handleCreateMoment = async () => {
+   const handleCreateMoment = async () => {
     setSending(true)
     try {
       const results = await exportAllItems()
-      setMomentItems(results.map(({ file, mediaType }) => ({ file, mediaType })))
+      setMomentItems(results.map(({ file, mediaType, thumbnail }) => ({ file, mediaType, thumbnail })))
       setMomentOpen(true)
     } catch (e) {
       console.error('[MediaComposer] moment export failed:', e)
@@ -347,7 +328,6 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
     }
     setSending(false)
   }
-
   const handleMomentSend = (finalItems, opts) => {
     onSendMoment?.(finalItems, opts)
     setMomentOpen(false)
