@@ -295,7 +295,7 @@ export function useChat(conversationId, currentUserId) {
    * share the same message_id and carry moment_order so MomentMessage /
    * MomentViewer render them as a single swipeable unit.
    *
-   * @param items [{ file, mediaType }] — already edited/exported by MediaComposer
+   * @param items [{ file, mediaType, thumbnail }] — already edited/exported by MediaComposer
    * @param opts { title, coverIndex }
    */
   const sendMomentMessage = useCallback(async (items, opts = {}) => {
@@ -342,11 +342,10 @@ export function useChat(conversationId, currentUserId) {
 
       setMessages(prev => prev.map(m => m._tempId === tempId ? { ...m, id: messageRow.id } : m))
 
-      await Promise.all(items.map(async ({ file, mediaType }, i) => {
+      await Promise.all(items.map(async ({ file, mediaType, thumbnail }, i) => {
         try {
           validateFile(file, mediaType)
           const storagePath = buildStoragePath(currentUserId, mediaType, file.name)
-          await Promise.all(items.map(async ({ file, mediaType, thumbnail }, i) => {
           const asset = await createMediaAssetRow({
             conversationId,
             senderId: currentUserId,
@@ -359,8 +358,8 @@ export function useChat(conversationId, currentUserId) {
             momentOrder: i,
             isMomentCover: i === coverIndex,
           })
-          
-           if (thumbnail) {
+
+          if (thumbnail) {
             uploadThumbnail(currentUserId, file.name, thumbnail)
               .then(thumbPath => {
                 if (!thumbPath) return
