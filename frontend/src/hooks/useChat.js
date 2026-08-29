@@ -193,7 +193,7 @@ export function useChat(conversationId, currentUserId) {
         _tempId: tempId,
         conversation_id: conversationId,
         sender_id: currentUserId,
-        content: caption,
+       content: caption || '',
         message_type: 'media',
         created_at: new Date().toISOString(),
         profiles: null,
