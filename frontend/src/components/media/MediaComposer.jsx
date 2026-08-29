@@ -359,8 +359,7 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
   return (
     <AnimatePresence>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={overlayStyle}>
-        <div style={topBarStyle}>
-                 <div style={topBarStyle}>
+            <div style={topBarStyle}>
           <button onClick={onCancel} style={iconBtnStyle}><IconX size={16} /></button>
           <span style={counterStyle}>{index + 1} / {items.length}</span>
           <button onClick={openMarkup} style={iconBtnStyle} title="Markup" disabled={current.mediaType !== 'image'}>
@@ -372,8 +371,7 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
           <div style={momentBannerStyle}>✨ Creating a Moment — {items.length} items</div>
         )}
 
-        <div style={stageStyle}>
-
+      
         <div style={stageStyle}>
           {current.mediaType === 'image' ? (
             <div style={{ position: 'relative', maxWidth: '100%', maxHeight: '100%' }}>
