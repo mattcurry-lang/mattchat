@@ -251,14 +251,11 @@ export function useChat(conversationId, currentUserId) {
             .catch((e) => console.error('[useChat] thumbnail upload failed:', e))
         }
 
-      setMessages(prev => {
-  // Remove any duplicate the realtime INSERT handler may have already
-  // added under this same real id (race: the Postgres INSERT event can
-  // arrive before this local swap runs, and the handler's tempId-match
-  // check can never succeed since _tempId is a string like
-  // "temp-media-..." and msgWithProfile.id is the real UUID — so it
-  // falls through to appending a fresh, asset-less duplicate).
-  const deduped = prev.filter(m => m.id !== messageRow.id)
+     setMessages(prev => {
+  // Remove BOTH: the original optimistic entry (still keyed by tempId
+  // via _tempId) AND any realtime duplicate that may have already
+  // landed under the real id — then add back exactly one, correct copy.
+  const deduped = prev.filter(m => m.id !== messageRow.id && m._tempId !== tempId)
   return [...deduped, { ...optimisticMsg, id: messageRow.id, media_assets: [asset] }]
 })
 
@@ -294,8 +291,8 @@ export function useChat(conversationId, currentUserId) {
         })
       } catch (e) {
         console.error('[useChat] sendMediaMessage failed:', e)
-       setMessages(prev => {
-  const deduped = prev.filter(m => m.id !== messageRow.id)
+ setMessages(prev => {
+  const deduped = prev.filter(m => m.id !== messageRow.id && m._tempId !== tempId)
   return [...deduped, { ...optimisticMsg, id: messageRow.id }]
 })
       }
