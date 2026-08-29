@@ -16,6 +16,7 @@ export function useChat(conversationId, currentUserId) {
   const [typing, setTyping] = useState([])
   const [isEmailConvo, setIsEmailConvo] = useState(false)
   const typingRowActive = useRef(false)
+  const fileStoreRef = useRef(new Map())
 
   const channelKey = conversationId ? `messages:${conversationId}` : null
 
@@ -214,7 +215,7 @@ export function useChat(conversationId, currentUserId) {
 
       try {
         validateFile(file, mediaType)
-
+fileStoreRef.current.set(messageRow.id, file)
         // 1. Create the message row first so media_assets.message_id can
         // point at something real from the start.
         const { data: messageRow, error: msgErr } = await supabase
@@ -263,19 +264,17 @@ export function useChat(conversationId, currentUserId) {
               : m
             ))
           },
-          onStatusChange: (status) => {
-            setMessages(prev => prev.map(m => m.id === messageRow.id
-              ? { ...m, media_assets: [{ ...m.media_assets?.[0], upload_status: status }] }
-              : m
-            ))
-            if (status === 'processing') {
-              // Byte transfer done; mark 'sent' once any server-side
-              // processing (thumbnailing, transcoding) finishes. If your
-              // pipeline runs sync at upload time, flip this straight to
-              // 'sent' here instead of waiting on a separate step.
-              updateMediaAssetStatus(asset.id, { upload_status: 'sent', processing_status: 'done' }).catch(() => {})
-            }
-          },
+         onStatusChange: (status) => {
+  setMessages(prev => prev.map(m => m.id === messageRow.id
+    ? { ...m, media_assets: [{ ...m.media_assets?.[0], upload_status: status }] }
+    : m
+  ))
+  if (status === 'processing') {
+    updateMediaAssetStatus(asset.id, { upload_status: 'sent', processing_status: 'done' })
+      .then(() => fileStoreRef.current.delete(messageRow.id))
+      .catch(() => {})
+  }
+},
         })
       } catch (e) {
         console.error('[useChat] sendMediaMessage failed:', e)
@@ -287,37 +286,56 @@ export function useChat(conversationId, currentUserId) {
     }
   }, [conversationId, currentUserId])
 
-  /** Retries a failed upload without re-picking the file — pass the same
-   * File object the composer still has in memory for that message. */
-  const retryMediaUpload = useCallback((message, file) => {
-    const asset = message.media_assets?.[0]
-    if (!asset || !file) return
+/** Retries a failed upload. No longer needs the caller to hold the File —
+ * pulls it from the in-memory store keyed by message id. If the file isn't
+ * there (e.g. page was reloaded, store is memory-only), fails clearly
+ * instead of silently no-op'ing. */
+const retryMediaUpload = useCallback((message) => {
+  const asset = message.media_assets?.[0]
+  if (!asset) return
+  const file = fileStoreRef.current.get(message.id)
+
+  if (!file) {
+    console.error('[useChat] retryMediaUpload: no file in memory for', message.id, '(page reload clears this store)')
     setMessages(prev => prev.map(m => m.id === message.id
-      ? { ...m, media_assets: [{ ...asset, upload_status: 'uploading', upload_progress: 0 }] }
+      ? { ...m, media_assets: [{ ...asset, upload_status: 'failed', _retryUnavailable: true }] }
       : m
     ))
-    uploadManager.retry({
-      file,
-      assetId: asset.id,
-      mediaType: asset.media_type,
-      storagePath: asset.storage_path,
-      onProgress: (pct) => {
-        setMessages(prev => prev.map(m => m.id === message.id
-          ? { ...m, media_assets: [{ ...m.media_assets?.[0], upload_progress: pct }] }
-          : m
-        ))
-      },
-      onStatusChange: (status) => {
-        setMessages(prev => prev.map(m => m.id === message.id
-          ? { ...m, media_assets: [{ ...m.media_assets?.[0], upload_status: status }] }
-          : m
-        ))
-        if (status === 'processing') {
-          updateMediaAssetStatus(asset.id, { upload_status: 'sent', processing_status: 'done' }).catch(() => {})
-        }
-      },
-    })
-  }, [])
+    return
+  }
+
+  setMessages(prev => prev.map(m => m.id === message.id
+    ? { ...m, media_assets: [{ ...asset, upload_status: 'uploading', upload_progress: 0 }] }
+    : m
+  ))
+
+  uploadManager.retry({
+    file,
+    assetId: asset.id,
+    mediaType: asset.media_type,
+    storagePath: asset.storage_path,
+    onProgress: (pct) => {
+      setMessages(prev => prev.map(m => m.id === message.id
+        ? { ...m, media_assets: [{ ...m.media_assets?.[0], upload_progress: pct }] }
+        : m
+      ))
+    },
+    onStatusChange: (status) => {
+      setMessages(prev => prev.map(m => m.id === message.id
+        ? { ...m, media_assets: [{ ...m.media_assets?.[0], upload_status: status }] }
+        : m
+      ))
+      if (status === 'processing') {
+        updateMediaAssetStatus(asset.id, { upload_status: 'sent', processing_status: 'done' })
+          .then(() => fileStoreRef.current.delete(message.id))
+          .catch(() => {})
+      }
+    },
+  })
+}, [])
+
+// cleanup on unmount / conversation switch — don't hold File blobs forever
+useEffect(() => () => fileStoreRef.current.clear(), [conversationId])
 
   const broadcastTyping = useCallback((isTyping) => {
     if (channelKey) {
