@@ -194,6 +194,21 @@ function GifBubble({ content }) {
     </div>
   )
 }
+function LocationBubble({ content }) {
+  let lat, lng
+  try { ({ lat, lng } = JSON.parse(content)) } catch { return null }
+  if (typeof lat !== 'number' || typeof lng !== 'number') return null
+  const mapSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.01}%2C${lat - 0.008}%2C${lng + 0.01}%2C${lat + 0.008}&layer=mapnik&marker=${lat}%2C${lng}`
+  const openUrl = `https://www.google.com/maps?q=${lat},${lng}`
+  return (
+    <div style={{ borderRadius: 14, overflow: 'hidden', maxWidth: 240, border: '1px solid rgba(167,139,250,0.25)' }}>
+      <iframe title="Shared location" src={mapSrc} style={{ width: '100%', height: 140, border: 'none', display: 'block', pointerEvents: 'none' }} />
+      <a href={openUrl} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', background: 'rgba(167,139,250,0.1)', fontSize: 11.5, fontWeight: 700, color: '#c4b5fd', textDecoration: 'none' }}>
+        📍 Open in Maps
+      </a>
+    </div>
+  )
+}
 function PinterestBubble({ content }) {
   const [loaded, setLoaded] = useState(false)
   const parts = content.replace('pinterest:', '').split('::')
@@ -580,6 +595,19 @@ if (msg.message_type === 'moment') {
       <div>
         {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
         <MomentMessage message={msg} isMe={isMe} onOpen={msg._onOpenMoment} />
+        <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+        <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
+      </div>
+    </div>
+  )
+}
+if (msg.message_type === 'location') {
+  return (
+    <div className={`msg-row ${isMe ? 'mine' : ''}`}>
+      {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
+      <div>
+        {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
+        <LocationBubble content={msg.content} />
         <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
         <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
       </div>
@@ -1421,6 +1449,16 @@ const handleSend = async () => {
     await sendMessage(`pinterest:${pin.imageUrl}::${pin.altText || 'Pin'}`)
     bumpConversationActivity('📌 Pin')
   }
+  const handleShareLocation = async (coords) => {
+  if (!activeConvo) return
+  await supabase.from('messages').insert({
+    conversation_id: activeConvo.id,
+    sender_id: userId,
+    content: JSON.stringify({ lat: coords.lat, lng: coords.lng }),
+    message_type: 'location',
+  })
+  bumpConversationActivity('📍 Location')
+}
  const findMessageById = (id) => messages.find(m => m.id === id)
   const getConvoName = (c) => {
     if (c.isCurryAI) return 'Curry AI'
@@ -2338,7 +2376,7 @@ const handleSend = async () => {
                 </div>
               </div>
             </div>
-<MediaAttachmentFlow ref={mediaFlowRef} sendMediaMessage={sendMediaMessage} sendMomentMessage={sendMomentMessage} />
+<MediaAttachmentFlow ref={mediaFlowRef} sendMediaMessage={sendMediaMessage} sendMomentMessage={sendMomentMessage} onShareLocation={handleShareLocation} />
            {showDrawing && (
               <DrawingModal
                 session={session}
