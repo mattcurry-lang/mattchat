@@ -97,6 +97,8 @@ import { formatLastActivity } from '../lib/relativeStatus'
 import MediaAttachmentFlow from '../components/media/MediaAttachmentFlow'
 import MediaMessage from '../components/media/MediaMessage'
 import MediaViewer from '../components/media/MediaViewer'
+import MomentMessage from '../components/media/MomentMessage'
+import MomentViewer from '../components/media/MomentViewer'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -124,14 +126,15 @@ function getMessagePreview(content) {
   if (content.startsWith('partner_nudge:')) return '💗 Sent with care'
   if (content.startsWith('call_log:') || content.startsWith('missed_call:')) return 'Call'
   if (content.startsWith('short:')) return '📹 Short'
-  if (content.startsWith('{')) {
-    try {
-      const parsed = JSON.parse(content)
-      if (parsed.videoId) return '📹 Short'
-    } catch {
-      // not a short payload — fall through to returning raw content
-    }
+if (content.startsWith('{')) {
+  try {
+    const parsed = JSON.parse(content)
+    if (parsed.videoId) return '📹 Short'
+    if ('title' in parsed) return parsed.title ? `✨ ${parsed.title}` : '✨ Moment'
+  } catch {
+    // not a recognized JSON payload — fall through to returning raw content
   }
+}
   if (extractYouTubeId(content)) return 'sent youvid'   // ← ADD HERE, right before the final return
   return content
 }
@@ -569,6 +572,19 @@ if (msg.message_type === 'short' || msg.content?.startsWith('short:')) {
       </div>
     )
   }
+if (msg.message_type === 'moment') {
+  return (
+    <div className={`msg-row ${isMe ? 'mine' : ''}`}>
+      {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
+      <div>
+        {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
+        <MomentMessage message={msg} isMe={isMe} onOpen={msg._onOpenMoment} />
+        <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+        <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
+      </div>
+    </div>
+  )
+}
 if (msg.message_type === 'media') {
   return (
     <div className={`msg-row ${isMe ? 'mine' : ''}`}>
@@ -750,6 +766,7 @@ const [curryPrefill, setCurryPrefill] = useState(null)
   const [showDrawing, setShowDrawing] = useState(false)
   const [dekutFullscreen, setDekutFullscreen] = useState(false)
   const [mediaViewerTarget, setMediaViewerTarget] = useState(null) // messageId | null
+  const [momentViewerTarget, setMomentViewerTarget] = useState(null) // messageId | null
   
   // that appears AFTER a plain message has already been sent, if
   // Curry thinks it might land colder than intended. Never blocks or
@@ -816,7 +833,7 @@ const listState = useConversationListState({
   openConvoId: activeConvo?.id,
 })
   useGlobalDelivery(userId, conversations.map(c => c.id))
-  const { messages, loading: msgLoading, typing, sendMessage, sendMediaMessage, retryMediaUpload, broadcastTyping } = useChat(
+  const [momentViewerTarget, setMomentViewerTarget] = useState(null) // messageId | null
     activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
     userId
   )
@@ -1706,7 +1723,11 @@ const handleSend = async () => {
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <IconPhone size={11} /> Call
                 </span>
-             ) : (c.last_message?.startsWith('short:') || (c.last_message?.startsWith('{') && c.last_message.includes('"videoId"'))) ? (
+) : (c.last_message?.startsWith('{') && c.last_message.includes('"title"')) ? (
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+    ✨ Moment
+  </span>
+) : (c.last_message?.startsWith('short:') || (c.last_message?.startsWith('{') && c.last_message.includes('"videoId"'))) ? (
   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
     <IconFilm size={11} /> Short
   </span>
@@ -2205,6 +2226,14 @@ const handleSend = async () => {
     onDeleted={() => setMediaViewerTarget(null)}
   />
 )}
+      {momentViewerTarget && messages.find(m => m.id === momentViewerTarget) && (
+  <MomentViewer
+    message={messages.find(m => m.id === momentViewerTarget)}
+    currentUserId={userId}
+    onClose={() => setMomentViewerTarget(null)}
+    onDeleted={() => {}}
+  />
+)}
 {profileCardTarget && (
 <ProfileCard
   targetProfile={profileCardTarget}
@@ -2299,7 +2328,7 @@ const handleSend = async () => {
                 </div>
               </div>
             </div>
-<MediaAttachmentFlow ref={mediaFlowRef} sendMediaMessage={sendMediaMessage} />
+<MediaAttachmentFlow ref={mediaFlowRef} sendMediaMessage={sendMediaMessage} sendMomentMessage={sendMomentMessage} />
            {showDrawing && (
               <DrawingModal
                 session={session}
@@ -2426,6 +2455,7 @@ _onWatchTogether: (videoId, videoTitle, videoThumbnailUrl) => {
     .catch((e) => alert('Could not start Watch Together: ' + e.message))
 },
     _onOpenMediaViewer: (m) => setMediaViewerTarget(m.id),
+    _onOpenMoment: (m) => setMomentViewerTarget(m.id),
 _onRetryMediaUpload: (m) => retryMediaUpload(m),
  _onOpenShort: (video) => { setShortsInitialVideo(video); setShowShorts(true) },
   }}
