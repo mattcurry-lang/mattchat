@@ -832,7 +832,20 @@ const listState = useConversationListState({
   currentUserId: userId,
   openConvoId: activeConvo?.id,
 })
-  useGlobalDelivery(userId, conversations.map(c => c.id))    
+  useGlobalDelivery(userId, conversations.map(c => c.id)) 
+  const {
+  messages,
+  loading: msgLoading,
+  typing,
+  sendMessage,
+  sendMediaMessage,
+  sendMomentMessage,
+  retryMediaUpload,
+  broadcastTyping,
+} = useChat(
+  activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
+  userId
+)
   const { readMap, deliveredMap } = useMessageStatus(
     messages,
     activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
