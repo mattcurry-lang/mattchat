@@ -832,10 +832,7 @@ const listState = useConversationListState({
   currentUserId: userId,
   openConvoId: activeConvo?.id,
 })
-  useGlobalDelivery(userId, conversations.map(c => c.id))
-    activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
-    userId
-  )
+  useGlobalDelivery(userId, conversations.map(c => c.id))    
   const { readMap, deliveredMap } = useMessageStatus(
     messages,
     activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
