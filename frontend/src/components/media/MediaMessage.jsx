@@ -1,12 +1,23 @@
 // MediaMessage.jsx
 // The bubble dispatcher for message_type === 'media'. Renders per media_type
-// (image/video/audio/document/gif) and drives the upload-state UI from the
-// spec exactly: preparing → uploading NN% → processing → sent, or failed
-// with a Resume button. Tapping an image/video opens MediaViewer.
+// (image/video/audio/document/gif) and drives the upload-state UI: preparing
+// → uploading NN% → processing → sent, or failed with a Resume button.
+// Tapping an image/video opens MediaViewer.
+//
+// Phase 9: video thumbnails come from Cloudflare Stream (token-gated) when
+// asset.cf_stream_uid is set, falling back to the normal Supabase signed
+// thumbnail/original otherwise — same fallback the upload path itself uses.
+//
+// Phase 22: the thumbnail wrapper carries a shared layoutId so opening
+// MediaViewer morphs from the bubble's position/size into the full-screen
+// stage instead of just cutting to it; a brief highlight pulses once when
+// upload_status first reaches 'sent'.
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { motion } from 'framer-motion'
 import AudioPreview from './AudioPreview'
 import { getSignedUrl } from '../../services/MediaAssetService'
+import { getStreamPlaybackToken, streamThumbnailUrl } from '../../services/CloudflareStreamService'
 
 const EXT_ICON = {
   pdf: '📕', doc: '📘', docx: '📘', xls: '📗', xlsx: '📗',
@@ -20,16 +31,10 @@ function formatSize(bytes) {
 }
 
 function StatusRow({ status, progress, retryUnavailable, onResume }) {
-  if (status === 'sent') return null // MessageStatus (Sent/Delivered/Read) already covers this
-  if (status === 'preparing') {
-    return <span style={statusTextStyle}><Spinner /> Preparing…</span>
-  }
-  if (status === 'uploading') {
-    return <span style={statusTextStyle}>↑ Uploading {Math.round(progress || 0)}%</span>
-  }
-  if (status === 'processing') {
-    return <span style={statusTextStyle}><Spinner /> Processing…</span>
-  }
+  if (status === 'sent') return null
+  if (status === 'preparing') return <span style={statusTextStyle}><Spinner /> Preparing…</span>
+  if (status === 'uploading') return <span style={statusTextStyle}>↑ Uploading {Math.round(progress || 0)}%</span>
+  if (status === 'processing') return <span style={statusTextStyle}><Spinner /> Processing…</span>
   if (status === 'failed') {
     return (
       <span style={{ ...statusTextStyle, color: '#f87171' }}>
@@ -62,15 +67,38 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry }) {
   const [signedUrl, setSignedUrl] = useState(message._localPreviewUrl || null)
   const [thumbUrl, setThumbUrl] = useState(message._localPreviewUrl || null)
 
+  const prevStatusRef = useRef(asset?.upload_status)
+  const [justSent, setJustSent] = useState(false)
+
+  useEffect(() => {
+    const prev = prevStatusRef.current
+    prevStatusRef.current = asset?.upload_status
+    if (prev && prev !== 'sent' && asset?.upload_status === 'sent') {
+      setJustSent(true)
+      const t = setTimeout(() => setJustSent(false), 650)
+      return () => clearTimeout(t)
+    }
+  }, [asset?.upload_status])
+
   useEffect(() => {
     if (!asset || asset.upload_status !== 'sent') return
     let cancelled = false
+
+    if (asset.cf_stream_uid) {
+      getStreamPlaybackToken(asset.id).then((res) => {
+        if (cancelled || !res.ok) return
+        const thumb = streamThumbnailUrl(res.token)
+        if (thumb) setThumbUrl(thumb)
+      })
+      return () => { cancelled = true }
+    }
+
     getSignedUrl(asset.media_type, asset.storage_path).then(url => { if (!cancelled && url) setSignedUrl(url) })
     if (asset.thumbnail_path) {
       getSignedUrl(asset.media_type, asset.thumbnail_path, { thumbnail: true }).then(url => { if (!cancelled && url) setThumbUrl(url) })
     }
     return () => { cancelled = true }
-  }, [asset?.storage_path, asset?.thumbnail_path, asset?.upload_status])
+  }, [asset?.storage_path, asset?.thumbnail_path, asset?.upload_status, asset?.cf_stream_uid])
 
   if (!asset) return null
 
@@ -78,7 +106,6 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry }) {
   const url = signedUrl
   const displayThumb = thumbUrl || url
 
-  // ---- document ----
   if (asset.media_type === 'document') {
     const ext = asset.filename?.split('.').pop()?.toLowerCase()
     return (
@@ -99,7 +126,6 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry }) {
     )
   }
 
-  // ---- audio ----
   if (asset.media_type === 'audio') {
     return (
       <div>
@@ -118,7 +144,6 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry }) {
     )
   }
 
-  // ---- image / video / gif ----
   const isVideo = asset.media_type === 'video'
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -128,26 +153,25 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry }) {
           ...mediaThumbWrapStyle,
           cursor: asset.upload_status === 'sent' ? 'pointer' : 'default',
           aspectRatio: asset.width && asset.height ? `${asset.width}/${asset.height}` : '4/3',
+          boxShadow: justSent ? '0 0 0 3px rgba(124,92,255,0.55)' : '0 0 0 0 rgba(124,92,255,0)',
+          transition: 'box-shadow 0.5s ease',
         }}
       >
-        {isViewOnceUnavailable ? (
-          <div style={viewOnceGoneStyle}>
-            <span style={{ fontSize: 20 }}>👁️</span>
-            <span>Opened</span>
-          </div>
-        ) : displayThumb ? (
-          <img src={displayThumb} alt={asset.filename || 'media'} style={mediaImgStyle} />
-        ) : (
-          <div style={mediaPlaceholderStyle}>{isVideo ? '🎬' : '🖼️'}</div>
-        )}
+        <motion.div layoutId={`media-${asset.id}`} style={{ position: 'absolute', inset: 0 }}>
+          {isViewOnceUnavailable ? (
+            <div style={viewOnceGoneStyle}>
+              <span style={{ fontSize: 20 }}>👁️</span>
+              <span>Opened</span>
+            </div>
+          ) : displayThumb ? (
+            <img src={displayThumb} alt={asset.filename || 'media'} style={mediaImgStyle} />
+          ) : (
+            <div style={mediaPlaceholderStyle}>{isVideo ? '🎬' : '🖼️'}</div>
+          )}
+        </motion.div>
 
-        {asset.is_view_once && !isViewOnceUnavailable && (
-          <span style={viewOnceBadgeStyle}>1</span>
-        )}
-
-        {isVideo && !isViewOnceUnavailable && asset.upload_status === 'sent' && (
-          <span style={playOverlayStyle}>▶</span>
-        )}
+        {asset.is_view_once && !isViewOnceUnavailable && <span style={viewOnceBadgeStyle}>1</span>}
+        {isVideo && !isViewOnceUnavailable && asset.upload_status === 'sent' && <span style={playOverlayStyle}>▶</span>}
 
         {asset.upload_status !== 'sent' && (
           <div style={uploadOverlayStyle}>
