@@ -41,7 +41,23 @@ const ALLOWED_MIME = {
 }
 
 export class MediaValidationError extends Error {}
-
+/** Uploads a thumbnail Blob to the media-thumbnails bucket and returns its
+ * storage path (or null on failure — thumbnail loss should never block a
+ * send, so callers treat this as best-effort). Call after the parent
+ * media_assets row exists, then patch the path on via updateMediaAssetStatus. */
+export async function uploadThumbnail(userId, filename, blob) {
+  if (!blob) return null
+  const path = buildThumbnailPath(userId, filename)
+  const { error } = await supabase.storage.from('media-thumbnails').upload(path, blob, {
+    contentType: 'image/jpeg',
+    upsert: false,
+  })
+  if (error) {
+    console.error('[MediaAssetService] thumbnail upload failed:', error)
+    return null
+  }
+  return path
+}
 /** Validate a File before we ever touch the network. Never trust the client
  * beyond this — the storage RLS policies + edge function re-check ownership. */
 export function validateFile(file, mediaType) {
