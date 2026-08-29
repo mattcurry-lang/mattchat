@@ -360,12 +360,19 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
     <AnimatePresence>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={overlayStyle}>
         <div style={topBarStyle}>
+                 <div style={topBarStyle}>
           <button onClick={onCancel} style={iconBtnStyle}><IconX size={16} /></button>
           <span style={counterStyle}>{index + 1} / {items.length}</span>
           <button onClick={openMarkup} style={iconBtnStyle} title="Markup" disabled={current.mediaType !== 'image'}>
             <IconBrush size={16} />
           </button>
         </div>
+
+        {momentIntent && items.length > 1 && (
+          <div style={momentBannerStyle}>✨ Creating a Moment — {items.length} items</div>
+        )}
+
+        <div style={stageStyle}>
 
         <div style={stageStyle}>
           {current.mediaType === 'image' ? (
@@ -486,9 +493,7 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
             onDone={handleMarkupDone}
           />
         )}
-        {momentIntent && items.length > 1 && (
-          <div style={momentBannerStyle}>✨ Creating a Moment — {items.length} items</div>
-        )}
+         
         {momentOpen && (
           <MomentComposer
             isOpen={momentOpen}
