@@ -7,6 +7,7 @@ import {
   buildStoragePath,
   createMediaAssetRow,
   updateMediaAssetStatus,
+  uploadThumbnail,
 } from '../services/MediaAssetService'
 import { uploadManager } from '../services/UploadManager'
 
@@ -179,11 +180,11 @@ export function useChat(conversationId, currentUserId) {
    * @param files File[] - already validated/edited by MediaComposer
    * @param opts { mediaType, caption, isViewOnce, expiresAt }
    */
-  const sendMediaMessage = useCallback(async (files, opts = {}) => {
+   const sendMediaMessage = useCallback(async (files, opts = {}) => {
     if (!conversationId || !currentUserId || !files?.length) return
-    const { mediaType, caption = null, isViewOnce = false, expiresAt = null } = opts
+    const { mediaType, caption = null, isViewOnce = false, expiresAt = null, thumbnails = [] } = opts
 
-    for (const file of files) {
+    for (const [fileIndex, file] of files.entries()) {
       const tempId = `temp-media-${Date.now()}-${Math.random().toString(36).slice(2)}`
       const localPreviewUrl = URL.createObjectURL(file)
 
@@ -238,7 +239,17 @@ export function useChat(conversationId, currentUserId) {
           expiresAt,
         })
 
-        fileStoreRef.current.set(messageRow.id, file)
+               fileStoreRef.current.set(messageRow.id, file)
+
+        const thumbBlob = thumbnails[fileIndex] || null
+        if (thumbBlob) {
+          uploadThumbnail(currentUserId, file.name, thumbBlob)
+            .then(thumbPath => {
+              if (!thumbPath) return
+              updateMediaAssetStatus(asset.id, { thumbnail_path: thumbPath }).catch(() => {})
+            })
+            .catch((e) => console.error('[useChat] thumbnail upload failed:', e))
+        }
 
         setMessages(prev => prev.map(m => m._tempId === tempId
           ? { ...m, id: messageRow.id, media_assets: [asset] }
@@ -335,6 +346,7 @@ export function useChat(conversationId, currentUserId) {
         try {
           validateFile(file, mediaType)
           const storagePath = buildStoragePath(currentUserId, mediaType, file.name)
+          await Promise.all(items.map(async ({ file, mediaType, thumbnail }, i) => {
           const asset = await createMediaAssetRow({
             conversationId,
             senderId: currentUserId,
@@ -347,6 +359,15 @@ export function useChat(conversationId, currentUserId) {
             momentOrder: i,
             isMomentCover: i === coverIndex,
           })
+          
+           if (thumbnail) {
+            uploadThumbnail(currentUserId, file.name, thumbnail)
+              .then(thumbPath => {
+                if (!thumbPath) return
+                updateMediaAssetStatus(asset.id, { thumbnail_path: thumbPath }).catch(() => {})
+              })
+              .catch((e) => console.error('[useChat] thumbnail upload failed:', e))
+          }
 
           setMessages(prev => prev.map(m => m.id === messageRow.id
             ? { ...m, media_assets: (m.media_assets || []).map((a, idx) => idx === i ? asset : a) }
