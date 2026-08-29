@@ -99,6 +99,7 @@ import MediaMessage from '../components/media/MediaMessage'
 import MediaViewer from '../components/media/MediaViewer'
 import MomentMessage from '../components/media/MomentMessage'
 import MomentViewer from '../components/media/MomentViewer'
+import { motion } from 'framer-motion'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -2612,15 +2613,16 @@ _onRetryMediaUpload: (m) => retryMediaUpload(m),
 
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, padding: '12px 16px', position: 'relative' }}>
 {!showVoice && (
-  <button
+  <motion.button
     className="attach-btn"
+    whileTap={{ scale: 0.88, rotate: 45 }}
+    transition={{ type: 'spring', stiffness: 500, damping: 20 }}
     onClick={() => mediaFlowRef.current?.open()}
     title="Attach media"
   >
     <IconPlus size={20} />
-  </button>
+  </motion.button>
 )}
-
               {!showVoice && (
                   <div style={{ position: 'relative' }}>
                     <button className="attach-btn" onClick={() => setShowEmojiPicker(v => !v)} title="Emoji, stickers & GIFs"
