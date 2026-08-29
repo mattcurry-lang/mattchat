@@ -11,7 +11,7 @@ import CameraCapture from './CameraCapture'
 import FilePicker from './FilePicker'
 import MediaComposer from './MediaComposer'
 
-const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaMessage }, ref) {
+const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaMessage, sendMomentMessage }, ref) {
   const [studioOpen, setStudioOpen] = useState(false)
   const [activePicker, setActivePicker] = useState(null) // 'photos' | 'camera' | 'documents' | 'audio' | null
   const [composerItems, setComposerItems] = useState(null) // [{ file, mediaType }] | null
@@ -45,7 +45,10 @@ const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaM
     sendMediaMessage(files, { mediaType, ...opts })
     setComposerItems(null)
   }
-
+ const handleComposerSendMoment = (items, opts) => {
+    sendMomentMessage(items, opts)
+    setComposerItems(null)
+  }
   return (
     <>
       <MediaStudio
@@ -82,11 +85,12 @@ const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaM
       />
 
       <MediaComposer
-        isOpen={!!composerItems}
-        items={composerItems || []}
-        onCancel={() => setComposerItems(null)}
-        onSend={handleComposerSend}
-      />
+    isOpen={!!composerItems}
+    items={composerItems || []}
+    onCancel={() => setComposerItems(null)}
+    onSend={handleComposerSend}
+    onSendMoment={handleComposerSendMoment}
+  />
     </>
   )
 })
