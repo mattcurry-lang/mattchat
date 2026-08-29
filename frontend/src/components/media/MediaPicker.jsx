@@ -1,6 +1,6 @@
 // MediaPicker.jsx
 // Opens the OS file dialog (images/videos/gifs), then shows a selection grid
-// with preview, multi-select, reorder, and a persistent "N selected /
+// with preview, multi-select, reorder, and a persistent "N selected 
 // Continue" bar — matching the spec's picker UX as closely as a web app can.
 //
 // NOTE ON SCOPE: browsers do not expose the device photo library as
