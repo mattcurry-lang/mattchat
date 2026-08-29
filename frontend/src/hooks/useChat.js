@@ -58,7 +58,7 @@ export function useChat(conversationId, currentUserId) {
         // Media asset progress/status changes ride the SAME conversation
         // channel — do not open a subscription per asset. This is how a
         // second device (or the sender's own other tab) sees "Uploading 37%"
-        // → "Sent" without polling.
+        // → "Sent" without polling
         .on('postgres_changes', {
           event: 'UPDATE', schema: 'public', table: 'media_assets',
           filter: `conversation_id=eq.${conversationId}`,
