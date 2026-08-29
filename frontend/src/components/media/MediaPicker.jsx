@@ -17,7 +17,7 @@
 
 import { useState, useRef, useMemo } from 'react'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
-import { validateFile, MediaValidationError } from '../services/MediaAssetService'
+import { validateFile, MediaValidationError } from '../../services/MediaAssetService'
 
 function detectMediaType(file) {
   if (file.type === 'image/gif') return 'gif'
