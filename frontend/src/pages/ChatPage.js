@@ -94,7 +94,7 @@ import { useGlobalWatchInvites } from '../hooks/useGlobalWatchInvites'
 import GlobalWatchInviteBanner from '../components/GlobalWatchInviteBanner'
 import { useLastActivityStatus } from '../hooks/useLastActivityStatus'
 import { formatLastActivity } from '../lib/relativeStatus'
-
+import MediaAttachmentFlow from '../components/media/MediaAttachmentFlow'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -752,6 +752,7 @@ const msgRefs        = useRef({})
   const typingTimer    = useRef(null)
   const textareaRef    = useRef(null)
   const threeDotBtnRef = useRef(null)
+  const mediaFlowRef = useRef(null)
 
   const userId = session.user.id
 const { isOnline, getLastSeenLabel } = usePresence(userId)
@@ -794,7 +795,7 @@ const listState = useConversationListState({
   openConvoId: activeConvo?.id,
 })
   useGlobalDelivery(userId, conversations.map(c => c.id))
-  const { messages, loading: msgLoading, typing, sendMessage, broadcastTyping } = useChat(
+  const { messages, loading: msgLoading, typing, sendMessage, sendMediaMessage, retryMediaUpload, broadcastTyping } = useChat(
     activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
     userId
   )
@@ -2265,7 +2266,7 @@ const handleSend = async () => {
                 </div>
               </div>
             </div>
-
+<MediaAttachmentFlow ref={mediaFlowRef} sendMediaMessage={sendMediaMessage} />
            {showDrawing && (
               <DrawingModal
                 session={session}
@@ -2536,7 +2537,17 @@ _onWatchTogether: (videoId, videoTitle, videoThumbnailUrl) => {
               )}
 
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, padding: '12px 16px', position: 'relative' }}>
-                {!showVoice && (
+{!showVoice && (
+  <button
+    className="attach-btn"
+    onClick={() => mediaFlowRef.current?.open()}
+    title="Attach media"
+  >
+    <IconPlus size={20} />
+  </button>
+)}
+
+              {!showVoice && (
                   <div style={{ position: 'relative' }}>
                     <button className="attach-btn" onClick={() => setShowEmojiPicker(v => !v)} title="Emoji, stickers & GIFs"
                       style={{ background: showEmojiPicker ? 'rgba(99,102,241,0.12)' : 'none', borderRadius: '50%', color: showEmojiPicker ? '#a78bfa' : undefined, transition: 'all 0.15s' }}>
