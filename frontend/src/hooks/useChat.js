@@ -174,6 +174,123 @@ export function useChat(conversationId, currentUserId) {
     }
   }, [conversationId, currentUserId, isEmailConvo])
 
+
+
+  /**
+ * Sends multiple files as ONE grouped "Moment" message — distinct from
+ * sendMediaMessage, which sends one message per file. All media_assets
+ * share the same message_id and carry moment_order so MomentMessage /
+ * MomentViewer render them as a single swipeable unit.
+ *
+ * @param items [{ file, mediaType }] — already edited/exported by MediaComposer
+ * @param opts { title, coverIndex }
+ */
+const sendMomentMessage = useCallback(async (items, opts = {}) => {
+  if (!conversationId || !currentUserId || !items?.length) return
+  const { title = null, coverIndex = 0 } = opts
+  const tempId = `temp-moment-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const localPreviewUrls = items.map(({ file }) => URL.createObjectURL(file))
+
+  const optimisticMsg = {
+    id: tempId,
+    _tempId: tempId,
+    conversation_id: conversationId,
+    sender_id: currentUserId,
+    content: JSON.stringify({ title }),
+    message_type: 'moment',
+    created_at: new Date().toISOString(),
+    profiles: null,
+    _optimistic: true,
+    _localPreviewUrls: localPreviewUrls,
+    media_assets: items.map(({ file, mediaType }, i) => ({
+      media_type: mediaType,
+      filename: file.name,
+      size_bytes: file.size,
+      upload_status: 'preparing',
+      upload_progress: 0,
+      moment_order: i,
+      is_moment_cover: i === coverIndex,
+    })),
+  }
+  setMessages(prev => [...prev, optimisticMsg])
+
+  try {
+    const { data: messageRow, error: msgErr } = await supabase
+      .from('messages')
+      .insert({
+        conversation_id: conversationId,
+        sender_id: currentUserId,
+        content: JSON.stringify({ title }),
+        message_type: 'moment',
+      })
+      .select()
+      .single()
+    if (msgErr) throw msgErr
+
+    // Reconcile temp id -> real id immediately so realtime INSERT echoes dedupe correctly.
+    setMessages(prev => prev.map(m => m._tempId === tempId ? { ...m, id: messageRow.id } : m))
+
+    // Each asset creates + uploads independently — the bubble shows
+    // per-item progress via media_assets[i].upload_status/progress.
+    await Promise.all(items.map(async ({ file, mediaType }, i) => {
+      try {
+        validateFile(file, mediaType)
+        const storagePath = buildStoragePath(currentUserId, mediaType, file.name)
+        const asset = await createMediaAssetRow({
+          conversationId,
+          senderId: currentUserId,
+          messageId: messageRow.id,
+          mediaType,
+          mimeType: file.type,
+          filename: file.name,
+          storagePath,
+          sizeBytes: file.size,
+          momentOrder: i,
+          isMomentCover: i === coverIndex,
+        })
+
+        setMessages(prev => prev.map(m => m.id === messageRow.id
+          ? { ...m, media_assets: (m.media_assets || []).map((a, idx) => idx === i ? asset : a) }
+          : m
+        ))
+
+        uploadManager.start({
+          file,
+          assetId: asset.id,
+          mediaType,
+          storagePath,
+          onProgress: (pct) => {
+            setMessages(prev => prev.map(m => m.id === messageRow.id
+              ? { ...m, media_assets: (m.media_assets || []).map(a => a.id === asset.id ? { ...a, upload_progress: pct } : a) }
+              : m
+            ))
+          },
+          onStatusChange: (status) => {
+            setMessages(prev => prev.map(m => m.id === messageRow.id
+              ? { ...m, media_assets: (m.media_assets || []).map(a => a.id === asset.id ? { ...a, upload_status: status } : a) }
+              : m
+            ))
+            if (status === 'processing') {
+              updateMediaAssetStatus(asset.id, { upload_status: 'sent', processing_status: 'done' }).catch(() => {})
+            }
+          },
+        })
+      } catch (e) {
+        console.error('[useChat] sendMomentMessage: item failed:', e)
+        setMessages(prev => prev.map(m => m.id === messageRow.id
+          ? { ...m, media_assets: (m.media_assets || []).map((a, idx) => idx === i ? { ...a, upload_status: 'failed' } : a) }
+          : m
+        ))
+      }
+    }))
+  } catch (e) {
+    console.error('[useChat] sendMomentMessage failed:', e)
+    setMessages(prev => prev.map(m => m._tempId === tempId
+      ? { ...m, media_assets: (m.media_assets || []).map(a => ({ ...a, upload_status: 'failed' })) }
+      : m
+    ))
+  }
+}, [conversationId, currentUserId])
   /**
    * Sends one or more media files as messages. Non-blocking: inserts an
    * optimistic bubble per file immediately (preparing → uploading →
@@ -183,6 +300,7 @@ export function useChat(conversationId, currentUserId) {
    * @param files File[] - already validated/edited by MediaComposer
    * @param opts { mediaType, caption, isViewOnce, expiresAt }
    */
+  
   const sendMediaMessage = useCallback(async (files, opts = {}) => {
     if (!conversationId || !currentUserId || !files?.length) return
     const { mediaType, caption = null, isViewOnce = false, expiresAt = null } = opts
@@ -362,7 +480,7 @@ useEffect(() => () => fileStoreRef.current.clear(), [conversationId])
     }
   }, [currentUserId, conversationId, channelKey])
 
-  return { messages, loading, typing, sendMessage, sendMediaMessage, retryMediaUpload, broadcastTyping }
+return { messages, loading, typing, sendMessage, sendMediaMessage, sendMomentMessage, retryMediaUpload, broadcastTyping }
 }
 
 export function useConversations(userId) {
