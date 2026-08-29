@@ -31,7 +31,7 @@ export default function MomentViewer({ message, currentUserId, onClose, onDelete
     setLoading(true)
     getSignedUrl(current.media_type, current.storage_path).then(u => { if (!cancelled) { setUrl(u); setLoading(false) } })
     return () => { cancelled = true }
-  }, [current?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [current?.id])  
 
   useEffect(() => {
     const onKey = (e) => {
@@ -41,7 +41,7 @@ export default function MomentViewer({ message, currentUserId, onClose, onDelete
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [index]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [index])  
 
   const goTo = (i) => { if (i >= 0 && i < assets.length) setIndex(i) }
 
