@@ -288,10 +288,10 @@ export function useChat(conversationId, currentUserId) {
         })
       } catch (e) {
         console.error('[useChat] sendMediaMessage failed:', e)
-        setMessages(prev => prev.map(m => m._tempId === tempId
-          ? { ...m, media_assets: [{ ...(m.media_assets?.[0] || {}), upload_status: 'failed' }] }
-          : m
-        ))
+       setMessages(prev => {
+  const deduped = prev.filter(m => m.id !== messageRow.id)
+  return [...deduped, { ...optimisticMsg, id: messageRow.id }]
+})
       }
     }
   }, [conversationId, currentUserId])
