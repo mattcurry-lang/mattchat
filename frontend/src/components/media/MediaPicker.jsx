@@ -101,7 +101,6 @@ export default function MediaPicker({ isOpen, onClose, onConfirm, accept = 'imag
   onConfirm(orderedItems)
   clearAll()
   onClose()
-}nClose()
   }
 
   const handleClose = () => {
