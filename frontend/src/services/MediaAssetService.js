@@ -77,6 +77,7 @@ export function buildThumbnailPath(userId, filename) {
 export async function createMediaAssetRow({
   conversationId,
   senderId,
+  messageId = null, 
   mediaType,
   mimeType,
   filename,
@@ -87,6 +88,8 @@ export async function createMediaAssetRow({
   duration = null,
   isViewOnce = false,
   expiresAt = null,
+   momentOrder = 0,          
+  isMomentCover = false,
 }) {
   const { data, error } = await supabase
     .from('media_assets')
