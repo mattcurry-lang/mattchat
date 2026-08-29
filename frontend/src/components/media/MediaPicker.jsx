@@ -38,7 +38,7 @@ function sectionFor(file) {
   return 'Photos'
 }
 
-export default function MediaPicker({ isOpen, onClose, onConfirm, accept = 'image/*,video/*' }) {
+export default function MediaPicker({ isOpen, onClose, onConfirm, accept = 'image/*,video/*', heading }) {
   const [items, setItems] = useState([]) // [{ id, file, url, mediaType, section }]
   const [error, setError] = useState(null)
   const fileInputRef = useRef(null)
@@ -127,8 +127,8 @@ export default function MediaPicker({ isOpen, onClose, onConfirm, accept = 'imag
 
           <div style={headerStyle}>
             <button onClick={handleClose} style={textBtnStyle}>Cancel</button>
-            <span style={headerTitleStyle}>
-              {items.length > 0 ? `${items.length} selected` : 'Select media'}
+                       <span style={headerTitleStyle}>
+              {items.length > 0 ? `${items.length} selected` : (heading || 'Select media')}
             </span>
             <button onClick={openNativeDialog} style={textBtnStyle}>Add</button>
           </div>
@@ -139,8 +139,8 @@ export default function MediaPicker({ isOpen, onClose, onConfirm, accept = 'imag
             {items.length === 0 ? (
               <div style={emptyStateStyle}>
                 <div style={{ fontSize: 40, marginBottom: 10 }}>🖼️</div>
-                <p style={{ color: 'var(--text-secondary, #c9c4dd)', marginBottom: 16 }}>
-                  Choose photos, videos, or GIFs to send
+                               <p style={{ color: 'var(--text-secondary, #c9c4dd)', marginBottom: 16 }}>
+                  {heading || 'Choose photos, videos, or GIFs to send'}
                 </p>
                 <button onClick={openNativeDialog} style={primaryBtnStyle}>Browse</button>
               </div>
