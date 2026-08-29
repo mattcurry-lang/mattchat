@@ -5,7 +5,7 @@
 
 import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { validateFile, MediaValidationError } from '../services/MediaAssetService'
+import { validateFile, MediaValidationError } from '../../services/MediaAssetService'
 
 const ACCEPT = {
   document: '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip',
