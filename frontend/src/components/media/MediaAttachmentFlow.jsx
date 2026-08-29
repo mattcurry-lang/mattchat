@@ -22,6 +22,7 @@ import MediaComposer from './MediaComposer'
 import DropZone from './DropZone'
 import { validateFile, MediaValidationError } from '../../services/MediaAssetService'
 import LocationShareModal from './LocationShareModal'
+import ContactShareModal from './ContactShareModal'
 
 function classifyDroppedFile(file) {
   // Dropped GIFs are tagged 'image' (not 'gif') so they flow through
@@ -49,12 +50,12 @@ function classifyDroppedFile(file) {
   return DOCUMENT_MIME.has(file.type) ? 'document' : null
 }
 
-const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaMessage, sendMomentMessage, onShareLocation }, ref) {
+const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaMessage, sendMomentMessage, onShareLocation, onShareContact, currentUserId }, ref) {
   const [studioOpen, setStudioOpen] = useState(false)
   const [activePicker, setActivePicker] = useState(null)
   const [composerItems, setComposerItems] = useState(null)
   const [locationShareOpen, setLocationShareOpen] = useState(false)
-
+  const [contactShareOpen, setContactShareOpen] = useState(false)
   useImperativeHandle(ref, () => ({
     open: () => setStudioOpen(true),
   }))
@@ -65,7 +66,14 @@ const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaM
     else if (id === 'documents') setActivePicker('documents')
     else if (id === 'audio') setActivePicker('audio')
     else if (id === 'location') setLocationShareOpen(true)
-    // 'contact', 'screenshot', explicit 'moment' entry are separate flows not built yet.
+    else if (id === 'contact') setContactShareOpen(true)
+    // 'screenshot', explicit 'moment' entry are separate flows not built yet.
+  }
+
+  const handleContactConfirm = (profile) => {
+    setContactShareOpen(false)
+    setStudioOpen(false)
+    onShareContact?.(profile)
   }
 
   const handleLocationConfirm = (coords) => {
@@ -178,6 +186,12 @@ const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaM
         isOpen={locationShareOpen}
         onClose={() => setLocationShareOpen(false)}
         onConfirm={handleLocationConfirm}
+      />
+            <ContactShareModal
+        isOpen={contactShareOpen}
+        onClose={() => setContactShareOpen(false)}
+        onConfirm={handleContactConfirm}
+        currentUserId={currentUserId}
       />
     </>
   )
