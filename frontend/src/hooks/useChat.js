@@ -274,17 +274,23 @@ export function useChat(conversationId, currentUserId) {
               : m
             ))
           },
-          onStatusChange: (status) => {
-            setMessages(prev => prev.map(m => m.id === messageRow.id
-              ? { ...m, media_assets: [{ ...m.media_assets?.[0], upload_status: status }] }
-              : m
-            ))
-            if (status === 'processing') {
-              updateMediaAssetStatus(asset.id, { upload_status: 'sent', processing_status: 'done' })
-                .then(() => fileStoreRef.current.delete(messageRow.id))
-                .catch(() => {})
-            }
-          },
+         onStatusChange: (status) => {
+  setMessages(prev => prev.map(m => m.id === messageRow.id
+    ? { ...m, media_assets: [{ ...m.media_assets?.[0], upload_status: status }] }
+    : m
+  ))
+  if (status === 'processing') {
+    updateMediaAssetStatus(asset.id, { upload_status: 'sent', processing_status: 'done' })
+      .then(() => {
+        setMessages(prev => prev.map(m => m.id === messageRow.id
+          ? { ...m, media_assets: [{ ...m.media_assets?.[0], upload_status: 'sent' }] }
+          : m
+        ))
+        fileStoreRef.current.delete(messageRow.id)
+      })
+      .catch(() => {})
+  }
+},
         })
       } catch (e) {
         console.error('[useChat] sendMediaMessage failed:', e)
