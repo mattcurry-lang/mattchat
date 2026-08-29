@@ -91,13 +91,7 @@ const MediaAttachmentFlow = forwardRef(function MediaAttachmentFlow({ sendMediaM
     setStudioOpen(false)
     onShareLocation?.(coords)
   }
-
-  // Photos/videos from MediaPicker or CameraCapture go into the Composer
-  // instead of straight to sendMediaMessage.
-  const handlePickedForEditing = (files, mediaType) => {
-    setActivePicker(null)
-    setComposerItems(files.map(file => ({ file, mediaType })))
-  }
+ 
 
   // Documents/audio skip editing entirely.
   const handlePickedDirect = (files, mediaType) => {
