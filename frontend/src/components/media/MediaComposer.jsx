@@ -46,7 +46,7 @@ function defaultEditState(mediaType, duration = 0) {
     : { rotation: 0, crop: null, brightness: 100, contrast: 100, saturation: 100, markupCanvas: null, aspect: 'Free' }
 }
 
-export default function MediaComposer({ isOpen, items, onCancel, onSend, onSendMoment }) {
+export default function MediaComposer({ isOpen, items, momentIntent = false, onCancel, onSend, onSendMoment }) {
   const [index, setIndex] = useState(0)
   const [edits, setEdits] = useState({}) // itemId -> edit state
   const [quality, setQuality] = useState('standard')
@@ -426,7 +426,7 @@ export default function MediaComposer({ isOpen, items, onCancel, onSend, onSendM
             </>
           )}
 
-          <div style={rowStyle}>
+                  <div style={rowStyle}>
             {items.length > 1 && (
               <div style={{ display: 'flex', gap: 6, overflowX: 'auto' }}>
                 {items.map((it, i) => (
@@ -434,7 +434,7 @@ export default function MediaComposer({ isOpen, items, onCancel, onSend, onSendM
                 ))}
               </div>
             )}
-            {items.length > 1 && (
+            {items.length > 1 && !momentIntent && (
               <button
                 onClick={handleCreateMoment}
                 disabled={sending}
@@ -458,9 +458,22 @@ export default function MediaComposer({ isOpen, items, onCancel, onSend, onSendM
             ))}
           </div>
 
-          <button onClick={handleSend} disabled={sending} style={sendBtnStyle}>
-            {sending ? 'Preparing…' : `Send${items.length > 1 ? ` ${items.length}` : ''}`}
+                   <button
+            onClick={momentIntent && items.length > 1 ? handleCreateMoment : handleSend}
+            disabled={sending}
+            style={sendBtnStyle}
+          >
+            {sending
+              ? 'Preparing…'
+              : momentIntent && items.length > 1
+                ? `Create Moment (${items.length})`
+                : `Send${items.length > 1 ? ` ${items.length}` : ''}`}
           </button>
+          {momentIntent && items.length > 1 && (
+            <button onClick={handleSend} disabled={sending} style={sendAsSeparateLinkStyle}>
+              Send as separate messages instead
+            </button>
+          )}
         </div>
 
         {markupOpen && current.mediaType === 'image' && (
@@ -473,7 +486,9 @@ export default function MediaComposer({ isOpen, items, onCancel, onSend, onSendM
             onDone={handleMarkupDone}
           />
         )}
-
+        {momentIntent && items.length > 1 && (
+          <div style={momentBannerStyle}>✨ Creating a Moment — {items.length} items</div>
+        )}
         {momentOpen && (
           <MomentComposer
             isOpen={momentOpen}
@@ -510,3 +525,5 @@ const selectStyle = { background: 'rgba(255,255,255,0.08)', color: '#fff', borde
 const thumbDotStyle = { width: 8, height: 8, borderRadius: '50%', background: '#fff', border: 'none', cursor: 'pointer', flexShrink: 0 }
 const captionInputStyle = { background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 12, padding: '10px 14px', color: '#fff', fontSize: 14 }
 const sendBtnStyle = { background: 'var(--accent, #7c5cff)', color: '#fff', border: 'none', borderRadius: 14, padding: '13px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer' }
+const momentBannerStyle = { textAlign: 'center', color: '#c4b5fd', fontSize: 12, fontWeight: 700, padding: '2px 16px 8px' }
+const sendAsSeparateLinkStyle = { background: 'none', border: 'none', color: 'rgba(255,255,255,0.55)', fontSize: 12, textAlign: 'center', textDecoration: 'underline', cursor: 'pointer', padding: '2px 0 0', fontFamily: 'inherit' }
