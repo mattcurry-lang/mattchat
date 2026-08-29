@@ -243,7 +243,58 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
 
     return { file, thumbnail }
   }
+// ---- video export (trim + speed + mute, re-recorded via captureStream) ----
+async function exportVideo(item, s, preset) {
+  return new Promise((resolve, reject) => {
+    const src = document.createElement('video')
+    src.muted = true // element playback is always muted; audio is captured via the stream itself, gated below
+    src.playsInline = true
+    src.src = URL.createObjectURL(item.file)
 
+    src.onerror = () => reject(new Error('[MediaComposer] exportVideo: failed to load source video'))
+
+    src.onloadedmetadata = async () => {
+      try {
+        src.currentTime = s.trimStart
+        await new Promise(res => { src.onseeked = res })
+
+        const stream = src.captureStream ? src.captureStream() : src.mozCaptureStream?.()
+        if (!stream) throw new Error('captureStream unsupported in this browser')
+        if (s.muted) stream.getAudioTracks().forEach(t => stream.removeTrack(t))
+
+        const recorder = new MediaRecorder(stream, {
+          mimeType: 'video/webm;codecs=vp9,opus',
+          videoBitsPerSecond: preset.videoBitrate,
+        })
+        const chunks = []
+        recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data) }
+        recorder.onerror = (e) => reject(e.error || e)
+        recorder.onstop = () => {
+          URL.revokeObjectURL(src.src)
+          const blob = new Blob(chunks, { type: 'video/webm' })
+          resolve(new File([blob], item.file.name.replace(/\.\w+$/, '.webm'), { type: 'video/webm' }))
+        }
+
+        src.playbackRate = s.speed || 1
+        recorder.start()
+        await src.play()
+
+        const stop = () => { if (recorder.state === 'recording') { src.pause(); recorder.stop() } }
+        const watch = () => {
+          if (src.currentTime >= s.trimEnd || src.paused || src.ended) stop()
+          else requestAnimationFrame(watch)
+        }
+        requestAnimationFrame(watch)
+
+        // Safety net in case currentTime polling misses the boundary
+        const trimDurationMs = ((s.trimEnd - s.trimStart) / (s.speed || 1)) * 1000
+        setTimeout(stop, trimDurationMs + 1500)
+      } catch (err) {
+        reject(err)
+      }
+    }
+  })
+}
   // Shared by both plain send and Create Moment — runs every item through
   // its full edit pipeline (crop/rotate/filter/markup for images, trim/
   // speed/mute for video) and returns [{ file, mediaType, thumbnail }] in
