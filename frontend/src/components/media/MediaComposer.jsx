@@ -18,10 +18,18 @@
 // onSend(files, 'video', { caption, thumbnails: Blob[] }) — wire that into
 // createMediaAssetRow's thumbnail upload when convenient; it's produced
 // here but not yet auto-uploaded (see note near handleSend).
+//
+// Phase 4 addition: when there's more than one item, a "✨ Create Moment"
+// pill appears. It runs the SAME export pipeline as a normal send (so crop/
+// filter/trim/markup edits are honored) but hands the exported files to
+// MomentComposer instead of sending immediately, so the user can title,
+// reorder, and pick a cover before it goes out as one grouped message via
+// onSendMoment.
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import MarkupEditor from './MarkupEditor'
+import MomentComposer from './MomentComposer'
 import { IconX, IconBrush } from '../Icons'
 
 const QUALITY_PRESETS = {
@@ -38,7 +46,7 @@ function defaultEditState(mediaType, duration = 0) {
     : { rotation: 0, crop: null, brightness: 100, contrast: 100, saturation: 100, markupCanvas: null, aspect: 'Free' }
 }
 
-export default function MediaComposer({ isOpen, items, onCancel, onSend }) {
+export default function MediaComposer({ isOpen, items, onCancel, onSend, onSendMoment }) {
   const [index, setIndex] = useState(0)
   const [edits, setEdits] = useState({}) // itemId -> edit state
   const [quality, setQuality] = useState('standard')
@@ -46,6 +54,9 @@ export default function MediaComposer({ isOpen, items, onCancel, onSend }) {
   const [markupOpen, setMarkupOpen] = useState(false)
   const [sending, setSending] = useState(false)
   const [cropDrag, setCropDrag] = useState(null) // { startX, startY }
+
+  const [momentOpen, setMomentOpen] = useState(false)
+  const [momentItems, setMomentItems] = useState(null)
 
   const imgRef = useRef(null)
   const videoRef = useRef(null)
@@ -74,7 +85,7 @@ export default function MediaComposer({ isOpen, items, onCancel, onSend }) {
     }
     img.src = URL.createObjectURL(current.file)
     return () => URL.revokeObjectURL(img.src)
- 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentId])
 
   useEffect(() => {
@@ -86,7 +97,7 @@ export default function MediaComposer({ isOpen, items, onCancel, onSend }) {
       v.addEventListener('loadedmetadata', onMeta)
       return () => v.removeEventListener('loadedmetadata', onMeta)
     }
-   
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentId])
 
   const filterString = (s) => `brightness(${s.brightness}%) contrast(${s.contrast}%) saturate(${s.saturation}%)`
@@ -110,7 +121,7 @@ export default function MediaComposer({ isOpen, items, onCancel, onSend }) {
     ctx.restore()
   }
 
-  useEffect(renderPreview, [state?.rotation, state?.brightness, state?.contrast, state?.saturation])  
+  useEffect(renderPreview, [state?.rotation, state?.brightness, state?.contrast, state?.saturation]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const rotate = (dir) => updateState({ rotation: ((state.rotation + (dir * 90)) % 360 + 360) % 360 })
 
@@ -267,43 +278,54 @@ export default function MediaComposer({ isOpen, items, onCancel, onSend }) {
     return new File([blob], item.file.name.replace(/\.\w+$/, '.webm'), { type: 'video/webm' })
   }
 
+  // Shared by both plain send and Create Moment — runs every item through
+  // its full edit pipeline (crop/rotate/filter/markup for images, trim/
+  // speed/mute for video) and returns [{ file, mediaType, thumbnail }] in
+  // original item order.
+  async function exportAllItems() {
+    const preset = QUALITY_PRESETS[quality]
+    const results = []
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      const id = `${item.file.name}-${i}`
+      const s = edits[id] || defaultEditState(item.mediaType)
+
+      if (item.mediaType === 'image') {
+        // ensure canvas reflects THIS item before exporting (renderPreview
+        // only tracks the currently-viewed index) — cheap to redo here.
+        if (i !== index) {
+          const img = new Image()
+          await new Promise(res => { img.onload = res; img.src = URL.createObjectURL(item.file) })
+          const tmp = document.createElement('canvas')
+          const rotated90 = s.rotation % 180 !== 0
+          tmp.width = rotated90 ? img.naturalHeight : img.naturalWidth
+          tmp.height = rotated90 ? img.naturalWidth : img.naturalHeight
+          const tctx = tmp.getContext('2d')
+          tctx.filter = filterString(s)
+          tctx.translate(tmp.width / 2, tmp.height / 2)
+          tctx.rotate((s.rotation * Math.PI) / 180)
+          tctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2)
+          canvasRef.current.width = tmp.width; canvasRef.current.height = tmp.height
+          canvasRef.current.getContext('2d').drawImage(tmp, 0, 0)
+        }
+        results.push({ file: await exportImage(item, s, preset), mediaType: 'image', thumbnail: null })
+      } else if (item.mediaType === 'video') {
+        results.push({ file: await exportVideo(item, s, preset), mediaType: 'video', thumbnail: s.thumbnailBlob || null })
+      }
+    }
+    return results
+  }
+
   const handleSend = async () => {
     setSending(true)
     try {
-      const preset = QUALITY_PRESETS[quality]
+      const results = await exportAllItems()
       const byType = { image: [], video: [] }
       const thumbnails = []
-
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i]
-        const id = `${item.file.name}-${i}`
-        const s = edits[id] || defaultEditState(item.mediaType)
-
-        if (item.mediaType === 'image') {
-          // ensure canvas reflects THIS item before exporting (renderPreview
-          // only tracks the currently-viewed index) — cheap to redo here.
-          if (i !== index) {
-            const img = new Image()
-            await new Promise(res => { img.onload = res; img.src = URL.createObjectURL(item.file) })
-            const tmp = document.createElement('canvas')
-            const rotated90 = s.rotation % 180 !== 0
-            tmp.width = rotated90 ? img.naturalHeight : img.naturalWidth
-            tmp.height = rotated90 ? img.naturalWidth : img.naturalHeight
-            const tctx = tmp.getContext('2d')
-            tctx.filter = filterString(s)
-            tctx.translate(tmp.width / 2, tmp.height / 2)
-            tctx.rotate((s.rotation * Math.PI) / 180)
-            tctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2)
-            canvasRef.current.width = tmp.width; canvasRef.current.height = tmp.height
-            canvasRef.current.getContext('2d').drawImage(tmp, 0, 0)
-          }
-          byType.image.push(await exportImage(item, s, preset))
-        } else if (item.mediaType === 'video') {
-          byType.video.push(await exportVideo(item, s, preset))
-          if (s.thumbnailBlob) thumbnails.push(s.thumbnailBlob)
-        }
-      }
-
+      results.forEach(r => {
+        byType[r.mediaType].push(r.file)
+        if (r.mediaType === 'video' && r.thumbnail) thumbnails.push(r.thumbnail)
+      })
       if (byType.image.length) onSend(byType.image, 'image', { caption: caption.trim() || null })
       if (byType.video.length) onSend(byType.video, 'video', { caption: caption.trim() || null, thumbnails })
     } catch (e) {
@@ -311,6 +333,25 @@ export default function MediaComposer({ isOpen, items, onCancel, onSend }) {
       alert('Something went wrong preparing that media — please try again.')
     }
     setSending(false)
+  }
+
+  const handleCreateMoment = async () => {
+    setSending(true)
+    try {
+      const results = await exportAllItems()
+      setMomentItems(results.map(({ file, mediaType }) => ({ file, mediaType })))
+      setMomentOpen(true)
+    } catch (e) {
+      console.error('[MediaComposer] moment export failed:', e)
+      alert('Something went wrong preparing that Moment — please try again.')
+    }
+    setSending(false)
+  }
+
+  const handleMomentSend = (finalItems, opts) => {
+    onSendMoment?.(finalItems, opts)
+    setMomentOpen(false)
+    setMomentItems(null)
   }
 
   if (!isOpen || !current) return null
@@ -393,6 +434,15 @@ export default function MediaComposer({ isOpen, items, onCancel, onSend }) {
                 ))}
               </div>
             )}
+            {items.length > 1 && (
+              <button
+                onClick={handleCreateMoment}
+                disabled={sending}
+                style={{ ...pillBtnStyle, background: 'linear-gradient(135deg,#667eea,#764ba2)', marginLeft: 'auto', opacity: sending ? 0.6 : 1 }}
+              >
+                ✨ Create Moment
+              </button>
+            )}
           </div>
 
           <input
@@ -421,6 +471,15 @@ export default function MediaComposer({ isOpen, items, onCancel, onSend }) {
             height={canvasRef.current?.height || 600}
             onClose={() => setMarkupOpen(false)}
             onDone={handleMarkupDone}
+          />
+        )}
+
+        {momentOpen && (
+          <MomentComposer
+            isOpen={momentOpen}
+            items={momentItems || []}
+            onCancel={() => { setMomentOpen(false); setMomentItems(null) }}
+            onSend={handleMomentSend}
           />
         )}
       </motion.div>
