@@ -46,7 +46,7 @@ export default function MediaViewer({
       }
     })
     return () => { cancelled = true }
-  }, [current?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [current?.id])  
 
   useEffect(() => {
     const onKey = (e) => {
@@ -56,7 +56,7 @@ export default function MediaViewer({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [index]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [index])  
 
   const goTo = (i) => { if (i >= 0 && i < mediaMessages.length) setIndex(i) }
 
