@@ -108,7 +108,7 @@ export default function MediaPicker({ isOpen, onClose, onConfirm, accept = 'imag
       items.forEach((it) => URL.revokeObjectURL(it.url))
       setItems([])
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [isOpen])
 
   const addFiles = useCallback((fileList) => {
