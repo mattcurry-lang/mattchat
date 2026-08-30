@@ -41,6 +41,7 @@ const ALLOWED_MIME = {
 }
 
 export class MediaValidationError extends Error {}
+
 /** Uploads a thumbnail Blob to the media-thumbnails bucket and returns its
  * storage path (or null on failure — thumbnail loss should never block a
  * send, so callers treat this as best-effort). Call after the parent
@@ -58,6 +59,7 @@ export async function uploadThumbnail(userId, filename, blob) {
   }
   return path
 }
+
 /** Validate a File before we ever touch the network. Never trust the client
  * beyond this — the storage RLS policies + edge function re-check ownership. */
 export function validateFile(file, mediaType) {
@@ -162,16 +164,54 @@ export async function deleteMediaAsset(asset) {
   if (error) throw error
 }
 
+// ── Signed URL cache ────────────────────────────────────────────────
+// getSignedUrl was being called fresh on every MediaMessage mount, with
+// no caching at all — reopening a conversation re-fetched a brand new
+// signed URL for every single document/image/video in its history, all
+// at once, every time. That's the "documents take a while to load" bug.
+//
+// Cache key: `${bucket}:${path}`. We cache for slightly less than the
+// signed URL's actual expiresIn (a 30s safety margin) so a cached URL is
+// never handed out after Supabase has already invalidated it.
+const signedUrlCache = new Map() // key -> { url, expiresAt }
+const SAFETY_MARGIN_MS = 30 * 1000
+
+function getCachedSignedUrl(cacheKey) {
+  const entry = signedUrlCache.get(cacheKey)
+  if (!entry) return null
+  if (Date.now() >= entry.expiresAt) {
+    signedUrlCache.delete(cacheKey)
+    return null
+  }
+  return entry.url
+}
+
+function setCachedSignedUrl(cacheKey, url, expiresIn) {
+  signedUrlCache.set(cacheKey, {
+    url,
+    expiresAt: Date.now() + expiresIn * 1000 - SAFETY_MARGIN_MS,
+  })
+}
+
 /** Resolve a short-lived signed URL. Never construct/expose a public URL for
- * private media — every render path goes through this. */
+ * private media — every render path goes through this. Cached in memory so
+ * repeated mounts (reopening a conversation, re-rendering a message list)
+ * reuse an existing still-valid URL instead of re-fetching from Storage. */
 export async function getSignedUrl(mediaType, path, { thumbnail = false, expiresIn = 3600 } = {}) {
   if (!path) return null
   const bucket = thumbnail ? 'media-thumbnails' : (BUCKETS[mediaType]?.original || 'media-originals')
+  const cacheKey = `${bucket}:${path}`
+
+  const cached = getCachedSignedUrl(cacheKey)
+  if (cached) return cached
+
   const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn)
   if (error) {
     console.error('[MediaAssetService] signed URL failed:', error)
     return null
   }
+
+  setCachedSignedUrl(cacheKey, data.signedUrl, expiresIn)
   return data.signedUrl
 }
 
