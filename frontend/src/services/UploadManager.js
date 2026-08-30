@@ -182,7 +182,20 @@ export const uploadManager = {
     }
     const wrappedStatus = (status) => {
       onStatusChange(status)
-      updateMediaAssetStatus(assetId, { upload_status: status }).catch(() => {})
+      // 'processing' is intentionally NOT persisted here. Every caller of
+      // uploadManager.start (see useChat.js: sendMediaMessage,
+      // sendMomentMessage, retryMediaUpload) reacts to a 'processing'
+      // signal by immediately writing upload_status: 'sent' itself. If we
+      // ALSO write 'processing' to the same row here, the two writes race:
+      // whichever network request resolves last wins in the DB. When this
+      // 'processing' write lands after the caller's 'sent' write, the row
+      // (and, via the realtime media_update subscription, the UI) gets
+      // stuck showing "Processing…" forever, since nothing downstream
+      // ever retries it. Every other status (uploading/sent/failed) has
+      // no such competing writer, so those are still persisted directly.
+      if (status !== 'processing') {
+        updateMediaAssetStatus(assetId, { upload_status: status }).catch(() => {})
+      }
     }
 
     const run = async () => {
