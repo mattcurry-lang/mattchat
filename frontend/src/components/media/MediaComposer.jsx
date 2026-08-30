@@ -17,23 +17,44 @@
 // Video sends also get a companion thumbnail Blob array per file via
 // onSend(files, mediaType, { caption, thumbnails: Blob[] }).
 //
-// Phase 4 addition: when there's more than one item, a "✨ Create Moment"
-// pill appears (or, under momentIntent, is the default primary action).
-// It runs the SAME export pipeline as a normal send (so crop/filter/trim/
-// markup edits are honored) but hands the exported files to MomentComposer
-// instead of sending immediately, so the user can title, reorder, and pick
-// a cover before it goes out as one grouped message via onSendMoment.
+// Phase 4 addition: when there's more than one item, a "Create Moment" pill
+// appears (or, under momentIntent, is the default primary action). It runs
+// the SAME export pipeline as a normal send (so crop/filter/trim/markup
+// edits are honored) but hands the exported files to MomentComposer instead
+// of sending immediately, so the user can title, reorder, and pick a cover
+// before it goes out as one grouped message via onSendMoment.
 //
 // Defensive fix: current?.file is guarded everywhere it's read — a
 // malformed item (missing file) now logs a console.error and closes the
 // composer instead of crashing the whole render with
 // "Cannot read properties of undefined (reading 'name')".
+//
+// STYLE PASS (aligned with MediaStudio/MediaPicker): swapped the emoji
+// glyphs (rotate arrows, sparkle, camera) for the same SVG-icon approach
+// used in those two files, and unified the accent color onto the
+// #7F5FFF -> #C86DD7 gradient established there. Purely cosmetic — no
+// editing/export logic below was touched.
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import MarkupEditor from './MarkupEditor'
 import MomentComposer from './MomentComposer'
-import { IconX, IconBrush } from '../Icons'
+import { IconX, IconBrush, IconSparkle, IconCamera } from '../Icons'
+
+// Rotate icons aren't in the shared Icons file — same self-contained
+// approach MediaPicker used for icons outside that set.
+const IconRotateCCW = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <path d="M4 9a8 8 0 1 1 1.5 6.7" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+    <path d="M4 4v5h5" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+const IconRotateCW = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <path d="M20 9a8 8 0 1 0-1.5 6.7" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+    <path d="M20 4v5h-5" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
 
 const QUALITY_PRESETS = {
   hd: { maxDim: 1920, imageQuality: 0.92, videoBitrate: 6_000_000, label: 'HD' },
@@ -401,7 +422,10 @@ async function exportVideo(item, s, preset) {
         </div>
 
         {momentIntent && items.length > 1 && (
-          <div style={momentBannerStyle}>✨ Creating a Moment — {items.length} items</div>
+          <div style={momentBannerStyle}>
+            <IconSparkle size={13} style={{ verticalAlign: '-2px', marginRight: 5 }} />
+            Creating a Moment — {items.length} items
+          </div>
         )}
 
         <div style={stageStyle}>
@@ -424,10 +448,14 @@ async function exportVideo(item, s, preset) {
           {current.mediaType === 'image' ? (
             <>
               <div style={rowStyle}>
-                <button onClick={() => rotate(-1)} style={pillBtnStyle}>⟲ Rotate</button>
-                <button onClick={() => rotate(1)} style={pillBtnStyle}>⟳ Rotate</button>
+                <button onClick={() => rotate(-1)} style={pillBtnStyle}>
+                  <IconRotateCCW size={13} style={{ verticalAlign: '-2px', marginRight: 5 }} />Rotate
+                </button>
+                <button onClick={() => rotate(1)} style={pillBtnStyle}>
+                  <IconRotateCW size={13} style={{ verticalAlign: '-2px', marginRight: 5 }} />Rotate
+                </button>
                 {Object.keys(ASPECTS).map(name => (
-                  <button key={name} onClick={() => setAspect(name)} style={{ ...pillBtnStyle, background: state?.aspect === name ? 'var(--accent, #7c5cff)' : 'rgba(255,255,255,0.08)' }}>{name}</button>
+                  <button key={name} onClick={() => setAspect(name)} style={{ ...pillBtnStyle, background: state?.aspect === name ? ACCENT_GRADIENT : 'rgba(255,255,255,0.08)' }}>{name}</button>
                 ))}
               </div>
               <SliderRow label="Brightness" value={state?.brightness ?? 100} onChange={v => updateState({ brightness: v })} min={50} max={150} />
@@ -443,7 +471,9 @@ async function exportVideo(item, s, preset) {
                 <select value={state?.speed ?? 1} onChange={(e) => updateState({ speed: Number(e.target.value) })} style={selectStyle}>
                   {[0.5, 1, 1.5, 2].map(sp => <option key={sp} value={sp}>{sp}x</option>)}
                 </select>
-                <button onClick={captureThumbnail} style={pillBtnStyle}>📷 Use current frame as thumbnail</button>
+                <button onClick={captureThumbnail} style={pillBtnStyle}>
+                  <IconCamera size={13} style={{ verticalAlign: '-2px', marginRight: 5 }} />Use current frame as thumbnail
+                </button>
               </div>
               <div style={rowStyle}>
                 <span style={labelStyle}>Trim</span>
@@ -475,9 +505,9 @@ async function exportVideo(item, s, preset) {
               <button
                 onClick={handleCreateMoment}
                 disabled={sending}
-                style={{ ...pillBtnStyle, background: 'linear-gradient(135deg,#667eea,#764ba2)', marginLeft: 'auto', opacity: sending ? 0.6 : 1 }}
+                style={{ ...pillBtnStyle, background: ACCENT_GRADIENT, marginLeft: 'auto', opacity: sending ? 0.6 : 1 }}
               >
-                ✨ Create Moment
+                <IconSparkle size={13} style={{ verticalAlign: '-2px', marginRight: 5 }} />Create Moment
               </button>
             )}
           </div>
@@ -489,7 +519,7 @@ async function exportVideo(item, s, preset) {
 
           <div style={rowStyle}>
             {Object.entries(QUALITY_PRESETS).map(([key, p]) => (
-              <button key={key} onClick={() => setQuality(key)} style={{ ...pillBtnStyle, background: quality === key ? 'var(--accent, #7c5cff)' : 'rgba(255,255,255,0.08)' }}>
+              <button key={key} onClick={() => setQuality(key)} style={{ ...pillBtnStyle, background: quality === key ? ACCENT_GRADIENT : 'rgba(255,255,255,0.08)' }}>
                 {p.label}
               </button>
             ))}
@@ -546,12 +576,18 @@ function SliderRow({ label, value, onChange, min, max }) {
   )
 }
 
+// Same brand gradient as MediaStudio/MediaPicker's primary actions —
+// hardcoded (not a theme var) since this overlay is always a fixed black
+// surface (see overlayStyle) regardless of app theme.
+const ACCENT_GRADIENT = 'linear-gradient(135deg, #7F5FFF 0%, #C86DD7 100%)'
+const ACCENT_SOLID = '#7F5FFF'
+
 const overlayStyle = { position: 'fixed', inset: 0, zIndex: 80, display: 'flex', flexDirection: 'column', background: '#000' }
 const topBarStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px' }
 const counterStyle = { color: '#fff', fontWeight: 600, fontSize: 13 }
 const iconBtnStyle = { width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', cursor: 'pointer' }
 const stageStyle = { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }
-const handleStyle = { position: 'absolute', width: 20, height: 20, background: '#fff', borderRadius: '50%', border: '2px solid var(--accent, #7c5cff)' }
+const handleStyle = { position: 'absolute', width: 20, height: 20, background: '#fff', borderRadius: '50%', border: `2px solid ${ACCENT_SOLID}` }
 const controlsStyle = { background: 'rgba(15,13,22,0.96)', padding: '12px 16px max(12px, env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: 10 }
 const rowStyle = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
 const labelStyle = { color: 'rgba(255,255,255,0.75)', fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 6 }
@@ -559,6 +595,6 @@ const pillBtnStyle = { padding: '7px 12px', borderRadius: 20, border: 'none', ba
 const selectStyle = { background: 'rgba(255,255,255,0.08)', color: '#fff', border: 'none', borderRadius: 10, padding: '7px 10px', fontSize: 12.5 }
 const thumbDotStyle = { width: 8, height: 8, borderRadius: '50%', background: '#fff', border: 'none', cursor: 'pointer', flexShrink: 0 }
 const captionInputStyle = { background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 12, padding: '10px 14px', color: '#fff', fontSize: 14 }
-const sendBtnStyle = { background: 'var(--accent, #7c5cff)', color: '#fff', border: 'none', borderRadius: 14, padding: '13px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer' }
+const sendBtnStyle = { background: ACCENT_GRADIENT, color: '#fff', border: 'none', borderRadius: 14, padding: '13px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer' }
 const momentBannerStyle = { textAlign: 'center', color: '#c4b5fd', fontSize: 12, fontWeight: 700, padding: '2px 16px 8px' }
 const sendAsSeparateLinkStyle = { background: 'none', border: 'none', color: 'rgba(255,255,255,0.55)', fontSize: 12, textAlign: 'center', textDecoration: 'underline', cursor: 'pointer', padding: '2px 0 0', fontFamily: 'inherit' }
