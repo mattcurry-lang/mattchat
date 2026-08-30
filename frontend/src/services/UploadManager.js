@@ -25,7 +25,13 @@ import { requestDirectUpload, uploadToStreamTus } from './CloudflareStreamServic
 
 const RESUMABLE_THRESHOLD = 6 * 1024 * 1024   // 6MB — above this, always use TUS
 const CF_STREAM_THRESHOLD = 20 * 1024 * 1024  // 20MB — above this, try Cloudflare Stream first (video only)
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+// This is CRA (react-scripts, see package.json), not Vite — import.meta.env
+// doesn't exist here. It silently evaluated to undefined at runtime, which
+// meant every resumable/TUS upload (all videos, anything >6MB) was hitting
+// the literal URL "undefined/storage/v1/upload/resumable" and 405'ing on
+// every attempt. process.env.REACT_APP_* is CRA's actual mechanism — same
+// one lib/supabase.js already uses correctly.
+const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL
 const BUCKET_BY_TYPE = { image: 'media-originals', video: 'media-originals', audio: 'media-originals', document: 'media-originals', gif: 'media-originals' }
 
 // In-memory registry so a component unmount/remount (e.g. navigating away
@@ -187,12 +193,12 @@ export const uploadManager = {
       // sendMomentMessage, retryMediaUpload) reacts to a 'processing'
       // signal by immediately writing upload_status: 'sent' itself. If we
       // ALSO write 'processing' to the same row here, the two writes race:
-      // whichever network request resolves last wins in the DB. When this
-      // 'processing' write lands after the caller's 'sent' write, the row
+      // whichever network request resolves last wins in the DB — and
+      // when this write lands after the caller's 'sent' write, the row
       // (and, via the realtime media_update subscription, the UI) gets
-      // stuck showing "Processing…" forever, since nothing downstream
-      // ever retries it. Every other status (uploading/sent/failed) has
-      // no such competing writer, so those are still persisted directly.
+      // stuck showing "Processing…" forever. Every other status
+      // (uploading/sent/failed) has no such competing writer, so those
+      // are still persisted directly.
       if (status !== 'processing') {
         updateMediaAssetStatus(assetId, { upload_status: status }).catch(() => {})
       }
