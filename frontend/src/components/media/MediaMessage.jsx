@@ -1,6 +1,6 @@
 // MediaMessage.jsx
 // The bubble dispatcher for message_type === 'media'. Renders per media_type
-// (image/video/audio/document/gif) and drives the upload-state UI: preparing
+// (image/video/audio/document/gif/contact) and drives the upload-state UI: preparing
 // → uploading NN% → processing → sent, or failed with a Resume button.
 // Tapping an image/video opens MediaViewer.
 //
@@ -28,10 +28,18 @@
 // here, unlike those overlay components — message bubbles live inside the
 // regular themed chat surface, which already light/dark-toggles correctly,
 // so hardcoding here would actually break theme support rather than fix a bug.
+//
+// NEW: 'contact' media_type — renders a shared-contact bubble (avatar, name,
+// email, "View" action) once ContactShareModal's onConfirm(p) has been sent
+// through your message pipeline. ASSUMES the resulting asset carries
+// contact_id / contact_username / contact_email / contact_avatar_url —
+// adjust the four asset.contact_* reads below if your actual send path
+// names these differently or nests them elsewhere.
 
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import AudioPreview from './AudioPreview'
+import Avatar from '../Avatar'
 import { getSignedUrl } from '../../services/MediaAssetService'
 import { getStreamPlaybackToken, streamThumbnailUrl } from '../../services/CloudflareStreamService'
 
@@ -105,6 +113,13 @@ const IconEyeOff = ({ size = 18 }) => (
       stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 )
+const IconUserCard = ({ size = 15 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="currentColor" strokeWidth={1.8} />
+    <circle cx="9" cy="11.2" r="2.1" stroke="currentColor" strokeWidth={1.8} />
+    <path d="M6 16c.6-1.5 1.8-2.3 3-2.3s2.4.8 3 2.3M14.5 10h4M14.5 13h4" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
+  </svg>
+)
 
 function formatSize(bytes) {
   if (!bytes) return ''
@@ -144,7 +159,7 @@ function Spinner() {
   )
 }
 
-export default function MediaMessage({ message, isMe, onOpenViewer, onRetry }) {
+export default function MediaMessage({ message, isMe, onOpenViewer, onRetry, onOpenProfile, currentUserId }) {
   const asset = message.media_assets?.[0]
   const [signedUrl, setSignedUrl] = useState(message._localPreviewUrl || null)
   const [thumbUrl, setThumbUrl] = useState(message._localPreviewUrl || null)
@@ -164,6 +179,7 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry }) {
 
   useEffect(() => {
     if (!asset || asset.upload_status !== 'sent') return
+    if (asset.media_type === 'contact') return // no file to sign for a contact card
     let cancelled = false
 
     if (asset.cf_stream_uid) {
@@ -180,13 +196,32 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry }) {
       getSignedUrl(asset.media_type, asset.thumbnail_path, { thumbnail: true }).then(url => { if (!cancelled && url) setThumbUrl(url) })
     }
     return () => { cancelled = true }
-  }, [asset?.storage_path, asset?.thumbnail_path, asset?.upload_status, asset?.cf_stream_uid])
+  }, [asset?.storage_path, asset?.thumbnail_path, asset?.upload_status, asset?.cf_stream_uid, asset?.media_type])
 
   if (!asset) return null
 
   const isViewOnceUnavailable = asset.is_view_once && asset.viewed_at && !isMe
   const url = signedUrl
   const displayThumb = thumbUrl || url
+
+  if (asset.media_type === 'contact') {
+    const isSelf = asset.contact_id === currentUserId
+    return (
+      <button
+        onClick={() => onOpenProfile?.(asset.contact_id)}
+        style={contactCardStyle}
+      >
+        <Avatar name={asset.contact_username || asset.contact_email} photoUrl={asset.contact_avatar_url} size={44} />
+        <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+          <div style={docNameStyle}>
+            {asset.contact_username || 'Unnamed'}{isSelf ? ' (You)' : ''}
+          </div>
+          <div style={docSizeStyle}>{asset.contact_email}</div>
+        </div>
+        <span style={contactCardBadgeStyle}><IconUserCard size={14} /> Contact</span>
+      </button>
+    )
+  }
 
   if (asset.media_type === 'document') {
     const ext = asset.filename?.split('.').pop()?.toLowerCase()
@@ -315,6 +350,23 @@ const docNameStyle = { fontSize: 13.5, fontWeight: 600, color: 'var(--text-prima
 const docSizeStyle = { fontSize: 11, color: 'var(--text-secondary, #c9c4dd)', marginTop: 1 }
 const docActionsStyle = { display: 'flex', gap: 6, flexShrink: 0 }
 const docActionStyle = { fontSize: 11, fontWeight: 700, color: 'var(--accent, #a78bfa)', textDecoration: 'none', padding: '4px 8px', borderRadius: 8, background: 'rgba(167,139,250,0.12)', whiteSpace: 'nowrap' }
+
+// NEW: contact card — mirrors docCardStyle's footprint (same maxWidth/padding
+// rhythm) so a shared contact reads as visually consistent with a shared
+// file, but is a <button> (whole row tappable → onOpenProfile) rather than
+// a row with separate action links.
+const contactCardStyle = {
+  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14,
+  background: 'var(--surface-card, rgba(148,120,255,0.08))',
+  border: '1px solid var(--border-subtle, rgba(148,120,255,0.16))',
+  minWidth: 220, maxWidth: 280, boxSizing: 'border-box',
+  cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+}
+const contactCardBadgeStyle = {
+  display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0,
+  fontSize: 10.5, fontWeight: 700, color: 'var(--accent, #a78bfa)',
+  background: 'rgba(167,139,250,0.12)', borderRadius: 8, padding: '4px 7px',
+}
 
 const mediaThumbWrapStyle = { position: 'relative', maxWidth: 260, width: '100%', borderRadius: 16, overflow: 'hidden', border: 'none', padding: 0, background: 'rgba(0,0,0,0.2)' }
 const mediaImgStyle = { width: '100%', height: '100%', objectFit: 'cover', display: 'block' }
