@@ -3,11 +3,11 @@
 // basic attachment button. Opens MediaPicker/CameraCapture/FilePicker etc.
 // depending on what the user taps. Does not itself upload anything.
 //
-// THEME NOTE: uses Mattchat's CSS custom property design system. The
-// fallback values after each var(--x, fallback) are chosen to stay
-// readable in BOTH light and dark mode even if a variable name doesn't
-// match yours or isn't actually theme-aware — verify against your real
-// theme CSS and tighten these if you have exact per-theme values.
+// THEME NOTE: this sheet's surface (sheetStyle) is intentionally
+// always dark regardless of app theme, so text colors are hardcoded
+// constants, not theme vars — same fix pattern as the DeKUT fullscreen
+// overlay sweep. Only non-text surfaces (backdrop, borders, badges)
+// still use var(--x, fallback).
 //
 // Row-list layout (icon + label per row) instead of the old icon grid.
 // Screenshot option added — ScreenshotCapture already exists and was
@@ -115,10 +115,11 @@ const titleStyle = {
   textAlign: 'center',
   fontSize: 16,
   fontWeight: 700,
-  // Mid-tone gray fallback: readable against both a dark navy sheet and
-  // a white/light sheet, unlike a near-white fallback which disappears
-  // on a light background if --text-primary isn't actually theme-aware.
-  color: 'var(--text-primary, #8b8798)',
+  // Hardcoded, not theme-driven: this sheet's surface is always dark
+  // (see sheetStyle), so trusting --text-primary risks light-mode's
+  // dark text landing on a dark background. Same fix as the DeKUT
+  // fullscreen overlay sweep — contrast-safe constant instead of a var.
+  color: '#f4f2f8',
 }
 
 const listStyle = {
@@ -152,7 +153,8 @@ const iconBadgeStyle = {
 const rowLabelStyle = {
   fontSize: 14.5,
   fontWeight: 600,
-  color: 'var(--text-primary, #8b8798)',
+  // Hardcoded — same reasoning as titleStyle above.
+  color: '#f4f2f8',
 }
 
 const cancelStyle = {
@@ -163,7 +165,9 @@ const cancelStyle = {
   borderRadius: 14,
   border: 'none',
   background: 'var(--surface-card, rgba(148,120,255,0.10))',
-  color: 'var(--text-secondary, #8b8798)',
+  // Hardcoded, dimmer than the row labels for secondary-text feel,
+  // but still safely legible against the dark sheet surface.
+  color: '#c9c5d6',
   fontWeight: 600,
   fontSize: 14,
   cursor: 'pointer',
