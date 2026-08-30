@@ -42,7 +42,6 @@ export function useLastActivityStatus(conversationIds, currentUserId) {
   .in('message_id', myMsgIds)
   .neq('user_id', currentUserId)
 if (readsErr) console.error('[useLastActivityStatus] message_reads fetch failed:', readsErr)
-const readByMsgId = {}
 ;(reads || []).forEach(r => { readByMsgId[r.message_id] = r.read_at })
     const readByMsgId = {}
     ;(reads || []).forEach(r => { readByMsgId[r.message_id] = r.created_at })
