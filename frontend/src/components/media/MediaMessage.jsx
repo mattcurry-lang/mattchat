@@ -12,6 +12,22 @@
 // MediaViewer morphs from the bubble's position/size into the full-screen
 // stage instead of just cutting to it; a brief highlight pulses once when
 // upload_status first reaches 'sent'.
+//
+// FIX (doc card overflow): docCardStyle had a minWidth but no maxWidth, so
+// a long filename like "G5_Exam_Timetable_August_2026_FINAL.12.08.2026.xlsx"
+// just grew the whole bubble instead of ellipsizing — the ellipsis CSS on
+// docNameStyle only ever engages once its container is actually bounded.
+// Added a maxWidth (matching the image/video bubble's 260px cap) so long
+// filenames truncate instead of blowing out the layout, while still leaving
+// room for a real Word/Excel/PDF filename to read comfortably on one line.
+//
+// STYLE PASS: swapped the emoji glyphs (file-type icons, audio note, video/
+// image placeholders, warning, view-once eye) for small SVG badges — same
+// approach used across MediaStudio/MediaPicker/MediaComposer. Theme vars
+// (var(--accent...), var(--text-primary...)) are intentionally left as-is
+// here, unlike those overlay components — message bubbles live inside the
+// regular themed chat surface, which already light/dark-toggles correctly,
+// so hardcoding here would actually break theme support rather than fix a bug.
 
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
@@ -19,10 +35,76 @@ import AudioPreview from './AudioPreview'
 import { getSignedUrl } from '../../services/MediaAssetService'
 import { getStreamPlaybackToken, streamThumbnailUrl } from '../../services/CloudflareStreamService'
 
-const EXT_ICON = {
-  pdf: '📕', doc: '📘', docx: '📘', xls: '📗', xlsx: '📗',
-  ppt: '📙', pptx: '📙', txt: '📄', csv: '📊', zip: '🗂️',
+// ---- small SVG badges (no emoji) ----
+
+const EXT_STYLE = {
+  pdf: { label: 'PDF', gradient: 'linear-gradient(135deg, #FF5F5F 0%, #E4293D 100%)' },
+  doc: { label: 'DOC', gradient: 'linear-gradient(135deg, #38A3F5 0%, #2F6FE4 100%)' },
+  docx: { label: 'DOC', gradient: 'linear-gradient(135deg, #38A3F5 0%, #2F6FE4 100%)' },
+  xls: { label: 'XLS', gradient: 'linear-gradient(135deg, #4ADE80 0%, #22C55E 100%)' },
+  xlsx: { label: 'XLS', gradient: 'linear-gradient(135deg, #4ADE80 0%, #22C55E 100%)' },
+  ppt: { label: 'PPT', gradient: 'linear-gradient(135deg, #FFB84D 0%, #FF7A45 100%)' },
+  pptx: { label: 'PPT', gradient: 'linear-gradient(135deg, #FFB84D 0%, #FF7A45 100%)' },
+  txt: { label: 'TXT', gradient: 'linear-gradient(135deg, #9BA4B5 0%, #5C6478 100%)' },
+  csv: { label: 'CSV', gradient: 'linear-gradient(135deg, #34D1BF 0%, #2A9D8F 100%)' },
+  zip: { label: 'ZIP', gradient: 'linear-gradient(135deg, #C86DD7 0%, #7F5FFF 100%)' },
 }
+const DEFAULT_EXT_STYLE = { label: 'FILE', gradient: 'linear-gradient(135deg, #9BA4B5 0%, #5C6478 100%)' }
+
+function FileTypeBadge({ ext, size = 40 }) {
+  const s = EXT_STYLE[ext] || DEFAULT_EXT_STYLE
+  return (
+    <span
+      style={{
+        width: size, height: size, borderRadius: 11, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: s.gradient, color: '#fff', fontSize: size * 0.26, fontWeight: 800,
+        letterSpacing: 0.2,
+      }}
+    >
+      {s.label}
+    </span>
+  )
+}
+
+const IconMusic = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <path d="M9 18V5l11-2v13" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <circle cx="6" cy="18" r="3" stroke="currentColor" strokeWidth={1.8} />
+    <circle cx="17" cy="16" r="3" stroke="currentColor" strokeWidth={1.8} />
+  </svg>
+)
+const IconFilm = ({ size = 22 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth={1.8} />
+    <path d="M7 5v14M17 5v14M3 9h4M3 15h4M17 9h4M17 15h4" stroke="currentColor" strokeWidth={1.8} />
+  </svg>
+)
+const IconImage = ({ size = 22 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth={1.8} />
+    <circle cx="9" cy="10" r="1.6" fill="currentColor" />
+    <path d="M4.5 17.5l5-5 3.5 3.5 3-3 4 4" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+const IconPlay = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M8 5v14l11-7L8 5z" />
+  </svg>
+)
+const IconAlert = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <path d="M12 3l10 18H2L12 3z" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round" />
+    <path d="M12 10v4" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
+    <circle cx="12" cy="17" r="1" fill="currentColor" />
+  </svg>
+)
+const IconEyeOff = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <path d="M3 3l18 18M10.6 10.6a2.5 2.5 0 003.5 3.5M6.5 6.7C4.4 8.1 3 10 3 12c0 0 3.5 6 9 6 1.7 0 3.2-.5 4.5-1.3M9.9 5.2A9.7 9.7 0 0112 5c5.5 0 9 6 9 6-.4.7-1 1.6-1.8 2.5"
+      stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
 
 function formatSize(bytes) {
   if (!bytes) return ''
@@ -38,8 +120,8 @@ function StatusRow({ status, progress, retryUnavailable, onResume }) {
   if (status === 'failed') {
     return (
       <span style={{ ...statusTextStyle, color: '#f87171' }}>
-        ⚠ Connection interrupted
-                {retryUnavailable ? (
+        <IconAlert size={12} /> Connection interrupted
+        {retryUnavailable ? (
           <span style={{ opacity: 0.75 }}>· re-select the file to retry</span>
         ) : (
           <motion.button whileTap={{ scale: 0.9 }} onClick={onResume} style={resumeBtnStyle}>Resume</motion.button>
@@ -110,14 +192,14 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry }) {
     const ext = asset.filename?.split('.').pop()?.toLowerCase()
     return (
       <div style={docCardStyle}>
-        <span style={{ fontSize: 26 }}>{EXT_ICON[ext] || '📄'}</span>
+        <FileTypeBadge ext={ext} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={docNameStyle}>{asset.filename}</div>
+          <div style={docNameStyle} title={asset.filename}>{asset.filename}</div>
           <div style={docSizeStyle}>{formatSize(asset.size_bytes)}</div>
           <StatusRow status={asset.upload_status} progress={asset.upload_progress} retryUnavailable={message._retryUnavailable} onResume={() => onRetry?.(message)} />
         </div>
         {asset.upload_status === 'sent' && url && (
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={docActionsStyle}>
             <a href={url} target="_blank" rel="noreferrer" style={docActionStyle}>Preview</a>
             <a href={url} download={asset.filename} style={docActionStyle}>Download</a>
           </div>
@@ -133,9 +215,11 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry }) {
           <AudioPreview src={url} filename={asset.filename} />
         ) : (
           <div style={{ ...docCardStyle, minWidth: 200 }}>
-            <span style={{ fontSize: 22 }}>🎵</span>
+            <span style={{ width: 40, height: 40, borderRadius: 11, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-card, rgba(148,120,255,0.14))', color: 'var(--accent, #a78bfa)' }}>
+              <IconMusic size={18} />
+            </span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={docNameStyle}>{asset.filename}</div>
+              <div style={docNameStyle} title={asset.filename}>{asset.filename}</div>
               <StatusRow status={asset.upload_status} progress={asset.upload_progress} retryUnavailable={message._retryUnavailable} onResume={() => onRetry?.(message)} />
             </div>
           </div>
@@ -160,18 +244,20 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry }) {
         <motion.div layoutId={`media-${asset.id}`} style={{ position: 'absolute', inset: 0 }}>
           {isViewOnceUnavailable ? (
             <div style={viewOnceGoneStyle}>
-              <span style={{ fontSize: 20 }}>👁️</span>
+              <IconEyeOff size={20} />
               <span>Opened</span>
             </div>
           ) : displayThumb ? (
             <img src={displayThumb} alt={asset.filename || 'media'} style={mediaImgStyle} />
           ) : (
-            <div style={mediaPlaceholderStyle}>{isVideo ? '🎬' : '🖼️'}</div>
+            <div style={mediaPlaceholderStyle}>{isVideo ? <IconFilm size={26} /> : <IconImage size={26} />}</div>
           )}
         </motion.div>
 
         {asset.is_view_once && !isViewOnceUnavailable && <span style={viewOnceBadgeStyle}>1</span>}
-        {isVideo && !isViewOnceUnavailable && asset.upload_status === 'sent' && <span style={playOverlayStyle}>▶</span>}
+        {isVideo && !isViewOnceUnavailable && asset.upload_status === 'sent' && (
+          <span style={playOverlayStyle}><IconPlay size={18} /></span>
+        )}
 
         {asset.upload_status !== 'sent' && (
           <div style={uploadOverlayStyle}>
@@ -191,8 +277,8 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry }) {
             )}
             {asset.upload_status === 'failed' && (
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 20 }}>⚠</div>
-                               {!message._retryUnavailable && (
+                <IconAlert size={20} />
+                {!message._retryUnavailable && (
                   <motion.button
                     whileTap={{ scale: 0.88 }}
                     onClick={(e) => { e.stopPropagation(); onRetry?.(message) }}
@@ -216,15 +302,24 @@ const statusTextStyle = { fontSize: 11.5, color: 'var(--text-secondary, #c9c4dd)
 const resumeBtnStyle = { fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--accent, #7c5cff)', border: 'none', borderRadius: 10, padding: '3px 9px', cursor: 'pointer' }
 const resumeBtnStyleDark = { fontSize: 11, fontWeight: 700, color: '#fff', background: 'rgba(255,255,255,0.18)', border: 'none', borderRadius: 10, padding: '4px 10px', cursor: 'pointer', marginTop: 4 }
 
-const docCardStyle = { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, background: 'var(--surface-card, rgba(148,120,255,0.08))', border: '1px solid var(--border-subtle, rgba(148,120,255,0.16))', minWidth: 220 }
+// FIX: added maxWidth (was minWidth-only, so long filenames grew the whole
+// bubble instead of ellipsizing) and trimmed minWidth slightly so short
+// filenames don't look artificially padded.
+const docCardStyle = {
+  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14,
+  background: 'var(--surface-card, rgba(148,120,255,0.08))',
+  border: '1px solid var(--border-subtle, rgba(148,120,255,0.16))',
+  minWidth: 200, maxWidth: 280, boxSizing: 'border-box',
+}
 const docNameStyle = { fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary, #f2f0f8)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
 const docSizeStyle = { fontSize: 11, color: 'var(--text-secondary, #c9c4dd)', marginTop: 1 }
-const docActionStyle = { fontSize: 11, fontWeight: 700, color: 'var(--accent, #a78bfa)', textDecoration: 'none', padding: '4px 8px', borderRadius: 8, background: 'rgba(167,139,250,0.12)' }
+const docActionsStyle = { display: 'flex', gap: 6, flexShrink: 0 }
+const docActionStyle = { fontSize: 11, fontWeight: 700, color: 'var(--accent, #a78bfa)', textDecoration: 'none', padding: '4px 8px', borderRadius: 8, background: 'rgba(167,139,250,0.12)', whiteSpace: 'nowrap' }
 
 const mediaThumbWrapStyle = { position: 'relative', maxWidth: 260, width: '100%', borderRadius: 16, overflow: 'hidden', border: 'none', padding: 0, background: 'rgba(0,0,0,0.2)' }
 const mediaImgStyle = { width: '100%', height: '100%', objectFit: 'cover', display: 'block' }
-const mediaPlaceholderStyle = { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, minHeight: 140 }
-const playOverlayStyle = { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 44, height: 44, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }
+const mediaPlaceholderStyle = { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.5)', minHeight: 140 }
+const playOverlayStyle = { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 44, height: 44, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }
 const uploadOverlayStyle = { position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }
 const progressRingWrap = { position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }
 const progressPctStyle = { position: 'absolute', fontSize: 10, fontWeight: 700, color: '#fff' }
