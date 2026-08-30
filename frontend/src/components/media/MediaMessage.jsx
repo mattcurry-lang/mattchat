@@ -278,21 +278,7 @@ return (
 
 <div style={{
   display: 'flex', flexDirection: 'column', gap: 4,
-  // FIX v2: min(320px, 100%) still failed because the 100% term
-  // resolves against THIS element's parent — and that parent is a
-  // plain, unstyled <div> with no explicit width, sitting inside
-  // .msg-row (width: fit-content). An auto-width block inside a
-  // fit-content ancestor has no real width to hand back, so the 100%
-  // term was resolving to ~0/auto — same circular-width bug, just one
-  // level higher up the tree than my first fix caught.
-  // Real fix: stop depending on ANY ancestor's percentage width.
-  // MEDIA_MAX_WIDTH as a bare number is a fixed, self-contained pixel
-  // value — no parent lookup needed, so there's nothing left to break.
-  // The 90vw cap is viewport-relative (not parent-relative), so it's
-  // immune to the same circularity and just guards against overflow
-  // on very narrow phone screens.
-  width: MEDIA_MAX_WIDTH,
-  maxWidth: '90vw',
+  width: MEDIA_MAX_WIDTH_CSS,
 }}>
     <button
       onClick={() => asset.upload_status === 'sent' && !isViewOnceUnavailable && onOpenViewer?.(message)}
@@ -396,7 +382,7 @@ const contactCardBadgeStyle = {
 
 // SIZE/POLISH PASS: 260 → 320. This is the single biggest lever for "wow" —
 // everything else here is finish work around that larger canvas.
-const MEDIA_MAX_WIDTH = 320
+const MEDIA_MAX_WIDTH_CSS = 'clamp(220px, 68vw, 300px)'
 
 // Border removed (was `border: '1px solid rgba(148,120,255,0.16)'`-style
 // framing inherited from the doc card) in favor of a two-layer shadow: a
@@ -405,7 +391,7 @@ const MEDIA_MAX_WIDTH = 320
 // bordered thumbnail — matches the borderless-media direction WhatsApp
 // shipped on iOS.
 const mediaThumbWrapStyle = {
-  position: 'relative', width: '100%', // now safe: 100% of a fixed-px parent
+  position: 'relative', width: '100%',
   borderRadius: 18, overflow: 'hidden', border: 'none', padding: 0,
   background: 'rgba(0,0,0,0.2)',
   boxShadow: '0 1px 2px rgba(0,0,0,0.24), 0 8px 20px rgba(0,0,0,0.28)',
@@ -419,4 +405,4 @@ const progressRingWrap = { position: 'relative', display: 'flex', alignItems: 'c
 const progressPctStyle = { position: 'absolute', fontSize: 10, fontWeight: 700, color: '#fff' }
 const viewOnceBadgeStyle = { position: 'absolute', top: 8, left: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 800, borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }
 const viewOnceGoneStyle = { width: '100%', minHeight: 170, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, color: 'var(--text-secondary, #c9c4dd)', fontSize: 11 }
-const captionStyle = { fontSize: 13, color: 'var(--text-primary, #f2f0f8)', padding: '0 2px', maxWidth: MEDIA_MAX_WIDTH }
+const captionStyle = { fontSize: 13, color: 'var(--text-primary, #f2f0f8)', padding: '0 2px', maxWidth: MEDIA_MAX_WIDTH_CSS }
