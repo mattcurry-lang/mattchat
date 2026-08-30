@@ -17,7 +17,7 @@
 // a long filename like "G5_Exam_Timetable_August_2026_FINAL.12.08.2026.xlsx"
 // just grew the whole bubble instead of ellipsizing — the ellipsis CSS on
 // docNameStyle only ever engages once its container is actually bounded.
-// Added a maxWidth (matching the image/video bubble's 260px cap) so long
+// Added a maxWidth (matching the image/video bubble's cap) so long
 // filenames truncate instead of blowing out the layout, while still leaving
 // room for a real Word/Excel/PDF filename to read comfortably on one line.
 //
@@ -29,12 +29,21 @@
 // regular themed chat surface, which already light/dark-toggles correctly,
 // so hardcoding here would actually break theme support rather than fix a bug.
 //
-// NEW: 'contact' media_type — renders a shared-contact bubble (avatar, name,
-// email, "View" action) once ContactShareModal's onConfirm(p) has been sent
-// through your message pipeline. ASSUMES the resulting asset carries
-// contact_id / contact_username / contact_email / contact_avatar_url —
-// adjust the four asset.contact_* reads below if your actual send path
-// names these differently or nests them elsewhere.
+// 'contact' media_type — renders a shared-contact bubble.
+//
+// SIZE/POLISH PASS (photo & video bubbles only): researched current chat-UI
+// convention (WhatsApp's July 2026 iOS redesign, general chat-UX guidance) —
+// two consistent signals: (1) media runs bigger than a cramped 260px cap —
+// closer to the actual message-column width, and (2) the hard border around
+// media is gone in favor of a soft shadow, letting the image/video itself
+// be the edge instead of framing it. Applied both here: MEDIA_MAX_WIDTH
+// raised 260 → 320, mediaThumbWrapStyle's border removed in favor of a
+// layered shadow, corner radius opened up slightly (16 → 18) to match the
+// larger size, and the caption/placeholder widths follow the same cap so
+// nothing looks mismatched next to the bigger image. Doc/contact/audio
+// cards are deliberately NOT touched — those are utility rows, not the
+// "wow" surface — and none of the underlying upload/view-once/Cloudflare
+// logic changed, only the box these render inside.
 
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
@@ -272,7 +281,9 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry, onO
           ...mediaThumbWrapStyle,
           cursor: asset.upload_status === 'sent' ? 'pointer' : 'default',
           aspectRatio: asset.width && asset.height ? `${asset.width}/${asset.height}` : '4/3',
-          boxShadow: justSent ? '0 0 0 3px rgba(124,92,255,0.55)' : '0 0 0 0 rgba(124,92,255,0)',
+          boxShadow: justSent
+            ? '0 0 0 3px rgba(124,92,255,0.55), 0 10px 28px rgba(0,0,0,0.35)'
+            : mediaThumbWrapStyle.boxShadow,
           transition: 'box-shadow 0.5s ease',
         }}
       >
@@ -291,7 +302,7 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry, onO
 
         {asset.is_view_once && !isViewOnceUnavailable && <span style={viewOnceBadgeStyle}>1</span>}
         {isVideo && !isViewOnceUnavailable && asset.upload_status === 'sent' && (
-          <span style={playOverlayStyle}><IconPlay size={18} /></span>
+          <span style={playOverlayStyle}><IconPlay size={22} /></span>
         )}
 
         {asset.upload_status !== 'sent' && (
@@ -351,10 +362,6 @@ const docSizeStyle = { fontSize: 11, color: 'var(--text-secondary, #c9c4dd)', ma
 const docActionsStyle = { display: 'flex', gap: 6, flexShrink: 0 }
 const docActionStyle = { fontSize: 11, fontWeight: 700, color: 'var(--accent, #a78bfa)', textDecoration: 'none', padding: '4px 8px', borderRadius: 8, background: 'rgba(167,139,250,0.12)', whiteSpace: 'nowrap' }
 
-// NEW: contact card — mirrors docCardStyle's footprint (same maxWidth/padding
-// rhythm) so a shared contact reads as visually consistent with a shared
-// file, but is a <button> (whole row tappable → onOpenProfile) rather than
-// a row with separate action links.
 const contactCardStyle = {
   display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14,
   background: 'var(--surface-card, rgba(148,120,255,0.08))',
@@ -368,13 +375,29 @@ const contactCardBadgeStyle = {
   background: 'rgba(167,139,250,0.12)', borderRadius: 8, padding: '4px 7px',
 }
 
-const mediaThumbWrapStyle = { position: 'relative', maxWidth: 260, width: '100%', borderRadius: 16, overflow: 'hidden', border: 'none', padding: 0, background: 'rgba(0,0,0,0.2)' }
+// SIZE/POLISH PASS: 260 → 320. This is the single biggest lever for "wow" —
+// everything else here is finish work around that larger canvas.
+const MEDIA_MAX_WIDTH = 320
+
+// Border removed (was `border: '1px solid rgba(148,120,255,0.16)'`-style
+// framing inherited from the doc card) in favor of a two-layer shadow: a
+// tight contact shadow for edge definition + a soft ambient one for lift.
+// This is the change that makes it read as a "photo card" instead of a
+// bordered thumbnail — matches the borderless-media direction WhatsApp
+// shipped on iOS.
+const mediaThumbWrapStyle = {
+  position: 'relative', maxWidth: MEDIA_MAX_WIDTH, width: '100%',
+  borderRadius: 18, overflow: 'hidden', border: 'none', padding: 0,
+  background: 'rgba(0,0,0,0.2)',
+  boxShadow: '0 1px 2px rgba(0,0,0,0.24), 0 8px 20px rgba(0,0,0,0.28)',
+}
 const mediaImgStyle = { width: '100%', height: '100%', objectFit: 'cover', display: 'block' }
-const mediaPlaceholderStyle = { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.5)', minHeight: 140 }
-const playOverlayStyle = { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 44, height: 44, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }
+const mediaPlaceholderStyle = { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.5)', minHeight: 170 }
+// Slightly bigger + softer play button to match the larger canvas.
+const playOverlayStyle = { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 52, height: 52, borderRadius: '50%', background: 'rgba(0,0,0,0.42)', backdropFilter: 'blur(2px)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(0,0,0,0.35)' }
 const uploadOverlayStyle = { position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }
 const progressRingWrap = { position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }
 const progressPctStyle = { position: 'absolute', fontSize: 10, fontWeight: 700, color: '#fff' }
 const viewOnceBadgeStyle = { position: 'absolute', top: 8, left: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 800, borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }
-const viewOnceGoneStyle = { width: '100%', minHeight: 140, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, color: 'var(--text-secondary, #c9c4dd)', fontSize: 11 }
-const captionStyle = { fontSize: 13, color: 'var(--text-primary, #f2f0f8)', padding: '0 2px', maxWidth: 260 }
+const viewOnceGoneStyle = { width: '100%', minHeight: 170, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, color: 'var(--text-secondary, #c9c4dd)', fontSize: 11 }
+const captionStyle = { fontSize: 13, color: 'var(--text-primary, #f2f0f8)', padding: '0 2px', maxWidth: MEDIA_MAX_WIDTH }
