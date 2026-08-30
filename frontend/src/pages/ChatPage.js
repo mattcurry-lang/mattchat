@@ -2539,25 +2539,38 @@ const handleSend = async () => {
   isMe={isMine}
   conversationId={activeConvo.id}
 >
-                        <MessageBubble
+    <MessageBubble
   msg={{
     ...msg,
     _currentUserId: userId,
     _quotedMessage: msg.reply_to_message_id ? findMessageById(msg.reply_to_message_id) : null,
-_onPlayYouTube: (videoId, startSeconds) => setYoutubePlayer({ videoId, mini: false, startSeconds }),
-_onWatchTogether: (videoId, videoTitle, videoThumbnailUrl) => {
-  watchTogether.inviteToWatch(videoId, videoTitle, videoThumbnailUrl)
-    .catch((e) => alert('Could not start Watch Together: ' + e.message))
-},
+    _onPlayYouTube: (videoId, startSeconds) => setYoutubePlayer({ videoId, mini: false, startSeconds }),
+    _onWatchTogether: (videoId, videoTitle, videoThumbnailUrl) => {
+      watchTogether.inviteToWatch(videoId, videoTitle, videoThumbnailUrl)
+        .catch((e) => alert('Could not start Watch Together: ' + e.message))
+    },
     _onOpenMediaViewer: (m) => setMediaViewerTarget(m.id),
     _onOpenMoment: (m) => setMomentViewerTarget(m.id),
-_onRetryMediaUpload: (m) => retryMediaUpload(m),
- _onOpenShort: (video) => { setShortsInitialVideo(video); setShowShorts(true) },
+    _onRetryMediaUpload: (m) => retryMediaUpload(m),
+    _onOpenShort: (video) => { setShortsInitialVideo(video); setShowShorts(true) },
+    // NEW — ContactBubble's onClick calls onOpenProfile(...), which reads
+    // this. It was missing entirely, so the button had nothing to call.
+    // Also normalizes the shape: ContactBubble hands back {id, username,
+    // avatarUrl} (camelCase, from its own JSON.parse of msg.content), but
+    // ProfileCard elsewhere in this file is always given a real `profiles`
+    // row shape (avatar_url, snake_case — see the header-avatar onClick
+    // above). Without this remap the card would open but the avatar
+    // wouldn't render.
+    _onOpenSharedContact: (contact) => setProfileCardTarget({
+      id: contact.id,
+      username: contact.username,
+      avatar_url: contact.avatarUrl,
+    }),
   }}
   isMe={isMine}
   isRead={!!readMap[msg.id]}
   isDelivered={!!deliveredMap[msg.id]}
-                  session={session}
+  session={session}
 />
                         </ReactableMessage>
                       )}
