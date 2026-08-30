@@ -274,24 +274,26 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry, onO
 
  const isVideo = asset.media_type === 'video'
 return (
-  <div style={{
-    display: 'flex', flexDirection: 'column', gap: 4,
-    // FIX: this div previously had no explicit width, so the button
-    // below it (width: 100%, maxWidth: 320) was asking for "100% of
-    // my parent" — but the parent chain up to .msg-row is
-    // `width: fit-content` (see App.css), which has no width of its
-    // own until ITS children resolve first. That circular reference
-    // is what collapsed everything down to the image's tiny rendered
-    // size (confirmed via devtools: 44.4 × 33.29, exactly the 4/3
-    // aspect-ratio fallback at a tiny base size). Giving this wrapper
-    // an explicit width breaks the circularity: fit-content now sizes
-    // around this concrete value, and the button's width:100% below
-    // finally has something real to resolve against.
-    // min() keeps it responsive — full MEDIA_MAX_WIDTH on anything
-    // wide enough, but never wider than the actual viewport on narrow
-    // phones.
-    width: `min(${MEDIA_MAX_WIDTH}px, 100%)`,
-  }}>
+// In MediaMessage.jsx — replace the wrapper div's style with this:
+
+<div style={{
+  display: 'flex', flexDirection: 'column', gap: 4,
+  // FIX v2: min(320px, 100%) still failed because the 100% term
+  // resolves against THIS element's parent — and that parent is a
+  // plain, unstyled <div> with no explicit width, sitting inside
+  // .msg-row (width: fit-content). An auto-width block inside a
+  // fit-content ancestor has no real width to hand back, so the 100%
+  // term was resolving to ~0/auto — same circular-width bug, just one
+  // level higher up the tree than my first fix caught.
+  // Real fix: stop depending on ANY ancestor's percentage width.
+  // MEDIA_MAX_WIDTH as a bare number is a fixed, self-contained pixel
+  // value — no parent lookup needed, so there's nothing left to break.
+  // The 90vw cap is viewport-relative (not parent-relative), so it's
+  // immune to the same circularity and just guards against overflow
+  // on very narrow phone screens.
+  width: MEDIA_MAX_WIDTH,
+  maxWidth: '90vw',
+}}>
     <button
       onClick={() => asset.upload_status === 'sent' && !isViewOnceUnavailable && onOpenViewer?.(message)}
       style={{
@@ -403,7 +405,7 @@ const MEDIA_MAX_WIDTH = 320
 // bordered thumbnail — matches the borderless-media direction WhatsApp
 // shipped on iOS.
 const mediaThumbWrapStyle = {
-  position: 'relative', maxWidth: MEDIA_MAX_WIDTH, width: '100%',
+  position: 'relative', width: '100%', // now safe: 100% of a fixed-px parent
   borderRadius: 18, overflow: 'hidden', border: 'none', padding: 0,
   background: 'rgba(0,0,0,0.2)',
   boxShadow: '0 1px 2px rgba(0,0,0,0.24), 0 8px 20px rgba(0,0,0,0.28)',
