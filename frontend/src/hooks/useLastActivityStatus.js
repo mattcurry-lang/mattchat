@@ -36,15 +36,14 @@ export function useLastActivityStatus(conversationIds, currentUserId) {
     if (!mine.length) { setStatusMap({}); return }
 
     const myMsgIds = mine.map(m => m.id)
-   const { data: reads, error: readsErr } = await supabase
+ const { data: reads, error: readsErr } = await supabase
   .from('message_reads')
   .select('message_id, user_id, read_at')
   .in('message_id', myMsgIds)
   .neq('user_id', currentUserId)
 if (readsErr) console.error('[useLastActivityStatus] message_reads fetch failed:', readsErr)
-;(reads || []).forEach(r => { readByMsgId[r.message_id] = r.read_at })
-    const readByMsgId = {}
-    ;(reads || []).forEach(r => { readByMsgId[r.message_id] = r.created_at })
+const readByMsgId = {}
+;(reads || []).forEach(r => { readByMsgId[r.message_id] = r.created_at })
 
     const next = {}
     mine.forEach(m => {
