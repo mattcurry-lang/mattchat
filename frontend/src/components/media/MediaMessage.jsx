@@ -272,21 +272,38 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry, onO
     )
   }
 
-  const isVideo = asset.media_type === 'video'
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <button
-        onClick={() => asset.upload_status === 'sent' && !isViewOnceUnavailable && onOpenViewer?.(message)}
-        style={{
-          ...mediaThumbWrapStyle,
-          cursor: asset.upload_status === 'sent' ? 'pointer' : 'default',
-          aspectRatio: asset.width && asset.height ? `${asset.width}/${asset.height}` : '4/3',
-          boxShadow: justSent
-            ? '0 0 0 3px rgba(124,92,255,0.55), 0 10px 28px rgba(0,0,0,0.35)'
-            : mediaThumbWrapStyle.boxShadow,
-          transition: 'box-shadow 0.5s ease',
-        }}
-      >
+ const isVideo = asset.media_type === 'video'
+return (
+  <div style={{
+    display: 'flex', flexDirection: 'column', gap: 4,
+    // FIX: this div previously had no explicit width, so the button
+    // below it (width: 100%, maxWidth: 320) was asking for "100% of
+    // my parent" — but the parent chain up to .msg-row is
+    // `width: fit-content` (see App.css), which has no width of its
+    // own until ITS children resolve first. That circular reference
+    // is what collapsed everything down to the image's tiny rendered
+    // size (confirmed via devtools: 44.4 × 33.29, exactly the 4/3
+    // aspect-ratio fallback at a tiny base size). Giving this wrapper
+    // an explicit width breaks the circularity: fit-content now sizes
+    // around this concrete value, and the button's width:100% below
+    // finally has something real to resolve against.
+    // min() keeps it responsive — full MEDIA_MAX_WIDTH on anything
+    // wide enough, but never wider than the actual viewport on narrow
+    // phones.
+    width: `min(${MEDIA_MAX_WIDTH}px, 100%)`,
+  }}>
+    <button
+      onClick={() => asset.upload_status === 'sent' && !isViewOnceUnavailable && onOpenViewer?.(message)}
+      style={{
+        ...mediaThumbWrapStyle,
+        cursor: asset.upload_status === 'sent' ? 'pointer' : 'default',
+        aspectRatio: asset.width && asset.height ? `${asset.width}/${asset.height}` : '4/3',
+        boxShadow: justSent
+          ? '0 0 0 3px rgba(124,92,255,0.55), 0 10px 28px rgba(0,0,0,0.35)'
+          : mediaThumbWrapStyle.boxShadow,
+        transition: 'box-shadow 0.5s ease',
+      }}
+    >
         <motion.div layoutId={`media-${asset.id}`} style={{ position: 'absolute', inset: 0 }}>
           {isViewOnceUnavailable ? (
             <div style={viewOnceGoneStyle}>
