@@ -60,7 +60,7 @@ async function uploadDirect({ file, mediaType, storagePath, onProgress, onStatus
   onStatusChange('uploading')
   const bucket = BUCKET_BY_TYPE[mediaType] || 'media-originals'
 
-  const fakeProgress = setInterval(() => onProgress(Math.min(90, Math.random() * 40 + 40)), 200)
+  const fakeProgress = setInterval(() => onProgress(Math.round(Math.min(90, Math.random() * 40 + 40))), 200)
 
   const { error } = await supabase.storage.from(bucket).upload(storagePath, file, {
     contentType: file.type,
