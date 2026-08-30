@@ -179,30 +179,44 @@ export const uploadManager = {
    * onProgress(percent: 0-100), onStatusChange('uploading'|'processing'|'sent'|'failed')
    * both also persist to media_assets so a resync/reload reflects true state.
    */
-  start({ file, assetId, mediaType, storagePath, conversationId, onProgress = () => {}, onStatusChange = () => {} }) {
+// In UploadManager.js — inside uploadManager.start(), replace wrappedProgress:
+
+start({ file, assetId, mediaType, storagePath, conversationId, onProgress = () => {}, onStatusChange = () => {} }) {
     const handle = new UploadHandle(assetId)
+
+    // FIX: tus-js-client's onProgress fires many times per chunk during a
+    // resumable/video upload — not once per chunk, but potentially dozens
+    // of times as bytes stream in. This function used to call
+    // updateMediaAssetStatus (a real network write to Supabase: update +
+    // select + single) on EVERY one of those firings. For a large video
+    // that meant dozens-to-hundreds of small Supabase requests running
+    // concurrently with the actual upload, competing for the same
+    // bandwidth and connection pool — which was very plausibly a real
+    // contributor to "uploads feel slow", not just something that looked
+    // slow. The UI-facing onProgress(pct) call stays untouched and fires
+    // on every tick (cheap, local, keeps the progress ring smooth) — only
+    // the DB persistence is now throttled to at most once every 800ms,
+    // plus one guaranteed final write at 100% so the true end-state is
+    // never lost to the throttle window.
+    let lastPersistedAt = 0
+    const PERSIST_INTERVAL_MS = 800
 
     const wrappedProgress = (pct) => {
       onProgress(pct)
-      updateMediaAssetStatus(assetId, { upload_progress: pct }).catch(() => {})
+      const now = Date.now()
+      if (pct >= 100 || now - lastPersistedAt >= PERSIST_INTERVAL_MS) {
+        lastPersistedAt = now
+        updateMediaAssetStatus(assetId, { upload_progress: pct }).catch(() => {})
+      }
     }
     const wrappedStatus = (status) => {
       onStatusChange(status)
-      // 'processing' is intentionally NOT persisted here. Every caller of
-      // uploadManager.start (see useChat.js: sendMediaMessage,
-      // sendMomentMessage, retryMediaUpload) reacts to a 'processing'
-      // signal by immediately writing upload_status: 'sent' itself. If we
-      // ALSO write 'processing' to the same row here, the two writes race:
-      // whichever network request resolves last wins in the DB — and
-      // when this write lands after the caller's 'sent' write, the row
-      // (and, via the realtime media_update subscription, the UI) gets
-      // stuck showing "Processing…" forever. Every other status
-      // (uploading/sent/failed) has no such competing writer, so those
-      // are still persisted directly.
       if (status !== 'processing') {
         updateMediaAssetStatus(assetId, { upload_status: status }).catch(() => {})
       }
     }
+
+ 
 
     const run = async () => {
       const useCfStream = mediaType === 'video' && file.size > CF_STREAM_THRESHOLD && conversationId
