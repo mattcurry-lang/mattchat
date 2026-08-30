@@ -3,30 +3,38 @@
 // basic attachment button. Opens MediaPicker/CameraCapture/FilePicker etc.
 // depending on what the user taps. Does not itself upload anything.
 //
-// THEME NOTE: this uses the CSS custom properties already defined in
-// Mattchat's dark/purple design system (see mattchat.md — "CSS custom
-// property design system with dark/purple brand theme"). If your variable
-// names differ from the ones below, do a find/replace — the fallback values
-// after each `var(--x, fallback)` guarantee readable contrast in both light
-// and dark mode even before that's done, so nothing renders invisible.
+// THEME NOTE: uses Mattchat's CSS custom property design system. The
+// fallback values after each var(--x, fallback) are chosen to stay
+// readable in BOTH light and dark mode even if a variable name doesn't
+// match yours or isn't actually theme-aware — verify against your real
+// theme CSS and tighten these if you have exact per-theme values.
+//
+// Row-list layout (icon + label per row) instead of the old icon grid.
+// Screenshot option added — ScreenshotCapture already exists and was
+// already wired up in MediaAttachmentFlow.jsx (activePicker === 'screenshot'),
+// it just had no entry point in this menu until now.
 
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import {
+  IconCamera, IconImagePlus, IconFilm, IconFolder, IconMusic,
+  IconPin, IconUser, IconSparkle, IconMaximize,
+} from '../Icons'
 
 const OPTIONS = [
-  { id: 'camera', label: 'Camera', icon: '📷' },
-  { id: 'photos', label: 'Photos', icon: '🖼️' },
-  { id: 'videos', label: 'Videos', icon: '🎬' },
-  { id: 'documents', label: 'Documents', icon: '📄' },
-  { id: 'audio', label: 'Audio', icon: '🎵' },
-  { id: 'location', label: 'Location', icon: '📍' },
-  { id: 'contact', label: 'Contact', icon: '👤' },
-  { id: 'moment', label: 'Create Moment', icon: '✨' },
+  { id: 'camera', label: 'Camera', Icon: IconCamera },
+  { id: 'photos', label: 'Photos', Icon: IconImagePlus },
+  { id: 'videos', label: 'Videos', Icon: IconFilm },
+  { id: 'documents', label: 'Documents', Icon: IconFolder },
+  { id: 'audio', label: 'Audio', Icon: IconMusic },
+  { id: 'screenshot', label: 'Screenshot', Icon: IconMaximize },
+  { id: 'location', label: 'Location', Icon: IconPin },
+  { id: 'contact', label: 'Contact', Icon: IconUser },
+  { id: 'moment', label: 'Create Moment', Icon: IconSparkle },
 ]
 
 export default function MediaStudio({ isOpen, onClose, onSelectOption }) {
   const sheetRef = useRef(null)
-  const [dragActive, setDragActive] = useState(false)
 
   useEffect(() => {
     if (!isOpen) return
@@ -65,16 +73,18 @@ export default function MediaStudio({ isOpen, onClose, onSelectOption }) {
             <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border-subtle, rgba(120,120,140,0.35))', margin: '10px auto 4px' }} />
             <h3 style={titleStyle}>Share</h3>
 
-            <div style={gridStyle}>
-              {OPTIONS.map((opt) => (
+            <div style={listStyle}>
+              {OPTIONS.map(({ id, label, Icon }) => (
                 <motion.button
-                  key={opt.id}
-                  whileTap={{ scale: 0.94 }}
-                  onClick={() => { onSelectOption(opt.id); onClose() }}
-                  style={cardStyle}
+                  key={id}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => { onSelectOption(id); onClose() }}
+                  style={rowStyle}
                 >
-                  <span style={{ fontSize: 26 }}>{opt.icon}</span>
-                  <span style={cardLabelStyle}>{opt.label}</span>
+                  <span style={iconBadgeStyle}>
+                    <Icon size={19} style={{ color: 'var(--accent, #a78bfa)' }} />
+                  </span>
+                  <span style={rowLabelStyle}>{label}</span>
                 </motion.button>
               ))}
             </div>
@@ -87,7 +97,7 @@ export default function MediaStudio({ isOpen, onClose, onSelectOption }) {
   )
 }
 
-// ---- styles: CSS variables with high-contrast fallbacks for both themes ----
+// ---- styles: CSS variables with dual-theme-safe fallbacks ----
 
 const sheetStyle = {
   position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 61,
@@ -101,46 +111,59 @@ const sheetStyle = {
 }
 
 const titleStyle = {
-  margin: '4px 0 16px',
+  margin: '4px 0 10px',
   textAlign: 'center',
   fontSize: 16,
-  fontWeight: 600,
-  color: 'var(--text-primary, #f2f0f8)',
+  fontWeight: 700,
+  // Mid-tone gray fallback: readable against both a dark navy sheet and
+  // a white/light sheet, unlike a near-white fallback which disappears
+  // on a light background if --text-primary isn't actually theme-aware.
+  color: 'var(--text-primary, #8b8798)',
 }
 
-const gridStyle = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(4, 1fr)',
+const listStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  padding: '4px 8px',
+}
+
+const rowStyle = {
+  display: 'flex',
+  alignItems: 'center',
   gap: 14,
-  padding: '0 20px',
-}
-
-const cardStyle = {
-  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-  padding: '14px 6px',
-  borderRadius: 16,
-  border: '1px solid var(--border-subtle, rgba(148,120,255,0.16))',
-  background: 'var(--surface-card, rgba(148,120,255,0.08))',
+  width: '100%',
+  padding: '11px 12px',
+  borderRadius: 14,
+  border: 'none',
+  background: 'transparent',
   cursor: 'pointer',
+  textAlign: 'left',
 }
 
-const cardLabelStyle = {
-  fontSize: 12,
-  fontWeight: 500,
-  color: 'var(--text-primary, #f2f0f8)',
-  textAlign: 'center',
-  lineHeight: 1.2,
+const iconBadgeStyle = {
+  flexShrink: 0,
+  width: 38, height: 38,
+  borderRadius: 12,
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  background: 'var(--surface-card, rgba(148,120,255,0.12))',
+  border: '1px solid var(--border-subtle, rgba(148,120,255,0.18))',
+}
+
+const rowLabelStyle = {
+  fontSize: 14.5,
+  fontWeight: 600,
+  color: 'var(--text-primary, #8b8798)',
 }
 
 const cancelStyle = {
   display: 'block',
   width: 'calc(100% - 40px)',
-  margin: '18px 20px 0',
+  margin: '14px 20px 0',
   padding: '12px 0',
   borderRadius: 14,
   border: 'none',
   background: 'var(--surface-card, rgba(148,120,255,0.10))',
-  color: 'var(--text-secondary, #c9c4dd)',
+  color: 'var(--text-secondary, #8b8798)',
   fontWeight: 600,
   fontSize: 14,
   cursor: 'pointer',
