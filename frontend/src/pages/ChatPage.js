@@ -217,7 +217,7 @@ function ContactBubble({ content, onOpenProfile, onMessageContact, currentUserId
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, background: 'var(--surface-card, rgba(148,120,255,0.08))', border: '1px solid var(--border-subtle, rgba(148,120,255,0.16))', minWidth: 200, maxWidth: 280, boxSizing: 'border-box' }}>
       <button
-        onClick={() => onOpenProfile?.({ id: userId, username, avatar_url: avatarUrl })}
+      onClick={() => onOpenProfile?.({ id: userId, username, avatar_url: avatarUrl, email })}
         style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', padding: 0 }}
       >
         <Avatar name={username} photoUrl={avatarUrl} size={38} />
@@ -2604,10 +2604,11 @@ onForward={(m) => setForwardingMessage(m)}
     // row shape (avatar_url, snake_case — see the header-avatar onClick
     // above). Without this remap the card would open but the avatar
     // wouldn't render.
-  _onOpenSharedContact: (contact) => setProfileCardTarget({
+_onOpenSharedContact: (contact) => setProfileCardTarget({
   id: contact.id,
   username: contact.username,
   avatar_url: contact.avatarUrl,
+  email: contact.email,
 }),
 _onMessageContact: (contactEmail) => handleMessageContact(contactEmail), 
   }}
