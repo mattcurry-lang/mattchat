@@ -270,7 +270,11 @@ export default function MediaViewer({
       )}
 
       {smartMessage && <div style={smartToastStyle}>{smartMessage}</div>}
+ 
 
+{current.content && !isViewOnceGoneForMe && (
+  <div style={captionOverlayStyle}>{current.content}</div>
+)}
       {!isViewOnceGoneForMe && (
         <div style={actionBarStyle}>
           {!isStreamVideo && <ActionBtn icon={<DownloadIcon />} label="Save" onClick={handleDownload} />}
@@ -327,3 +331,9 @@ const smartToastStyle = { position: 'absolute', bottom: 92, left: '50%', transfo
 const actionBarStyle = { display: 'flex', justifyContent: 'space-around', padding: '14px 8px max(14px, env(safe-area-inset-bottom))', background: 'rgba(15,13,22,0.9)' }
 const actionBtnStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer' }
 const actionLabelStyle = { fontSize: 10, fontWeight: 600 }
+const captionOverlayStyle = {
+  position: 'absolute', left: 16, right: 16,
+  bottom: (asset?.is_view_once && !isMe) ? 46 : 14, 
+  background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 13.5, lineHeight: 1.4,
+  padding: '8px 14px', borderRadius: 14, textAlign: 'center',
+}
