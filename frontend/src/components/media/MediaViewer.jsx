@@ -24,6 +24,7 @@ import { motion } from 'framer-motion'
 import { getSignedUrl, deleteMediaAsset, markViewOnceViewed } from '../../services/MediaAssetService'
 import { getStreamPlaybackToken, streamIframeUrl } from '../../services/CloudflareStreamService'
 import { runSmartMediaAction, SMART_MEDIA_ACTIONS } from '../../services/SmartMediaService'
+import { useReactions } from '../MessageReactions'
 
 export default function MediaViewer({
   messages, initialMessageId, currentUserId, onClose,
@@ -49,6 +50,8 @@ export default function MediaViewer({
   const pinchStartRef = useRef(null)
 
   const current = mediaMessages[index]
+  const { reactions, toggleReaction } = useReactions(current?.id, currentUserId, conversationId)
+  const [showReactionBar, setShowReactionBar] = useState(false)
   const asset = current?.media_assets?.[0]
   const isMe = current?.sender_id === currentUserId
   const isViewOnceGoneForMe = asset?.is_view_once && asset.viewed_at && !isMe
@@ -275,12 +278,23 @@ export default function MediaViewer({
 {current.content && !isViewOnceGoneForMe && (
   <div style={captionOverlayStyle}>{current.content}</div>
 )}
+      {showReactionBar && (
+  <div style={reactionBarStyle}>
+    {['❤️','😂','😮','😢','🙏','👍'].map(emoji => (
+      <button
+        key={emoji}
+        onClick={() => { toggleReaction(emoji); setShowReactionBar(false) }}
+        style={reactionEmojiBtnStyle}
+      >{emoji}</button>
+    ))}
+  </div>
+)}
       {!isViewOnceGoneForMe && (
         <div style={actionBarStyle}>
           {!isStreamVideo && <ActionBtn icon={<DownloadIcon />} label="Save" onClick={handleDownload} />}
           <ActionBtn icon={<ForwardIcon />} label="Forward" onClick={() => onForward?.(current)} />
           <ActionBtn icon={<ReplyIcon />} label="Reply" onClick={() => { onReply?.(current); onClose() }} />
-          <ActionBtn icon={<HeartIcon />} label="React" onClick={() => onReact?.(current)} />
+         <ActionBtn icon={<HeartIcon />} label="React" onClick={() => setShowReactionBar(v => !v)} />
           <ActionBtn icon={<ShareIcon />} label="Share" onClick={handleShare} />
           {availableSmartActions.length > 0 && (
             <ActionBtn icon={<SparkleIcon />} label="Smart" onClick={() => setSmartMenuOpen(v => !v)} />
@@ -336,4 +350,15 @@ const captionOverlayStyle = {
   bottom: (asset?.is_view_once && !isMe) ? 46 : 14, 
   background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 13.5, lineHeight: 1.4,
   padding: '8px 14px', borderRadius: 14, textAlign: 'center',
+}
+// New styles:
+const reactionBarStyle = {
+  position: 'absolute', bottom: 92, left: '50%', transform: 'translateX(-50%)',
+  display: 'flex', gap: 4, background: 'rgba(20,18,30,0.96)',
+  border: '1px solid rgba(255,255,255,0.12)', borderRadius: 30,
+  padding: '6px 8px', zIndex: 3, boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+}
+const reactionEmojiBtnStyle = {
+  background: 'none', border: 'none', fontSize: 24, cursor: 'pointer',
+  padding: '4px 6px', borderRadius: '50%', lineHeight: 1,
 }
