@@ -209,21 +209,32 @@ function LocationBubble({ content }) {
     </div>
   )
 }
-function ContactBubble({ content, onOpenProfile }) {
-  let userId, username, avatarUrl
-  try { ({ userId, username, avatarUrl } = JSON.parse(content)) } catch { return null }
+function ContactBubble({ content, onOpenProfile, onMessageContact, currentUserId }) {
+  let userId, username, avatarUrl, email
+  try { ({ userId, username, avatarUrl, email } = JSON.parse(content)) } catch { return null }
   if (!userId) return null
+  const isSelf = userId === currentUserId
   return (
-    <button
-      onClick={() => onOpenProfile?.({ id: userId, username, avatar_url: avatarUrl })}
-      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, background: 'var(--surface-card, rgba(148,120,255,0.08))', border: '1px solid var(--border-subtle, rgba(148,120,255,0.16))', minWidth: 200, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
-    >
-      <Avatar name={username} photoUrl={avatarUrl} size={38} />
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary, #f2f0f8)' }}>{username || 'Contact'}</div>
-        <div style={{ fontSize: 11, color: 'var(--text-secondary, #c9c4dd)' }}>👤 Contact card · tap to view</div>
-      </div>
-    </button>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, background: 'var(--surface-card, rgba(148,120,255,0.08))', border: '1px solid var(--border-subtle, rgba(148,120,255,0.16))', minWidth: 200, maxWidth: 280, boxSizing: 'border-box' }}>
+      <button
+        onClick={() => onOpenProfile?.({ id: userId, username, avatar_url: avatarUrl })}
+        style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', padding: 0 }}
+      >
+        <Avatar name={username} photoUrl={avatarUrl} size={38} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary, #f2f0f8)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{username || 'Contact'}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary, #c9c4dd)' }}>Contact card · tap to view</div>
+        </div>
+      </button>
+      {!isSelf && (
+        <button
+          onClick={() => onMessageContact?.(email)}
+          style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, fontSize: 10.5, fontWeight: 700, color: 'var(--accent, #a78bfa)', background: 'rgba(167,139,250,0.12)', border: 'none', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', fontFamily: 'inherit' }}
+        >
+          <IconMessageSquare size={13} /> Message
+        </button>
+      )}
+    </div>
   )
 }
 function PinterestBubble({ content }) {
@@ -637,7 +648,12 @@ if (msg.message_type === 'contact') {
       {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
       <div>
         {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
-        <ContactBubble content={msg.content} onOpenProfile={msg._onOpenSharedContact} />
+        <ContactBubble
+          content={msg.content}
+          onOpenProfile={msg._onOpenSharedContact}
+          onMessageContact={msg._onMessageContact}   {/* add */}
+          currentUserId={msg._currentUserId}          {/* add */}
+        />
         <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
         <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
       </div>
@@ -1513,12 +1529,15 @@ const handleSend = async () => {
   })
   bumpConversationActivity('📍 Location')
 }
-  const handleShareContact = async (profile) => {
+const handleShareContact = async (profile) => {
   if (!activeConvo) return
   await supabase.from('messages').insert({
     conversation_id: activeConvo.id,
     sender_id: userId,
-    content: JSON.stringify({ userId: profile.id, username: profile.username, avatarUrl: profile.avatar_url }),
+    content: JSON.stringify({
+      userId: profile.id, username: profile.username,
+      avatarUrl: profile.avatar_url, email: profile.email,   // ← add email
+    }),
     message_type: 'contact',
   })
   bumpConversationActivity(`👤 ${profile.username || 'Contact'}`)
