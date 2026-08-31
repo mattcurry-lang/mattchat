@@ -2373,6 +2373,7 @@ onForward={(m) => setForwardingMessage(m)}
   currentUserId={userId}
   onClose={() => setProfileCardTarget(null)}
   onAskCurry={(question) => { setCurryPrefill(question); setActiveConvo(CURRY_AI_CONTACT) }}
+onMessageContact={handleMessageContact} 
 />
 )}
       {/* ── WELCOME PANE — desktop only. Fills the space next to the
