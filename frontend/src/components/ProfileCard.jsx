@@ -51,10 +51,10 @@ export default function ProfileCard({
   }
    const isSelf = targetProfile?.id === currentUserId
 
-  const messageContact = () => {
-    onMessageContact?.(targetProfile.email)
-    onClose()
-  }
+ const messageContact = () => {
+  onMessageContact?.(targetProfile.username)
+  onClose()
+}
 
   if (!targetProfile) return null
 
