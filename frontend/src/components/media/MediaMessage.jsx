@@ -164,6 +164,7 @@ function Spinner() {
       animation: 'mm-spin 0.8s linear infinite', marginRight: 2,
     }}>
       <style>{`@keyframes mm-spin { to { transform: rotate(360deg) } }`}</style>
+      <style>{`@keyframes mm-shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
     </span>
   )
 }
@@ -175,7 +176,9 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry, onO
 
   const prevStatusRef = useRef(asset?.upload_status)
   const [justSent, setJustSent] = useState(false)
-
+const [imgLoaded, setImgLoaded] = useState(false)
+useEffect(() => { setImgLoaded(false) }, [displayThumb])
+  
   useEffect(() => {
     const prev = prevStatusRef.current
     prevStatusRef.current = asset?.upload_status
@@ -293,16 +296,26 @@ return (
       }}
     >
         <motion.div layoutId={`media-${asset.id}`} style={{ position: 'absolute', inset: 0 }}>
-          {isViewOnceUnavailable ? (
-            <div style={viewOnceGoneStyle}>
-              <IconEyeOff size={20} />
-              <span>Opened</span>
-            </div>
-          ) : displayThumb ? (
-            <img src={displayThumb} alt={asset.filename || 'media'} style={mediaImgStyle} />
-          ) : (
-            <div style={mediaPlaceholderStyle}>{isVideo ? <IconFilm size={26} /> : <IconImage size={26} />}</div>
-          )}
+        {isViewOnceUnavailable ? (
+  <div style={viewOnceGoneStyle}>
+    <IconEyeOff size={20} />
+    <span>Opened</span>
+  </div>
+) : displayThumb ? (
+  <img
+    src={displayThumb}
+    alt={asset.filename || 'media'}
+    onLoad={() => setImgLoaded(true)}
+    style={{
+      ...mediaImgStyle,
+      filter: imgLoaded ? 'blur(0px)' : 'blur(16px)',
+      transform: imgLoaded ? 'scale(1)' : 'scale(1.04)',
+      transition: 'filter 0.4s ease, transform 0.4s ease',
+    }}
+  />
+) : (
+  <div style={shimmerStyle} />
+)}
         </motion.div>
 
         {asset.is_view_once && !isViewOnceUnavailable && <span style={viewOnceBadgeStyle}>1</span>}
@@ -408,3 +421,9 @@ const progressPctStyle = { position: 'absolute', fontSize: 10, fontWeight: 700, 
 const viewOnceBadgeStyle = { position: 'absolute', top: 8, left: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 800, borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }
 const viewOnceGoneStyle = { width: '100%', minHeight: 170, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, color: 'var(--text-secondary, #c9c4dd)', fontSize: 11 }
 const captionStyle = { fontSize: 13, color: 'var(--text-primary, #f2f0f8)', padding: '0 2px', maxWidth: MEDIA_MAX_WIDTH_CSS }
+const shimmerStyle = {
+  width: '100%', height: '100%', minHeight: 170,
+  background: 'linear-gradient(100deg, rgba(255,255,255,0.04) 30%, rgba(255,255,255,0.11) 45%, rgba(255,255,255,0.04) 60%)',
+  backgroundSize: '200% 100%',
+  animation: 'mm-shimmer 1.4s ease-in-out infinite',
+}
