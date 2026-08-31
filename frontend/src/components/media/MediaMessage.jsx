@@ -51,6 +51,7 @@ import AudioPreview from './AudioPreview'
 import Avatar from '../Avatar'
 import { getSignedUrl } from '../../services/MediaAssetService'
 import { getStreamPlaybackToken, streamThumbnailUrl } from '../../services/CloudflareStreamService'
+import { IconMessageSquare } from '../Icons'  
 
 // ---- small SVG badges (no emoji) ----
 
@@ -168,8 +169,7 @@ function Spinner() {
     </span>
   )
 }
-
-export default function MediaMessage({ message, isMe, onOpenViewer, onRetry, onOpenProfile, currentUserId }) {
+export default function MediaMessage({ message, isMe, onOpenViewer, onRetry, onOpenProfile, onMessageContact, currentUserId }) {
   const asset = message.media_assets?.[0]
 
   const [signedUrl, setSignedUrl] = useState(null)
@@ -224,25 +224,33 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry, onO
   const isViewOnceUnavailable = asset.is_view_once && asset.viewed_at && !isMe
   const url = signedUrl
  
-
-  if (asset.media_type === 'contact') {
-    const isSelf = asset.contact_id === currentUserId
-    return (
+if (asset.media_type === 'contact') {
+  const isSelf = asset.contact_id === currentUserId
+  return (
+    <div style={contactCardStyle}>
       <button
         onClick={() => onOpenProfile?.(asset.contact_id)}
-        style={contactCardStyle}
+        style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', padding: 0 }}
       >
         <Avatar name={asset.contact_username || asset.contact_email} photoUrl={asset.contact_avatar_url} size={44} />
-        <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={docNameStyle}>
             {asset.contact_username || 'Unnamed'}{isSelf ? ' (You)' : ''}
           </div>
           <div style={docSizeStyle}>{asset.contact_email}</div>
         </div>
-        <span style={contactCardBadgeStyle}><IconUserCard size={14} /> Contact</span>
       </button>
-    )
-  }
+      {!isSelf && (
+        <button
+          onClick={() => onMessageContact?.(asset.contact_email)}
+          style={contactCardBadgeStyle}
+        >
+          <IconMessageSquare size={13} /> Message
+        </button>
+      )}
+    </div>
+  )
+}
 
   if (asset.media_type === 'document') {
     const ext = asset.filename?.split('.').pop()?.toLowerCase()
