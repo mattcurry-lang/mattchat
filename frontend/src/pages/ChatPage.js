@@ -2551,13 +2551,6 @@ onMessageContact={handleMessageContact}
             {/* Messages */}
            
 <div className="messages">
-  style={{
-    backgroundImage: `url(${theme === 'dark' ? '/mattchat-wallpaper-dark.png' : '/mattchat-wallpaper-light.png'})`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    backgroundRepeat: 'no-repeat',
-  }}
->
               {msgLoading && <div className="loading-state">Loading messages…</div>}
               {(() => { const visibleMessages = messages.filter(m => !hiddenMsgIds.has(m.id)); return visibleMessages.map((msg, i) => {
                 const prev = visibleMessages[i - 1]
