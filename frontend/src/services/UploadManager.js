@@ -198,17 +198,25 @@ start({ file, assetId, mediaType, storagePath, conversationId, onProgress = () =
     // the DB persistence is now throttled to at most once every 800ms,
     // plus one guaranteed final write at 100% so the true end-state is
     // never lost to the throttle window.
-    let lastPersistedAt = 0
-    const PERSIST_INTERVAL_MS = 800
+ // In UploadManager.js — extend the same throttle to cover the UI callback too,
+// not just the DB persistence:
 
-    const wrappedProgress = (pct) => {
-      onProgress(pct)
-      const now = Date.now()
-      if (pct >= 100 || now - lastPersistedAt >= PERSIST_INTERVAL_MS) {
-        lastPersistedAt = now
-        updateMediaAssetStatus(assetId, { upload_progress: pct }).catch(() => {})
-      }
-    }
+let lastPersistedAt = 0
+let lastUiUpdateAt = 0
+const PERSIST_INTERVAL_MS = 800
+const UI_INTERVAL_MS = 120 // ~8fps — plenty smooth for a progress ring, far below render-storm territory
+
+const wrappedProgress = (pct) => {
+  const now = Date.now()
+  if (pct >= 100 || now - lastUiUpdateAt >= UI_INTERVAL_MS) {
+    lastUiUpdateAt = now
+    onProgress(pct)
+  }
+  if (pct >= 100 || now - lastPersistedAt >= PERSIST_INTERVAL_MS) {
+    lastPersistedAt = now
+    updateMediaAssetStatus(assetId, { upload_progress: pct }).catch(() => {})
+  }
+}
     const wrappedStatus = (status) => {
       onStatusChange(status)
       if (status !== 'processing') {
