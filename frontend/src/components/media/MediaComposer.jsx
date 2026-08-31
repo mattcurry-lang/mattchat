@@ -29,11 +29,18 @@
 // composer instead of crashing the whole render with
 // "Cannot read properties of undefined (reading 'name')".
 //
-// STYLE PASS (aligned with MediaStudio/MediaPicker): swapped the emoji
-// glyphs (rotate arrows, sparkle, camera) for the same SVG-icon approach
-// used in those two files, and unified the accent color onto the
-// #7F5FFF -> #C86DD7 gradient established there. Purely cosmetic — no
-// editing/export logic below was touched.
+// LAYOUT REDESIGN (this pass): every editing function below — renderPreview,
+// rotate, setAspect, cropBoxStyle, dragCorner, captureThumbnail, exportImage,
+// exportVideo, exportAllItems, handleSend, handleCreateMoment — is UNCHANGED
+// from the previous version. Only the render layer changed: instead of every
+// control (rotate/aspect chips/3 sliders, or trim/speed/mute/thumbnail) being
+// stacked and always visible at once, the stage is now full-bleed and a
+// single-row bottom icon tray opens ONE tool panel at a time as a slide-up
+// sheet (the pattern CapCut/Instagram's Edits/Reels editor all converge on).
+// New UI-only state: `activeTool` — controls which panel (if any) is open.
+// Rotate and "use current frame as thumbnail" stay instant one-tap actions
+// (no panel) since there's nothing to configure, matching how those apps
+// treat purely-instant actions vs. adjustable ones.
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -41,18 +48,49 @@ import MarkupEditor from './MarkupEditor'
 import MomentComposer from './MomentComposer'
 import { IconX, IconBrush, IconSparkle, IconCamera } from '../Icons'
 
-// Rotate icons aren't in the shared Icons file — same self-contained
-// approach MediaPicker used for icons outside that set.
-const IconRotateCCW = ({ size = 14 }) => (
+// Self-contained icons (not in the shared Icons file) — same approach
+// already used for the rotate icons before this pass.
+const IconRotateCCW = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <path d="M4 9a8 8 0 1 1 1.5 6.7" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
     <path d="M4 4v5h5" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 )
-const IconRotateCW = ({ size = 14 }) => (
+const IconRotateCW = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <path d="M20 9a8 8 0 1 0-1.5 6.7" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
     <path d="M20 4v5h-5" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+const IconCrop = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <path d="M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+const IconAdjust = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <path d="M4 21V14M4 10V3M12 21v-9M12 8V3M20 21v-6M20 11V3" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+    <circle cx="4" cy="12" r="2" stroke="currentColor" strokeWidth={2} />
+    <circle cx="12" cy="10" r="2" stroke="currentColor" strokeWidth={2} />
+    <circle cx="20" cy="13" r="2" stroke="currentColor" strokeWidth={2} />
+  </svg>
+)
+const IconTrim = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <circle cx="6" cy="6" r="3" stroke="currentColor" strokeWidth={2} />
+    <circle cx="6" cy="18" r="3" stroke="currentColor" strokeWidth={2} />
+    <path d="M20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+  </svg>
+)
+const IconSpeed = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="13" r="8" stroke="currentColor" strokeWidth={2} />
+    <path d="M12 13l3.5-3.5M9 3h6" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+  </svg>
+)
+const IconChevronDown = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 )
 
@@ -79,6 +117,10 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
   const [sending, setSending] = useState(false)
   const [cropDrag, setCropDrag] = useState(null) // { startX, startY }
 
+  // NEW (UI-only): which slide-up tool panel is open, if any.
+  // 'crop' | 'adjust' | 'trim' | 'speed' | null
+  const [activeTool, setActiveTool] = useState(null)
+
   const [momentOpen, setMomentOpen] = useState(false)
   const [momentItems, setMomentItems] = useState(null)
 
@@ -98,6 +140,10 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
   const updateState = useCallback((patch) => {
     setEdits(prev => ({ ...prev, [currentId]: { ...(prev[currentId] || defaultEditState(current.mediaType)), ...patch } }))
   }, [currentId, current])
+
+  // Reset the open tool panel whenever the item changes, so switching
+  // between a photo and a video doesn't leave e.g. "Trim" open over an image.
+  useEffect(() => { setActiveTool(null) }, [currentId])
 
   // Load image + seed initial crop once per item
   useEffect(() => {
@@ -410,15 +456,20 @@ async function exportVideo(item, s, preset) {
     return null
   }
 
+  const toggleTool = (id) => setActiveTool(t => (t === id ? null : id))
+
   return (
     <AnimatePresence>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={overlayStyle}>
+        {/* ── Minimal top bar ── */}
         <div style={topBarStyle}>
           <button onClick={onCancel} style={iconBtnStyle}><IconX size={16} /></button>
           <span style={counterStyle}>{index + 1} / {items.length}</span>
-          <button onClick={openMarkup} style={iconBtnStyle} title="Markup" disabled={current.mediaType !== 'image'}>
-            <IconBrush size={16} />
-          </button>
+          {current.mediaType === 'image' ? (
+            <button onClick={openMarkup} style={iconBtnStyle} title="Markup">
+              <IconBrush size={16} />
+            </button>
+          ) : <span style={{ width: 36 }} />}
         </div>
 
         {momentIntent && items.length > 1 && (
@@ -428,90 +479,114 @@ async function exportVideo(item, s, preset) {
           </div>
         )}
 
+        {/* ── Full-bleed stage ── */}
         <div style={stageStyle}>
           {current.mediaType === 'image' ? (
             <div style={{ position: 'relative', maxWidth: '100%', maxHeight: '100%' }}>
-              <canvas ref={canvasRef} style={{ maxWidth: '100%', maxHeight: '60vh', display: 'block' }} />
-              {state?.crop && (
-                <div style={{ position: 'absolute', border: '2px solid #fff', boxShadow: '0 0 0 2000px rgba(0,0,0,0.4)', ...cropBoxStyle() }}>
+              <canvas ref={canvasRef} style={{ maxWidth: '100%', maxHeight: '100%', display: 'block', borderRadius: 8 }} />
+              {activeTool === 'crop' && state?.crop && (
+                <div style={{ position: 'absolute', border: '2px solid #fff', boxShadow: '0 0 0 2000px rgba(0,0,0,0.5)', ...cropBoxStyle() }}>
                   <div onMouseDown={dragCorner('tl')} onTouchStart={dragCorner('tl')} style={{ ...handleStyle, left: -8, top: -8, cursor: 'nwse-resize' }} />
                   <div onMouseDown={dragCorner('br')} onTouchStart={dragCorner('br')} style={{ ...handleStyle, right: -8, bottom: -8, cursor: 'nwse-resize' }} />
                 </div>
               )}
             </div>
           ) : (
-            <video ref={videoRef} src={URL.createObjectURL(current.file)} controls muted={state?.muted} style={{ maxWidth: '100%', maxHeight: '60vh' }} />
+            <video ref={videoRef} src={URL.createObjectURL(current.file)} controls muted={state?.muted} style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 8 }} />
           )}
         </div>
 
-        <div style={controlsStyle}>
+        {/* ── Multi-item filmstrip (only when >1 item) ── */}
+        {items.length > 1 && (
+          <div style={filmstripRowStyle}>
+            {items.map((it, i) => (
+              <button key={i} onClick={() => setIndex(i)} style={{ ...filmstripDotStyle, ...(i === index ? filmstripDotActiveStyle : null) }} />
+            ))}
+          </div>
+        )}
+
+        {/* ── Slide-up tool panel (one at a time) ── */}
+        <AnimatePresence>
+          {activeTool && (
+            <motion.div
+              key={activeTool}
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+              style={toolPanelStyle}
+            >
+              <div style={toolPanelHeaderStyle}>
+                <span>{TOOL_LABELS[activeTool]}</span>
+                <button onClick={() => setActiveTool(null)} style={toolPanelCloseStyle}><IconChevronDown size={16} /></button>
+              </div>
+
+              {activeTool === 'crop' && (
+                <div style={rowStyle}>
+                  {Object.keys(ASPECTS).map(name => (
+                    <button key={name} onClick={() => setAspect(name)} style={{ ...pillBtnStyle, background: state?.aspect === name ? ACCENT_GRADIENT : 'rgba(255,255,255,0.08)' }}>{name}</button>
+                  ))}
+                </div>
+              )}
+
+              {activeTool === 'adjust' && (
+                <>
+                  <SliderRow label="Brightness" value={state?.brightness ?? 100} onChange={v => updateState({ brightness: v })} min={50} max={150} />
+                  <SliderRow label="Contrast" value={state?.contrast ?? 100} onChange={v => updateState({ contrast: v })} min={50} max={150} />
+                  <SliderRow label="Saturation" value={state?.saturation ?? 100} onChange={v => updateState({ saturation: v })} min={0} max={200} />
+                </>
+              )}
+
+              {activeTool === 'trim' && (
+                <div style={rowStyle}>
+                  <input
+                    type="range" min={0} max={videoRef.current?.duration || 0} step={0.1}
+                    value={state?.trimStart ?? 0}
+                    onChange={(e) => updateState({ trimStart: Math.min(Number(e.target.value), (state?.trimEnd ?? videoRef.current?.duration ?? 0) - 0.2) })}
+                    style={{ flex: 1 }}
+                  />
+                  <input
+                    type="range" min={0} max={videoRef.current?.duration || 0} step={0.1}
+                    value={state?.trimEnd ?? (videoRef.current?.duration || 0)}
+                    onChange={(e) => updateState({ trimEnd: Math.max(Number(e.target.value), (state?.trimStart ?? 0) + 0.2) })}
+                    style={{ flex: 1 }}
+                  />
+                </div>
+              )}
+
+              {activeTool === 'speed' && (
+                <div style={rowStyle}>
+                  <label style={labelStyle}>
+                    <input type="checkbox" checked={!!state?.muted} onChange={(e) => updateState({ muted: e.target.checked })} /> Mute
+                  </label>
+                  <select value={state?.speed ?? 1} onChange={(e) => updateState({ speed: Number(e.target.value) })} style={selectStyle}>
+                    {[0.5, 1, 1.5, 2].map(sp => <option key={sp} value={sp}>{sp}x</option>)}
+                  </select>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Bottom icon tray — one tap opens/closes its panel ── */}
+        <div style={toolTrayStyle}>
           {current.mediaType === 'image' ? (
             <>
-              <div style={rowStyle}>
-                <button onClick={() => rotate(-1)} style={pillBtnStyle}>
-                  <IconRotateCCW size={13} style={{ verticalAlign: '-2px', marginRight: 5 }} />Rotate
-                </button>
-                <button onClick={() => rotate(1)} style={pillBtnStyle}>
-                  <IconRotateCW size={13} style={{ verticalAlign: '-2px', marginRight: 5 }} />Rotate
-                </button>
-                {Object.keys(ASPECTS).map(name => (
-                  <button key={name} onClick={() => setAspect(name)} style={{ ...pillBtnStyle, background: state?.aspect === name ? ACCENT_GRADIENT : 'rgba(255,255,255,0.08)' }}>{name}</button>
-                ))}
-              </div>
-              <SliderRow label="Brightness" value={state?.brightness ?? 100} onChange={v => updateState({ brightness: v })} min={50} max={150} />
-              <SliderRow label="Contrast" value={state?.contrast ?? 100} onChange={v => updateState({ contrast: v })} min={50} max={150} />
-              <SliderRow label="Saturation" value={state?.saturation ?? 100} onChange={v => updateState({ saturation: v })} min={0} max={200} />
+              <TrayButton icon={<IconRotateCCW />} label="Rotate" onClick={() => rotate(-1)} />
+              <TrayButton icon={<IconCrop />} label="Crop" active={activeTool === 'crop'} onClick={() => toggleTool('crop')} />
+              <TrayButton icon={<IconAdjust />} label="Adjust" active={activeTool === 'adjust'} onClick={() => toggleTool('adjust')} />
             </>
           ) : (
             <>
-              <div style={rowStyle}>
-                <label style={labelStyle}>
-                  <input type="checkbox" checked={!!state?.muted} onChange={(e) => updateState({ muted: e.target.checked })} /> Mute
-                </label>
-                <select value={state?.speed ?? 1} onChange={(e) => updateState({ speed: Number(e.target.value) })} style={selectStyle}>
-                  {[0.5, 1, 1.5, 2].map(sp => <option key={sp} value={sp}>{sp}x</option>)}
-                </select>
-                <button onClick={captureThumbnail} style={pillBtnStyle}>
-                  <IconCamera size={13} style={{ verticalAlign: '-2px', marginRight: 5 }} />Use current frame as thumbnail
-                </button>
-              </div>
-              <div style={rowStyle}>
-                <span style={labelStyle}>Trim</span>
-                <input
-                  type="range" min={0} max={videoRef.current?.duration || 0} step={0.1}
-                  value={state?.trimStart ?? 0}
-                  onChange={(e) => updateState({ trimStart: Math.min(Number(e.target.value), (state?.trimEnd ?? videoRef.current?.duration ?? 0) - 0.2) })}
-                  style={{ flex: 1 }}
-                />
-                <input
-                  type="range" min={0} max={videoRef.current?.duration || 0} step={0.1}
-                  value={state?.trimEnd ?? (videoRef.current?.duration || 0)}
-                  onChange={(e) => updateState({ trimEnd: Math.max(Number(e.target.value), (state?.trimStart ?? 0) + 0.2) })}
-                  style={{ flex: 1 }}
-                />
-              </div>
+              <TrayButton icon={<IconTrim />} label="Trim" active={activeTool === 'trim'} onClick={() => toggleTool('trim')} />
+              <TrayButton icon={<IconSpeed />} label="Speed" active={activeTool === 'speed'} onClick={() => toggleTool('speed')} />
+              <TrayButton icon={<IconCamera />} label="Thumbnail" onClick={captureThumbnail} />
             </>
           )}
+        </div>
 
-          <div style={rowStyle}>
-            {items.length > 1 && (
-              <div style={{ display: 'flex', gap: 6, overflowX: 'auto' }}>
-                {items.map((it, i) => (
-                  <button key={i} onClick={() => setIndex(i)} style={{ ...thumbDotStyle, opacity: i === index ? 1 : 0.4 }} />
-                ))}
-              </div>
-            )}
-            {items.length > 1 && !momentIntent && (
-              <button
-                onClick={handleCreateMoment}
-                disabled={sending}
-                style={{ ...pillBtnStyle, background: ACCENT_GRADIENT, marginLeft: 'auto', opacity: sending ? 0.6 : 1 }}
-              >
-                <IconSparkle size={13} style={{ verticalAlign: '-2px', marginRight: 5 }} />Create Moment
-              </button>
-            )}
-          </div>
-
+        {/* ── Persistent bottom deck: caption, quality, send ── */}
+        <div style={controlsStyle}>
           <input
             type="text" value={caption} onChange={(e) => setCaption(e.target.value)}
             placeholder="Add a caption…" style={captionInputStyle}
@@ -523,6 +598,15 @@ async function exportVideo(item, s, preset) {
                 {p.label}
               </button>
             ))}
+            {items.length > 1 && !momentIntent && (
+              <button
+                onClick={handleCreateMoment}
+                disabled={sending}
+                style={{ ...pillBtnStyle, background: ACCENT_GRADIENT, marginLeft: 'auto', opacity: sending ? 0.6 : 1 }}
+              >
+                <IconSparkle size={13} style={{ verticalAlign: '-2px', marginRight: 5 }} />Create Moment
+              </button>
+            )}
           </div>
 
           <button
@@ -567,6 +651,15 @@ async function exportVideo(item, s, preset) {
   )
 }
 
+function TrayButton({ icon, label, active, onClick }) {
+  return (
+    <motion.button whileTap={{ scale: 0.9 }} onClick={onClick} style={{ ...trayBtnStyle, ...(active ? trayBtnActiveStyle : null) }}>
+      <span style={{ display: 'flex' }}>{icon}</span>
+      <span style={trayBtnLabelStyle}>{label}</span>
+    </motion.button>
+  )
+}
+
 function SliderRow({ label, value, onChange, min, max }) {
   return (
     <div style={rowStyle}>
@@ -576,6 +669,8 @@ function SliderRow({ label, value, onChange, min, max }) {
   )
 }
 
+const TOOL_LABELS = { crop: 'Crop', adjust: 'Adjust', trim: 'Trim', speed: 'Speed & Mute' }
+
 // Same brand gradient as MediaStudio/MediaPicker's primary actions —
 // hardcoded (not a theme var) since this overlay is always a fixed black
 // surface (see overlayStyle) regardless of app theme.
@@ -583,18 +678,37 @@ const ACCENT_GRADIENT = 'linear-gradient(135deg, #7F5FFF 0%, #C86DD7 100%)'
 const ACCENT_SOLID = '#7F5FFF'
 
 const overlayStyle = { position: 'fixed', inset: 0, zIndex: 80, display: 'flex', flexDirection: 'column', background: '#000' }
-const topBarStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px' }
+const topBarStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', flexShrink: 0 }
 const counterStyle = { color: '#fff', fontWeight: 600, fontSize: 13 }
 const iconBtnStyle = { width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', cursor: 'pointer' }
-const stageStyle = { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }
+// Stage is now the dominant element — flex:1 lets it claim whatever space
+// the chrome around it doesn't need, instead of sharing a fixed 60vh cap
+// with a permanently-visible control stack.
+const stageStyle = { flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: '0 12px' }
 const handleStyle = { position: 'absolute', width: 20, height: 20, background: '#fff', borderRadius: '50%', border: `2px solid ${ACCENT_SOLID}` }
-const controlsStyle = { background: 'rgba(15,13,22,0.96)', padding: '12px 16px max(12px, env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: 10 }
+
+const filmstripRowStyle = { display: 'flex', justifyContent: 'center', gap: 5, padding: '0 0 8px', flexShrink: 0 }
+const filmstripDotStyle = { width: 6, height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.35)', border: 'none', cursor: 'pointer', transition: 'all 0.2s' }
+const filmstripDotActiveStyle = { width: 18, background: '#fff' }
+
+// Bottom icon tray — single row, icon-over-label, like a mini toolbar
+const toolTrayStyle = { display: 'flex', justifyContent: 'center', gap: 28, padding: '4px 16px 10px', flexShrink: 0 }
+const trayBtnStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontFamily: 'inherit' }
+const trayBtnActiveStyle = { color: '#fff' }
+const trayBtnLabelStyle = { fontSize: 10.5, fontWeight: 600 }
+
+// Slide-up panel — sits directly above the persistent bottom deck, so it
+// never covers caption/quality/send
+const toolPanelStyle = { background: 'rgba(20,18,30,0.98)', borderTop: '1px solid rgba(255,255,255,0.1)', padding: '10px 16px 14px', flexShrink: 0 }
+const toolPanelHeaderStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#fff', fontSize: 12.5, fontWeight: 700, marginBottom: 8 }
+const toolPanelCloseStyle = { background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: 24, height: 24, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }
+
+const controlsStyle = { background: 'rgba(15,13,22,0.96)', padding: '10px 16px max(12px, env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.06)' }
 const rowStyle = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
 const labelStyle = { color: 'rgba(255,255,255,0.75)', fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 6 }
 const pillBtnStyle = { padding: '7px 12px', borderRadius: 20, border: 'none', background: 'rgba(255,255,255,0.08)', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }
 const selectStyle = { background: 'rgba(255,255,255,0.08)', color: '#fff', border: 'none', borderRadius: 10, padding: '7px 10px', fontSize: 12.5 }
-const thumbDotStyle = { width: 8, height: 8, borderRadius: '50%', background: '#fff', border: 'none', cursor: 'pointer', flexShrink: 0 }
 const captionInputStyle = { background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 12, padding: '10px 14px', color: '#fff', fontSize: 14 }
 const sendBtnStyle = { background: ACCENT_GRADIENT, color: '#fff', border: 'none', borderRadius: 14, padding: '13px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer' }
-const momentBannerStyle = { textAlign: 'center', color: '#c4b5fd', fontSize: 12, fontWeight: 700, padding: '2px 16px 8px' }
+const momentBannerStyle = { textAlign: 'center', color: '#c4b5fd', fontSize: 12, fontWeight: 700, padding: '2px 16px 8px', flexShrink: 0 }
 const sendAsSeparateLinkStyle = { background: 'none', border: 'none', color: 'rgba(255,255,255,0.55)', fontSize: 12, textAlign: 'center', textDecoration: 'underline', cursor: 'pointer', padding: '2px 0 0', fontFamily: 'inherit' }
