@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import Avatar from './Avatar'
 import { forwardMessageToConversation, forwardMessageToEmail } from '../lib/supabase'
-import { IconX, IconMessageSquare, IconMail, IconImage } from './Icons'
+import { IconX, IconMessageSquare, IconMail, IconCamera } from './Icons'
 
 // `message` is now the FULL message object — not just its .content
 // string — so a media forward can actually carry the file. See
@@ -72,7 +72,7 @@ export default function ForwardModal({
 
         {isMedia ? (
           <div className="modal-preview" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <IconImage size={14} />
+          <IconCamera size={14} />
             <span>{asset.media_type === 'image' ? 'Photo' : asset.media_type === 'video' ? 'Video' : asset.media_type === 'audio' ? 'Audio' : 'File'}{textContent ? ` — "${textContent}"` : ''}</span>
           </div>
         ) : (
