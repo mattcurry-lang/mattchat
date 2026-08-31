@@ -170,10 +170,19 @@ function Spinner() {
 }
 
 export default function MediaMessage({ message, isMe, onOpenViewer, onRetry, onOpenProfile, currentUserId }) {
-  const asset = message.media_assets?.[0]
-  const [signedUrl, setSignedUrl] = useState(message._localPreviewUrl || null)
-  const [thumbUrl, setThumbUrl] = useState(message._localPreviewUrl || null)
-
+ // Replace the two useState lines for signedUrl/thumbUrl with:
+const [signedUrl, setSignedUrl] = useState(null)
+const [thumbUrl, setThumbUrl] = useState(null)
+const [previewLoaded, setPreviewLoaded] = useState(false)
+ 
+const isVideo = asset.media_type === 'video'
+const localPreviewUrl = message._localPreviewUrl
+const hasRemoteThumb = asset.upload_status === 'sent' && (thumbUrl || signedUrl)
+const remoteThumb = thumbUrl || signedUrl
+// Videos can't use the blob URL in an <img> — it needs a <video> tag.
+// Images/gifs can use the blob URL directly as displayThumb.
+const displayThumb = hasRemoteThumb ? remoteThumb : (isVideo ? null : localPreviewUrl)
+const showLocalVideoPreview = isVideo && !hasRemoteThumb && !!localPreviewUrl
   const prevStatusRef = useRef(asset?.upload_status)
   const [justSent, setJustSent] = useState(false)
 const [imgLoaded, setImgLoaded] = useState(false)
@@ -209,7 +218,7 @@ useEffect(() => { setImgLoaded(false) }, [displayThumb])
     }
     return () => { cancelled = true }
   }, [asset?.storage_path, asset?.thumbnail_path, asset?.upload_status, asset?.cf_stream_uid, asset?.media_type])
-
+ 
   if (!asset) return null
 
   const isViewOnceUnavailable = asset.is_view_once && asset.viewed_at && !isMe
@@ -296,20 +305,34 @@ return (
       }}
     >
         <motion.div layoutId={`media-${asset.id}`} style={{ position: 'absolute', inset: 0 }}>
-        {isViewOnceUnavailable ? (
+     {isViewOnceUnavailable ? (
   <div style={viewOnceGoneStyle}>
     <IconEyeOff size={20} />
     <span>Opened</span>
   </div>
+) : showLocalVideoPreview ? (
+  <video
+    src={localPreviewUrl}
+    muted
+    playsInline
+    preload="auto"
+    onLoadedData={() => setPreviewLoaded(true)}
+    style={{
+      ...mediaImgStyle,
+      filter: previewLoaded ? 'blur(0px)' : 'blur(16px)',
+      transform: previewLoaded ? 'scale(1)' : 'scale(1.04)',
+      transition: 'filter 0.4s ease, transform 0.4s ease',
+    }}
+  />
 ) : displayThumb ? (
   <img
     src={displayThumb}
     alt={asset.filename || 'media'}
-    onLoad={() => setImgLoaded(true)}
+    onLoad={() => setPreviewLoaded(true)}
     style={{
       ...mediaImgStyle,
-      filter: imgLoaded ? 'blur(0px)' : 'blur(16px)',
-      transform: imgLoaded ? 'scale(1)' : 'scale(1.04)',
+      filter: previewLoaded ? 'blur(0px)' : 'blur(16px)',
+      transform: previewLoaded ? 'scale(1)' : 'scale(1.04)',
       transition: 'filter 0.4s ease, transform 0.4s ease',
     }}
   />
