@@ -651,8 +651,8 @@ if (msg.message_type === 'contact') {
         <ContactBubble
           content={msg.content}
           onOpenProfile={msg._onOpenSharedContact}
-          onMessageContact={msg._onMessageContact}   {/* add */}
-          currentUserId={msg._currentUserId}          {/* add */}
+          onMessageContact={msg._onMessageContact}  
+          currentUserId={msg._currentUserId}         
         />
         <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
         <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
