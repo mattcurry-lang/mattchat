@@ -223,7 +223,7 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry, onO
 
   const isViewOnceUnavailable = asset.is_view_once && asset.viewed_at && !isMe
   const url = signedUrl
-  const displayThumb = thumbUrl || url
+ 
 
   if (asset.media_type === 'contact') {
     const isSelf = asset.contact_id === currentUserId
