@@ -15,38 +15,51 @@
 // outside the sheet's real clickable area once results overflowed the
 // visible bottom-anchored sheet, which is why taps did nothing.
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import Avatar from '../Avatar'
 import { IconX, IconSearch } from '../Icons'
 
 export default function ContactShareModal({ isOpen, onClose, onConfirm, currentUserId }) {
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState([])
+  const [contacts, setContacts] = useState([])
   const [loading, setLoading] = useState(false)
-  const debounceRef = useRef(null)
 
   useEffect(() => {
-    if (!isOpen) { setQuery(''); setResults([]) }
+    if (!isOpen) { setQuery(''); setContacts([]); return }
+    loadContacts()
   }, [isOpen])
 
-  useEffect(() => {
-    clearTimeout(debounceRef.current)
-    if (!query.trim()) { setResults([]); return }
-    debounceRef.current = setTimeout(async () => {
-      setLoading(true)
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, username, email, avatar_url')
-        .or(`username.ilike.%${query}%,email.ilike.%${query}%`)
-        .limit(20)
-      if (!error) setResults(data || [])
-      setLoading(false)
-    }, 300)
-    return () => clearTimeout(debounceRef.current)
-  }, [query])
+  const loadContacts = async () => {
+    setLoading(true)
+    const { data: memberRows } = await supabase
+      .from('conversation_members')
+      .select('conversation_id')
+      .eq('user_id', currentUserId)
+
+    const convoIds = (memberRows || []).map(r => r.conversation_id)
+    if (!convoIds.length) { setContacts([]); setLoading(false); return }
+
+    const { data: otherMembers } = await supabase
+      .from('conversation_members')
+      .select('user_id, profiles(id, username, avatar_url)')
+      .in('conversation_id', convoIds)
+      .neq('user_id', currentUserId)
+
+    // De-dupe — a group chat can surface the same person more than once
+    const seen = new Map()
+    for (const row of otherMembers || []) {
+      if (row.profiles && !seen.has(row.profiles.id)) seen.set(row.profiles.id, row.profiles)
+    }
+    setContacts([...seen.values()].sort((a, b) => (a.username || '').localeCompare(b.username || '')))
+    setLoading(false)
+  }
 
   if (!isOpen) return null
+
+  const filtered = query.trim()
+    ? contacts.filter(c => (c.username || '').toLowerCase().includes(query.trim().toLowerCase()))
+    : contacts
 
   return (
     <div style={overlayStyle} onClick={onClose}>
@@ -62,21 +75,20 @@ export default function ContactShareModal({ isOpen, onClose, onConfirm, currentU
             autoFocus
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search by username or email"
+            placeholder="Search your contacts"
             style={inputStyle}
           />
         </div>
 
         <div style={listStyle}>
-          {loading && <div style={emptyStyle}>Searching…</div>}
-          {!loading && query.trim() && results.length === 0 && <div style={emptyStyle}>No one found.</div>}
-          {!loading && !query.trim() && <div style={emptyStyle}>Start typing to find a Mattchat contact.</div>}
-          {results.map(p => (
+          {loading && <div style={emptyStyle}>Loading…</div>}
+          {!loading && contacts.length === 0 && <div style={emptyStyle}>You haven't messaged anyone yet.</div>}
+          {!loading && contacts.length > 0 && filtered.length === 0 && <div style={emptyStyle}>No matches.</div>}
+          {filtered.map(p => (
             <button key={p.id} onClick={() => onConfirm(p)} style={rowStyle}>
-              <Avatar name={p.username || p.email} photoUrl={p.avatar_url} size={40} />
+              <Avatar name={p.username} photoUrl={p.avatar_url} size={40} />
               <div style={{ textAlign: 'left', minWidth: 0 }}>
-                <div style={rowNameStyle}>{p.username || 'Unnamed'}{p.id === currentUserId ? ' (You)' : ''}</div>
-                <div style={rowSubStyle}>{p.email}</div>
+                <div style={rowNameStyle}>{p.username || 'Unnamed'}</div>
               </div>
             </button>
           ))}
@@ -92,11 +104,7 @@ const headerStyle = { display: 'flex', alignItems: 'center', justifyContent: 'sp
 const closeBtnStyle = { background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 28, height: 28, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }
 const searchWrapStyle = { display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border)', borderRadius: 12, padding: '9px 12px' }
 const inputStyle = { flex: 1, background: 'none', border: 'none', outline: 'none', color: '#fff', fontSize: 13.5, fontFamily: 'inherit' }
-// minHeight: 0 is the actual fix — lets this flex item shrink to fit
-// inside sheetStyle's fixed height and scroll internally, instead of
-// growing past it and taking the results out of the clickable viewport.
 const listStyle = { flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }
 const emptyStyle = { fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }
 const rowStyle = { display: 'flex', alignItems: 'center', gap: 10, padding: '9px 6px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 10, fontFamily: 'inherit', textAlign: 'left', width: '100%' }
 const rowNameStyle = { fontSize: 13.5, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
-const rowSubStyle = { fontSize: 11.5, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
