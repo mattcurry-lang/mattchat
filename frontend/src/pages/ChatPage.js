@@ -2547,10 +2547,8 @@ onMessageContact={handleMessageContact}
               </div>
             )}
 
-         
-            {/* Messages */}
-           
-<div className="messages">
+                     {/* Messages */}
+            <div className="messages">
               {msgLoading && <div className="loading-state">Loading messages…</div>}
               {(() => { const visibleMessages = messages.filter(m => !hiddenMsgIds.has(m.id)); return visibleMessages.map((msg, i) => {
                 const prev = visibleMessages[i - 1]
