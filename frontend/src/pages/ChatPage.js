@@ -210,14 +210,14 @@ function LocationBubble({ content }) {
   )
 }
 function ContactBubble({ content, onOpenProfile, onMessageContact, currentUserId }) {
-  let userId, username, avatarUrl, email
-  try { ({ userId, username, avatarUrl, email } = JSON.parse(content)) } catch { return null }
+  let userId, username, avatarUrl
+  try { ({ userId, username, avatarUrl } = JSON.parse(content)) } catch { return null }
   if (!userId) return null
   const isSelf = userId === currentUserId
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, background: 'var(--surface-card, rgba(148,120,255,0.08))', border: '1px solid var(--border-subtle, rgba(148,120,255,0.16))', minWidth: 200, maxWidth: 280, boxSizing: 'border-box' }}>
       <button
-      onClick={() => onOpenProfile?.({ id: userId, username, avatar_url: avatarUrl, email })}
+      onClick={() => onOpenProfile?.({ id: userId, username, avatar_url: avatarUrl })}
         style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', padding: 0 }}
       >
         <Avatar name={username} photoUrl={avatarUrl} size={38} />
@@ -228,7 +228,7 @@ function ContactBubble({ content, onOpenProfile, onMessageContact, currentUserId
       </button>
       {!isSelf && (
         <button
-          onClick={() => onMessageContact?.(email)}
+           onClick={() => onMessageContact?.(username)}
           style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, fontSize: 10.5, fontWeight: 700, color: 'var(--accent, #a78bfa)', background: 'rgba(167,139,250,0.12)', border: 'none', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', fontFamily: 'inherit' }}
         >
           <IconMessageSquare size={13} /> Message
@@ -1529,14 +1529,14 @@ const handleSend = async () => {
   })
   bumpConversationActivity('📍 Location')
 }
+// handleShareContact — drop email from the payload
 const handleShareContact = async (profile) => {
   if (!activeConvo) return
   await supabase.from('messages').insert({
     conversation_id: activeConvo.id,
     sender_id: userId,
     content: JSON.stringify({
-      userId: profile.id, username: profile.username,
-      avatarUrl: profile.avatar_url, email: profile.email,   // ← add email
+      userId: profile.id, username: profile.username, avatarUrl: profile.avatar_url,
     }),
     message_type: 'contact',
   })
@@ -2609,7 +2609,6 @@ _onOpenSharedContact: (contact) => setProfileCardTarget({
   id: contact.id,
   username: contact.username,
   avatar_url: contact.avatarUrl,
-  email: contact.email,
 }),
 _onMessageContact: (contactEmail) => handleMessageContact(contactEmail), 
   }}
