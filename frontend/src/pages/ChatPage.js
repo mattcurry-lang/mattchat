@@ -650,12 +650,13 @@ if (msg.message_type === 'media') {
       {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
       <div>
         {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
-        <MediaMessage
-          message={msg}
-          isMe={isMe}
-          onOpenViewer={msg._onOpenMediaViewer}
-          onRetry={msg._onRetryMediaUpload}
-        />
+      <MediaMessage
+  message={msg}
+  isMe={isMe}
+  onOpenViewer={msg._onOpenMediaViewer}
+  onRetry={msg._onRetryMediaUpload}
+  onMessageContact={msg._onMessageContact}   
+/>
         <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
         <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
       </div>
@@ -1316,7 +1317,30 @@ useEffect(() => {
       setShowNewChat(false); setNewContact('')
    } catch (err) { playSound('warning'); alert(err.message) }
   }
-
+const handleMessageContact = async (contactEmail) => {
+  if (!contactEmail) return
+  try {
+    const convoId = await getOrCreateConversation(userId, contactEmail)
+    await reload()
+    const found = conversations.find(c => c.id === convoId)
+    if (found) {
+      openConvo(found)
+    } else {
+      // Conversation was just created — conversations list may not have
+      // re-rendered with it yet in this same tick. Set a minimal stand-in
+      // so the chat opens immediately; useConversations' own realtime
+      // subscription will fill in the full row (name, members, etc.)
+      // moments later same as it does for any other new conversation.
+      setActiveConvo({ id: convoId, conversation_members: [] })
+      clearUnread(convoId)
+    }
+    setActiveTab('chats')
+    setMediaViewerTarget(null)
+  } catch (err) {
+    playSound('warning')
+    alert(err.message)
+  }
+}
   // Explicitly bumps a conversation's updated_at/last_message from the
   // client the moment a message is sent. This is what makes the story
   // rail (and the chat list) reorder by "who messaged most recently"
@@ -2561,11 +2585,12 @@ onForward={(m) => setForwardingMessage(m)}
     // row shape (avatar_url, snake_case — see the header-avatar onClick
     // above). Without this remap the card would open but the avatar
     // wouldn't render.
-    _onOpenSharedContact: (contact) => setProfileCardTarget({
-      id: contact.id,
-      username: contact.username,
-      avatar_url: contact.avatarUrl,
-    }),
+  _onOpenSharedContact: (contact) => setProfileCardTarget({
+  id: contact.id,
+  username: contact.username,
+  avatar_url: contact.avatarUrl,
+}),
+_onMessageContact: (contactEmail) => handleMessageContact(contactEmail), 
   }}
   isMe={isMine}
   isRead={!!readMap[msg.id]}
