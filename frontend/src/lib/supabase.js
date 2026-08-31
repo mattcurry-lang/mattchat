@@ -502,17 +502,86 @@ export async function getHiddenMessageIds(userId, messageIds) {
   return new Set((data || []).map(r => r.message_id))
 }
 
-// Forwards a message's content into another conversation, as a fresh
-// message tagged forwarded:true (so the bubble can show a "Forwarded"
-// label like WhatsApp does, without a reply-quote attached).
-export async function forwardMessageToConversation(conversationId, senderId, content) {
-  const { error } = await supabase
+// Forwards a message into another conversation. Accepts the FULL message
+// object now (not just message.content) so a media forward can actually
+// carry the file — previously this only ever inserted a text row, so
+// forwarding a photo silently sent nothing (or just its caption).
+//
+// For media: copies the underlying storage object to a NEW path rather
+// than pointing two message rows at the same file. That matters because
+// MediaViewer's delete button calls deleteMediaAsset, which removes the
+// bytes at that asset's storage_path — if the original and the forwarded
+// copy shared a path, deleting either one would break the other.
+//
+// Cloudflare-Stream-backed videos (asset.cf_stream_uid set) skip the
+// storage copy entirely and just reuse the same cf_stream_uid: per
+// MediaAssetService's own deleteMediaAsset, deleting a row never touches
+// Cloudflare Stream's actual video bytes (a separate pre-existing gap,
+// not something this change needs to fix) — so two rows sharing a
+// cf_stream_uid is safe from the same "one delete breaks the other" risk.
+//
+// Still text-only for now: message_type 'moment' (multi-asset grouped
+// messages) isn't handled here — ForwardModal shows a clear "not
+// supported yet" state for those instead of silently mangling them.
+export async function forwardMessageToConversation(conversationId, senderId, message) {
+  const isMedia = typeof message === 'object' && message.message_type === 'media' && message.media_assets?.[0]
+  const content = typeof message === 'string' ? message : (message.content || '')
+
+  if (!isMedia) {
+    const { error } = await supabase
+      .from('messages')
+      .insert({ conversation_id: conversationId, sender_id: senderId, content, forwarded: true })
+    if (error) throw new Error(error.message)
+    await supabase
+      .from('conversations')
+      .update({ updated_at: new Date().toISOString(), last_message: content })
+      .eq('id', conversationId)
+    return
+  }
+
+  const asset = message.media_assets[0]
+  const bucket = 'media-originals'
+  let newStoragePath = null
+
+  if (!asset.cf_stream_uid) {
+    const folder = { image: 'images', video: 'videos', audio: 'audio', document: 'documents', gif: 'images' }[asset.media_type] || 'documents'
+    const safeName = (asset.filename || 'file').replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120)
+    newStoragePath = `${senderId}/${folder}/${Date.now()}-fwd-${safeName}`
+    const { error: copyError } = await supabase.storage.from(bucket).copy(asset.storage_path, newStoragePath)
+    if (copyError) throw new Error(copyError.message)
+  }
+
+  const { data: newMessage, error: msgError } = await supabase
     .from('messages')
-    .insert({ conversation_id: conversationId, sender_id: senderId, content, forwarded: true })
-  if (error) throw new Error(error.message)
+    .insert({ conversation_id: conversationId, sender_id: senderId, content, forwarded: true, message_type: 'media' })
+    .select()
+    .single()
+  if (msgError) throw new Error(msgError.message)
+
+  const { error: assetError } = await supabase
+    .from('media_assets')
+    .insert({
+      conversation_id: conversationId,
+      sender_id: senderId,
+      message_id: newMessage.id,
+      media_type: asset.media_type,
+      mime_type: asset.mime_type,
+      filename: asset.filename,
+      storage_path: newStoragePath,
+      cf_stream_uid: asset.cf_stream_uid || null,
+      size_bytes: asset.size_bytes,
+      width: asset.width,
+      height: asset.height,
+      duration: asset.duration,
+      upload_status: 'sent',
+      processing_status: 'done',
+      upload_progress: 100,
+    })
+  if (assetError) throw new Error(assetError.message)
+
   await supabase
     .from('conversations')
-    .update({ updated_at: new Date().toISOString(), last_message: content })
+    .update({ updated_at: new Date().toISOString(), last_message: content || `Forwarded a ${asset.media_type}` })
     .eq('id', conversationId)
 }
 
