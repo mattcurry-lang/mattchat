@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react'
 import Avatar from './Avatar'
 import { computeReplyTimeLabel } from '../lib/supabase'
-import { IconX, IconClock, IconSparkle } from './Icons'
+import { IconX, IconClock, IconSparkle, IconMessageSquare } from './Icons'
 
 // AVATAR_CATEGORIES lives here too so ProfileCard and setup flows agree
 // on the same label/emoji set.
