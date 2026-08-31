@@ -2303,16 +2303,16 @@ const handleSend = async () => {
   />
 )}
 {mediaViewerTarget && (
-  <MediaViewer
-    messages={messages}
-    initialMessageId={mediaViewerTarget}
-    currentUserId={userId}
-    onClose={() => setMediaViewerTarget(null)}
-    onReply={(m) => setReplyingTo(m)}
-    onForward={(m) => setForwardingMessage(m.content)}
-    onReact={() => {}}
-    onDeleted={() => setMediaViewerTarget(null)}
-  />
+<MediaViewer
+  messages={messages}
+  initialMessageId={mediaViewerTarget}
+  currentUserId={userId}
+  conversationId={activeConvo.id}  
+  onClose={() => setMediaViewerTarget(null)}
+  onReply={(m) => setReplyingTo(m)}
+  onForward={(m) => setForwardingMessage(m.content)}
+  onDeleted={() => setMediaViewerTarget(null)}
+/>
 )}
       {momentViewerTarget && messages.find(m => m.id === momentViewerTarget) && (
   <MomentViewer
