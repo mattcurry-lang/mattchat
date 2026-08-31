@@ -26,12 +26,13 @@ function intersectInterests(mine, theirs) {
 }
 
 export default function ProfileCard({
-  targetProfile,      // the person whose card this is
-  myProfile,          // signed-in user's own profile (for shared interests)
-  messages,           // optional — conversation messages, for reply-time calc
+  targetProfile,
+  myProfile,
+  messages,
   currentUserId,
   onClose,
-  onAskCurry,          // (question: string) => void — opens Curry with a prompt
+  onAskCurry,
+  onMessageContact,   // ← add this prop
 }) {
   const replyLabel = useMemo(
     () => computeReplyTimeLabel(messages, targetProfile?.id, currentUserId),
@@ -46,6 +47,12 @@ export default function ProfileCard({
   const askCurry = () => {
     const name = targetProfile?.username || 'this person'
     onAskCurry(`Tell me about my conversations with ${name} — anything I should know or follow up on?`)
+    onClose()
+  }
+   const isSelf = targetProfile?.id === currentUserId
+
+  const messageContact = () => {
+    onMessageContact?.(targetProfile.email)
     onClose()
   }
 
@@ -124,6 +131,15 @@ export default function ProfileCard({
           </div>
         )}
 
+        {!isSelf && onMessageContact && (
+          <button
+            className="btn-primary"
+            style={{ width: '100%', marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+            onClick={messageContact}
+          >
+            <IconMessageSquare size={14} /> Message {targetProfile.username}
+          </button>
+        )}
         {onAskCurry && (
           <button
             className="btn-primary"
