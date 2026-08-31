@@ -316,12 +316,14 @@ return (
               <div style={progressRingWrap}>
                 <svg width="36" height="36" viewBox="0 0 36 36">
                   <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="3" />
-                  <circle
-                    cx="18" cy="18" r="15.5" fill="none" stroke="#fff" strokeWidth="3"
-                    strokeDasharray={2 * Math.PI * 15.5}
-                    strokeDashoffset={2 * Math.PI * 15.5 * (1 - (asset.upload_progress || 0) / 100)}
-                    strokeLinecap="round" transform="rotate(-90 18 18)"
-                  />
+                  
+<circle
+  cx="18" cy="18" r="15.5" fill="none" stroke="#fff" strokeWidth="3"
+  strokeDasharray={2 * Math.PI * 15.5}
+  strokeDashoffset={2 * Math.PI * 15.5 * (1 - (asset.upload_progress || 0) / 100)}
+  strokeLinecap="round" transform="rotate(-90 18 18)"
+  style={{ transition: 'stroke-dashoffset 0.15s linear' }}
+/>
                 </svg>
                 <span style={progressPctStyle}>{Math.round(asset.upload_progress || 0)}%</span>
               </div>
