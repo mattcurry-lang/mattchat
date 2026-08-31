@@ -26,8 +26,9 @@ import { getStreamPlaybackToken, streamIframeUrl } from '../../services/Cloudfla
 import { runSmartMediaAction, SMART_MEDIA_ACTIONS } from '../../services/SmartMediaService'
 import { useReactions } from '../MessageReactions'
 
+ 
 export default function MediaViewer({
-  messages, initialMessageId, currentUserId, onClose,
+  messages, initialMessageId, currentUserId, conversationId, onClose,
   onReply, onForward, onReact, onDeleted,
 }) {
   const mediaMessages = useMemo(
@@ -55,6 +56,7 @@ export default function MediaViewer({
   const asset = current?.media_assets?.[0]
   const isMe = current?.sender_id === currentUserId
   const isViewOnceGoneForMe = asset?.is_view_once && asset.viewed_at && !isMe
+  const captionBottomOffset = (asset?.is_view_once && !isMe) ? 46 : 14 
   const isStreamVideo = asset?.media_type === 'video' && !!asset?.cf_stream_uid
 
   useEffect(() => {
@@ -276,7 +278,7 @@ export default function MediaViewer({
  
 
 {current.content && !isViewOnceGoneForMe && (
-  <div style={captionOverlayStyle}>{current.content}</div>
+  <div style={{ ...captionOverlayStyle, bottom: captionBottomOffset }}>{current.content}</div>
 )}
       {showReactionBar && (
   <div style={reactionBarStyle}>
@@ -347,7 +349,6 @@ const actionBtnStyle = { display: 'flex', flexDirection: 'column', alignItems: '
 const actionLabelStyle = { fontSize: 10, fontWeight: 600 }
 const captionOverlayStyle = {
   position: 'absolute', left: 16, right: 16,
-  bottom: (asset?.is_view_once && !isMe) ? 46 : 14, 
   background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 13.5, lineHeight: 1.4,
   padding: '8px 14px', borderRadius: 14, textAlign: 'center',
 }
