@@ -2550,7 +2550,7 @@ onMessageContact={handleMessageContact}
          
             {/* Messages */}
            <div
- <div className={`messages theme-${theme}`}>
+<div className="messages">
   style={{
     backgroundImage: `url(${theme === 'dark' ? '/mattchat-wallpaper-dark.png' : '/mattchat-wallpaper-light.png'})`,
     backgroundSize: 'cover',
