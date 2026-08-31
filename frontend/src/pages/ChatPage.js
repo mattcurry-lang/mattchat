@@ -2310,7 +2310,7 @@ const handleSend = async () => {
   conversationId={activeConvo.id}  
   onClose={() => setMediaViewerTarget(null)}
   onReply={(m) => setReplyingTo(m)}
-  onForward={(m) => setForwardingMessage(m.content)}
+onForward={(m) => setForwardingMessage(m)}
   onDeleted={() => setMediaViewerTarget(null)}
 />
 )}
@@ -2601,7 +2601,7 @@ const handleSend = async () => {
                 onCopy={() => {}}
                 onInsertReply={(text) => setInputText(text)}
                 onReply={() => setReplyingTo(messageMenu.message)}
-                onForward={() => setForwardingMessage(messageMenu.message.content)}
+               onForward={() => setForwardingMessage(messageMenu.message)} 
                 onDeleteForMe={async () => {
                   await deleteMessageForMe(messageMenu.message.id, userId)
                   setHiddenMsgIds(prev => new Set(prev).add(messageMenu.message.id))
@@ -2625,17 +2625,17 @@ const handleSend = async () => {
 
             {/* Input area */}
 {forwardingMessage && (
-              <ForwardModal
-                session={session}
-                content={forwardingMessage}
-                conversations={conversations}
-                getConvoName={getConvoName}
-                currentUserId={userId}
-                emailAccounts={emailAccounts}
-                onClose={() => setForwardingMessage(null)}
-                onForwarded={() => reload()}
-              />
-            )}
+  <ForwardModal
+    session={session}
+    message={forwardingMessage} 
+    conversations={conversations}
+    getConvoName={getConvoName}
+    currentUserId={userId}
+    emailAccounts={emailAccounts}
+    onClose={() => setForwardingMessage(null)}
+    onForwarded={() => reload()}
+  />
+)}
  
             {/* Input area */}
             <div className="input-area" style={{ flexDirection: 'column', alignItems: 'stretch', padding: 0 }}>
