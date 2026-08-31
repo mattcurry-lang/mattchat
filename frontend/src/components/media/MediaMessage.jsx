@@ -164,30 +164,30 @@ function Spinner() {
       animation: 'mm-spin 0.8s linear infinite', marginRight: 2,
     }}>
       <style>{`@keyframes mm-spin { to { transform: rotate(360deg) } }`}</style>
-      <style>{`@keyframes mm-shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
+
     </span>
   )
 }
 
 export default function MediaMessage({ message, isMe, onOpenViewer, onRetry, onOpenProfile, currentUserId }) {
- // Replace the two useState lines for signedUrl/thumbUrl with:
-const [signedUrl, setSignedUrl] = useState(null)
-const [thumbUrl, setThumbUrl] = useState(null)
-const [previewLoaded, setPreviewLoaded] = useState(false)
- 
-const isVideo = asset.media_type === 'video'
-const localPreviewUrl = message._localPreviewUrl
-const hasRemoteThumb = asset.upload_status === 'sent' && (thumbUrl || signedUrl)
-const remoteThumb = thumbUrl || signedUrl
-// Videos can't use the blob URL in an <img> — it needs a <video> tag.
-// Images/gifs can use the blob URL directly as displayThumb.
-const displayThumb = hasRemoteThumb ? remoteThumb : (isVideo ? null : localPreviewUrl)
-const showLocalVideoPreview = isVideo && !hasRemoteThumb && !!localPreviewUrl
+  const asset = message.media_assets?.[0]
+
+  const [signedUrl, setSignedUrl] = useState(null)
+  const [thumbUrl, setThumbUrl] = useState(null)
+  const [previewLoaded, setPreviewLoaded] = useState(false)
+
+  const isVideo = asset?.media_type === 'video'
+  const localPreviewUrl = message._localPreviewUrl
+  const hasRemoteThumb = asset?.upload_status === 'sent' && (thumbUrl || signedUrl)
+  const remoteThumb = thumbUrl || signedUrl
+  // Videos can't use the blob URL in an <img> — it needs a <video> tag.
+  // Images/gifs can use the blob URL directly as displayThumb.
+  const displayThumb = hasRemoteThumb ? remoteThumb : (isVideo ? null : localPreviewUrl)
+  const showLocalVideoPreview = isVideo && !hasRemoteThumb && !!localPreviewUrl
+
   const prevStatusRef = useRef(asset?.upload_status)
   const [justSent, setJustSent] = useState(false)
-const [imgLoaded, setImgLoaded] = useState(false)
-useEffect(() => { setImgLoaded(false) }, [displayThumb])
-  
+
   useEffect(() => {
     const prev = prevStatusRef.current
     prevStatusRef.current = asset?.upload_status
@@ -200,7 +200,7 @@ useEffect(() => { setImgLoaded(false) }, [displayThumb])
 
   useEffect(() => {
     if (!asset || asset.upload_status !== 'sent') return
-    if (asset.media_type === 'contact') return // no file to sign for a contact card
+    if (asset.media_type === 'contact') return
     let cancelled = false
 
     if (asset.cf_stream_uid) {
@@ -218,7 +218,7 @@ useEffect(() => { setImgLoaded(false) }, [displayThumb])
     }
     return () => { cancelled = true }
   }, [asset?.storage_path, asset?.thumbnail_path, asset?.upload_status, asset?.cf_stream_uid, asset?.media_type])
- 
+
   if (!asset) return null
 
   const isViewOnceUnavailable = asset.is_view_once && asset.viewed_at && !isMe
@@ -284,7 +284,7 @@ useEffect(() => { setImgLoaded(false) }, [displayThumb])
     )
   }
 
- const isVideo = asset.media_type === 'video'
+ 
 return (
 // In MediaMessage.jsx — replace the wrapper div's style with this:
 
@@ -337,7 +337,10 @@ return (
     }}
   />
 ) : (
-  <div style={shimmerStyle} />
+  <>
+    <div style={shimmerStyle} />
+    <style>{`@keyframes mm-shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
+  </>
 )}
         </motion.div>
 
