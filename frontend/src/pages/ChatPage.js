@@ -100,6 +100,7 @@ import MediaViewer from '../components/media/MediaViewer'
 import MomentMessage from '../components/media/MomentMessage'
 import MomentViewer from '../components/media/MomentViewer'
 import { motion } from 'framer-motion'
+import ProfileMenuSheet, { PlaceholderIcons } from '../components/ProfileMenuSheet'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -1973,19 +1974,76 @@ const handleShareContact = async (profile) => {
         </div>
 
         {showProfileMenu && (
-          <div className="profile-menu-overlay" onClick={() => setShowProfileMenu(false)}>
-            <div className="profile-menu" onClick={e => e.stopPropagation()}>
-              <div className="profile-menu-header">
-                <Avatar name={profile?.username || session.user.email} size={48} photoUrl={profile?.avatar_url} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, color: '#fff', fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {profile?.username || 'You'}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {session.user.email}
-                  </div>
-                </div>
-              </div>
+  <ProfileMenuSheet
+    isOpen={showProfileMenu}
+    onClose={() => setShowProfileMenu(false)}
+    profile={profile}
+    email={session.user.email}
+    stats={{
+      chatsCount: conversations.length,
+      sharedWithCurryCount: sharedConvoIds.size,
+      connectedCount: emailAccounts.length, // extend later as more connectors land
+    }}
+    onAvatarClick={() => { setShowChangePicture(true); setShowProfileMenu(false) }}
+    onSignOut={signOut}
+    sections={[
+      {
+        id: 'account', label: 'Account',
+        items: [
+          { id: 'picture', icon: <IconCamera size={15} />, label: 'Change profile picture', onClick: () => { setShowChangePicture(true); setShowProfileMenu(false) } },
+          {
+            id: 'gmail', icon: <IconMail size={15} />, label: connectingGmail ? 'Connecting…' : emailAccounts.length > 0 ? 'Gmail connected' : 'Connect Gmail',
+            subtitle: emailAccounts.length > 0 ? emailAccounts.map(a => a.email_address).join(', ') : 'Let Curry send real emails for you',
+            badge: emailAccounts.length > 0 ? String(emailAccounts.length) : null,
+            onClick: async () => { if (connectingGmail) return; setConnectingGmail(true); try { await connectGmail(session) } catch (err) { alert(err.message); setConnectingGmail(false) } },
+          },
+          { id: '2fa', icon: <IconShield size={15} />, label: 'Two-factor authentication', onClick: () => { setShow2FA(true); setShowProfileMenu(false) } },
+        ],
+      },
+      {
+        id: 'ai', label: 'AI & Insights',
+        items: [
+          { id: 'analytics', icon: <IconChart size={15} />, label: 'Communication Analytics', onClick: () => { setShowPersonalAnalytics(true); setShowProfileMenu(false) } },
+          { id: 'tasks', icon: <IconCheckSquare size={15} />, label: 'AI Tasks', onClick: () => { setShowTasksPage(true); setShowProfileMenu(false) } },
+          { id: 'weekly', icon: <IconChart size={15} />, label: 'Weekly Report', onClick: () => { setShowWeeklyReport(true); setShowProfileMenu(false) } },
+          { id: 'aisettings', icon: <IconSettings size={15} />, label: 'AI Settings', onClick: () => { setShowAISettings(true); setShowProfileMenu(false) } },
+        ],
+      },
+      {
+        id: 'workspace', label: 'Workspace',
+        items: [
+          { id: 'email-workspace', icon: <IconInbox size={15} />, label: 'Email Workspace', onClick: () => { setShowEmailWorkspace(true); setShowProfileMenu(false) } },
+          { id: 'documents', icon: <IconFolder size={15} />, label: 'Documents', onClick: () => { setShowDocuments(true); setShowProfileMenu(false) } },
+        ],
+      },
+      {
+        id: 'connections', label: 'Connections',
+        items: [
+          { id: 'connected-apps', icon: <IconCamera size={15} />, label: 'Connected Apps', onClick: () => { setShowConnectedApps(true); setShowProfileMenu(false) } },
+          ...(profileLoaded && profile?.is_admin ? [{ id: 'announcements', icon: <IconMail size={15} />, label: 'Announcements', onClick: () => { setShowAnnouncements(true); setShowProfileMenu(false) } }] : []),
+        ],
+      },
+      {
+        id: 'preferences', label: 'Preferences',
+        items: [
+          { id: 'notifications', icon: <IconBell size={15} />, label: 'Notifications', onClick: () => { setShowNotificationSettings(true); setShowProfileMenu(false) } },
+          // Placeholders below — wire these up whenever you're ready;
+          // left as clearly-labeled stubs per your "give it functionality
+          // later" request rather than left out entirely.
+          { id: 'storage', icon: <PlaceholderIcons.IconDatabase size={15} />, label: 'Storage & Data', subtitle: 'Coming soon', onClick: () => alert('Storage & Data — not wired up yet') },
+        ],
+      },
+      {
+        id: 'support', label: 'Support',
+        items: [
+          { id: 'help', icon: <PlaceholderIcons.IconLifeBuoy size={15} />, label: 'Help & Support', subtitle: 'Coming soon', onClick: () => alert('Help & Support — not wired up yet') },
+          { id: 'invite', icon: <PlaceholderIcons.IconUserPlus size={15} />, label: 'Invite Friends', subtitle: 'Coming soon', onClick: () => alert('Invite Friends — not wired up yet') },
+          { id: 'whatsnew', icon: <PlaceholderIcons.IconGift size={15} />, label: "What's New", subtitle: 'Coming soon', onClick: () => alert("What's New — not wired up yet") },
+        ],
+      },
+    ]}
+  />
+)}
                     
 {showChangePicture && (
   <ChangeProfilePictureModal
