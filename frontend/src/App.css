@@ -92,18 +92,15 @@
   --chip-bg:       rgba(255,255,255,0.08);
   --chip-bg-hover: rgba(255,255,255,0.16);
 }
+:root {
+  --wallpaper-tile: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22180%22%20height%3D%22180%22%20viewBox%3D%220%200%20180%20180%22%3E%0A%3Cg%20fill%3D%22%23a78bfa%22%20opacity%3D%220.35%22%3E%0A%3Ccircle%20cx%3D%2220%22%20cy%3D%2230%22%20r%3D%221%22/%3E%0A%3Ccircle%20cx%3D%22150%22%20cy%3D%2260%22%20r%3D%221%22/%3E%0A%3Ccircle%20cx%3D%2260%22%20cy%3D%22150%22%20r%3D%221%22/%3E%0A%3Ccircle%20cx%3D%22120%22%20cy%3D%22140%22%20r%3D%220.9%22/%3E%0A%3C/g%3E%0A%3Cg%20stroke%3D%22%23a78bfa%22%20stroke-width%3D%221.1%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20opacity%3D%220.16%22%3E%0A%3Cg%20transform%3D%22translate%2828%2C26%29%20rotate%28-14%29%20scale%280.62%29%22%3E%0A%3Cpath%20d%3D%22M0%2C-11%20L2.4%2C-2.4%20L11%2C0%20L2.4%2C2.4%20L0%2C11%20L-2.4%2C2.4%20L-11%2C0%20L-2.4%2C-2.4%20Z%22/%3E%0A%3C/g%3E%0A%3Cg%20transform%3D%22translate%28140%2C100%29%20rotate%2818%29%20scale%280.62%29%22%3E%0A%3Cpath%20d%3D%22M0%2C-11%20L2.4%2C-2.4%20L11%2C0%20L2.4%2C2.4%20L0%2C11%20L-2.4%2C2.4%20L-11%2C0%20L-2.4%2C-2.4%20Z%22/%3E%0A%3C/g%3E%0A%3Cg%20transform%3D%22translate%2890%2C40%29%20rotate%28-8%29%20scale%280.55%29%22%3E%0A%3Cpath%20d%3D%22M-10%2C-6%20h20%20a4%2C4%200%200%201%204%2C4%20v9%20a4%2C4%200%200%201%20-4%2C4%20h-11%20l-6%2C6%20v-6%20h-3%20a4%2C4%200%200%201%20-4%2C-4%20v-9%20a4%2C4%200%200%201%204%2C-4%20z%22/%3E%0A%3C/g%3E%0A%3Cg%20transform%3D%22translate%2845%2C110%29%20rotate%2810%29%20scale%280.55%29%22%3E%0A%3Cpath%20d%3D%22M-11%2C3%20v-4%20M-6%2C3%20v-9%20M-1%2C3%20v-6%20M4%2C3%20v-11%20M9%2C3%20v-7%22/%3E%0A%3C/g%3E%0A%3Cg%20transform%3D%22translate%28130%2C150%29%20rotate%28-10%29%20scale%280.55%29%22%3E%0A%3Cpath%20d%3D%22M0%2C10%20C-10%2C2%20-10%2C-8%200%2C-4%20C10%2C-8%2010%2C2%200%2C10%20Z%22/%3E%0A%3C/g%3E%0A%3Cg%20transform%3D%22translate%28155%2C20%29%20rotate%2820%29%20scale%280.5%29%22%3E%0A%3Crect%20x%3D%22-8%22%20y%3D%22-8%22%20width%3D%2216%22%20height%3D%2216%22%20rx%3D%223%22/%3E%0A%3Cpath%20d%3D%22M-3.5%2C0%20l2.5%2C2.5%20l5%2C-6%22/%3E%0A%3C/g%3E%0A%3C/g%3E%0A%3C/svg%3E");
+}
 
-[data-theme="light"] .chat-area {
-  background-image:
-    radial-gradient(circle at 10% 0%, rgba(108,99,255,0.06) 0%, transparent 45%),
-    radial-gradient(circle at 90% 100%, rgba(167,139,250,0.05) 0%, transparent 45%);
+
+[data-theme="light"] {
+  --wallpaper-tile: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22180%22%20height%3D%22180%22%20viewBox%3D%220%200%20180%20180%22%3E%0A%3Cg%20fill%3D%22%236c63ff%22%20opacity%3D%220.3%22%3E%0A%3Ccircle%20cx%3D%2220%22%20cy%3D%2230%22%20r%3D%221%22/%3E%0A%3Ccircle%20cx%3D%22150%22%20cy%3D%2260%22%20r%3D%221%22/%3E%0A%3Ccircle%20cx%3D%2260%22%20cy%3D%22150%22%20r%3D%221%22/%3E%0A%3Ccircle%20cx%3D%22120%22%20cy%3D%22140%22%20r%3D%220.9%22/%3E%0A%3C/g%3E%0A%3Cg%20stroke%3D%22%236c63ff%22%20stroke-width%3D%221.1%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20opacity%3D%220.11%22%3E%0A%3Cg%20transform%3D%22translate%2828%2C26%29%20rotate%28-14%29%20scale%280.62%29%22%3E%0A%3Cpath%20d%3D%22M0%2C-11%20L2.4%2C-2.4%20L11%2C0%20L2.4%2C2.4%20L0%2C11%20L-2.4%2C2.4%20L-11%2C0%20L-2.4%2C-2.4%20Z%22/%3E%0A%3C/g%3E%0A%3Cg%20transform%3D%22translate%28140%2C100%29%20rotate%2818%29%20scale%280.62%29%22%3E%0A%3Cpath%20d%3D%22M0%2C-11%20L2.4%2C-2.4%20L11%2C0%20L2.4%2C2.4%20L0%2C11%20L-2.4%2C2.4%20L-11%2C0%20L-2.4%2C-2.4%20Z%22/%3E%0A%3C/g%3E%0A%3Cg%20transform%3D%22translate%2890%2C40%29%20rotate%28-8%29%20scale%280.55%29%22%3E%0A%3Cpath%20d%3D%22M-10%2C-6%20h20%20a4%2C4%200%200%201%204%2C4%20v9%20a4%2C4%200%200%201%20-4%2C4%20h-11%20l-6%2C6%20v-6%20h-3%20a4%2C4%200%200%201%20-4%2C-4%20v-9%20a4%2C4%200%200%201%204%2C-4%20z%22/%3E%0A%3C/g%3E%0A%3Cg%20transform%3D%22translate%2845%2C110%29%20rotate%2810%29%20scale%280.55%29%22%3E%0A%3Cpath%20d%3D%22M-11%2C3%20v-4%20M-6%2C3%20v-9%20M-1%2C3%20v-6%20M4%2C3%20v-11%20M9%2C3%20v-7%22/%3E%0A%3C/g%3E%0A%3Cg%20transform%3D%22translate%28130%2C150%29%20rotate%28-10%29%20scale%280.55%29%22%3E%0A%3Cpath%20d%3D%22M0%2C10%20C-10%2C2%20-10%2C-8%200%2C-4%20C10%2C-8%2010%2C2%200%2C10%20Z%22/%3E%0A%3C/g%3E%0A%3Cg%20transform%3D%22translate%28155%2C20%29%20rotate%2820%29%20scale%280.5%29%22%3E%0A%3Crect%20x%3D%22-8%22%20y%3D%22-8%22%20width%3D%2216%22%20height%3D%2216%22%20rx%3D%223%22/%3E%0A%3Cpath%20d%3D%22M-3.5%2C0%20l2.5%2C2.5%20l5%2C-6%22/%3E%0A%3C/g%3E%0A%3C/g%3E%0A%3C/svg%3E");
 }
-[data-theme="light"] .chat-area {
-  background-color: #faf8fb;
-}
- [data-theme="light"] .chat-area::before {
-  background-color: #faf8fb;
-}
+ 
 /* Bottom nav — was hardcoded dark, now theme-aware */
 .bottom-nav {
   background: var(--dark-header);
@@ -763,18 +760,14 @@ color: var(--dark-text);
     radial-gradient(circle at 10% 0%, rgba(108,99,255,0.09) 0%, transparent 45%),
     radial-gradient(circle at 90% 100%, rgba(167,139,250,0.065) 0%, transparent 45%);
 }
-.chat-area::before {
+ .chat-area::before {
   content: '';
   position: absolute;
   inset: 0;
   z-index: -1;
-  background-color: var(--dark-bg);
-  background-image: var(--wallpaper-url);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-blend-mode: luminosity;
-  opacity: 0.18;
+  background-image: var(--wallpaper-tile);
+  background-repeat: repeat;
+  background-size: 180px 180px;
   pointer-events: none;
 }
 .app.chat-open .chat-area { display: flex; }
