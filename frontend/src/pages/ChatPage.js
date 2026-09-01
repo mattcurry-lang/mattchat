@@ -1973,7 +1973,7 @@ const handleShareContact = async (profile) => {
 )}
         </div>
 
-        {showProfileMenu && (
+  {showProfileMenu && (
   <ProfileMenuSheet
     isOpen={showProfileMenu}
     onClose={() => setShowProfileMenu(false)}
@@ -1982,7 +1982,7 @@ const handleShareContact = async (profile) => {
     stats={{
       chatsCount: conversations.length,
       sharedWithCurryCount: sharedConvoIds.size,
-      connectedCount: emailAccounts.length, // extend later as more connectors land
+      connectedCount: emailAccounts.length,
     }}
     onAvatarClick={() => { setShowChangePicture(true); setShowProfileMenu(false) }}
     onSignOut={signOut}
