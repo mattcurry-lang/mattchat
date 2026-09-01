@@ -101,9 +101,8 @@
 [data-theme="light"] .chat-area {
   background-color: #faf8fb;
 }
-[data-theme="light"] .chat-area::before {
+ [data-theme="light"] .chat-area::before {
   background-color: #faf8fb;
-  background-image: url('/mattchat-wallpaper-light.png');
 }
 /* Bottom nav — was hardcoded dark, now theme-aware */
 .bottom-nav {
@@ -770,7 +769,7 @@ color: var(--dark-text);
   inset: 0;
   z-index: -1;
   background-color: var(--dark-bg);
-  background-image: url('/mattchat-wallpaper-dark.png');
+  background-image: var(--wallpaper-url);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
