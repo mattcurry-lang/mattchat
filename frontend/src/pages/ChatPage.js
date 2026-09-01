@@ -2408,9 +2408,12 @@ onMessageContact={handleMessageContact}
   onInitialMessageSent={() => setCurryPrefill(null)}
 />
           </div>
-        ) : (
-          <div className="chat-area">
-            {/* Header */}
+      ) : (
+  <div
+    className="chat-area"
+    style={{ '--wallpaper-url': `url(${process.env.PUBLIC_URL}/mattchat-wallpaper-${theme}.png)` }}
+  >
+    {/* Header */}
             <div className="chat-header">
               <button className="back-btn" onClick={() => setActiveConvo(null)}>←</button>
             <button
