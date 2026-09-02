@@ -104,6 +104,10 @@ export function useChat(conversationId, currentUserId) {
           } else if (type === 'update') {
             setMessages(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new } : m))
           } else if (type === 'media_update') {
+            // Covers view-once viewed_at AND blur reveal (blur_revealed_at /
+            // blur_revealed_by) — both are plain column updates on
+            // media_assets, so this one handler propagates either to every
+            // participant's open chat without a reload.
             const asset = payload.new
             setMessages(prev => prev.map(m => {
               if (m.id !== asset.message_id) return m
@@ -178,11 +182,27 @@ export function useChat(conversationId, currentUserId) {
    * processing → sent → failed), then returns.
    *
    * @param files File[] - already validated/edited by MediaComposer
-   * @param opts { mediaType, caption, isViewOnce, expiresAt }
+   * @param opts { mediaType, caption, isViewOnce, expiresAt, thumbnails,
+   *               blurred, revealMethod, revealCodeHash, revealCodeSalt }
+   *
+   * blurred/revealMethod/revealCodeHash/revealCodeSalt come straight
+   * through from MediaComposer's blurOpts spread (see MediaComposer.jsx
+   * handleSend) — revealCodeHash/Salt are already hashed client-side
+   * there, this function never sees a plaintext code.
    */
    const sendMediaMessage = useCallback(async (files, opts = {}) => {
     if (!conversationId || !currentUserId || !files?.length) return
-    const { mediaType, caption = null, isViewOnce = false, expiresAt = null, thumbnails = [] } = opts
+    const {
+      mediaType,
+      caption = null,
+      isViewOnce = false,
+      expiresAt = null,
+      thumbnails = [],
+      blurred = false,
+      revealMethod = null,
+      revealCodeHash = null,
+      revealCodeSalt = null,
+    } = opts
 
     for (const [fileIndex, file] of files.entries()) {
       const tempId = `temp-media-${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -206,6 +226,9 @@ export function useChat(conversationId, currentUserId) {
           upload_status: 'preparing',
           upload_progress: 0,
           is_view_once: isViewOnce,
+          is_blurred: blurred,
+          blur_reveal_method: blurred ? revealMethod : null,
+          blur_revealed_at: null,
         }],
       }
       setMessages(prev => [...prev, optimisticMsg])
@@ -237,6 +260,10 @@ export function useChat(conversationId, currentUserId) {
           sizeBytes: file.size,
           isViewOnce,
           expiresAt,
+          isBlurred: blurred,
+          blurRevealMethod: revealMethod,
+          revealCodeHash,
+          revealCodeSalt,
         })
 
                fileStoreRef.current.set(messageRow.id, file)
