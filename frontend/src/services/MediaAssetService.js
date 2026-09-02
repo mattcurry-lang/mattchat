@@ -91,7 +91,14 @@ export function buildThumbnailPath(userId, filename) {
 }
 
 /** Create the DB row before any bytes are uploaded, so the message can render
- * an optimistic "preparing" state immediately. */
+ * an optimistic "preparing" state immediately.
+ *
+ * Blur/reveal params (isBlurred / blurRevealMethod / revealCodeHash /
+ * revealCodeSalt) mirror the same single-item scoping as isViewOnce — the
+ * caller (useChat.sendMediaMessage) only ever passes them for a genuine
+ * single-item send, same as before. revealCodeHash/Salt are already
+ * hashed client-side in MediaComposer before they reach here — this
+ * function never sees a plaintext code. */
 export async function createMediaAssetRow({
   conversationId,
   senderId,
@@ -106,6 +113,10 @@ export async function createMediaAssetRow({
   duration = null,
   isViewOnce = false,
   expiresAt = null,
+  isBlurred = false,
+  blurRevealMethod = null,
+  revealCodeHash = null,
+  revealCodeSalt = null,
    momentOrder = 0,          
   isMomentCover = false,
 }) {
@@ -125,6 +136,10 @@ export async function createMediaAssetRow({
     duration,
     is_view_once: isViewOnce,
     expires_at: expiresAt,
+    is_blurred: isBlurred,
+    blur_reveal_method: isBlurred ? blurRevealMethod : null,
+    reveal_code_hash: isBlurred && blurRevealMethod === 'code' ? revealCodeHash : null,
+    reveal_code_salt: isBlurred && blurRevealMethod === 'code' ? revealCodeSalt : null,
     upload_status: 'preparing',
     processing_status: 'pending',
     upload_progress: 0,
@@ -220,6 +235,46 @@ export async function getSignedUrl(mediaType, path, { thumbnail = false, expires
  * delete bytes, it flips the row that gates access. */
 export async function markViewOnceViewed(assetId, viewerId) {
   return updateMediaAssetStatus(assetId, { viewed_at: new Date().toISOString(), viewed_by: viewerId })
+}
+
+// ── Blur / reveal ───────────────────────────────────────────────────
+
+/** Verifies a recipient-entered code against the stored hash/salt for a
+ * blurred asset. Fetches only reveal_code_hash + reveal_code_salt (never
+ * the plaintext, which was never stored). Hashing/compare mirrors
+ * MediaComposer's hashRevealCode exactly (SHA-256(salt + code)) so a
+ * correct guess always matches.
+ *
+ * This is a fun-feature lock, not a security boundary (same reasoning as
+ * the single fast SHA-256 pass used when hashing at send time) — anyone
+ * with read access to the row can fetch the hash+salt and brute-force a
+ * 4-digit code offline in milliseconds. If that's ever a real concern,
+ * this needs to move server-side (an RPC/edge function that does the
+ * compare without ever returning the hash to the client). */
+export async function verifyRevealCode(assetId, code) {
+  const { data, error } = await supabase
+    .from('media_assets')
+    .select('reveal_code_hash, reveal_code_salt')
+    .eq('id', assetId)
+    .single()
+  if (error || !data?.reveal_code_hash || !data?.reveal_code_salt) return false
+
+  const enc = new TextEncoder().encode(data.reveal_code_salt + code)
+  const digest = await crypto.subtle.digest('SHA-256', enc)
+  const hashHex = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('')
+  return hashHex === data.reveal_code_hash
+}
+
+/** Marks a blurred asset as revealed — global, not per-viewer (see the
+ * comment on the migration's blur_revealed_at column). Once this lands,
+ * the media_assets realtime UPDATE subscription in useChat propagates it
+ * to every other participant automatically, so it un-blurs for everyone
+ * without a page reload. */
+export async function markBlurRevealed(assetId, viewerId = null) {
+  return updateMediaAssetStatus(assetId, {
+    blur_revealed_at: new Date().toISOString(),
+    blur_revealed_by: viewerId,
+  })
 }
 
 export async function getAssetsForMessage(messageId) {
