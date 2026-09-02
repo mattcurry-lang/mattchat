@@ -44,12 +44,27 @@
 // cards are deliberately NOT touched — those are utility rows, not the
 // "wow" surface — and none of the underlying upload/view-once/Cloudflare
 // logic changed, only the box these render inside.
+//
+// BLUR/REVEAL WIRING: a blurred, not-yet-revealed image/video now renders
+// BlurRevealMedia instead of the plain thumbnail button — the recipient
+// rubs (or enters the sender's code) directly in the bubble, same spot
+// where the plain image/video normally sits. The sender always sees their
+// own send unblurred (no reason to make yourself rub your own photo).
+// Reveal state (blur_revealed_at) is a plain media_assets column, so it
+// rides the SAME realtime 'media_update' subscription useChat already has
+// for is_view_once/viewed_at — no new wiring needed there, it un-blurs for
+// every other open chat automatically once anyone reveals it. Verification
+// (verifyRevealCode) and the reveal write (markBlurRevealed) both live in
+// MediaAssetService, matching where the salted-hash comparison needs to
+// happen (it needs the row's stored hash/salt, which only that service
+// touches).
 
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import AudioPreview from './AudioPreview'
+import BlurRevealMedia from './BlurRevealMedia'
 import Avatar from '../Avatar'
-import { getSignedUrl } from '../../services/MediaAssetService'
+import { getSignedUrl, verifyRevealCode, markBlurRevealed } from '../../services/MediaAssetService'
 import { getStreamPlaybackToken, streamThumbnailUrl } from '../../services/CloudflareStreamService'
 import { IconMessageSquare } from '../Icons'  
 
@@ -223,6 +238,14 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry, onO
 
   const isViewOnceUnavailable = asset.is_view_once && asset.viewed_at && !isMe
   const url = signedUrl
+
+  // Blurred + not yet revealed + I'm not the sender: show the interactive
+  // rub/code overlay instead of the plain thumbnail. The sender always
+  // sees their own send clearly — there's nothing for them to reveal.
+  // Needs the real signed URL (not just the thumbnail) since
+  // BlurRevealMedia hides it under a canvas/lock overlay, not a blur
+  // filter — the underlying <img>/<video> still has to be the real asset.
+  const isBlurredUnrevealed = !!asset.is_blurred && !asset.blur_revealed_at && !isMe
  
 if (asset.media_type === 'contact') {
   const isSelf = asset.contact_id === currentUserId
@@ -292,6 +315,30 @@ if (asset.media_type === 'contact') {
     )
   }
 
+  // ---- blurred + unrevealed image/video: interactive rub/code overlay ----
+  // Bypasses the normal clickable-thumb-opens-viewer button entirely —
+  // BlurRevealMedia owns the interaction here, and MediaViewer wouldn't
+  // know how to gate a code-locked asset anyway. Once revealed (the
+  // media_assets realtime UPDATE flips blur_revealed_at), this branch
+  // stops matching on the next render and the normal thumbnail path below
+  // takes over, tap-to-open-viewer included.
+  if (isBlurredUnrevealed && asset.upload_status === 'sent' && url) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: MEDIA_MAX_WIDTH_CSS }}>
+        <BlurRevealMedia
+          mediaType={asset.media_type}
+          src={url}
+          revealMethod={asset.blur_reveal_method || 'rub'}
+          verifyCode={(code) => verifyRevealCode(asset.id, code)}
+          onRevealed={() => markBlurRevealed(asset.id, currentUserId).catch((e) => console.error('[MediaMessage] markBlurRevealed failed:', e))}
+          aspectRatio={asset.width && asset.height ? `${asset.width}/${asset.height}` : '4/3'}
+          alt={asset.filename || 'media'}
+        />
+        {message.content && <div style={captionStyle}>{message.content}</div>}
+      </div>
+    )
+  }
+
  
 return (
 // In MediaMessage.jsx — replace the wrapper div's style with this:
@@ -353,6 +400,7 @@ return (
         </motion.div>
 
         {asset.is_view_once && !isViewOnceUnavailable && <span style={viewOnceBadgeStyle}>1</span>}
+        {asset.is_blurred && !isBlurredUnrevealed && !isMe && <span style={blurRevealedBadgeStyle}>Revealed</span>}
         {isVideo && !isViewOnceUnavailable && asset.upload_status === 'sent' && (
           <span style={playOverlayStyle}><IconPlay size={22} /></span>
         )}
@@ -453,6 +501,7 @@ const uploadOverlayStyle = { position: 'absolute', inset: 0, background: 'rgba(0
 const progressRingWrap = { position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }
 const progressPctStyle = { position: 'absolute', fontSize: 10, fontWeight: 700, color: '#fff' }
 const viewOnceBadgeStyle = { position: 'absolute', top: 8, left: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 800, borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }
+const blurRevealedBadgeStyle = { position: 'absolute', top: 8, left: 8, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 9.5, fontWeight: 700, borderRadius: 8, padding: '3px 7px', letterSpacing: 0.2 }
 const viewOnceGoneStyle = { width: '100%', minHeight: 170, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, color: 'var(--text-secondary, #c9c4dd)', fontSize: 11 }
 const captionStyle = { fontSize: 13, color: 'var(--text-primary, #f2f0f8)', padding: '0 2px', maxWidth: MEDIA_MAX_WIDTH_CSS }
 const shimmerStyle = {
