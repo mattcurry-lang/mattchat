@@ -27,6 +27,7 @@
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Avatar from './Avatar'
+import AvatarViewer from './AvatarViewer'
 import { IconX, IconSearch, IconLogOut, IconCamera } from './Icons'
 
 // ---- small self-contained icons for the new placeholder sections ----
@@ -85,6 +86,7 @@ export default function ProfileMenuSheet({
   onSignOut,
 }) {
   const [query, setQuery] = useState('')
+  const [photoViewerOpen, setPhotoViewerOpen] = useState(false)
 
   const filteredSections = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -118,12 +120,24 @@ export default function ProfileMenuSheet({
 
             {/* hero */}
             <div style={heroStyle}>
-              <button onClick={onAvatarClick} style={avatarBtnStyle} title="Change profile picture">
-                <div style={avatarRingStyle}>
-                  <Avatar name={profile?.username || email} size={64} photoUrl={profile?.avatar_url} />
-                </div>
-                <span style={avatarCameraBadgeStyle}><IconCamera size={12} /></span>
-              </button>
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <button
+                  onClick={() => setPhotoViewerOpen(true)}
+                  style={avatarBtnStyle}
+                  title="View profile photo"
+                >
+                  <div style={avatarRingStyle}>
+                    <Avatar name={profile?.username || email} size={64} photoUrl={profile?.avatar_url} />
+                  </div>
+                </button>
+                <button
+                  onClick={onAvatarClick}
+                  style={avatarCameraBadgeStyle}
+                  title="Change profile picture"
+                >
+                  <IconCamera size={12} />
+                </button>
+              </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={heroNameRowStyle}>
@@ -195,6 +209,14 @@ export default function ProfileMenuSheet({
               </button>
             </div>
           </motion.div>
+
+          <AvatarViewer
+            isOpen={photoViewerOpen}
+            onClose={() => setPhotoViewerOpen(false)}
+            photoUrl={profile?.avatar_url}
+            name={profile?.username || 'You'}
+            subtitle={email}
+          />
         </>
       )}
     </AnimatePresence>
@@ -243,7 +265,7 @@ const avatarRingStyle = { borderRadius: '50%', padding: 2.5, background: 'var(--
 const avatarCameraBadgeStyle = {
   position: 'absolute', bottom: -2, right: -2, width: 22, height: 22, borderRadius: '50%',
   background: 'var(--brand-grad)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-  border: '2px solid var(--dark-card-2)',
+  border: '2px solid var(--dark-card-2)', padding: 0, cursor: 'pointer',
 }
 const heroNameRowStyle = { display: 'flex', alignItems: 'center', gap: 6 }
 const heroNameStyle = { fontSize: 18, fontWeight: 800, color: 'var(--dark-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
