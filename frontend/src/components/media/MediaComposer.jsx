@@ -40,6 +40,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import MarkupEditor from './MarkupEditor'
 import MomentComposer from './MomentComposer'
 import { IconX, IconBrush, IconSparkle, IconCamera } from '../Icons'
+import { Z } from '../lib/zLayers'
 
 // View-once toggle icons — not in the shared Icons file.
 const IconEye = ({ size = 14 }) => (
@@ -729,7 +730,7 @@ function randomSalt() {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
-const overlayStyle = { position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', background: '#000' }
+const overlayStyle = { position: 'fixed', inset: 0, zIndex: Z.fullscreenEditor, display: 'flex', flexDirection: 'column', background: '#000' }
 const topBarStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px' }
 const counterStyle = { color: '#fff', fontWeight: 600, fontSize: 13 }
 const iconBtnStyle = { width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', cursor: 'pointer' }
