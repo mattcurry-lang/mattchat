@@ -40,7 +40,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import MarkupEditor from './MarkupEditor'
 import MomentComposer from './MomentComposer'
 import { IconX, IconBrush, IconSparkle, IconCamera } from '../Icons'
-
+import { createPortal } from 'react-dom'
 // View-once toggle icons — not in the shared Icons file.
 const IconEye = ({ size = 14 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -437,7 +437,7 @@ async function exportVideo(item, s, preset) {
     return null
   }
 
-  return (
+return createPortal(
     <AnimatePresence>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={overlayStyle}>
         <div style={topBarStyle}>
@@ -607,8 +607,9 @@ async function exportVideo(item, s, preset) {
             onSend={handleMomentSend}
           />
         )}
-      </motion.div>
-    </AnimatePresence>
+    </motion.div>
+  </AnimatePresence>,
+  document.body
   )
 }
 
