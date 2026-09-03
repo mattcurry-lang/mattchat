@@ -40,7 +40,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import MarkupEditor from './MarkupEditor'
 import MomentComposer from './MomentComposer'
 import { IconX, IconBrush, IconSparkle, IconCamera } from '../Icons'
-import { Z } from '../lib/zLayers'
+import { Z } from '../../lib/zLayers'
 
 // View-once toggle icons — not in the shared Icons file.
 const IconEye = ({ size = 14 }) => (
