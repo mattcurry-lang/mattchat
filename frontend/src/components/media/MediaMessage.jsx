@@ -62,11 +62,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import AudioPreview from './AudioPreview'
-import BlurRevealMedia from './BlurRevealMedia'
 import Avatar from '../Avatar'
+import BlurRevealMedia from './BlurRevealMedia'
 import { getSignedUrl, verifyRevealCode, markBlurRevealed } from '../../services/MediaAssetService'
 import { getStreamPlaybackToken, streamThumbnailUrl } from '../../services/CloudflareStreamService'
-import { IconMessageSquare } from '../Icons'  
+import { IconMessageSquare } from '../Icons'
 
 // ---- small SVG badges (no emoji) ----
 
@@ -186,7 +186,6 @@ function Spinner() {
 }
 export default function MediaMessage({ message, isMe, onOpenViewer, onRetry, onOpenProfile, onMessageContact, currentUserId }) {
   const asset = message.media_assets?.[0]
-
   const [signedUrl, setSignedUrl] = useState(null)
   const [thumbUrl, setThumbUrl] = useState(null)
   const [previewLoaded, setPreviewLoaded] = useState(false)
@@ -234,19 +233,14 @@ export default function MediaMessage({ message, isMe, onOpenViewer, onRetry, onO
     return () => { cancelled = true }
   }, [asset?.storage_path, asset?.thumbnail_path, asset?.upload_status, asset?.cf_stream_uid, asset?.media_type])
 
-  if (!asset) return null
+if (!asset) return null
 
-  const isViewOnceUnavailable = asset.is_view_once && asset.viewed_at && !isMe
+
+ const isViewOnceUnavailable = asset.is_view_once && asset.viewed_at && !isMe
+  // Sender always sees their own send clearly — blur is a recipient-facing
+  // reveal mechanic, same convention as view-once's `!isMe` guard above.
+  const isBlurredUnrevealed = asset.is_blurred && !asset.blur_revealed_at && !isMe
   const url = signedUrl
-
-  // Blurred + not yet revealed + I'm not the sender: show the interactive
-  // rub/code overlay instead of the plain thumbnail. The sender always
-  // sees their own send clearly — there's nothing for them to reveal.
-  // Needs the real signed URL (not just the thumbnail) since
-  // BlurRevealMedia hides it under a canvas/lock overlay, not a blur
-  // filter — the underlying <img>/<video> still has to be the real asset.
-  const isBlurredUnrevealed = !!asset.is_blurred && !asset.blur_revealed_at && !isMe
- 
 if (asset.media_type === 'contact') {
   const isSelf = asset.contact_id === currentUserId
   return (
@@ -340,68 +334,88 @@ if (asset.media_type === 'contact') {
   }
 
  
-return (
-// In MediaMessage.jsx — replace the wrapper div's style with this:
-
-<div style={{
-  display: 'flex', flexDirection: 'column', gap: 4,
-  width: MEDIA_MAX_WIDTH_CSS,
-}}>
-    <button
-      onClick={() => asset.upload_status === 'sent' && !isViewOnceUnavailable && onOpenViewer?.(message)}
-      style={{
-        ...mediaThumbWrapStyle,
-        cursor: asset.upload_status === 'sent' ? 'pointer' : 'default',
-        aspectRatio: asset.width && asset.height ? `${asset.width}/${asset.height}` : '4/3',
-        boxShadow: justSent
-          ? '0 0 0 3px rgba(124,92,255,0.55), 0 10px 28px rgba(0,0,0,0.35)'
-          : mediaThumbWrapStyle.boxShadow,
-        transition: 'box-shadow 0.5s ease',
-      }}
-    >
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: MEDIA_MAX_WIDTH_CSS }}>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => asset.upload_status === 'sent' && !isViewOnceUnavailable && !isBlurredUnrevealed && onOpenViewer?.(message)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            if (asset.upload_status === 'sent' && !isViewOnceUnavailable && !isBlurredUnrevealed) onOpenViewer?.(message)
+          }
+        }}
+        style={{
+          ...mediaThumbWrapStyle,
+          cursor: asset.upload_status === 'sent' ? 'pointer' : 'default',
+          aspectRatio: asset.width && asset.height ? `${asset.width}/${asset.height}` : '4/3',
+          boxShadow: justSent
+            ? '0 0 0 3px rgba(124,92,255,0.55), 0 10px 28px rgba(0,0,0,0.35)'
+            : mediaThumbWrapStyle.boxShadow,
+          transition: 'box-shadow 0.5s ease',
+        }}
+      >
         <motion.div layoutId={`media-${asset.id}`} style={{ position: 'absolute', inset: 0 }}>
-     {isViewOnceUnavailable ? (
-  <div style={viewOnceGoneStyle}>
-    <IconEyeOff size={20} />
-    <span>Opened</span>
-  </div>
-) : showLocalVideoPreview ? (
-  <video
-    src={localPreviewUrl}
-    muted
-    playsInline
-    preload="auto"
-    onLoadedData={() => setPreviewLoaded(true)}
-    style={{
-      ...mediaImgStyle,
-      filter: previewLoaded ? 'blur(0px)' : 'blur(16px)',
-      transform: previewLoaded ? 'scale(1)' : 'scale(1.04)',
-      transition: 'filter 0.4s ease, transform 0.4s ease',
-    }}
-  />
-) : displayThumb ? (
-  <img
-    src={displayThumb}
-    alt={asset.filename || 'media'}
-    onLoad={() => setPreviewLoaded(true)}
-    style={{
-      ...mediaImgStyle,
-      filter: previewLoaded ? 'blur(0px)' : 'blur(16px)',
-      transform: previewLoaded ? 'scale(1)' : 'scale(1.04)',
-      transition: 'filter 0.4s ease, transform 0.4s ease',
-    }}
-  />
-) : (
-  <>
-    <div style={shimmerStyle} />
-    <style>{`@keyframes mm-shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
-  </>
-)}
+          {isViewOnceUnavailable ? (
+            <div style={viewOnceGoneStyle}>
+              <IconEyeOff size={20} />
+              <span>Opened</span>
+            </div>
+          ) : isBlurredUnrevealed ? (
+            url ? (
+              <BlurRevealMedia
+                mediaType={asset.media_type}
+                src={url}
+                posterSrc={thumbUrl}
+                revealMethod={asset.blur_reveal_method || 'rub'}
+                verifyCode={asset.blur_reveal_method === 'code' ? (code) => verifyRevealCode(asset.id, code) : undefined}
+                onRevealed={handleBlurRevealed}
+                aspectRatio={asset.width && asset.height ? `${asset.width}/${asset.height}` : undefined}
+                alt={asset.filename || 'media'}
+              />
+            ) : (
+              <>
+                <div style={shimmerStyle} />
+                <style>{`@keyframes mm-shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
+              </>
+            )
+          ) : showLocalVideoPreview ? (
+            <video
+              src={localPreviewUrl}
+              muted
+              playsInline
+              preload="auto"
+              onLoadedData={() => setPreviewLoaded(true)}
+              style={{
+                ...mediaImgStyle,
+                filter: previewLoaded ? 'blur(0px)' : 'blur(16px)',
+                transform: previewLoaded ? 'scale(1)' : 'scale(1.04)',
+                transition: 'filter 0.4s ease, transform 0.4s ease',
+              }}
+            />
+          ) : displayThumb ? (
+            <img
+              src={displayThumb}
+              alt={asset.filename || 'media'}
+              onLoad={() => setPreviewLoaded(true)}
+              style={{
+                ...mediaImgStyle,
+                filter: previewLoaded ? 'blur(0px)' : 'blur(16px)',
+                transform: previewLoaded ? 'scale(1)' : 'scale(1.04)',
+                transition: 'filter 0.4s ease, transform 0.4s ease',
+              }}
+            />
+          ) : (
+            <>
+              <div style={shimmerStyle} />
+              <style>{`@keyframes mm-shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
+            </>
+          )}
         </motion.div>
 
         {asset.is_view_once && !isViewOnceUnavailable && <span style={viewOnceBadgeStyle}>1</span>}
-        {asset.is_blurred && !isBlurredUnrevealed && !isMe && <span style={blurRevealedBadgeStyle}>Revealed</span>}
-        {isVideo && !isViewOnceUnavailable && asset.upload_status === 'sent' && (
+        {isVideo && !isViewOnceUnavailable && !isBlurredUnrevealed && asset.upload_status === 'sent' && (
           <span style={playOverlayStyle}><IconPlay size={22} /></span>
         )}
 
@@ -440,7 +454,7 @@ return (
             {(asset.upload_status === 'preparing' || asset.upload_status === 'processing') && <Spinner />}
           </div>
         )}
-      </button>
+   </div>
       {message.content && <div style={captionStyle}>{message.content}</div>}
     </div>
   )
