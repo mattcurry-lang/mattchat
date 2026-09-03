@@ -175,7 +175,7 @@ export default function BlurRevealMedia({
   return (
     <div ref={containerRef} style={{ ...wrapStyle, aspectRatio: aspectRatio || '4/3' }}>
       {mediaType === 'video' ? (
-        <video src={src} muted={!revealed} controls={revealed} playsInline style={mediaStyle} />
+        <video src={src} muted={!revealed} controls={revealed} playsInline poster={posterSrc} style={mediaStyle} />
       ) : (
         <img src={src} alt={alt} style={mediaStyle} />
       )}
