@@ -729,7 +729,7 @@ function randomSalt() {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
-const overlayStyle = { position: 'fixed', inset: 0, zIndex: 80, display: 'flex', flexDirection: 'column', background: '#000' }
+const overlayStyle = { position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', background: '#000' }
 const topBarStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px' }
 const counterStyle = { color: '#fff', fontWeight: 600, fontSize: 13 }
 const iconBtnStyle = { width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', cursor: 'pointer' }
