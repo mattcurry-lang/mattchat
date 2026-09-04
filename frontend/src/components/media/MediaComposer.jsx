@@ -34,6 +34,13 @@
 // used in those two files, and unified the accent color onto the
 // #7F5FFF -> #C86DD7 gradient established there. Purely cosmetic — no
 // editing/export logic below was touched.
+//
+// DECLUTTER PASS: Brightness/Contrast/Saturation were always-visible rows
+// that pushed View once/Blur/caption/quality/Send further down and made
+// the composer feel busy on first open. They're real, working edits (not
+// removed) — just tucked behind a collapsed "Adjust" toggle, closed by
+// default. Rotate/aspect stay visible since those are one-tap decisions
+// people reach for constantly; the sliders were the actual clutter.
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -64,6 +71,23 @@ const IconBlurToggle = ({ size = 13 }) => (
     <circle cx="15" cy="15" r="1.3" fill="currentColor" />
     <circle cx="6" cy="17" r="1.3" fill="currentColor" opacity="0.6" />
     <circle cx="18" cy="18" r="1.3" fill="currentColor" opacity="0.6" />
+  </svg>
+)
+
+// Adjust-section toggle icon — three sliders, not in the shared Icons file.
+const IconAdjust = ({ size = 13 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <line x1="4" y1="6" x2="20" y2="6" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
+    <circle cx="9" cy="6" r="2.2" fill="currentColor" />
+    <line x1="4" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
+    <circle cx="15" cy="12" r="2.2" fill="currentColor" />
+    <line x1="4" y1="18" x2="20" y2="18" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
+    <circle cx="11" cy="18" r="2.2" fill="currentColor" />
+  </svg>
+)
+const IconChevronDown = ({ size = 12 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <polyline points="6 9 12 15 18 9" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 )
 
@@ -116,6 +140,8 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
   const [blurred, setBlurred] = useState(false)
   const [revealMethod, setRevealMethod] = useState('rub') // 'rub' | 'code'
   const [revealCode, setRevealCode] = useState('')
+  // Collapsed by default — see DECLUTTER PASS note at top of file.
+  const [adjustOpen, setAdjustOpen] = useState(false)
 
   const [momentOpen, setMomentOpen] = useState(false)
   const [momentItems, setMomentItems] = useState(null)
@@ -123,7 +149,7 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
   // Reset per-open state — viewOnce shouldn't leak from one send to the
   // next composer session.
   useEffect(() => {
-    if (isOpen) { setViewOnce(false); setBlurred(false); setRevealMethod('rub'); setRevealCode(''); setIndex(0) }
+    if (isOpen) { setViewOnce(false); setBlurred(false); setRevealMethod('rub'); setRevealCode(''); setIndex(0); setAdjustOpen(false) }
   }, [isOpen])
 
   const imgRef = useRef(null)
@@ -520,9 +546,25 @@ async function exportVideo(item, s, preset) {
                   <button key={name} onClick={() => setAspect(name)} style={{ ...pillBtnStyle, background: state?.aspect === name ? ACCENT_GRADIENT : 'rgba(255,255,255,0.08)' }}>{name}</button>
                 ))}
               </div>
-              <SliderRow label="Brightness" value={state?.brightness ?? 100} onChange={v => updateState({ brightness: v })} min={50} max={150} />
-              <SliderRow label="Contrast" value={state?.contrast ?? 100} onChange={v => updateState({ contrast: v })} min={50} max={150} />
-              <SliderRow label="Saturation" value={state?.saturation ?? 100} onChange={v => updateState({ saturation: v })} min={0} max={200} />
+
+              <button
+                onClick={() => setAdjustOpen(v => !v)}
+                style={{ ...pillBtnStyle, display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', background: adjustOpen ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.08)' }}
+              >
+                <IconAdjust size={13} />
+                Adjust
+                <span style={{ display: 'flex', transform: adjustOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+                  <IconChevronDown size={11} />
+                </span>
+              </button>
+
+              {adjustOpen && (
+                <div style={adjustPanelStyle}>
+                  <SliderRow label="Brightness" value={state?.brightness ?? 100} onChange={v => updateState({ brightness: v })} min={50} max={150} />
+                  <SliderRow label="Contrast" value={state?.contrast ?? 100} onChange={v => updateState({ contrast: v })} min={50} max={150} />
+                  <SliderRow label="Saturation" value={state?.saturation ?? 100} onChange={v => updateState({ saturation: v })} min={0} max={200} />
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -750,4 +792,5 @@ const momentBannerStyle = { textAlign: 'center', color: '#c4b5fd', fontSize: 12,
 const blurSectionStyle = { display: 'flex', flexDirection: 'column', gap: 8 }
 const blurOptionsStyle = { display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 4 }
 const blurHintStyle = { fontSize: 11, color: '#f87171', fontWeight: 600 }
+const adjustPanelStyle = { display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 12 }
 const sendAsSeparateLinkStyle = { background: 'none', border: 'none', color: 'rgba(255,255,255,0.55)', fontSize: 12, textAlign: 'center', textDecoration: 'underline', cursor: 'pointer', padding: '2px 0 0', fontFamily: 'inherit' }
