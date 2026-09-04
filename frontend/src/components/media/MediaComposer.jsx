@@ -471,7 +471,7 @@ async function exportVideo(item, s, preset) {
     return null
   }
 
-  return (
+  return createPortal(
     <AnimatePresence>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={overlayStyle}>
         <div style={topBarStyle}>
@@ -694,7 +694,8 @@ async function exportVideo(item, s, preset) {
           />
         )}
       </motion.div>
-    </AnimatePresence>
+   </AnimatePresence>,
+    document.body
   )
 }
 
