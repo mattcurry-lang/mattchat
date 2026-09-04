@@ -138,6 +138,14 @@ const IconEyeOff = ({ size = 18 }) => (
       stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 )
+// Same icon as MediaComposer's Vanish toggle — keeps the feature reading
+// as one consistent visual language from arming it to seeing it land.
+const IconHourglass = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <path d="M6 3h12M6 21h12" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
+    <path d="M7 3c0 4 4 6 5 6s5-2 5-6M7 21c0-4 4-6 5-6s5 2 5 6" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round" />
+  </svg>
+)
 const IconUserCard = ({ size = 15 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="currentColor" strokeWidth={1.8} />
@@ -237,8 +245,12 @@ if (!asset) return null
 
 
  const isViewOnceUnavailable = asset.is_view_once && asset.viewed_at && !isMe
-  // Sender always sees their own send clearly — blur is a recipient-facing
-  // reveal mechanic, same convention as view-once's `!isMe` guard above.
+// Vanish (view-once) — mirrors MediaComposer's vanishActiveForCurrent
+// shield: the SENDER stays locked out of their own send too, not just
+// the recipient once it's been opened. This is the deliberate departure
+// from WhatsApp mentioned in the composer's REDESIGN PASS notes.
+const isViewOnceLockedForSender = asset.is_view_once && isMe
+const isViewOnceUnopened = asset.is_view_once && !asset.viewed_at && !isMe
   const isBlurredUnrevealed = asset.is_blurred && !asset.blur_revealed_at && !isMe
   const url = signedUrl
 if (asset.media_type === 'contact') {
@@ -339,16 +351,18 @@ if (asset.media_type === 'contact') {
       <div
         role="button"
         tabIndex={0}
-        onClick={() => asset.upload_status === 'sent' && !isViewOnceUnavailable && !isBlurredUnrevealed && onOpenViewer?.(message)}
+        onClick={() =>  if (asset.upload_status !== 'sent') return
+          if (isViewOnceLockedForSender || isViewOnceUnavailable || isBlurredUnrevealed) return
+          onOpenViewer?.(message)
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
-            if (asset.upload_status === 'sent' && !isViewOnceUnavailable && !isBlurredUnrevealed) onOpenViewer?.(message)
+           if (asset.upload_status === 'sent' && !isViewOnceLockedForSender && !isViewOnceUnavailable && !isBlurredUnrevealed) onOpenViewer?.(message)
           }
         }}
         style={{
           ...mediaThumbWrapStyle,
-          cursor: asset.upload_status === 'sent' ? 'pointer' : 'default',
+         cursor: asset.upload_status === 'sent' && !isViewOnceLockedForSender && !isViewOnceUnavailable ? 'pointer' : 'default',
           aspectRatio: asset.width && asset.height ? `${asset.width}/${asset.height}` : '4/3',
           boxShadow: justSent
             ? '0 0 0 3px rgba(124,92,255,0.55), 0 10px 28px rgba(0,0,0,0.35)'
@@ -357,7 +371,17 @@ if (asset.media_type === 'contact') {
         }}
       >
         <motion.div layoutId={`media-${asset.id}`} style={{ position: 'absolute', inset: 0 }}>
-          {isViewOnceUnavailable ? (
+         {isViewOnceLockedForSender ? (
+            <div style={vanishLockedStyle}>
+              <IconHourglass size={20} />
+              <span>{asset.viewed_at ? 'Vanish photo · Opened' : 'Vanish photo · Sent'}</span>
+            </div>
+          ) : isViewOnceUnopened ? (
+            <div style={vanishLockedStyle}>
+              <IconHourglass size={20} />
+              <span>Vanish photo · Tap to view</span>
+            </div>
+         ) : isViewOnceUnavailable ? (
             <div style={viewOnceGoneStyle}>
               <IconEyeOff size={20} />
               <span>Opened</span>
@@ -370,7 +394,7 @@ if (asset.media_type === 'contact') {
                 posterSrc={thumbUrl}
                 revealMethod={asset.blur_reveal_method || 'rub'}
                 verifyCode={asset.blur_reveal_method === 'code' ? (code) => verifyRevealCode(asset.id, code) : undefined}
-                onRevealed={handleBlurRevealed}
+               onRevealed={() => markBlurRevealed(asset.id, currentUserId).catch((e) => console.error('[MediaMessage] markBlurRevealed failed:', e))}
                 aspectRatio={asset.width && asset.height ? `${asset.width}/${asset.height}` : undefined}
                 alt={asset.filename || 'media'}
               />
@@ -414,8 +438,7 @@ if (asset.media_type === 'contact') {
           )}
         </motion.div>
 
-        {asset.is_view_once && !isViewOnceUnavailable && <span style={viewOnceBadgeStyle}>1</span>}
-        {isVideo && !isViewOnceUnavailable && !isBlurredUnrevealed && asset.upload_status === 'sent' && (
+onRevealed={() => markBlurRevealed(asset.id, currentUserId).catch((e) => console.error('[MediaMessage] markBlurRevealed failed:', e))}
           <span style={playOverlayStyle}><IconPlay size={22} /></span>
         )}
 
@@ -516,7 +539,7 @@ const progressRingWrap = { position: 'relative', display: 'flex', alignItems: 'c
 const progressPctStyle = { position: 'absolute', fontSize: 10, fontWeight: 700, color: '#fff' }
 const viewOnceBadgeStyle = { position: 'absolute', top: 8, left: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 800, borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }
 const blurRevealedBadgeStyle = { position: 'absolute', top: 8, left: 8, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 9.5, fontWeight: 700, borderRadius: 8, padding: '3px 7px', letterSpacing: 0.2 }
-const viewOnceGoneStyle = { width: '100%', minHeight: 170, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, color: 'var(--text-secondary, #c9c4dd)', fontSize: 11 }
+const vanishLockedStyle = { width: '100%', minHeight: 170, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'linear-gradient(160deg, rgba(127,95,255,0.16), rgba(200,109,215,0.14))', color: 'var(--text-secondary, #c9c4dd)', fontSize: 11.5, fontWeight: 600 }
 const captionStyle = { fontSize: 13, color: 'var(--text-primary, #f2f0f8)', padding: '0 2px', maxWidth: MEDIA_MAX_WIDTH_CSS }
 const shimmerStyle = {
   width: '100%', height: '100%', minHeight: 170,
