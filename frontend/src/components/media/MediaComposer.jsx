@@ -41,6 +41,7 @@ import MarkupEditor from './MarkupEditor'
 import MomentComposer from './MomentComposer'
 import { IconX, IconBrush, IconSparkle, IconCamera } from '../Icons'
 import { Z } from '../../lib/zLayers'
+import { createPortal } from 'react-dom'
 
 // View-once toggle icons — not in the shared Icons file.
 const IconEye = ({ size = 14 }) => (
