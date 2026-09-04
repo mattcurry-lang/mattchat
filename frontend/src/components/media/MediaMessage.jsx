@@ -544,7 +544,8 @@ const uploadOverlayStyle = { position: 'absolute', inset: 0, background: 'rgba(0
 const progressRingWrap = { position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }
 const progressPctStyle = { position: 'absolute', fontSize: 10, fontWeight: 700, color: '#fff' }
 const viewOnceBadgeStyle = { position: 'absolute', top: 8, left: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 800, borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }
-const blurRevealedBadgeStyle = { position: 'absolute', top: 8, left: 8, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 9.5, fontWeight: 700, borderRadius: 8, padding: '3px 7px', letterSpacing: 0.2 } const viewOnceGoneStyle = { width: '100%', minHeight: 170, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, color: 'var(--text-secondary, #c9c4dd)', fontSize: 11 }
+const blurRevealedBadgeStyle = { position: 'absolute', top: 8, left: 8, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 9.5, fontWeight: 700, borderRadius: 8, padding: '3px 7px', letterSpacing: 0.2 }
+const viewOnceGoneStyle = { width: '100%', minHeight: 170, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, color: 'var(--text-secondary, #c9c4dd)', fontSize: 11 }
 const vanishLockedStyle = { width: '100%', minHeight: 170, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'linear-gradient(160deg, rgba(127,95,255,0.16), rgba(200,109,215,0.14))', color: 'var(--text-secondary, #c9c4dd)', fontSize: 11.5, fontWeight: 600 }
 const captionStyle = { fontSize: 13, color: 'var(--text-primary, #f2f0f8)', padding: '0 2px', maxWidth: MEDIA_MAX_WIDTH_CSS }
 const shimmerStyle = {
