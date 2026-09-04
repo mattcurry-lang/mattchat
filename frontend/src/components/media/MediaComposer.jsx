@@ -2,9 +2,10 @@
 // Sits between selection (MediaPicker/CameraCapture) and send. Edits are
 // real, not cosmetic previews:
 //   - Photos: rotate (90° steps), drag-crop with aspect presets, brightness/
-//     contrast/saturation (canvas `ctx.filter`, so preview == export), and
-//     Markup (delegates to MarkupEditor, whose flattened output becomes the
-//     authoritative image for that item).
+//     contrast/saturation (canvas `ctx.filter`, so preview == export), filter
+//     presets (also `ctx.filter`, same code path), and Markup (delegates to
+//     MarkupEditor, whose flattened output becomes the authoritative image
+//     for that item).
 //   - Videos: real client-side trim + speed change, done by re-recording the
 //     trimmed range through <video>.captureStream() + MediaRecorder (no
 //     ffmpeg dependency). Mute drops the audio track from the recorded
@@ -29,18 +30,57 @@
 // composer instead of crashing the whole render with
 // "Cannot read properties of undefined (reading 'name')".
 //
-// STYLE PASS (aligned with MediaStudio/MediaPicker): swapped the emoji
-// glyphs (rotate arrows, sparkle, camera) for the same SVG-icon approach
-// used in those two files, and unified the accent color onto the
-// #7F5FFF -> #C86DD7 gradient established there. Purely cosmetic — no
-// editing/export logic below was touched.
+// REDESIGN PASS (this change): the composer had grown into a control panel
+// that buried the media itself. Three changes:
 //
-// DECLUTTER PASS: Brightness/Contrast/Saturation were always-visible rows
-// that pushed View once/Blur/caption/quality/Send further down and made
-// the composer feel busy on first open. They're real, working edits (not
-// removed) — just tucked behind a collapsed "Adjust" toggle, closed by
-// default. Rotate/aspect stay visible since those are one-tap decisions
-// people reach for constantly; the sliders were the actual clutter.
+// 1. CONSOLIDATION — Rotate/Aspect/Adjust/Quality (images) and
+//    Mute/Speed/Trim/Thumbnail/Quality (video) now live inside a single
+//    top-right "⋮" dropdown (`moreOpen`) instead of being permanently
+//    stacked under the stage. Filter presets get their own top-right icon
+//    and slide-down strip (`filtersOpen`) — different gesture from "⋮"
+//    because picking a filter is a single visual decision, not a settings
+//    dive. Only one of the two is open at a time. The stage now owns the
+//    vertical space it always should have.
+//
+// 2. VANISH MODE (was "View once") — deliberately NOT a copy of WhatsApp's
+//    eye/"1" badge treatment. Renamed and re-iconed (hourglass) to read as
+//    its own thing, and — per how this was actually asked for — flipped a
+//    behavior WhatsApp doesn't have: turning it on covers the SENDER's own
+//    preview with a frosted-glass shield (`vanishActiveForCurrent`), not
+//    just the recipient's. The underlying <canvas>/<video> stays mounted
+//    (still needed for export / video metadata / trim), it's just visually
+//    and interactively covered. Turning Vanish back off restores the
+//    preview so edits can continue — the shield is a presentation state,
+//    not a one-way action.
+//
+// 3. BLUR VIA LONG-PRESS ON SEND — the standalone "Blur photo" toggle
+//    button is gone. Holding the Send button for ~500ms arms/disarms blur
+//    (`longPressTimerRef` / `longPressFiredRef`); a short tap sends
+//    normally. This was a specific ask to keep the chrome under the stage
+//    to a minimum — Vanish + a caption + Send is the entire default view
+//    for a single-item send. The reveal-method sub-choice (rub/code) only
+//    appears once blur is actually armed, right above Send, and a one-line
+//    hint ("Long-press Send to blur this photo") shows before it's armed
+//    so the feature stays discoverable without adding a permanent button.
+//    Short-press-after-a-long-press is swallowed (not treated as a send)
+//    via `longPressFiredRef`.
+//
+// SIDEBAR-BLEED FIX — the overlay is rendered through createPortal(...,
+// document.body), which already escapes the DOM subtree of any ancestor
+// (including a transformed one) for the purposes of `position: fixed`
+// containment — fixed positioning is scoped by DOM ancestry, and a portal
+// re-parents the node, so this component was never actually the source of
+// the sidebar showing through. Added explicit `width: 100vw, height: 100vh`
+// to overlayStyle as a defensive belt-and-suspenders (inset: 0 alone can
+// misbehave with mobile dynamic-viewport units in some browsers), but the
+// real fix belongs in whichever component rendered "Select media" in that
+// screenshot (MediaPicker, not this file) — if it isn't using
+// createPortal(..., document.body) the same way, and instead sits inside
+// the two-pane layout's DOM tree, any `transform` on an ancestor (common
+// for page/pane transitions) will make its `position: fixed` resolve
+// relative to that ancestor instead of the viewport, which is exactly the
+// "sidebar bleeds through" symptom in the screenshot. Share that file and
+// this gets a one-line fix.
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -50,16 +90,11 @@ import { IconX, IconBrush, IconSparkle, IconCamera } from '../Icons'
 import { Z } from '../../lib/zLayers'
 import { createPortal } from 'react-dom'
 
-// View-once toggle icons — not in the shared Icons file.
-const IconEye = ({ size = 14 }) => (
+// Vanish-mode icon — deliberately an hourglass, not an eye or a "1" badge.
+const IconHourglass = ({ size = 16 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round" />
-    <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth={1.8} />
-  </svg>
-)
-const IconOne = ({ size = 12 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <path d="M10 7l4-2v14" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M6 3h12M6 21h12" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
+    <path d="M7 3c0 4 4 6 5 6s5-2 5-6M7 21c0-4 4-6 5-6s5 2 5 6" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round" />
   </svg>
 )
 const IconBlurToggle = ({ size = 13 }) => (
@@ -73,16 +108,23 @@ const IconBlurToggle = ({ size = 13 }) => (
     <circle cx="18" cy="18" r="1.3" fill="currentColor" opacity="0.6" />
   </svg>
 )
-
-// Adjust-section toggle icon — three sliders, not in the shared Icons file.
-const IconAdjust = ({ size = 13 }) => (
+// Three-dot "more" menu trigger — houses Rotate/Aspect/Adjust/Quality
+// (images) or Mute/Speed/Trim/Thumbnail/Quality (video).
+const IconDots = ({ size = 16 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <line x1="4" y1="6" x2="20" y2="6" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
-    <circle cx="9" cy="6" r="2.2" fill="currentColor" />
-    <line x1="4" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
-    <circle cx="15" cy="12" r="2.2" fill="currentColor" />
-    <line x1="4" y1="18" x2="20" y2="18" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
-    <circle cx="11" cy="18" r="2.2" fill="currentColor" />
+    <circle cx="12" cy="5" r="1.8" fill="currentColor" />
+    <circle cx="12" cy="12" r="1.8" fill="currentColor" />
+    <circle cx="12" cy="19" r="1.8" fill="currentColor" />
+  </svg>
+)
+// Filters trigger — a 2x2 swatch grid, distinct from the "⋮" settings menu
+// since choosing a look is a single visual pick, not a dive into settings.
+const IconFilter = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <rect x="3" y="3" width="8" height="8" rx="2" stroke="currentColor" strokeWidth={1.8} />
+    <rect x="13" y="3" width="8" height="8" rx="2" stroke="currentColor" strokeWidth={1.8} opacity="0.55" />
+    <rect x="3" y="13" width="8" height="8" rx="2" stroke="currentColor" strokeWidth={1.8} opacity="0.55" />
+    <rect x="13" y="13" width="8" height="8" rx="2" stroke="currentColor" strokeWidth={1.8} opacity="0.3" />
   </svg>
 )
 const IconChevronDown = ({ size = 12 }) => (
@@ -90,7 +132,6 @@ const IconChevronDown = ({ size = 12 }) => (
     <polyline points="6 9 12 15 18 9" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 )
-
 // Rotate icons aren't in the shared Icons file — same self-contained
 // approach MediaPicker used for icons outside that set.
 const IconRotateCCW = ({ size = 14 }) => (
@@ -114,10 +155,32 @@ const QUALITY_PRESETS = {
 
 const ASPECTS = { Free: null, Square: 1, '4:3': 4 / 3, '16:9': 16 / 9 }
 
+// Filter presets — same brightness/contrast/saturation the Adjust sliders
+// use, plus hue-rotate/sepia for a couple of them, all still just
+// ctx.filter under the hood so preview === export like everything else
+// here. Picking one seeds the sliders; nudging a slider afterward flips
+// filterPreset to 'custom' so the strip doesn't lie about what's active.
+const FILTER_PRESETS = [
+  { id: 'original', label: 'Original', values: { brightness: 100, contrast: 100, saturation: 100, hue: 0, sepia: 0 } },
+  { id: 'vivid', label: 'Vivid', values: { brightness: 104, contrast: 114, saturation: 132, hue: 0, sepia: 0 } },
+  { id: 'mono', label: 'Mono', values: { brightness: 102, contrast: 112, saturation: 0, hue: 0, sepia: 0 } },
+  { id: 'noir', label: 'Noir', values: { brightness: 92, contrast: 130, saturation: 0, hue: 0, sepia: 0 } },
+  { id: 'warm', label: 'Warm', values: { brightness: 104, contrast: 104, saturation: 112, hue: 0, sepia: 22 } },
+  { id: 'cool', label: 'Cool', values: { brightness: 102, contrast: 106, saturation: 108, hue: -14, sepia: 0 } },
+  { id: 'fade', label: 'Fade', values: { brightness: 112, contrast: 86, saturation: 78, hue: 0, sepia: 8 } },
+]
+
+function filterCssFromValues(v) {
+  const parts = [`brightness(${v.brightness}%)`, `contrast(${v.contrast}%)`, `saturate(${v.saturation}%)`]
+  if (v.hue) parts.push(`hue-rotate(${v.hue}deg)`)
+  if (v.sepia) parts.push(`sepia(${v.sepia}%)`)
+  return parts.join(' ')
+}
+
 function defaultEditState(mediaType, duration = 0) {
   return mediaType === 'video'
     ? { trimStart: 0, trimEnd: duration, muted: false, speed: 1, thumbnailTime: 0, thumbnailBlob: null }
-    : { rotation: 0, crop: null, brightness: 100, contrast: 100, saturation: 100, markupCanvas: null, aspect: 'Free' }
+    : { rotation: 0, crop: null, brightness: 100, contrast: 100, saturation: 100, hue: 0, sepia: 0, markupCanvas: null, aspect: 'Free', filterPreset: 'original' }
 }
 
 export default function MediaComposer({ isOpen, items, momentIntent = false, onCancel, onSend, onSendMoment }) {
@@ -128,35 +191,50 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
   const [markupOpen, setMarkupOpen] = useState(false)
   const [sending, setSending] = useState(false)
   const [cropDrag, setCropDrag] = useState(null) // { startX, startY }
-  // View-once — WhatsApp/Instagram convention: single item only, not
-  // batches, not Moments (a grouped "view once" album has no clean
-  // semantics — does each photo burn individually, or does opening any
-  // one burn the whole set? Left out rather than guessed at).
+  // Vanish mode — WhatsApp/Instagram convention of single-item-only still
+  // applies (a grouped "vanish" album has no clean semantics — does each
+  // photo burn individually, or does opening any one burn the whole set?
+  // Left out rather than guessed at) — but unlike those apps, turning this
+  // on also covers the SENDER's own preview here (see vanishActiveForCurrent
+  // below and the REDESIGN PASS note at the top of this file).
   const [viewOnce, setViewOnce] = useState(false)
-  // Blur/reveal — same single-item scoping as view-once, and the same
-  // ambiguity reasoning applies to Moments. Code is hashed client-side
-  // with a random salt right before send (see handleSend) — plaintext
-  // never leaves this component or gets passed to onSend.
+  // Blur/reveal — same single-item scoping as Vanish, and the same
+  // ambiguity reasoning applies to Moments. Now armed via long-press on
+  // Send rather than a standalone toggle (see REDESIGN PASS note). Code is
+  // hashed client-side with a random salt right before send (see
+  // handleSend) — plaintext never leaves this component or gets passed to
+  // onSend.
   const [blurred, setBlurred] = useState(false)
   const [revealMethod, setRevealMethod] = useState('rub') // 'rub' | 'code'
   const [revealCode, setRevealCode] = useState('')
-  // Collapsed by default — see DECLUTTER PASS note at top of file.
-  const [adjustOpen, setAdjustOpen] = useState(false)
+  // The two top-right dropdowns — mutually exclusive, closed by default.
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [filterPreviewSrc, setFilterPreviewSrc] = useState(null)
 
   const [momentOpen, setMomentOpen] = useState(false)
   const [momentItems, setMomentItems] = useState(null)
 
-  // Reset per-open state — viewOnce shouldn't leak from one send to the
-  // next composer session.
+  // Reset per-open state — viewOnce/blur shouldn't leak from one send to
+  // the next composer session.
   useEffect(() => {
-    if (isOpen) { setViewOnce(false); setBlurred(false); setRevealMethod('rub'); setRevealCode(''); setIndex(0); setAdjustOpen(false) }
+    if (isOpen) {
+      setViewOnce(false); setBlurred(false); setRevealMethod('rub'); setRevealCode('')
+      setIndex(0); setMoreOpen(false); setFiltersOpen(false)
+    }
   }, [isOpen])
+
+  // Close both dropdowns when switching between items in a multi-select.
+  useEffect(() => { setMoreOpen(false); setFiltersOpen(false) }, [index])
 
   const imgRef = useRef(null)
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
   const imageObjRef = useRef(null)
   const markupRef = useRef(null)
+  // Long-press-on-Send bookkeeping for arming/disarming blur.
+  const longPressTimerRef = useRef(null)
+  const longPressFiredRef = useRef(false)
 
   const current = items[index]
   // Guarded against current existing but missing .file — a malformed
@@ -165,8 +243,13 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
   const currentId = current?.file ? `${current.file.name}-${index}` : null
   const state = currentId ? (edits[currentId] || defaultEditState(current.mediaType)) : null
 
-  // View-once is only offered for a genuine single-item, non-Moment send.
+  // View-once/Vanish is only offered for a genuine single-item, non-Moment
+  // send.
   const eligibleForViewOnce = items.length === 1 && !momentIntent
+  // Whether the current item's preview should be covered right now — the
+  // sender-side half of Vanish mode. Not tied to media type: images get a
+  // covered canvas, video gets a covered (and paused) player.
+  const vanishActiveForCurrent = eligibleForViewOnce && viewOnce
 
   const updateState = useCallback((patch) => {
     setEdits(prev => ({ ...prev, [currentId]: { ...(prev[currentId] || defaultEditState(current.mediaType)), ...patch } }))
@@ -185,7 +268,7 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
     }
     img.src = URL.createObjectURL(current.file)
     return () => URL.revokeObjectURL(img.src)
-     
+
   }, [currentId])
 
   useEffect(() => {
@@ -197,10 +280,18 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
       v.addEventListener('loadedmetadata', onMeta)
       return () => v.removeEventListener('loadedmetadata', onMeta)
     }
-    
+
   }, [currentId])
 
-  const filterString = (s) => `brightness(${s.brightness}%) contrast(${s.contrast}%) saturate(${s.saturation}%)`
+  // Vanish mode covers the video visually, but a muted-underneath video
+  // would still be audibly playing behind the shield — pause it.
+  useEffect(() => {
+    if (vanishActiveForCurrent && current?.mediaType === 'video' && videoRef.current) {
+      videoRef.current.pause()
+    }
+  }, [vanishActiveForCurrent, currentId])
+
+  const filterString = (s) => filterCssFromValues(s)
 
   function renderPreview() {
     if (!current?.file || current.mediaType !== 'image' || !imageObjRef.current || !canvasRef.current) return
@@ -221,7 +312,21 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
     ctx.restore()
   }
 
-  useEffect(renderPreview, [state?.rotation, state?.brightness, state?.contrast, state?.saturation])  
+  useEffect(renderPreview, [state?.rotation, state?.brightness, state?.contrast, state?.saturation, state?.hue, state?.sepia])
+
+  // Low-res snapshot of the current (already rotated/adjusted) canvas, used
+  // so each filter chip in the strip shows a real live preview instead of a
+  // generic swatch. Recomputed only when the strip is opened.
+  useEffect(() => {
+    if (!filtersOpen || current?.mediaType !== 'image' || !canvasRef.current) return
+    const src = canvasRef.current
+    const scale = Math.min(1, 120 / Math.max(src.width, src.height))
+    const small = document.createElement('canvas')
+    small.width = Math.max(1, src.width * scale)
+    small.height = Math.max(1, src.height * scale)
+    small.getContext('2d').drawImage(src, 0, 0, small.width, small.height)
+    setFilterPreviewSrc(small.toDataURL('image/jpeg', 0.7))
+  }, [filtersOpen, currentId])
 
   const rotate = (dir) => updateState({ rotation: ((state.rotation + (dir * 90)) % 360 + 360) % 360 })
 
@@ -236,6 +341,11 @@ export default function MediaComposer({ isOpen, items, momentIntent = false, onC
     }
     updateState({ aspect: name, crop: { x: (canvas.width - w) / 2, y: (canvas.height - h) / 2, w, h } })
   }
+
+  const applyFilterPreset = (preset) => updateState({ ...preset.values, filterPreset: preset.id })
+
+  const toggleFilters = () => { setFiltersOpen(v => !v); setMoreOpen(false) }
+  const toggleMore = () => { setMoreOpen(v => !v); setFiltersOpen(false) }
 
   // ---- crop drag (corner handles, normalized against the rendered <canvas> box) ----
   const cropBoxStyle = () => {
@@ -488,6 +598,37 @@ async function exportVideo(item, s, preset) {
     setMomentItems(null)
   }
 
+  // ---- Send button long-press → arm/disarm blur (see REDESIGN PASS note) ----
+  const LONG_PRESS_MS = 500
+  const handleSendPointerDown = () => {
+    if (!eligibleForViewOnce) return
+    longPressFiredRef.current = false
+    longPressTimerRef.current = setTimeout(() => {
+      longPressFiredRef.current = true
+      setBlurred(b => !b)
+    }, LONG_PRESS_MS)
+  }
+  const clearLongPress = () => {
+    if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }
+  }
+  const handleSendClick = () => {
+    if (longPressFiredRef.current) { longPressFiredRef.current = false; return } // long-press already toggled blur — swallow this click, don't send
+    if (momentIntent && items.length > 1) handleCreateMoment()
+    else handleSend()
+  }
+
+  const sendDisabled = sending || (eligibleForViewOnce && blurred && revealMethod === 'code' && revealCode.length < 4)
+
+  const sendLabel = () => {
+    if (sending) return 'Preparing…'
+    if (momentIntent && items.length > 1) return `Create Moment (${items.length})`
+    const tags = []
+    if (eligibleForViewOnce && viewOnce) tags.push('Vanish')
+    if (eligibleForViewOnce && blurred) tags.push('Blurred')
+    const base = `Send${items.length > 1 ? ` ${items.length}` : ''}`
+    return tags.length ? `${base} · ${tags.join(' + ')}` : base
+  }
+
   // Guarded against a malformed item (missing .file) reaching render —
   // logs which item and index was bad instead of throwing
   // "Cannot read properties of undefined (reading 'name')" and
@@ -502,11 +643,29 @@ async function exportVideo(item, s, preset) {
     <AnimatePresence>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={overlayStyle}>
         <div style={topBarStyle}>
-          <button onClick={onCancel} style={iconBtnStyle}><IconX size={16} /></button>
+          <button onClick={onCancel} style={iconBtnStyle} aria-label="Close"><IconX size={16} /></button>
           <span style={counterStyle}>{index + 1} / {items.length}</span>
-          <button onClick={openMarkup} style={iconBtnStyle} title="Markup" disabled={current.mediaType !== 'image'}>
-            <IconBrush size={16} />
-          </button>
+          <div style={topRightGroupStyle}>
+            {current.mediaType === 'image' && (
+              <button
+                onClick={toggleFilters} disabled={vanishActiveForCurrent} title="Filters"
+                style={{ ...iconBtnStyle, background: filtersOpen ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.1)', opacity: vanishActiveForCurrent ? 0.4 : 1 }}
+              >
+                <IconFilter size={16} />
+              </button>
+            )}
+            {current.mediaType === 'image' && (
+              <button onClick={openMarkup} style={{ ...iconBtnStyle, opacity: vanishActiveForCurrent ? 0.4 : 1 }} title="Markup" disabled={vanishActiveForCurrent}>
+                <IconBrush size={16} />
+              </button>
+            )}
+            <button
+              onClick={toggleMore} disabled={vanishActiveForCurrent} title="Edit options"
+              style={{ ...iconBtnStyle, background: moreOpen ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.1)', opacity: vanishActiveForCurrent ? 0.4 : 1 }}
+            >
+              <IconDots size={16} />
+            </button>
+          </div>
         </div>
 
         {momentIntent && items.length > 1 && (
@@ -516,172 +675,207 @@ async function exportVideo(item, s, preset) {
           </div>
         )}
 
-        <div style={stageStyle}>
-          {current.mediaType === 'image' ? (
-            <div style={{ position: 'relative', maxWidth: '100%', maxHeight: '100%' }}>
-              <canvas ref={canvasRef} style={{ maxWidth: '100%', maxHeight: '60vh', display: 'block' }} />
-              {state?.crop && (
-                <div style={{ position: 'absolute', border: '2px solid #fff', boxShadow: '0 0 0 2000px rgba(0,0,0,0.4)', ...cropBoxStyle() }}>
-                  <div onMouseDown={dragCorner('tl')} onTouchStart={dragCorner('tl')} style={{ ...handleStyle, left: -8, top: -8, cursor: 'nwse-resize' }} />
-                  <div onMouseDown={dragCorner('br')} onTouchStart={dragCorner('br')} style={{ ...handleStyle, right: -8, bottom: -8, cursor: 'nwse-resize' }} />
-                </div>
-              )}
+        {filtersOpen && current.mediaType === 'image' && (
+          <div style={filterStripOuterStyle}>
+            <div style={filterStripStyle}>
+              {FILTER_PRESETS.map(p => {
+                const active = (state?.filterPreset || 'original') === p.id
+                return (
+                  <button key={p.id} onClick={() => applyFilterPreset(p)} style={filterChipStyle}>
+                    <span
+                      style={{
+                        ...filterThumbStyle,
+                        border: active ? `2px solid ${ACCENT_SOLID}` : '2px solid rgba(255,255,255,0.15)',
+                        backgroundImage: filterPreviewSrc ? `url(${filterPreviewSrc})` : undefined,
+                        backgroundSize: 'cover', backgroundPosition: 'center',
+                        filter: filterCssFromValues(p.values),
+                      }}
+                    />
+                    <span style={{ ...filterLabelStyle, color: active ? '#fff' : 'rgba(255,255,255,0.6)', fontWeight: active ? 700 : 600 }}>{p.label}</span>
+                  </button>
+                )
+              })}
             </div>
-          ) : (
-            <video ref={videoRef} src={URL.createObjectURL(current.file)} controls muted={state?.muted} style={{ maxWidth: '100%', maxHeight: '60vh' }} />
-          )}
+          </div>
+        )}
+
+        <div style={stageStyle}>
+          <div style={stageInnerStyle}>
+            {current.mediaType === 'image' ? (
+              <canvas ref={canvasRef} style={{ ...mediaTagStyle, opacity: vanishActiveForCurrent ? 0 : 1 }} />
+            ) : (
+              <video
+                ref={videoRef} src={URL.createObjectURL(current.file)} controls={!vanishActiveForCurrent}
+                muted={state?.muted} style={{ ...mediaTagStyle, opacity: vanishActiveForCurrent ? 0 : 1 }}
+              />
+            )}
+
+            {!vanishActiveForCurrent && current.mediaType === 'image' && state?.crop && (
+              <div style={{ position: 'absolute', border: '2px solid #fff', boxShadow: '0 0 0 2000px rgba(0,0,0,0.4)', ...cropBoxStyle() }}>
+                <div onMouseDown={dragCorner('tl')} onTouchStart={dragCorner('tl')} style={{ ...handleStyle, left: -8, top: -8, cursor: 'nwse-resize' }} />
+                <div onMouseDown={dragCorner('br')} onTouchStart={dragCorner('br')} style={{ ...handleStyle, right: -8, bottom: -8, cursor: 'nwse-resize' }} />
+              </div>
+            )}
+
+            {vanishActiveForCurrent && (
+              <div style={vanishShieldStyle}>
+                <IconHourglass size={28} />
+                <span style={vanishShieldTitleStyle}>Vanish Mode</span>
+                <span style={vanishShieldSubStyle}>Hidden after this — even from you</span>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div style={controlsStyle}>
-          {current.mediaType === 'image' ? (
-            <>
+        {moreOpen && (
+          <>
+            <div style={menuBackdropStyle} onClick={() => setMoreOpen(false)} />
+            <div style={moreMenuStyle}>
+              {current.mediaType === 'image' ? (
+                <>
+                  <div style={menuSectionLabelStyle}>Transform</div>
+                  <div style={rowStyle}>
+                    <button onClick={() => rotate(-1)} style={pillBtnStyle}>
+                      <IconRotateCCW size={13} style={{ verticalAlign: '-2px', marginRight: 5 }} />Rotate
+                    </button>
+                    <button onClick={() => rotate(1)} style={pillBtnStyle}>
+                      <IconRotateCW size={13} style={{ verticalAlign: '-2px', marginRight: 5 }} />Rotate
+                    </button>
+                  </div>
+                  <div style={{ ...rowStyle, marginTop: 6 }}>
+                    {Object.keys(ASPECTS).map(name => (
+                      <button key={name} onClick={() => setAspect(name)} style={{ ...pillBtnStyle, background: state?.aspect === name ? ACCENT_GRADIENT : 'rgba(255,255,255,0.08)' }}>{name}</button>
+                    ))}
+                  </div>
+
+                  <div style={menuSectionLabelStyle}>Fine-tune</div>
+                  <SliderRow label="Brightness" value={state?.brightness ?? 100} onChange={v => updateState({ brightness: v, filterPreset: 'custom' })} min={50} max={150} />
+                  <SliderRow label="Contrast" value={state?.contrast ?? 100} onChange={v => updateState({ contrast: v, filterPreset: 'custom' })} min={50} max={150} />
+                  <SliderRow label="Saturation" value={state?.saturation ?? 100} onChange={v => updateState({ saturation: v, filterPreset: 'custom' })} min={0} max={200} />
+                </>
+              ) : (
+                <>
+                  <div style={menuSectionLabelStyle}>Playback</div>
+                  <div style={rowStyle}>
+                    <label style={labelStyle}>
+                      <input type="checkbox" checked={!!state?.muted} onChange={(e) => updateState({ muted: e.target.checked })} /> Mute
+                    </label>
+                    <select value={state?.speed ?? 1} onChange={(e) => updateState({ speed: Number(e.target.value) })} style={selectStyle}>
+                      {[0.5, 1, 1.5, 2].map(sp => <option key={sp} value={sp}>{sp}x</option>)}
+                    </select>
+                  </div>
+                  <button onClick={captureThumbnail} style={{ ...pillBtnStyle, alignSelf: 'flex-start', marginTop: 6 }}>
+                    <IconCamera size={13} style={{ verticalAlign: '-2px', marginRight: 5 }} />Use current frame as thumbnail
+                  </button>
+
+                  <div style={menuSectionLabelStyle}>Trim</div>
+                  <div style={rowStyle}>
+                    <input
+                      type="range" min={0} max={videoRef.current?.duration || 0} step={0.1}
+                      value={state?.trimStart ?? 0}
+                      onChange={(e) => updateState({ trimStart: Math.min(Number(e.target.value), (state?.trimEnd ?? videoRef.current?.duration ?? 0) - 0.2) })}
+                      style={{ flex: 1 }}
+                    />
+                    <input
+                      type="range" min={0} max={videoRef.current?.duration || 0} step={0.1}
+                      value={state?.trimEnd ?? (videoRef.current?.duration || 0)}
+                      onChange={(e) => updateState({ trimEnd: Math.max(Number(e.target.value), (state?.trimStart ?? 0) + 0.2) })}
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                </>
+              )}
+
+              <div style={menuSectionLabelStyle}>Quality</div>
               <div style={rowStyle}>
-                <button onClick={() => rotate(-1)} style={pillBtnStyle}>
-                  <IconRotateCCW size={13} style={{ verticalAlign: '-2px', marginRight: 5 }} />Rotate
-                </button>
-                <button onClick={() => rotate(1)} style={pillBtnStyle}>
-                  <IconRotateCW size={13} style={{ verticalAlign: '-2px', marginRight: 5 }} />Rotate
-                </button>
-                {Object.keys(ASPECTS).map(name => (
-                  <button key={name} onClick={() => setAspect(name)} style={{ ...pillBtnStyle, background: state?.aspect === name ? ACCENT_GRADIENT : 'rgba(255,255,255,0.08)' }}>{name}</button>
+                {Object.entries(QUALITY_PRESETS).map(([key, p]) => (
+                  <button key={key} onClick={() => setQuality(key)} style={{ ...pillBtnStyle, background: quality === key ? ACCENT_GRADIENT : 'rgba(255,255,255,0.08)' }}>
+                    {p.label}
+                  </button>
                 ))}
               </div>
+            </div>
+          </>
+        )}
 
-              <button
-                onClick={() => setAdjustOpen(v => !v)}
-                style={{ ...pillBtnStyle, display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', background: adjustOpen ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.08)' }}
-              >
-                <IconAdjust size={13} />
-                Adjust
-                <span style={{ display: 'flex', transform: adjustOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
-                  <IconChevronDown size={11} />
-                </span>
-              </button>
-
-              {adjustOpen && (
-                <div style={adjustPanelStyle}>
-                  <SliderRow label="Brightness" value={state?.brightness ?? 100} onChange={v => updateState({ brightness: v })} min={50} max={150} />
-                  <SliderRow label="Contrast" value={state?.contrast ?? 100} onChange={v => updateState({ contrast: v })} min={50} max={150} />
-                  <SliderRow label="Saturation" value={state?.saturation ?? 100} onChange={v => updateState({ saturation: v })} min={0} max={200} />
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <div style={rowStyle}>
-                <label style={labelStyle}>
-                  <input type="checkbox" checked={!!state?.muted} onChange={(e) => updateState({ muted: e.target.checked })} /> Mute
-                </label>
-                <select value={state?.speed ?? 1} onChange={(e) => updateState({ speed: Number(e.target.value) })} style={selectStyle}>
-                  {[0.5, 1, 1.5, 2].map(sp => <option key={sp} value={sp}>{sp}x</option>)}
-                </select>
-                <button onClick={captureThumbnail} style={pillBtnStyle}>
-                  <IconCamera size={13} style={{ verticalAlign: '-2px', marginRight: 5 }} />Use current frame as thumbnail
-                </button>
-              </div>
-              <div style={rowStyle}>
-                <span style={labelStyle}>Trim</span>
-                <input
-                  type="range" min={0} max={videoRef.current?.duration || 0} step={0.1}
-                  value={state?.trimStart ?? 0}
-                  onChange={(e) => updateState({ trimStart: Math.min(Number(e.target.value), (state?.trimEnd ?? videoRef.current?.duration ?? 0) - 0.2) })}
-                  style={{ flex: 1 }}
-                />
-                <input
-                  type="range" min={0} max={videoRef.current?.duration || 0} step={0.1}
-                  value={state?.trimEnd ?? (videoRef.current?.duration || 0)}
-                  onChange={(e) => updateState({ trimEnd: Math.max(Number(e.target.value), (state?.trimStart ?? 0) + 0.2) })}
-                  style={{ flex: 1 }}
-                />
-              </div>
-            </>
-          )}
-
-          <div style={rowStyle}>
-            {items.length > 1 && (
+        <div style={controlsStyle}>
+          {items.length > 1 && (
+            <div style={rowStyle}>
               <div style={{ display: 'flex', gap: 6, overflowX: 'auto' }}>
                 {items.map((it, i) => (
                   <button key={i} onClick={() => setIndex(i)} style={{ ...thumbDotStyle, opacity: i === index ? 1 : 0.4 }} />
                 ))}
               </div>
-            )}
-            {items.length > 1 && !momentIntent && (
-              <button
-                onClick={handleCreateMoment}
-                disabled={sending}
-                style={{ ...pillBtnStyle, background: ACCENT_GRADIENT, marginLeft: 'auto', opacity: sending ? 0.6 : 1 }}
-              >
-                <IconSparkle size={13} style={{ verticalAlign: '-2px', marginRight: 5 }} />Create Moment
-              </button>
-            )}
-          </div>
-
-          {eligibleForViewOnce && (
-            <button
-              onClick={() => setViewOnce(v => !v)}
-              style={{
-                ...pillBtnStyle,
-                display: 'flex', alignItems: 'center', gap: 6,
-                background: viewOnce ? ACCENT_GRADIENT : 'rgba(255,255,255,0.08)',
-                alignSelf: 'flex-start',
-              }}
-              title="Recipient can open this once, then it's gone"
-            >
-              {viewOnce ? <IconOne size={13} /> : <IconEye size={13} />}
-              View once {viewOnce ? '· On' : ''}
-            </button>
+              {!momentIntent && (
+                <button
+                  onClick={handleCreateMoment}
+                  disabled={sending}
+                  style={{ ...pillBtnStyle, background: ACCENT_GRADIENT, marginLeft: 'auto', opacity: sending ? 0.6 : 1 }}
+                >
+                  <IconSparkle size={13} style={{ verticalAlign: '-2px', marginRight: 5 }} />Create Moment
+                </button>
+              )}
+            </div>
           )}
 
           {eligibleForViewOnce && (
-            <div style={blurSectionStyle}>
+            <div style={vanishRowStyle}>
               <button
-                onClick={() => setBlurred(v => !v)}
+                onClick={() => setViewOnce(v => !v)}
                 style={{
                   ...pillBtnStyle,
                   display: 'flex', alignItems: 'center', gap: 6,
-                  background: blurred ? ACCENT_GRADIENT : 'rgba(255,255,255,0.08)',
-                  alignSelf: 'flex-start',
+                  background: viewOnce ? ACCENT_GRADIENT : 'rgba(255,255,255,0.08)',
                 }}
-                title="Send this blurred — recipient reveals it themselves"
+                title="Recipient can open this once. Hidden here too, once armed."
               >
-                <IconBlurToggle size={13} />
-                Blur photo {blurred ? '· On' : ''}
+                <IconHourglass size={13} />
+                Vanish {viewOnce ? '· On' : ''}
               </button>
+              {viewOnce && <span style={vanishHintTextStyle}>Turn off to keep editing</span>}
+            </div>
+          )}
 
-              {blurred && (
-                <div style={blurOptionsStyle}>
-                  <div style={rowStyle}>
-                    <button
-                      onClick={() => setRevealMethod('rub')}
-                      style={{ ...pillBtnStyle, background: revealMethod === 'rub' ? ACCENT_GRADIENT : 'rgba(255,255,255,0.08)' }}
-                    >
-                      Rub to reveal
-                    </button>
-                    <button
-                      onClick={() => setRevealMethod('code')}
-                      style={{ ...pillBtnStyle, background: revealMethod === 'code' ? ACCENT_GRADIENT : 'rgba(255,255,255,0.08)' }}
-                    >
-                      Unlock with code
-                    </button>
-                  </div>
-
-                  {revealMethod === 'code' && (
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={4}
-                      value={revealCode}
-                      onChange={(e) => setRevealCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                      placeholder="Set a 4-digit code…"
-                      style={captionInputStyle}
-                    />
-                  )}
-                  {revealMethod === 'code' && revealCode.length > 0 && revealCode.length < 4 && (
-                    <span style={blurHintStyle}>Code needs to be 4 digits</span>
-                  )}
-                </div>
+          {eligibleForViewOnce && blurred && (
+            <div style={blurOptionsStyle}>
+              <div style={rowStyle}>
+                <span style={{ ...labelStyle, fontWeight: 700, color: '#fff' }}>
+                  <IconBlurToggle size={13} style={{ verticalAlign: '-2px', marginRight: 5 }} />Blur armed
+                </span>
+                <button onClick={() => setBlurred(false)} style={blurClearLinkStyle}>Turn off</button>
+              </div>
+              <div style={rowStyle}>
+                <button
+                  onClick={() => setRevealMethod('rub')}
+                  style={{ ...pillBtnStyle, background: revealMethod === 'rub' ? ACCENT_GRADIENT : 'rgba(255,255,255,0.08)' }}
+                >
+                  Rub to reveal
+                </button>
+                <button
+                  onClick={() => setRevealMethod('code')}
+                  style={{ ...pillBtnStyle, background: revealMethod === 'code' ? ACCENT_GRADIENT : 'rgba(255,255,255,0.08)' }}
+                >
+                  Unlock with code
+                </button>
+              </div>
+              {revealMethod === 'code' && (
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={revealCode}
+                  onChange={(e) => setRevealCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="Set a 4-digit code…"
+                  style={captionInputStyle}
+                />
+              )}
+              {revealMethod === 'code' && revealCode.length > 0 && revealCode.length < 4 && (
+                <span style={blurHintStyle}>Code needs to be 4 digits</span>
               )}
             </div>
+          )}
+          {eligibleForViewOnce && !blurred && (
+            <span style={longPressHintStyle}>Long-press Send to blur this photo</span>
           )}
 
           <input
@@ -689,26 +883,16 @@ async function exportVideo(item, s, preset) {
             placeholder="Add a caption…" style={captionInputStyle}
           />
 
-          <div style={rowStyle}>
-            {Object.entries(QUALITY_PRESETS).map(([key, p]) => (
-              <button key={key} onClick={() => setQuality(key)} style={{ ...pillBtnStyle, background: quality === key ? ACCENT_GRADIENT : 'rgba(255,255,255,0.08)' }}>
-                {p.label}
-              </button>
-            ))}
-          </div>
-
           <button
-            onClick={momentIntent && items.length > 1 ? handleCreateMoment : handleSend}
-            disabled={sending || (eligibleForViewOnce && blurred && revealMethod === 'code' && revealCode.length < 4)}
-            style={sendBtnStyle}
+            onClick={handleSendClick}
+            onPointerDown={handleSendPointerDown}
+            onPointerUp={clearLongPress}
+            onPointerLeave={clearLongPress}
+            onPointerCancel={clearLongPress}
+            disabled={sendDisabled}
+            style={{ ...sendBtnStyle, opacity: sendDisabled ? 0.6 : 1 }}
           >
-            {sending
-              ? 'Preparing…'
-              : momentIntent && items.length > 1
-                ? `Create Moment (${items.length})`
-                : eligibleForViewOnce && viewOnce
-                  ? 'Send (View once)'
-                  : `Send${items.length > 1 ? ` ${items.length}` : ''}`}
+            {sendLabel()}
           </button>
           {momentIntent && items.length > 1 && (
             <button onClick={handleSend} disabled={sending} style={sendAsSeparateLinkStyle}>
@@ -774,11 +958,18 @@ function randomSalt() {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
-const overlayStyle = { position: 'fixed', inset: 0, zIndex: Z.fullscreenEditor, display: 'flex', flexDirection: 'column', background: '#000' }
+// overlayStyle: width/height added alongside inset:0 as a defensive
+// measure for mobile dynamic-viewport edge cases — see the SIDEBAR-BLEED
+// FIX note at the top of this file for why this component itself isn't
+// the actual source of a sidebar showing through.
+const overlayStyle = { position: 'fixed', inset: 0, width: '100vw', height: '100vh', zIndex: Z.fullscreenEditor, display: 'flex', flexDirection: 'column', background: '#000' }
 const topBarStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px' }
+const topRightGroupStyle = { display: 'flex', alignItems: 'center', gap: 8 }
 const counterStyle = { color: '#fff', fontWeight: 600, fontSize: 13 }
 const iconBtnStyle = { width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', cursor: 'pointer' }
 const stageStyle = { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }
+const stageInnerStyle = { position: 'relative', maxWidth: '100%', maxHeight: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }
+const mediaTagStyle = { maxWidth: '100%', maxHeight: '62vh', display: 'block', borderRadius: 12, objectFit: 'contain' }
 const handleStyle = { position: 'absolute', width: 20, height: 20, background: '#fff', borderRadius: '50%', border: `2px solid ${ACCENT_SOLID}` }
 const controlsStyle = { background: 'rgba(15,13,22,0.96)', padding: '12px 16px max(12px, env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: 10 }
 const rowStyle = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
@@ -787,10 +978,40 @@ const pillBtnStyle = { padding: '7px 12px', borderRadius: 20, border: 'none', ba
 const selectStyle = { background: 'rgba(255,255,255,0.08)', color: '#fff', border: 'none', borderRadius: 10, padding: '7px 10px', fontSize: 12.5 }
 const thumbDotStyle = { width: 8, height: 8, borderRadius: '50%', background: '#fff', border: 'none', cursor: 'pointer', flexShrink: 0 }
 const captionInputStyle = { background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 12, padding: '10px 14px', color: '#fff', fontSize: 14 }
-const sendBtnStyle = { background: ACCENT_GRADIENT, color: '#fff', border: 'none', borderRadius: 14, padding: '13px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer' }
+const sendBtnStyle = { background: ACCENT_GRADIENT, color: '#fff', border: 'none', borderRadius: 14, padding: '13px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer', userSelect: 'none', touchAction: 'manipulation' }
 const momentBannerStyle = { textAlign: 'center', color: '#c4b5fd', fontSize: 12, fontWeight: 700, padding: '2px 16px 8px' }
 const blurSectionStyle = { display: 'flex', flexDirection: 'column', gap: 8 }
-const blurOptionsStyle = { display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 4 }
+const blurOptionsStyle = { display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 12 }
 const blurHintStyle = { fontSize: 11, color: '#f87171', fontWeight: 600 }
-const adjustPanelStyle = { display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 12 }
+const blurClearLinkStyle = { background: 'none', border: 'none', color: 'rgba(255,255,255,0.55)', fontSize: 11.5, textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', marginLeft: 'auto' }
+const longPressHintStyle = { fontSize: 11, color: 'rgba(255,255,255,0.4)', textAlign: 'center' }
+const vanishRowStyle = { display: 'flex', alignItems: 'center', gap: 8 }
+const vanishHintTextStyle = { fontSize: 11, color: 'rgba(255,255,255,0.5)' }
 const sendAsSeparateLinkStyle = { background: 'none', border: 'none', color: 'rgba(255,255,255,0.55)', fontSize: 12, textAlign: 'center', textDecoration: 'underline', cursor: 'pointer', padding: '2px 0 0', fontFamily: 'inherit' }
+
+// "⋮" dropdown (Rotate/Aspect/Adjust/Quality or Mute/Speed/Trim/Quality)
+const menuBackdropStyle = { position: 'fixed', inset: 0, zIndex: 2 }
+const moreMenuStyle = {
+  position: 'absolute', top: 60, right: 16, zIndex: 3, width: 260, maxHeight: '55vh', overflowY: 'auto',
+  background: 'rgba(20,18,30,0.97)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 16,
+  padding: '10px 12px 14px', display: 'flex', flexDirection: 'column', boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
+}
+const menuSectionLabelStyle = { fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', margin: '10px 0 6px' }
+
+// Filters strip
+const filterStripOuterStyle = { padding: '0 12px 8px' }
+const filterStripStyle = { display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 2 }
+const filterChipStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }
+const filterThumbStyle = { width: 54, height: 54, borderRadius: 12, background: 'rgba(255,255,255,0.08)' }
+const filterLabelStyle = { fontSize: 10.5 }
+
+// Vanish shield — frosted-glass cover over the sender's own preview.
+const vanishShieldStyle = {
+  position: 'absolute', inset: 0, borderRadius: 12,
+  background: 'linear-gradient(160deg, rgba(127,95,255,0.35), rgba(200,109,215,0.35)), rgba(10,8,16,0.75)',
+  backdropFilter: 'blur(30px)', WebkitBackdropFilter: 'blur(30px)',
+  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
+  color: '#fff', textAlign: 'center', padding: 20,
+}
+const vanishShieldTitleStyle = { fontSize: 14, fontWeight: 800, letterSpacing: 0.2 }
+const vanishShieldSubStyle = { fontSize: 11.5, color: 'rgba(255,255,255,0.75)', maxWidth: 200 }
