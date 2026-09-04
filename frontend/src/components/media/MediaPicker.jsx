@@ -36,6 +36,8 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion'
+import { createPortal } from 'react-dom'
+import { Z } from '../../lib/zLayers'
 
 // ---- self-contained icons (no emoji) ----
 
@@ -147,8 +149,7 @@ export default function MediaPicker({ isOpen, onClose, onConfirm, accept = 'imag
     // Single call, ordered array, exactly what MediaAttachmentFlow expects.
     onConfirm(items.map(({ file, mediaType }) => ({ file, mediaType })))
   }
-
-  return (
+ return createPortal(
     <AnimatePresence>
       {isOpen && (
         <motion.div
@@ -243,7 +244,8 @@ export default function MediaPicker({ isOpen, onClose, onConfirm, accept = 'imag
           </div>
         </motion.div>
       )}
-    </AnimatePresence>
+ </AnimatePresence>,
+    document.body
   )
 }
 
@@ -307,7 +309,8 @@ function MediaTile({ item, index, onRemove, onDuration }) {
 // go invisible).
 
 const rootStyle = {
-  position: 'fixed', inset: 0, zIndex: 70,
+  position: 'fixed', inset: 0, width: '100vw', height: '100vh',
+ zIndex: Z.fullscreenEditor,
   display: 'flex', flexDirection: 'column',
   background: 'linear-gradient(180deg, #17131f 0%, #0f0d16 100%)',
   maxWidth: 480, margin: '0 auto',
