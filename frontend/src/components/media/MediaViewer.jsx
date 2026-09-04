@@ -20,11 +20,13 @@
 // position rather than cutting straight to full-screen.
 
 import { useState, useRef, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import { getSignedUrl, deleteMediaAsset, markViewOnceViewed } from '../../services/MediaAssetService'
 import { getStreamPlaybackToken, streamIframeUrl } from '../../services/CloudflareStreamService'
 import { runSmartMediaAction, SMART_MEDIA_ACTIONS } from '../../services/SmartMediaService'
 import { useReactions } from '../MessageReactions'
+import { Z } from '../../lib/zLayers'
 
  
 export default function MediaViewer({
@@ -194,9 +196,9 @@ export default function MediaViewer({
 
   const availableSmartActions = asset ? SMART_MEDIA_ACTIONS.filter(a => a.mediaTypes.includes(asset.media_type)) : []
 
-  if (!current) return null
+    if (!current) return null
 
-  return (
+  return createPortal(
     <div style={overlayStyle}>
       <div style={topBarStyle}>
         <button onClick={onClose} style={iconBtnStyle}><XIcon /></button>
@@ -304,10 +306,10 @@ export default function MediaViewer({
           {isMe && <ActionBtn icon={<TrashIcon />} label="Delete" onClick={handleDelete} danger />}
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   )
 }
-
 function ActionBtn({ icon, label, onClick, danger }) {
   return (
     <button onClick={onClick} style={{ ...actionBtnStyle, color: danger ? '#f87171' : '#fff' }}>
@@ -329,7 +331,7 @@ function ShareIcon() { return <svg {...svgProps}><circle cx="18" cy="5" r="3" />
 function TrashIcon() { return <svg {...svgProps}><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /></svg> }
 function SparkleIcon() { return <svg {...svgProps}><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" /></svg> }
 
-const overlayStyle = { position: 'fixed', inset: 0, zIndex: 90, background: '#000', display: 'flex', flexDirection: 'column' }
+const overlayStyle = { position: 'fixed', inset: 0, zIndex: Z.viewer, background: '#000', display: 'flex', flexDirection: 'column' }
 const topBarStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', zIndex: 2 }
 const counterStyle = { color: '#fff', fontWeight: 600, fontSize: 13 }
 const iconBtnStyle = { width: 34, height: 34, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }
