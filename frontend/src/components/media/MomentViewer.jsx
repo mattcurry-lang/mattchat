@@ -4,7 +4,9 @@
 // whole conversation's separate media messages.
 
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { getSignedUrl, deleteMediaAsset } from '../../services/MediaAssetService'
+import { Z } from '../../lib/zLayers'
 
 export default function MomentViewer({ message, currentUserId, onClose, onDeleted }) {
   const assets = useMemo(
@@ -89,7 +91,7 @@ export default function MomentViewer({ message, currentUserId, onClose, onDelete
 
   if (!current) return null
 
-  return (
+  return createPortal(
     <div style={overlayStyle}>
       <div style={topBarStyle}>
         <button onClick={onClose} style={iconBtnStyle}>✕</button>
@@ -126,11 +128,12 @@ export default function MomentViewer({ message, currentUserId, onClose, onDelete
         <button onClick={handleDownload} style={actionBtnStyle}>⬇ Save</button>
         {isMe && <button onClick={handleDeleteItem} style={{ ...actionBtnStyle, color: '#f87171' }}>🗑 {assets.length === 1 ? 'Delete Moment' : 'Remove item'}</button>}
       </div>
-    </div>
+     </div>,
+    document.body
   )
 }
 
-const overlayStyle = { position: 'fixed', inset: 0, zIndex: 90, background: '#000', display: 'flex', flexDirection: 'column' }
+const overlayStyle = { position: 'fixed', inset: 0, zIndex: Z.viewer, background: '#000', display: 'flex', flexDirection: 'column' }
 const topBarStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px' }
 const iconBtnStyle = { width: 34, height: 34, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', cursor: 'pointer' }
 const titleWrapStyle = { textAlign: 'center' }
