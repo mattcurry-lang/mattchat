@@ -179,7 +179,36 @@ function StatusRow({ status, progress, retryUnavailable, onResume }) {
   }
   return null
 }
-
+// Add near Spinner()
+function DevelopingLoader({ status, progress, retryUnavailable, onResume }) {
+  if (status === 'failed') {
+    return (
+      <div style={{ textAlign: 'center' }}>
+        <IconAlert size={20} />
+        {!retryUnavailable && (
+          <motion.button whileTap={{ scale: 0.88 }} onClick={onResume} style={resumeBtnStyleDark}>
+            Resume
+          </motion.button>
+        )}
+      </div>
+    )
+  }
+  const pct = Math.round(progress || 0)
+  const label = status === 'preparing' ? 'Preparing' : status === 'processing' ? 'Finishing' : 'Developing'
+  return (
+    <div style={developingWrapStyle}>
+      {/* Vignette that clears as progress climbs — like a print coming into focus, not a ring filling up */}
+      <div style={{ ...developingVignetteStyle, opacity: status === 'uploading' ? 1 - pct / 100 : 0.55 }} />
+      <motion.div
+        animate={{ opacity: [0.5, 1, 0.5] }}
+        transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+        style={developingPillStyle}
+      >
+        {label}{status === 'uploading' ? ` · ${pct}%` : '…'}
+      </motion.div>
+    </div>
+  )
+}
 function Spinner() {
   return (
     <span style={{
@@ -471,39 +500,22 @@ if (asset.media_type === 'contact') {
 
  
         {asset.upload_status !== 'sent' && (
-          <div style={uploadOverlayStyle}>
-            {asset.upload_status === 'uploading' && (
-              <div style={progressRingWrap}>
-                <svg width="36" height="36" viewBox="0 0 36 36">
-                  <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="3" />
-                  
-<circle
-  cx="18" cy="18" r="15.5" fill="none" stroke="#fff" strokeWidth="3"
-  strokeDasharray={2 * Math.PI * 15.5}
-  strokeDashoffset={2 * Math.PI * 15.5 * (1 - (asset.upload_progress || 0) / 100)}
-  strokeLinecap="round" transform="rotate(-90 18 18)"
-  style={{ transition: 'stroke-dashoffset 0.15s linear' }}
-/>
-                </svg>
-                <span style={progressPctStyle}>{Math.round(asset.upload_progress || 0)}%</span>
-              </div>
-            )}
-            {asset.upload_status === 'failed' && (
-              <div style={{ textAlign: 'center' }}>
-                <IconAlert size={20} />
-                {!message._retryUnavailable && (
-                  <motion.button
-                    whileTap={{ scale: 0.88 }}
-                    onClick={(e) => { e.stopPropagation(); onRetry?.(message) }}
-                    style={resumeBtnStyleDark}
-                  >
-                    Resume
-                  </motion.button>
-                )}
-              </div>
-            )}
-            {(asset.upload_status === 'preparing' || asset.upload_status === 'processing') && <Spinner />}
-          </div>
+              isMe ? (
+           <div style={uploadOverlayStyle}>
+             <DevelopingLoader
+              status={asset.upload_status}
+               progress={asset.upload_progress}
+               retryUnavailable={message._retryUnavailable}
+               onResume={(e) => { e.stopPropagation(); onRetry?.(message) }}
+             />
+           </div>
+         ) : (
+           // Recipient sees nothing but the ambient shimmer already
+           // rendered above (displayThumb/shimmerStyle) — no percentage,
+           // no spinner, no failure state. The bubble simply appears
+           // once upload_status flips to 'sent'.
+           null
+          )
         )}
    </div>
       {message.content && <div style={captionStyle}>{message.content}</div>}
@@ -600,4 +612,34 @@ const shimmerStyle = {
   background: 'linear-gradient(100deg, rgba(255,255,255,0.04) 30%, rgba(255,255,255,0.11) 45%, rgba(255,255,255,0.04) 60%)',
   backgroundSize: '200% 100%',
   animation: 'mm-shimmer 1.4s ease-in-out infinite',
+}
+// Add near Spinner()
+function DevelopingLoader({ status, progress, retryUnavailable, onResume }) {
+  if (status === 'failed') {
+    return (
+      <div style={{ textAlign: 'center' }}>
+        <IconAlert size={20} />
+        {!retryUnavailable && (
+          <motion.button whileTap={{ scale: 0.88 }} onClick={onResume} style={resumeBtnStyleDark}>
+            Resume
+          </motion.button>
+        )}
+      </div>
+    )
+  }
+  const pct = Math.round(progress || 0)
+  const label = status === 'preparing' ? 'Preparing' : status === 'processing' ? 'Finishing' : 'Developing'
+  return (
+    <div style={developingWrapStyle}>
+      {/* Vignette that clears as progress climbs — like a print coming into focus, not a ring filling up */}
+      <div style={{ ...developingVignetteStyle, opacity: status === 'uploading' ? 1 - pct / 100 : 0.55 }} />
+      <motion.div
+        animate={{ opacity: [0.5, 1, 0.5] }}
+        transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+        style={developingPillStyle}
+      >
+        {label}{status === 'uploading' ? ` · ${pct}%` : '…'}
+      </motion.div>
+    </div>
+  )
 }
