@@ -205,7 +205,7 @@ export default function BlurRevealMedia({
         {!revealed && revealMethod === 'rub' && (
           <motion.canvas
             ref={canvasRef}
-            exit={{ opacity: 0, transition: { duration: 0.35 } }}
+            eexit={{ opacity: 0, pointerEvents: 'none', transition: { duration: 0.35 } }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
