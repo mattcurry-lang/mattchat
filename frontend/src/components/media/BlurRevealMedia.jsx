@@ -55,6 +55,7 @@ export default function BlurRevealMedia({
   verifyCode,           // async (code: string) => boolean — required when revealMethod === 'code'
   codeLength = 4,
   onRevealed,
+  onOpenViewer,
   aspectRatio,
   alt = '',
 }) {
@@ -171,13 +172,33 @@ export default function BlurRevealMedia({
     }
   }
   const handleBackspace = () => setEnteredCode((c) => c.slice(0, -1))
+   // Before reveal, a code-locked box shouldn't be squeezed into the
+  // photo's real aspect ratio — there's no image to preserve proportions
+  // for yet, and that's what was clipping the keypad. Once revealed,
+  // switch back to the real aspect so the photo displays properly.
+ const containerAspect = (revealMethod === 'code' && !revealed) ? undefined : aspectRatio
 
   return (
-    <div ref={containerRef} style={{ ...wrapStyle, aspectRatio: aspectRatio || '4/3' }}>
+    <div
+      ref={containerRef}
+      style={{
+        ...wrapStyle,
+        aspectRatio: containerAspect || (revealMethod === 'code' && !revealed ? undefined : '4/3'),
+        minHeight: revealMethod === 'code' && !revealed ? 340 : undefined,
+      }}
+   >
       {mediaType === 'video' ? (
-        <video src={src} muted={!revealed} controls={revealed} playsInline poster={posterSrc} style={mediaStyle} />
+        <video
+          src={src} muted={!revealed} controls={revealed} playsInline poster={posterSrc}
+          onClick={() => revealed && onOpenViewer?.()}
+          style={{ ...mediaStyle, cursor: revealed ? 'pointer' : 'default' }}
+        />
       ) : (
-        <img src={src} alt={alt} style={mediaStyle} />
+         <img
+        src={src} alt={alt}
+          onClick={() => revealed && onOpenViewer?.()}
+         style={{ ...mediaStyle, cursor: revealed ? 'pointer' : 'default' }}
+        />
       )}
 
       <AnimatePresence>
@@ -218,31 +239,50 @@ export default function BlurRevealMedia({
             exit={{ opacity: 0, transition: { duration: 0.35 } }}
             style={codeOverlayStyle}
           >
-            <IconLock size={20} style={{ color: '#c9c0ff', marginBottom: 6 }} />
-            <span style={codeLabelStyle}>Enter code to reveal</span>
-            <motion.div
-              animate={shake ? { x: [0, -8, 8, -6, 6, 0] } : {}}
-              transition={{ duration: 0.4 }}
-              style={dotsRowStyle}
-            >
-              {Array.from({ length: codeLength }).map((_, i) => (
-                <span key={i} style={{ ...dotStyle, background: i < enteredCode.length ? '#c9c0ff' : 'rgba(255,255,255,0.15)' }} />
-              ))}
-            </motion.div>
-            <div style={keypadStyle}>
-              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back'].map((k, i) =>
-                k === '' ? <span key={i} /> : (
-                  <button
-                    key={i}
-                    onClick={() => (k === 'back' ? handleBackspace() : handleDigit(k))}
-                    disabled={checking}
-                    style={keyStyle}
-                  >
-                    {k === 'back' ? <IconBackspace size={16} /> : k}
-                  </button>
-                )
+                      <motion.div
+             animate={{ rotate: [0, -4, 4, 0] }}
+             transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+             style={lockGlowStyle}
+           >
+             <IconLock size={18} style={{ color: '#fff' }} />
+           </motion.div>
+           <span style={codeLabelStyle}>Enter code to reveal</span>
+           <motion.div
+             animate={shake ? { x: [0, -8, 8, -6, 6, 0] } : {}}
+             transition={{ duration: 0.4 }}
+             style={dotsRowStyle}
+           >
+             {Array.from({ length: codeLength }).map((_, i) => (
+               <motion.span
+                 key={i}
+                 animate={i < enteredCode.length ? { scale: [0.6, 1.15, 1] } : { scale: 1 }}
+                 transition={{ duration: 0.25 }}
+                 style={{
+                   ...gemStyle,
+                   background: i < enteredCode.length
+                     ? 'linear-gradient(135deg, #7F5FFF 0%, #C86DD7 100%)'
+                     : 'rgba(255,255,255,0.12)',
+                   boxShadow: i < enteredCode.length ? '0 0 8px rgba(167,139,250,0.6)' : 'none',
+                 }}
+               />
+             ))}
+           </motion.div>
+           <div style={keypadStyle}>
+             {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back'].map((k, i) =>
+               k === '' ? <span key={i} /> : (
+                 <motion.button
+                   key={i}
+                   whileTap={{ scale: 0.88, rotate: k === 'back' ? 0 : -3 }}
+                   onClick={() => (k === 'back' ? handleBackspace() : handleDigit(k))}
+                   disabled={checking}
+                   style={keyStyle}
+                 >
+                   {k === 'back' ? <IconBackspace size={15} /> : k}
+                 </motion.button>
+               )
               )}
-            </div>
+           </div>
+
           </motion.div>
         )}
       </AnimatePresence>
@@ -264,14 +304,22 @@ const hintTextStyle = { fontSize: 12.5, fontWeight: 700, letterSpacing: 0.2 }
 
 const codeOverlayStyle = {
   position: 'absolute', inset: 0, background: 'rgba(15,13,22,0.94)',
-  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 16,
+  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+ padding: 14, overflowY: 'auto', gap: 2,
 }
-const codeLabelStyle = { fontSize: 12, fontWeight: 700, color: '#c9c0ff', marginBottom: 14 }
-const dotsRowStyle = { display: 'flex', gap: 10, marginBottom: 16 }
-const dotStyle = { width: 11, height: 11, borderRadius: '50%', transition: 'background 0.15s' }
-const keypadStyle = { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, width: 168 }
+const codeLabelStyle = { fontSize: 11.5, fontWeight: 700, color: '#c9c0ff', marginBottom: 10 }
+const lockGlowStyle = {
+  width: 34, height: 34, borderRadius: '50%', marginBottom: 6,
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  background: 'linear-gradient(135deg, #7F5FFF 0%, #C86DD7 100%)',
+  boxShadow: '0 0 14px rgba(167,139,250,0.5)',
+}
+const dotsRowStyle = { display: 'flex', gap: 9, marginBottom: 12 }
+const gemStyle = { width: 10, height: 10, borderRadius: 3, transform: 'rotate(45deg)', transition: 'background 0.15s' }
+const keypadStyle = { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 7, width: 148 }
 const keyStyle = {
-  width: 48, height: 48, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.15)',
-  background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: 16, fontWeight: 700,
+ width: 42, height: 42, borderRadius: 14, border: '1px solid rgba(167,139,250,0.25)',
+ background: 'linear-gradient(160deg, rgba(127,95,255,0.14) 0%, rgba(255,255,255,0.04) 100%)',
+ color: '#fff', fontSize: 15, fontWeight: 700,
   display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
 }
