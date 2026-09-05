@@ -344,8 +344,42 @@ if (asset.media_type === 'contact') {
       </div>
     )
   }
-
- 
+  // ---- Vanish (view-once): a compact chip, not a photo-shaped box ----
+  // Deliberately NOT the same frame/aspect-ratio as a normal media bubble
+  // (that's the WhatsApp approach — same box, swapped icon). This renders
+  // as its own small row instead, closer to a voice-note bubble, so
+  // Vanish reads as a distinct message kind rather than "a photo with a
+  // lock icon on it."
+  if (isViewOnceLockedForSender || isViewOnceUnopened || isViewOnceUnavailable) {
+    const label = isViewOnceLockedForSender
+      ? (asset.viewed_at ? 'Vanish photo · Opened' : 'Vanish photo · Sent')
+      : isViewOnceUnopened
+      ? 'Vanish photo · Tap to view'
+      : 'Vanish photo · Opened'
+    const interactive = isViewOnceUnopened && asset.upload_status === 'sent'
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <button
+          type="button"
+          disabled={!interactive}
+          onClick={() => interactive && onOpenViewer?.(message)}
+          style={{ ...vanishChipStyle, cursor: interactive ? 'pointer' : 'default' }}
+        >
+          <span style={vanishChipIconStyle}>
+            <IconHourglass size={16} />
+          </span>
+          <span style={vanishChipLabelStyle}>{label}</span>
+          {interactive && <span style={vanishChipPulseStyle} />}
+        </button>
+        {message.content && <div style={captionStyle}>{message.content}</div>}
+      </div>
+   )
+ }
+ @keyframes mm-vanish-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(167,139,250,0.35); }
+  70%  { box-shadow: 0 0 0 8px rgba(167,139,250,0); }
+  100% { box-shadow: 0 0 0 0 rgba(167,139,250,0); }
+}
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: MEDIA_MAX_WIDTH_CSS }}>
           <div
@@ -364,7 +398,7 @@ if (asset.media_type === 'contact') {
         }}
         style={{
           ...mediaThumbWrapStyle,
-          cursor: asset.upload_status === 'sent' && !isViewOnceLockedForSender && !isViewOnceUnavailable ? 'pointer' : 'default',
+          cursor: asset.upload_status === 'sent' ? 'pointer' : 'default',
           aspectRatio: asset.width && asset.height ? `${asset.width}/${asset.height}` : '4/3',
           boxShadow: justSent
             ? '0 0 0 3px rgba(124,92,255,0.55), 0 10px 28px rgba(0,0,0,0.35)'
@@ -373,22 +407,7 @@ if (asset.media_type === 'contact') {
         }}
       >
         <motion.div layoutId={`media-${asset.id}`} style={{ position: 'absolute', inset: 0 }}>
-          {isViewOnceLockedForSender ? (
-            <div style={vanishLockedStyle}>
-              <IconHourglass size={20} />
-              <span>{asset.viewed_at ? 'Vanish photo · Opened' : 'Vanish photo · Sent'}</span>
-            </div>
-          ) : isViewOnceUnopened ? (
-            <div style={vanishLockedStyle}>
-              <IconHourglass size={20} />
-              <span>Vanish photo · Tap to view</span>
-            </div>
-          ) : isViewOnceUnavailable ? (
-            <div style={viewOnceGoneStyle}>
-              <IconEyeOff size={20} />
-              <span>Opened</span>
-            </div>
-          ) : isBlurredUnrevealed ? (
+        {isBlurredUnrevealed ? (
             url ? (
               <BlurRevealMedia
                 mediaType={asset.media_type}
@@ -440,14 +459,11 @@ if (asset.media_type === 'contact') {
           )}
         </motion.div>
 
-        {isVideo && !isViewOnceLockedForSender && !isViewOnceUnopened && !isViewOnceUnavailable && !isBlurredUnrevealed && asset.upload_status === 'sent' && (
+       {isVideo && !isBlurredUnrevealed && asset.upload_status === 'sent' && (
           <span style={playOverlayStyle}><IconPlay size={22} /></span>
         )}
 
-onRevealed={() => markBlurRevealed(asset.id, currentUserId).catch((e) => console.error('[MediaMessage] markBlurRevealed failed:', e))}
-          <span style={playOverlayStyle}><IconPlay size={22} /></span>
-        )}
-
+ 
         {asset.upload_status !== 'sent' && (
           <div style={uploadOverlayStyle}>
             {asset.upload_status === 'uploading' && (
@@ -545,8 +561,32 @@ const progressRingWrap = { position: 'relative', display: 'flex', alignItems: 'c
 const progressPctStyle = { position: 'absolute', fontSize: 10, fontWeight: 700, color: '#fff' }
 const viewOnceBadgeStyle = { position: 'absolute', top: 8, left: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 800, borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }
 const blurRevealedBadgeStyle = { position: 'absolute', top: 8, left: 8, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 9.5, fontWeight: 700, borderRadius: 8, padding: '3px 7px', letterSpacing: 0.2 }
-const viewOnceGoneStyle = { width: '100%', minHeight: 170, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, color: 'var(--text-secondary, #c9c4dd)', fontSize: 11 }
-const vanishLockedStyle = { width: '100%', minHeight: 170, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'linear-gradient(160deg, rgba(127,95,255,0.16), rgba(200,109,215,0.14))', color: 'var(--text-secondary, #c9c4dd)', fontSize: 11.5, fontWeight: 600 }
+const vanishChipStyle = {
+  position: 'relative',
+  display: 'inline-flex', alignItems: 'center', gap: 8,
+  padding: '10px 16px 10px 12px', borderRadius: 22, border: 'none',
+  background: 'linear-gradient(135deg, rgba(127,95,255,0.16) 0%, rgba(200,109,215,0.14) 100%)',
+  boxShadow: '0 1px 2px rgba(0,0,0,0.18), 0 6px 16px rgba(127,95,255,0.16)',
+  fontFamily: 'inherit', maxWidth: 240, overflow: 'hidden',
+}
+const vanishChipIconStyle = {
+  width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  background: 'linear-gradient(135deg, #7F5FFF 0%, #C86DD7 100%)', color: '#fff',
+}
+const vanishChipLabelStyle = {
+  fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary, #f2f0f8)',
+  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left',
+}
+// A slow single-pulse ring instead of a static badge — small motion cue
+// that this is a live, tappable thing, without borrowing WhatsApp's
+// eye/number badge iconography.
+const vanishChipPulseStyle = {
+  position: 'absolute', inset: 0, borderRadius: 22,
+  border: '1.5px solid rgba(167,139,250,0.5)',
+  animation: 'mm-vanish-pulse 2.2s ease-out infinite',
+  pointerEvents: 'none',
+}
 const captionStyle = { fontSize: 13, color: 'var(--text-primary, #f2f0f8)', padding: '0 2px', maxWidth: MEDIA_MAX_WIDTH_CSS }
 const shimmerStyle = {
   width: '100%', height: '100%', minHeight: 170,
