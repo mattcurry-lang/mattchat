@@ -191,18 +191,18 @@ export default function BlurRevealMedia({
         <video
           src={src} muted={!revealed} controls={revealed} playsInline poster={posterSrc}
           onClick={(e) => {
-+            e.stopPropagation()
-+            if (revealed) onOpenViewer?.()
-+          }}
+            e.stopPropagation()
+            if (revealed) onOpenViewer?.()
+         }}
           style={{ ...mediaStyle, cursor: revealed ? 'pointer' : 'default' }}
         />
       ) : (
          <img
         src={src} alt={alt}
           onClick={(e) => {
-+            e.stopPropagation()
-+            if (revealed) onOpenViewer?.()
-+          }}
+            e.stopPropagation()
+            if (revealed) onOpenViewer?.()
+         }}
          style={{ ...mediaStyle, cursor: revealed ? 'pointer' : 'default' }}
         />
       )}
