@@ -369,17 +369,22 @@ if (asset.media_type === 'contact') {
             <IconHourglass size={16} />
           </span>
           <span style={vanishChipLabelStyle}>{label}</span>
-          {interactive && <span style={vanishChipPulseStyle} />}
+        {interactive && (
+            <>
+              <span style={vanishChipPulseStyle} />
+              <style>{`@keyframes mm-vanish-pulse {
+                0%   { box-shadow: 0 0 0 0 rgba(167,139,250,0.35); }
+                70%  { box-shadow: 0 0 0 8px rgba(167,139,250,0); }
+                100% { box-shadow: 0 0 0 0 rgba(167,139,250,0); }
+              }`}</style>
+            </>
+         )}
         </button>
         {message.content && <div style={captionStyle}>{message.content}</div>}
       </div>
    )
  }
- @keyframes mm-vanish-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(167,139,250,0.35); }
-  70%  { box-shadow: 0 0 0 8px rgba(167,139,250,0); }
-  100% { box-shadow: 0 0 0 0 rgba(167,139,250,0); }
-}
+ 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: MEDIA_MAX_WIDTH_CSS }}>
           <div
