@@ -613,33 +613,14 @@ const shimmerStyle = {
   backgroundSize: '200% 100%',
   animation: 'mm-shimmer 1.4s ease-in-out infinite',
 }
-// Add near Spinner()
-function DevelopingLoader({ status, progress, retryUnavailable, onResume }) {
-  if (status === 'failed') {
-    return (
-      <div style={{ textAlign: 'center' }}>
-        <IconAlert size={20} />
-        {!retryUnavailable && (
-          <motion.button whileTap={{ scale: 0.88 }} onClick={onResume} style={resumeBtnStyleDark}>
-            Resume
-          </motion.button>
-        )}
-      </div>
-    )
-  }
-  const pct = Math.round(progress || 0)
-  const label = status === 'preparing' ? 'Preparing' : status === 'processing' ? 'Finishing' : 'Developing'
-  return (
-    <div style={developingWrapStyle}>
-      {/* Vignette that clears as progress climbs — like a print coming into focus, not a ring filling up */}
-      <div style={{ ...developingVignetteStyle, opacity: status === 'uploading' ? 1 - pct / 100 : 0.55 }} />
-      <motion.div
-        animate={{ opacity: [0.5, 1, 0.5] }}
-        transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
-        style={developingPillStyle}
-      >
-        {label}{status === 'uploading' ? ` · ${pct}%` : '…'}
-      </motion.div>
-    </div>
-  )
+const developingWrapStyle = { position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: 14 }
+const developingVignetteStyle = {
+  position: 'absolute', inset: 0,
+  background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.15) 0%, rgba(10,8,16,0.85) 100%)',
+  transition: 'opacity 0.3s ease',
+}
+const developingPillStyle = {
+  position: 'relative', fontSize: 11.5, fontWeight: 700, color: '#e9e4ff',
+  background: 'rgba(127,95,255,0.28)', border: '1px solid rgba(167,139,250,0.4)',
+  borderRadius: 999, padding: '5px 12px', letterSpacing: 0.2,
 }
