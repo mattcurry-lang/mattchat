@@ -190,13 +190,27 @@ export default function BlurRevealMedia({
       {mediaType === 'video' ? (
         <video
           src={src} muted={!revealed} controls={revealed} playsInline poster={posterSrc}
-          onClick={() => revealed && onOpenViewer?.()}
+           onClick={() => {
+           if (!revealed) return
+           if (!onOpenViewer) {
+             console.warn('[BlurRevealMedia] revealed but onOpenViewer prop was not provided — check the caller.')
+             return
+           }
+           onOpenViewer()
+         }}
           style={{ ...mediaStyle, cursor: revealed ? 'pointer' : 'default' }}
         />
       ) : (
          <img
         src={src} alt={alt}
-          onClick={() => revealed && onOpenViewer?.()}
+          onClick={() => {
+           if (!revealed) return
+           if (!onOpenViewer) {
+             console.warn('[BlurRevealMedia] revealed but onOpenViewer prop was not provided — check the caller.')
+             return
+           }
+           onOpenViewer()
+         }}
          style={{ ...mediaStyle, cursor: revealed ? 'pointer' : 'default' }}
         />
       )}
@@ -205,7 +219,7 @@ export default function BlurRevealMedia({
         {!revealed && revealMethod === 'rub' && (
           <motion.canvas
             ref={canvasRef}
-            eexit={{ opacity: 0, pointerEvents: 'none', transition: { duration: 0.35 } }}
+            exit={{ opacity: 0, pointerEvents: 'none', transition: { duration: 0.35 } }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
