@@ -570,8 +570,9 @@ const vanishChipStyle = {
   position: 'relative',
   display: 'inline-flex', alignItems: 'center', gap: 8,
   padding: '10px 16px 10px 12px', borderRadius: 22, border: 'none',
-  background: 'linear-gradient(135deg, rgba(127,95,255,0.16) 0%, rgba(200,109,215,0.14) 100%)',
-  boxShadow: '0 1px 2px rgba(0,0,0,0.18), 0 6px 16px rgba(127,95,255,0.16)',
+ background: 'linear-gradient(135deg, rgba(127,95,255,0.28) 0%, rgba(200,109,215,0.24) 100%)',
+ border: '1px solid rgba(167,139,250,0.4)',
+ boxShadow: '0 1px 2px rgba(0,0,0,0.18), 0 6px 16px rgba(127,95,255,0.22)',
   fontFamily: 'inherit', maxWidth: 240, overflow: 'hidden',
 }
 const vanishChipIconStyle = {
@@ -580,7 +581,7 @@ const vanishChipIconStyle = {
   background: 'linear-gradient(135deg, #7F5FFF 0%, #C86DD7 100%)', color: '#fff',
 }
 const vanishChipLabelStyle = {
-  fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary, #f2f0f8)',
+ fontSize: 12.5, fontWeight: 800, color: '#e9e4ff',
   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left',
 }
 // A slow single-pulse ring instead of a static badge — small motion cue
