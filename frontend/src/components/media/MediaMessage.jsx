@@ -421,6 +421,7 @@ if (asset.media_type === 'contact') {
                 revealMethod={asset.blur_reveal_method || 'rub'}
                 verifyCode={asset.blur_reveal_method === 'code' ? (code) => verifyRevealCode(asset.id, code) : undefined}
                 onRevealed={() => markBlurRevealed(asset.id, currentUserId).catch((e) => console.error('[MediaMessage] markBlurRevealed failed:', e))}
+                onOpenViewer={() => onOpenViewer?.(message)}
                 aspectRatio={asset.width && asset.height ? `${asset.width}/${asset.height}` : undefined}
                 alt={asset.filename || 'media'}
               />
