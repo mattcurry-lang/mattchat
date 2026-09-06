@@ -258,9 +258,7 @@ if (session === undefined || !aalChecked) {
 
             )
 
-            :
-
-           : <Navigate to="/" />
+            : <Navigate to="/" />
 
           }
         />
