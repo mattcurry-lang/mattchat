@@ -58,28 +58,27 @@ export default function App() {
 
   useEffect(() => {
 
-    supabase.auth.getSession()
-  .then(({ data: { session } }) => {
-    setSession(session)
+   // Supabase's supabase-js v2 already fires an INITIAL_SESSION event
+    // through onAuthStateChange as soon as it subscribes, carrying
+    // whatever session currently exists — so a separate getSession()
+    // call here is redundant AND dangerous: it's a promise that can
+    // resolve AFTER a real SIGNED_IN event has already landed (e.g. the
+    // user signs in while this initial fetch is still in flight), and
+    // when it resolves late it overwrites the correct session with the
+    // stale pre-login value it captured at call time. That's what was
+    // bouncing people back to the landing page right after a successful
+    // sign-in. `initialSessionHandled` makes sure this stale write is
+    // ignored once a real event has already updated auth state.
+    let initialSessionHandled = false
 
-    if (session) {
-      checkAal(session)   // ← pass session in
-    } else {
-      setAalChecked(true)
-    }
-  })
-
-    .catch((err) => {
-   console.error('getSession failed:', err)
-     setSession(null)
-     setAalChecked(true)
-   })
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((event, session) => {
+     if (event === 'INITIAL_SESSION') initialSessionHandled = true
 
 
-   const {
-  data: { subscription }
-} = supabase.auth.onAuthStateChange(
-  (event, session) => {
+
+   
 
     if (event === 'PASSWORD_RECOVERY') {
       setIsRecovery(true)
@@ -93,8 +92,25 @@ export default function App() {
     } else {
       setAalChecked(true)
     }
-  }
-)
+ })
+// Fallback only: if for some reason INITIAL_SESSION never fires
+    // (older supabase-js, edge cases), still resolve the splash screen
+    // — but never let this overwrite a session that a real auth event
+    // has already set.
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        if (initialSessionHandled) return
+        setSession(session)
+        if (session) checkAal(session)
+        else setAalChecked(true)
+      })
+      .catch((err) => {
+        if (initialSessionHandled) return
+        console.error('getSession failed:', err)
+        setSession(null)
+        setAalChecked(true)
+     })
+
 
     return () => subscription.unsubscribe()
 
@@ -244,7 +260,7 @@ if (session === undefined || !aalChecked) {
 
             :
 
-            <Navigate to="/welcome" />
+           : <Navigate to="/" />
 
           }
         />
