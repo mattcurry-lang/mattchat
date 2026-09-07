@@ -18,7 +18,7 @@ import { useHeyCurry } from '../components/HeyCurryListener'
 import { usePresence } from '../hooks/usePresence'
 import { useCall } from '../hooks/useCall'
 import CallOverlay from '../components/CallOverlay'
- import IncomingCallScreen from '../components/IncomingCallScreen
+import IncomingCallScreen from '../components/IncomingCallScreen'
 import IncomingCallModal from '../components/IncomingCallModal'
 import OutgoingCallScreen from '../components/OutgoingCallScreen'
 import TwoFactorModal from '../components/TwoFactorModal'
