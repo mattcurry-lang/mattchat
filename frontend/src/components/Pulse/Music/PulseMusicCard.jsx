@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
 import MusicSearch from './MusicSearch'
+import TrackRail from './TrackRail'
+import { useMusicPlayer } from '../../context/MusicPlayerContext'
 import { IconMusic, IconX } from '../../Icons'
 
 /**
@@ -7,8 +9,8 @@ import { IconMusic, IconX } from '../../Icons'
  *
  * The Phase-1 entry point into Music from Pulse. Deliberately small —
  * a single card, not a takeover of the Pulse layout (per spec §3).
- * Tapping it opens a fullscreen overlay with the hero + search, the
- * same pattern PulsePage already uses for RoomFinder/FresherMode/etc.
+ * Tapping it opens a fullscreen overlay with the hero + rails + search,
+ * the same pattern PulsePage already uses for RoomFinder/FresherMode/etc.
  */
 
 export function PulseMusicEntryCard({ onOpen }) {
@@ -36,6 +38,8 @@ export function PulseMusicEntryCard({ onOpen }) {
 }
 
 export function PulseMusicOverlay({ onClose }) {
+  const { recentlyPlayed, likedTracks } = useMusicPlayer()
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto' }}>
       <div style={{ maxWidth: 640, margin: '0 auto', padding: 16, paddingBottom: 100 }}>
@@ -65,6 +69,15 @@ export function PulseMusicOverlay({ onClose }) {
             Discover music, build your playlists, and keep listening while you use Mattchat.
           </div>
         </div>
+
+        {/* Only render rails with content — an empty "Recently Played"
+            on someone's very first visit would just be dead space. */}
+        {recentlyPlayed.length > 0 && (
+          <TrackRail title="Recently Played" tracks={recentlyPlayed} />
+        )}
+        {likedTracks.length > 0 && (
+          <TrackRail title="Liked Music" tracks={likedTracks} />
+        )}
 
         <MusicSearch autoFocus />
       </div>
