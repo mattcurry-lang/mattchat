@@ -13,7 +13,7 @@ import ExplorePage from './pages/ExplorePage'
 import './App.css'
 import { unlockFileAudio } from './lib/mattchatSounds'
 import TrustedInvitePage from './pages/TrustedInvitePage'
-import { MusicPlayerProvider } from './context/MusicPlayerContext'
+import { MusicPlayerProvider } from './components/context/MusicPlayerContext';
 import MiniPlayer from './components/Pulse/Music/MiniPlayer'
 
 export default function App() {
