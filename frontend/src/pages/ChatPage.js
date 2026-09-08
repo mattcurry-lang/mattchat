@@ -1615,6 +1615,7 @@ const handleShareContact = async (profile) => {
       {callStatus === 'incoming' && activeCall && (
         <IncomingCallModal
           callerName={callConvo ? getConvoName(callConvo) : 'Unknown'}
+          avatarUrl={callConvo ? getOtherUserAvatar(callConvo, userId) : null}
           callType={activeCall.callType}
           onAnswer={(muted) => { setStartMuted(muted); answerCall() }}
           onDecline={declineCall}
@@ -1640,6 +1641,7 @@ const handleShareContact = async (profile) => {
           callType={activeCall.callType}
           startMuted={startMuted}
           callerName={callConvo ? getConvoName(callConvo) : ''}
+          avatarUrl={callConvo ? getOtherUserAvatar(callConvo, userId) : null}
           onEnd={endCall}
         />
       )}
