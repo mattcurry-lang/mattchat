@@ -1621,10 +1621,11 @@ const handleShareContact = async (profile) => {
       )}
  
       {/* ── OUTGOING CALL (caller's own full-screen "Calling…" view) ── */}
-      {(callStatus === 'calling' || callStatus === 'ringing') && activeCall && (
+      {(callStatus === 'calling' || callStatus === 'ringing') && (
         <OutgoingCallScreen
-          callerName={callConvo ? getConvoName(callConvo) : ''}
-          callType={activeCall.callType}
+         callerName={callConvo ? getConvoName(callConvo) : (activeConvo ? getConvoName(activeConvo) : '')}
+         avatarUrl={callConvo ? getOtherUserAvatar(callConvo, userId) : (activeConvo ? getOtherUserAvatar(activeConvo, userId) : null)}
+        callType={activeCall?.callType}
           status={callStatus}
           onCancel={endCall}
         />
@@ -2412,13 +2413,6 @@ onMessageContact={handleMessageContact}
               </div>
             )}
 
-            {(callStatus === 'calling' || callStatus === 'ringing') && (
-              <div style={{ padding: '10px 16px', background: 'linear-gradient(135deg, rgba(14,165,233,0.08), rgba(99,102,241,0.08))', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 600, color: 'var(--accent-2)' }}>
-             <IconPhone size={14} />
-                Calling {getConvoName(activeConvo)}…
-                <button onClick={endCall} style={{ marginLeft: 'auto', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 20, padding: '4px 12px', fontSize: 12, fontWeight: 700, color: '#ef4444', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-              </div>
-            )}
 
             <PinnedBar key={pinnedRefresh} conversationId={activeConvo?.id} onScrollTo={scrollToMessage} />
       {watchTogether.session?.status === 'pending' && activeConvo?.id === watchTogether.session.conversation_id && (
