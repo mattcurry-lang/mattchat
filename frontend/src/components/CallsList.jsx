@@ -13,6 +13,7 @@ import React, { useMemo, useState } from 'react'
 import Avatar from './Avatar'
 import { IconPhone, IconVideo } from './Icons'
 import { format, isToday, isYesterday } from 'date-fns'
+import { createPortal } from 'react-dom'
 
 function fmtCallTime(ts) {
   const d = new Date(ts)
@@ -38,6 +39,74 @@ const IconRedial = ({ size = 15 }) => (
     <path d="M4 9a8 8 0 1 1 1.5 6.7" /><path d="M4 4v5h5" />
   </svg>
 )
+
+const IconChevronDown = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+)
+const IconMessageSquare = ({ size = 15 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </svg>
+)
+const IconTrash = ({ size = 15 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 7h16M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2m-8 0l1 13a2 2 0 002 2h4a2 2 0 002-2l1-13" />
+  </svg>
+)
+
+// Per-row dropdown — same createPortal-anchored pattern as ChatPage's
+// ThreeDotMenu, so it renders above everything and positions off the
+// trigger button's real screen location rather than the scrolling list.
+function CallRowMenu({ anchorRef, onMessage, onVideoCall, onVoiceCall, onDelete, onClose }) {
+  const [pos, setPos] = useState(null)
+  const menuRef = React.useRef(null)
+
+  React.useEffect(() => {
+    const rect = anchorRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const MENU_WIDTH = 180
+    const left = Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8)
+    setPos({ top: rect.bottom + 6, left: Math.max(8, left) })
+  }, [anchorRef])
+
+  React.useEffect(() => {
+    const handler = (e) => {
+      if (menuRef.current?.contains(e.target)) return
+      if (anchorRef.current?.contains(e.target)) return
+      onClose()
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [onClose, anchorRef])
+
+  const items = [
+    { icon: <IconMessageSquare size={15} />, label: 'Message', action: onMessage },
+    { icon: <IconVideo size={15} />, label: 'Video call', action: onVideoCall },
+    { icon: <IconPhone size={15} />, label: 'Voice call', action: onVoiceCall },
+    { icon: <IconTrash size={15} />, label: 'Delete', action: onDelete, danger: true },
+  ]
+
+  if (!pos) return null
+
+  return createPortal(
+    <div ref={menuRef} style={{ ...menuStyles.wrap, top: pos.top, left: pos.left }}>
+      {items.map(({ icon, label, action, danger }) => (
+        <button
+          key={label}
+          onClick={() => { action?.(); onClose() }}
+          style={{ ...menuStyles.item, color: danger ? '#f87171' : '#e4e0f0' }}
+        >
+          <span style={{ ...menuStyles.itemIcon, color: danger ? '#f87171' : '#c9c0ff' }}>{icon}</span>
+          {label}
+        </button>
+      ))}
+    </div>,
+    document.body
+  )
+}
+
 const IconArrowUpRight = ({ size = 11 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
     <line x1="7" y1="17" x2="17" y2="7" /><polyline points="7 7 17 7 17 17" />
@@ -49,8 +118,10 @@ const IconArrowDownLeft = ({ size = 11 }) => (
   </svg>
 )
 
-export default function CallsList({ calls, loading, onOpenConversation, onCall }) {
+export default function CallsList({ calls, loading, onOpenConversation, onCall, onDeleteCall }) {
   const [filter, setFilter] = useState('all') // 'all' | 'missed'
+   const [openMenuId, setOpenMenuId] = useState(null)
+  const rowMenuRefs = React.useRef({})
 
   const filtered = useMemo(() => {
     if (filter === 'all') return calls
@@ -127,15 +198,36 @@ export default function CallsList({ calls, loading, onOpenConversation, onCall }
 
                   <div style={styles.rightCol}>
                     <div style={styles.time}>{fmtCallTime(call.created_at)}</div>
-                    {onCall && (
+   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {onCall && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onCall(call) }}
+                          style={styles.redialBtn}
+                          title={`Call ${call.convoName} again`}
+                          aria-label={`Call ${call.convoName} again`}
+                        >
+                          <IconRedial size={15} />
+                        </button>
+                      )}
                       <button
-                        onClick={(e) => { e.stopPropagation(); onCall(call) }}
-                        style={styles.redialBtn}
-                        title={`Call ${call.convoName} again`}
-                        aria-label={`Call ${call.convoName} again`}
+                        ref={(el) => { rowMenuRefs.current[call.id] = el }}
+                        onClick={(e) => { e.stopPropagation(); setOpenMenuId(v => (v === call.id ? null : call.id)) }}
+                        style={styles.chevronBtn}
+                        title="More"
+                        aria-label="More options"
                       >
-                        <IconRedial size={15} />
+                        <IconChevronDown size={14} />
                       </button>
+                    </div>
+                    {openMenuId === call.id && (
+                      <CallRowMenu
+                        anchorRef={{ current: rowMenuRefs.current[call.id] }}
+                        onMessage={() => onOpenConversation?.(call.conversation_id)}
+                        onVideoCall={() => onCall?.({ ...call, call_type: 'video' })}
+                        onVoiceCall={() => onCall?.({ ...call, call_type: 'audio' })}
+                        onDelete={() => onDeleteCall?.(call.id)}
+                        onClose={() => setOpenMenuId(null)}
+                      />
                     )}
                   </div>
                 </div>
@@ -146,6 +238,21 @@ export default function CallsList({ calls, loading, onOpenConversation, onCall }
       )}
     </div>
   )
+}
+
+const menuStyles = {
+  wrap: {
+    position: 'fixed', zIndex: 2000, width: 180,
+    background: 'rgba(20,18,30,0.98)', backdropFilter: 'blur(16px)',
+    border: '1px solid rgba(148,120,255,0.2)', borderRadius: 14,
+    boxShadow: '0 12px 32px rgba(0,0,0,0.5)', overflow: 'hidden', padding: 6,
+  },
+  item: {
+    display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 10px',
+    background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+    fontSize: 13, fontWeight: 600, borderRadius: 9, textAlign: 'left',
+  },
+  itemIcon: { width: 18, display: 'flex', justifyContent: 'center' },
 }
 
 const styles = {
@@ -184,6 +291,10 @@ const styles = {
     width: 30, height: 30, borderRadius: '50%', border: '1px solid rgba(148,120,255,0.25)',
     background: 'rgba(148,120,255,0.1)', color: '#c9c0ff', display: 'flex', alignItems: 'center',
     justifyContent: 'center', cursor: 'pointer',
+  },
+     chevronBtn: {
+    width: 26, height: 26, borderRadius: '50%', border: 'none', background: 'rgba(148,120,255,0.1)',
+    color: 'rgba(228,224,240,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
   },
   emptyState: { padding: '64px 24px', textAlign: 'center' },
   emptyIconWrap: {
