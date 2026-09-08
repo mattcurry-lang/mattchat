@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react'
-import { useMusicPlayer } from '../../../context/MusicPlayerContext'
+import { useMusicPlayer } from '../../context/MusicPlayerContext'
 import {
   IconPlay, IconPause, IconSkipBack, IconSkipForward, IconChevronDown,
   IconShuffle, IconRepeat, IconHeart, IconShare2, IconListMusic,
