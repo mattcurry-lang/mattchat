@@ -33,13 +33,7 @@ function dayGroupLabel(ts) {
   if (isYesterday(d)) return 'Yesterday'
   return format(d, 'MMMM d, yyyy')
 }
-
-const IconRedial = ({ size = 15 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 9a8 8 0 1 1 1.5 6.7" /><path d="M4 4v5h5" />
-  </svg>
-)
-
+  
 const IconChevronDown = ({ size = 14 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
     <polyline points="6 9 12 15 18 9" />
@@ -122,7 +116,8 @@ export default function CallsList({ calls, loading, onOpenConversation, onCall, 
   const [filter, setFilter] = useState('all') // 'all' | 'missed'
    const [openMenuId, setOpenMenuId] = useState(null)
   const rowMenuRefs = React.useRef({})
-
+const [touchDevice] = useState(() => window.matchMedia('(hover: none)').matches)
+  
   const filtered = useMemo(() => {
     if (filter === 'all') return calls
     return calls.filter(c => c.status === 'missed' || (c.status === 'declined' && !c.outgoing))
@@ -143,6 +138,15 @@ export default function CallsList({ calls, loading, onOpenConversation, onCall, 
 
   return (
     <div style={styles.wrap}>
+       <style>{`
+        @media (hover: hover) {
+          .calls-row-actions { opacity: 0; transition: opacity 0.12s ease; }
+          .calls-row:hover .calls-row-actions { opacity: 1; }
+        }
+        @media (hover: none) {
+          .calls-row-actions { opacity: 1; }
+        }
+      `}</style>
       <div style={styles.filterRow}>
         <button
           onClick={() => setFilter('all')}
@@ -178,7 +182,7 @@ export default function CallsList({ calls, loading, onOpenConversation, onCall, 
               const label = call.status === 'missed' ? 'Missed' : call.status === 'declined' ? 'Declined' : (call.outgoing ? 'Outgoing' : 'Incoming')
               const dur = fmtDuration(call.duration_seconds)
               return (
-                <div key={call.id} style={styles.row} onClick={() => onOpenConversation?.(call.conversation_id)}>
+                <div key={call.id} className="calls-row" style={styles.row} onClick={() => onOpenConversation?.(call.conversation_id)}>
                   <div style={styles.avatarWrap}>
                     <Avatar name={call.convoName} size={48} />
                     <span style={{ ...styles.typeBadge, ...(call.call_type === 'video' ? styles.typeBadgeVideo : styles.typeBadgeVoice) }}>
@@ -198,7 +202,8 @@ export default function CallsList({ calls, loading, onOpenConversation, onCall, 
 
                   <div style={styles.rightCol}>
                     <div style={styles.time}>{fmtCallTime(call.created_at)}</div>
-   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div className="calls-row-actions" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                       {onCall && (
                       {onCall && (
                         <button
                           onClick={(e) => { e.stopPropagation(); onCall(call) }}
@@ -206,7 +211,7 @@ export default function CallsList({ calls, loading, onOpenConversation, onCall, 
                           title={`Call ${call.convoName} again`}
                           aria-label={`Call ${call.convoName} again`}
                         >
-                          <IconRedial size={15} />
+                         <IconPhone size={14} />
                         </button>
                       )}
                       <button
@@ -289,7 +294,7 @@ const styles = {
   time: { fontSize: 11.5, color: 'rgba(228,224,240,0.4)' },
   redialBtn: {
     width: 30, height: 30, borderRadius: '50%', border: '1px solid rgba(148,120,255,0.25)',
-    background: 'rgba(148,120,255,0.1)', color: '#c9c0ff', display: 'flex', alignItems: 'center',
+   background: 'linear-gradient(135deg,#7F5FFF,#C86DD7)', color: '#fff', display: 'flex', alignItems: 'center',
     justifyContent: 'center', cursor: 'pointer',
   },
      chevronBtn: {
