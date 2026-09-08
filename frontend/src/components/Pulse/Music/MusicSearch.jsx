@@ -173,3 +173,4 @@ export default function MusicSearch({ autoFocus = false }) {
     </div>
   )
 }
+export default MusicService;
