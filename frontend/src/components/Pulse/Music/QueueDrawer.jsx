@@ -1,5 +1,5 @@
 import React from 'react'
-import { useMusicPlayer } from '../../../context/MusicPlayerContext'
+import { useMusicPlayer } from '../../context/MusicPlayerContext'
 import { IconX, IconMusic, IconTrash } from '../../Icons'
 
 /**
