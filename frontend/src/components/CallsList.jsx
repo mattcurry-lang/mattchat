@@ -203,7 +203,7 @@ const [touchDevice] = useState(() => window.matchMedia('(hover: none)').matches)
                   <div style={styles.rightCol}>
                     <div style={styles.time}>{fmtCallTime(call.created_at)}</div>
                     <div className="calls-row-actions" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                       {onCall && (
+                       
                       {onCall && (
                         <button
                           onClick={(e) => { e.stopPropagation(); onCall(call) }}
