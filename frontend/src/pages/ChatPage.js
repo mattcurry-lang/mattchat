@@ -2321,6 +2321,7 @@ onMessageContact={handleMessageContact}
               <button className="btn-primary" onClick={() => setShowNewChat(true)}>Start a conversation →</button>
             </>
           )}
+            </div>
       </div>
 
       {/* ── CHAT AREA ── */}
