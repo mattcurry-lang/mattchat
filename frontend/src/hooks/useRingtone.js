@@ -1,21 +1,23 @@
 // useRingtone.js
-// Plays/loops a Mattchat call sound (by name, resolved through
-// mattchatSounds' FILE_SOUNDS registry — see getSoundPath) while
-// `active` is true. Stops and cleans up on false or unmount.
-//
-// Wraps play() in a catch — mobile browsers block autoplay until a
-// user gesture unlocks audio (see unlockFileAudio in lib/mattchatSounds,
-// already wired in App.jsx), so a rejected play() here is expected in
-// some cases, not a bug to surface.
+// 'ringtone' (incoming call) plays the custom branded file via
+// FILE_SOUNDS/getSoundPath, looped through an <audio> element.
+// 'ringback' (outgoing call) uses the synthesized standard dual-tone
+// ringback from mattchatSounds instead — see startRingback/stopRingback.
+// Both stop cleanly on active=false or unmount.
 
 import { useEffect, useRef } from 'react'
-import { getSoundPath } from '../lib/mattchatSounds'
+import { getSoundPath, startRingback, stopRingback } from '../lib/mattchatSounds'
 
 export function useRingtone(active, soundName = 'ringtone', { volume = 0.85 } = {}) {
   const audioRef = useRef(null)
 
   useEffect(() => {
     if (!active) return
+
+    if (soundName === 'ringback') {
+      startRingback()
+      return () => stopRingback()
+    }
 
     const path = getSoundPath(soundName)
     if (!path) {
