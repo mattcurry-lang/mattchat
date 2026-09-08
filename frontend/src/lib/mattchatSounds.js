@@ -105,7 +105,7 @@ const SOUND_BUILDERS = {
 const FILE_SOUNDS = {
   pulse: '/sounds/pulse.mp3', // incoming message
    ringtone: '/mattchat-ringtone.mp3',
-  ringback: '/mattchat-ringtone.mp3', // outgoing call — caller hears this while waiting
+  
   // NOTE: ringtone and ringback currently point at the same asset. A
   // real product would use two different files (WhatsApp/Instagram
   // both do) — this is a placeholder until a distinct ringback tone
@@ -145,6 +145,43 @@ function playFileSound(name, path) {
   el.play().catch(() => {
     console.warn(`playSound: "${name}" playback blocked — page needs a user gesture to unlock audio first.`)
   })
+}
+// ---- Ringback (outgoing call) ----
+// The standard North American dual-tone ringback: 440Hz + 480Hz,
+// 2s on / 4s off, repeating — the same cadence every real phone
+// network uses for "it's ringing on the other end." Synthesized live
+// (same oscillator/gain approach as the rest of this file) rather than
+// a file, since it needs to loop precisely and indefinitely rather
+// than a fixed-length clip restarting.
+let ringbackTimer = null
+
+export function startRingback() {
+  stopRingback()
+  const ctx = getContext()
+  const CYCLE_SEC = 6 // 2s tone + 4s silence
+
+  const scheduleCycle = () => {
+    const t = ctx.currentTime + 0.02
+    const osc1 = ctx.createOscillator()
+    const osc2 = ctx.createOscillator()
+    const env = ctx.createGain()
+    osc1.type = 'sine'; osc1.frequency.value = 440
+    osc2.type = 'sine'; osc2.frequency.value = 480
+    env.gain.setValueAtTime(0, t)
+    env.gain.linearRampToValueAtTime(0.12, t + 0.05)
+    env.gain.setValueAtTime(0.12, t + 1.95)
+    env.gain.linearRampToValueAtTime(0, t + 2)
+    osc1.connect(env); osc2.connect(env); env.connect(ctx.destination)
+    osc1.start(t); osc2.start(t)
+    osc1.stop(t + 2.05); osc2.stop(t + 2.05)
+  }
+
+  scheduleCycle()
+  ringbackTimer = setInterval(scheduleCycle, CYCLE_SEC * 1000)
+}
+
+export function stopRingback() {
+  if (ringbackTimer) { clearInterval(ringbackTimer); ringbackTimer = null }
 }
 /**
  * Plays one of Mattchat's official sounds: 'pulse' | 'tap' | 'echo' |
