@@ -104,8 +104,8 @@ const SOUND_BUILDERS = {
 // so rapid repeats (e.g. a burst of incoming messages) restart cleanly
 const FILE_SOUNDS = {
   pulse: '/sounds/pulse.mp3', // incoming message
-   ringtone: '/sounds/mattchat-ringtone.mp3', // incoming call — recipient's device
-  ringback: '/sounds/mattchat-ringtone.mp3', // outgoing call — caller hears this while waiting
+   ringtone: '/mattchat-ringtone.mp3',
+  ringback: '/mattchat-ringtone.mp3', // outgoing call — caller hears this while waiting
   // NOTE: ringtone and ringback currently point at the same asset. A
   // real product would use two different files (WhatsApp/Instagram
   // both do) — this is a placeholder until a distinct ringback tone
