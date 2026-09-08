@@ -891,7 +891,7 @@ const getMemberName = (convoId, uid) => {
   const member = convo?.conversation_members?.find(m => m.user_id === uid)
   return member?.profiles?.username || 'Someone'
 }
-  const { calls: callHistory, loading: callHistoryLoading } = useCallHistory(userId, conversations)
+ const { calls: callHistory, loading: callHistoryLoading, hideCall } = useCallHistory(userId, conversations)
   const [startMuted, setStartMuted] = useState(false)
   const { unreadCounts, clearUnread, totalUnread } = useUnreadCounts(
     userId,
@@ -1945,6 +1945,7 @@ const handleShareContact = async (profile) => {
                   calls={callHistory}
                   loading={callHistoryLoading}
                   onCall={(call) => startCall(call.call_type, call.conversation_id)}
+                 onDeleteCall={hideCall}
                   onOpenConversation={(convoId) => {
                     const found = conversations.find(c => c.id === convoId)
                     if (found) { openConvo(found); setActiveTab('chats') }
