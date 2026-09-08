@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { MusicService } from '../../../lib/music/MusicService'
+import MusicService from '../../../lib/music/MusicService'
 import { useMusicPlayer } from '../../../context/MusicPlayerContext'
 import { IconSearch, IconPlay, IconPause, IconMusic } from '../../Icons'
 
