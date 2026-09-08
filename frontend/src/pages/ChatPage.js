@@ -101,6 +101,7 @@ import MomentMessage from '../components/media/MomentMessage'
 import MomentViewer from '../components/media/MomentViewer'
 import { motion } from 'framer-motion'
 import ProfileMenuSheet, { PlaceholderIcons } from '../components/ProfileMenuSheet'
+import CallsLandingPanel from '../components/CallsLandingPanel'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -2310,11 +2311,16 @@ onMessageContact={handleMessageContact}
            conversation is open, at any screen size. ── */}
       <div className="welcome-pane">
         <div className="welcome-pane-content">
-          <img src="/logo.png" alt="" className="welcome-pane-logo" />
-          <h2>Welcome to Mattchat</h2>
-          <p>The best AI communication platform.<br />Select a conversation or start a new one — say <strong>"Hey Curry"</strong> to activate your AI assistant!</p>
-          <button className="btn-primary" onClick={() => setShowNewChat(true)}>Start a conversation →</button>
-        </div>
+       {activeTab === 'calls' ? (
+            <CallsLandingPanel onStartCall={() => setShowNewCall(true)} />
+          ) : (
+            <>
+              <img src="/logo.png" alt="" className="welcome-pane-logo" />
+              <h2>Welcome to Mattchat</h2>
+              <p>The best AI communication platform.<br />Select a conversation or start a new one — say <strong>"Hey Curry"</strong> to activate your AI assistant!</p>
+              <button className="btn-primary" onClick={() => setShowNewChat(true)}>Start a conversation →</button>
+            </>
+          )}
       </div>
 
       {/* ── CHAT AREA ── */}
