@@ -1573,7 +1573,7 @@ button.email-badge { cursor: pointer; display: inline-flex; align-items: center;
   position: absolute;
   right: 0;
 }
-
+.calls-row:hover { background: rgba(148,120,255,0.06); }
 .contact-preview-swap {
   min-height: 18px;
 }
