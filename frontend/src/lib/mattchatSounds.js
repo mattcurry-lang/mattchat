@@ -104,6 +104,12 @@ const SOUND_BUILDERS = {
 // so rapid repeats (e.g. a burst of incoming messages) restart cleanly
 const FILE_SOUNDS = {
   pulse: '/sounds/pulse.mp3', // incoming message
+   ringtone: '/sounds/mattchat-ringtone.mp3', // incoming call — recipient's device
+  ringback: '/sounds/mattchat-ringtone.mp3', // outgoing call — caller hears this while waiting
+  // NOTE: ringtone and ringback currently point at the same asset. A
+  // real product would use two different files (WhatsApp/Instagram
+  // both do) — this is a placeholder until a distinct ringback tone
+  // exists. Swap the path once you have one; nothing else needs to change.
 }
 const fileAudioCache = {}
 
@@ -164,4 +170,10 @@ export function playSound(name) {
   }
 }
 
+// Resolves a sound name to its file path — used by useRingtone, which
+// needs raw path access (to build its own looping <audio> element)
+// rather than playSound's one-shot, non-looping playback.
+export function getSoundPath(name) {
+  return FILE_SOUNDS[name] || null
+}
 export const MATTCHAT_SOUNDS = [...Object.keys(SOUND_BUILDERS), ...Object.keys(FILE_SOUNDS)]
