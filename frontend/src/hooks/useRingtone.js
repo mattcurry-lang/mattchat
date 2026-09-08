@@ -1,23 +1,31 @@
-useRingtone.js// useRingtone.js
-// Plays/loops the Mattchat ringtone while `active` is true, stops and
-// cleans up on false or unmount. Wraps play() in a catch — mobile
-// browsers block autoplay until a user gesture unlocks audio (see
-// unlockFileAudio in lib/mattchatSounds, already wired in App.jsx), so a
-// rejected play() here is expected in some cases, not a bug to surface.
+// useRingtone.js
+// Plays/loops a Mattchat call sound (by name, resolved through
+// mattchatSounds' FILE_SOUNDS registry — see getSoundPath) while
+// `active` is true. Stops and cleans up on false or unmount.
+//
+// Wraps play() in a catch — mobile browsers block autoplay until a
+// user gesture unlocks audio (see unlockFileAudio in lib/mattchatSounds,
+// already wired in App.jsx), so a rejected play() here is expected in
+// some cases, not a bug to surface.
 
 import { useEffect, useRef } from 'react'
+import { getSoundPath } from '../lib/mattchatSounds'
 
-export function useRingtone(active, { volume = 0.85 } = {}) {
+export function useRingtone(active, soundName = 'ringtone', { volume = 0.85 } = {}) {
   const audioRef = useRef(null)
 
   useEffect(() => {
     if (!active) return
-    const audio = new Audio()
+
+    const path = getSoundPath(soundName)
+    if (!path) {
+      console.warn(`[useRingtone] no sound registered for "${soundName}" in mattchatSounds.FILE_SOUNDS`)
+      return
+    }
+
+    const audio = new Audio(path)
     audio.loop = true
     audio.volume = volume
-    // ogg first (smaller, Chrome/Firefox/Android), mp3 fallback (Safari/iOS)
-    const canOgg = audio.canPlayType('audio/ogg') !== ''
-    audio.src = canOgg ? '/sounds/mattchat-ringtone.ogg' : '/sounds/mattchat-ringtone.mp3'
     audioRef.current = audio
 
     audio.play().catch((err) => {
@@ -29,5 +37,5 @@ export function useRingtone(active, { volume = 0.85 } = {}) {
       audio.currentTime = 0
       audioRef.current = null
     }
-  }, [active, volume])
+  }, [active, soundName, volume])
 }
