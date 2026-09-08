@@ -1944,6 +1944,7 @@ const handleShareContact = async (profile) => {
                 <CallsList
                   calls={callHistory}
                   loading={callHistoryLoading}
+                  onCall={(call) => startCall(call.call_type, call.conversation_id)}
                   onOpenConversation={(convoId) => {
                     const found = conversations.find(c => c.id === convoId)
                     if (found) { openConvo(found); setActiveTab('chats') }
