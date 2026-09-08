@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useRef, useState, useCallback, useEffect } from 'react'
+import React, { createContext, useContext, useRef, useState, useCallback, useEffect, useMemo } from 'react'
 import { MusicService } from '../../lib/music/MusicService'
 
 /**
@@ -21,7 +21,7 @@ import { MusicService } from '../../lib/music/MusicService'
 
 const MusicPlayerContext = createContext(null)
 
-const LIKES_KEY = 'mattchat:music:likedTrackIds'
+const LIKES_KEY = 'mattchat:music:likedTracks' // { [trackId]: { ...track, likedAt } }
 const RECENTLY_PLAYED_KEY = 'mattchat:music:recentlyPlayed'
 const RECENTLY_PLAYED_LIMIT = 50
 
@@ -70,7 +70,7 @@ export function MusicPlayerProvider({ children }) {
   const [volume, setVolumeState] = useState(0.85)
   const [isMiniPlayerVisible, setIsMiniPlayerVisible] = useState(false)
 
-  const [likedTrackIds, setLikedTrackIds] = useState(() => new Set(readJSON(LIKES_KEY, [])))
+  const [likedTracksMap, setLikedTracksMap] = useState(() => readJSON(LIKES_KEY, {}))
   const [recentlyPlayed, setRecentlyPlayed] = useState(() => readJSON(RECENTLY_PLAYED_KEY, []))
 
   const currentTrack = queueIndex >= 0 && queueIndex < queue.length ? queue[queueIndex] : null
@@ -283,17 +283,23 @@ export function MusicPlayerProvider({ children }) {
   }, [])
 
   // ── likes ──
-  const isLiked = useCallback((trackId) => likedTrackIds.has(trackId), [likedTrackIds])
+  const isLiked = useCallback((trackId) => Boolean(likedTracksMap[trackId]), [likedTracksMap])
 
   const toggleLike = useCallback((track) => {
-    setLikedTrackIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(track.id)) next.delete(track.id)
-      else next.add(track.id)
-      writeJSON(LIKES_KEY, Array.from(next))
+    setLikedTracksMap((prev) => {
+      const next = { ...prev }
+      if (next[track.id]) delete next[track.id]
+      else next[track.id] = { ...track, likedAt: Date.now() }
+      writeJSON(LIKES_KEY, next)
       return next
     })
   }, [])
+
+  // Most-recently-liked first — used by the "Liked Music" rail.
+  const likedTracks = useMemo(
+    () => Object.values(likedTracksMap).sort((a, b) => b.likedAt - a.likedAt),
+    [likedTracksMap]
+  )
 
   const value = {
     // playback
@@ -304,7 +310,7 @@ export function MusicPlayerProvider({ children }) {
     queue, queueIndex, shuffle, repeatMode, isQueueVisible, setIsQueueVisible,
     addToQueue, removeFromQueue, playFromQueue, clearQueue, toggleShuffle, cycleRepeat,
     // likes
-    isLiked, toggleLike,
+    isLiked, toggleLike, likedTracks,
     // recently played
     recentlyPlayed,
   }
