@@ -892,3 +892,97 @@ export function IconMinimize2({ size = 20 }) {
     </svg>
   )
 }
+
+// ── Music player icons — added for Pulse → Music ────────────────
+
+export function IconPlay({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="none" {...props}>
+      <path d="M7 4.5v15l13-7.5-13-7.5Z" />
+    </svg>
+  )
+}
+
+export function IconSkipBack({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="none" {...props}>
+      <path d="M6 5h2v14H6z" />
+      <path d="M19 5v14L8 12 19 5Z" />
+    </svg>
+  )
+}
+
+export function IconSkipForward({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="none" {...props}>
+      <path d="M16 5h2v14h-2z" />
+      <path d="M5 5v14l11-7L5 5Z" />
+    </svg>
+  )
+}
+
+export function IconVolume2({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M4 9.5v5h3.5L13 19V5L7.5 9.5H4Z" strokeLinejoin="round" />
+      <path d="M16.5 9a4.2 4.2 0 0 1 0 6" />
+      <path d="M18.8 6.7a7.8 7.8 0 0 1 0 10.6" />
+    </svg>
+  )
+}
+
+export function IconListMusic({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <line x1="4" y1="6" x2="14" y2="6" />
+      <line x1="4" y1="12" x2="14" y2="12" />
+      <line x1="4" y1="18" x2="10" y2="18" />
+      <circle cx="18" cy="16" r="2.4" />
+      <path d="M20.4 16V6l-3.4 1" />
+    </svg>
+  )
+}
+
+export function IconShuffle({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M3 6h3.5c1.6 0 3 1 3.8 2.4L15 17.6c.8 1.4 2.2 2.4 3.8 2.4H21" />
+      <path d="M17.5 4 21 6l-3.5 2" />
+      <path d="M3 18h3.5c1.6 0 3-1 3.8-2.4l.5-.8" />
+      <path d="M17.5 20 21 18l-3.5-2" />
+    </svg>
+  )
+}
+
+export function IconRepeat({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M4 9.5a4.5 4.5 0 0 1 4.5-4.5H19" />
+      <path d="M16.5 2.5 19 5l-2.5 2.5" />
+      <path d="M20 14.5A4.5 4.5 0 0 1 15.5 19H5" />
+      <path d="M7.5 21.5 5 19l2.5-2.5" />
+    </svg>
+  )
+}
+
+export function IconShare2({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <circle cx="18" cy="5" r="2.6" />
+      <circle cx="6" cy="12" r="2.6" />
+      <circle cx="18" cy="19" r="2.6" />
+      <line x1="8.3" y1="10.7" x2="15.7" y2="6.3" />
+      <line x1="8.3" y1="13.3" x2="15.7" y2="17.7" />
+    </svg>
+  )
+}
+
+export function IconMoreHorizontal({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="none" {...props}>
+      <circle cx="5" cy="12" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="19" cy="12" r="1.8" />
+    </svg>
+  )
+}
