@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useRef, useState, useCallback, useEffect } from 'react'
-import MusicService from '../../lib/music/MusicService'
+import { MusicService } from '../../lib/music/MusicService'
 
 /**
  * context/MusicPlayerContext.jsx
