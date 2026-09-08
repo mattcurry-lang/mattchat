@@ -145,6 +145,18 @@ const checkForActiveCall = useCallback(() => {
           callRef.current = incoming
           setActiveCall(incoming)
           setCallStatus('incoming')
+          // Tell the caller this device actually received the call — a
+         // real event, not a guess. .is('delivered_at', null) makes
+         // this write-once even if a resync fires handleInsert again.
+         supabase
+           .from('active_calls')
+           .update({ delivered_at: new Date().toISOString() })
+           .eq('id', call.id)
+           .is('delivered_at', null)
+           .then(({ error: deliverErr }) => {
+             if (deliverErr) console.error('[useCall] failed to mark call delivered:', deliverErr)
+           })
+  
         })
     }
 
@@ -152,6 +164,11 @@ const checkForActiveCall = useCallback(() => {
       const call = payload.new
       if (!callRef.current) return
       if (call.id !== callRef.current.id) return
+       // Caller-side: once the callee's device has genuinely received
+     // this call, flip local 'calling' → 'ringing' for real.
+     if (call.delivered_at) {
+       setCallStatus(prev => (prev === 'calling' ? 'ringing' : prev))
+      }
 
       if (call.status === 'answered') {
         clearMissedTimer()
@@ -221,7 +238,7 @@ const checkForActiveCall = useCallback(() => {
       callRef.current = call
       setActiveCall(call)
       setCallToken(data.token)
-      setCallStatus('ringing')
+     setCallStatus('calling') // flips to 'ringing' only once handleUpdate sees delivered_at — see below
 
       clearMissedTimer()
       missedTimerRef.current = setTimeout(async () => {
