@@ -184,7 +184,7 @@ const [touchDevice] = useState(() => window.matchMedia('(hover: none)').matches)
               return (
                 <div key={call.id} className="calls-row" style={styles.row} onClick={() => onOpenConversation?.(call.conversation_id)}>
                   <div style={styles.avatarWrap}>
-                    <Avatar name={call.convoName} size={48} />
+                     <Avatar name={call.convoName} size={48} photoUrl={call.convoAvatarUrl} />
                     <span style={{ ...styles.typeBadge, ...(call.call_type === 'video' ? styles.typeBadgeVideo : styles.typeBadgeVoice) }}>
                       {call.call_type === 'video' ? <IconVideo size={10} /> : <IconPhone size={10} />}
                     </span>
