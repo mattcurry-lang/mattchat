@@ -15,6 +15,7 @@ import { unlockFileAudio } from './lib/mattchatSounds'
 import TrustedInvitePage from './pages/TrustedInvitePage'
 import { MusicPlayerProvider } from './components/context/MusicPlayerContext';
 import MiniPlayer from './components/Pulse/Music/MiniPlayer'
+import FullPlayer from './components/Pulse/Music/FullPlayer'
 
 export default function App() {
 
@@ -191,6 +192,9 @@ if (session === undefined || !aalChecked) {
             bottomOffset={60}
           />
         )}
+              {session && showFullPlayer && (
+        <FullPlayer onClose={() => setShowFullPlayer(false)} />
+      )}
 
       </BrowserRouter>
     </MusicPlayerProvider>
