@@ -15,6 +15,8 @@ export function useCallHistory(userId, conversations) {
 
   const load = useCallback(async () => {
     if (!userId || !conversations || conversations.length === 0) { setCalls([]); setLoading(false); return }
+    const { data: hidden } = await supabase.from('hidden_calls').select('call_id').eq('user_id', userId)
+   const hiddenIds = new Set((hidden || []).map(h => h.call_id))
     const { data, error } = await supabase
       .from('active_calls')
       .select('*')
@@ -24,7 +26,7 @@ export function useCallHistory(userId, conversations) {
       .limit(50)
     if (error) { console.error('load call history failed:', error); setLoading(false); return }
     const convoById = Object.fromEntries(conversations.map(c => [c.id, c]))
-    const rows = (data || []).map(call => {
+    const rows = (data || []).filter(call => !hiddenIds.has(call.id)).map(call => {
       const convo = convoById[call.conversation_id]
       const other = convo?.conversation_members?.find(m => m.user_id !== userId)
       return {
@@ -36,6 +38,13 @@ export function useCallHistory(userId, conversations) {
     setCalls(rows)
     setLoading(false)
   }, [userId, conversations, idsKey])
+
+  const hideCall = useCallback(async (callId) => {
+    if (!userId) return
+    const { error } = await supabase.from('hidden_calls').upsert({ user_id: userId, call_id: callId })
+    if (error) { console.error('hideCall failed:', error); return }
+    setCalls(prev => prev.filter(c => c.id !== callId))
+  }, [userId])
 
   useEffect(() => { load() }, [load])
 
@@ -52,5 +61,5 @@ export function useCallHistory(userId, conversations) {
     return unsubscribe
   }, [userId, idsKey, load])
 
-  return { calls, loading, reload: load }
+return { calls, loading, reload: load, hideCall }
 }
