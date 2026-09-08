@@ -13,6 +13,8 @@ import ExplorePage from './pages/ExplorePage'
 import './App.css'
 import { unlockFileAudio } from './lib/mattchatSounds'
 import TrustedInvitePage from './pages/TrustedInvitePage'
+import { MusicPlayerProvider } from './context/MusicPlayerContext'
+import MiniPlayer from './components/Pulse/Music/MiniPlayer'
 
 export default function App() {
 
@@ -20,6 +22,7 @@ export default function App() {
   const [isRecovery, setIsRecovery] = useState(false)
   const [needsMfa, setNeedsMfa] = useState(false)
   const [aalChecked, setAalChecked] = useState(false)
+  const [showFullPlayer, setShowFullPlayer] = useState(false)
 
 
   useEffect(() => {
@@ -58,27 +61,12 @@ export default function App() {
 
   useEffect(() => {
 
-   // Supabase's supabase-js v2 already fires an INITIAL_SESSION event
-    // through onAuthStateChange as soon as it subscribes, carrying
-    // whatever session currently exists — so a separate getSession()
-    // call here is redundant AND dangerous: it's a promise that can
-    // resolve AFTER a real SIGNED_IN event has already landed (e.g. the
-    // user signs in while this initial fetch is still in flight), and
-    // when it resolves late it overwrites the correct session with the
-    // stale pre-login value it captured at call time. That's what was
-    // bouncing people back to the landing page right after a successful
-    // sign-in. `initialSessionHandled` makes sure this stale write is
-    // ignored once a real event has already updated auth state.
     let initialSessionHandled = false
 
     const {
       data: { subscription }
     } = supabase.auth.onAuthStateChange((event, session) => {
      if (event === 'INITIAL_SESSION') initialSessionHandled = true
-
-
-
-   
 
     if (event === 'PASSWORD_RECOVERY') {
       setIsRecovery(true)
@@ -88,15 +76,12 @@ export default function App() {
     setAalChecked(false)
 
     if (session) {
-      checkAal(session)   // ← pass session in
+      checkAal(session)
     } else {
       setAalChecked(true)
     }
  })
-// Fallback only: if for some reason INITIAL_SESSION never fires
-    // (older supabase-js, edge cases), still resolve the splash screen
-    // — but never let this overwrite a session that a real auth event
-    // has already set.
+
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
         if (initialSessionHandled) return
@@ -149,124 +134,65 @@ if (session === undefined || !aalChecked) {
 
 
   return (
+    <MusicPlayerProvider>
+      <BrowserRouter>
 
-    <BrowserRouter>
+        <Routes>
 
-      <Routes>
+          <Route path="/email/:username" element={<EmailFormPage />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/explore" element={<ExplorePage />} />
 
+          <Route
+            path="/"
+            element={session ? <ChatPage session={session} /> : <LandingPage />}
+          />
 
-        {/* Email profile links */}
-        <Route
-          path="/email/:username"
-          element={<EmailFormPage />}
-        />
+          <Route
+            path="/auth"
+            element={!session ? <AuthPage /> : <Navigate to="/" />}
+          />
 
+          <Route
+            path="/reset-password"
+            element={
+              isRecovery
+                ? <ResetPasswordPage onDone={() => setIsRecovery(false)} />
+                : <Navigate to={session ? "/" : "/auth"} />
+            }
+          />
 
-        {/* Legal pages */}
-        <Route
-          path="/privacy"
-          element={<Privacy />}
-        />
+          <Route
+            path="/app"
+            element={session ? <ChatPage session={session} /> : <Navigate to="/" />}
+          />
 
-               <Route
-          path="/terms"
-          element={<Terms />}
-        />
+          <Route path="/trusted-invite/:token" element={<TrustedInvitePage session={session} />} />
 
-        <Route
-          path="/explore"
-          element={<ExplorePage />}
-        />
+          <Route
+            path="/*"
+            element={
+              isRecovery
+                ? <ResetPasswordPage onDone={() => setIsRecovery(false)} />
+                : session
+                  ? (needsMfa
+                      ? <MfaChallengePage onVerified={() => setNeedsMfa(false)} />
+                      : <ChatPage session={session} />)
+                  : <Navigate to="/" />
+            }
+          />
 
+        </Routes>
 
-        {/* Landing page */}
-      <Route
-  path="/"
-  element={
-    session
-      ? <ChatPage session={session} />
-      : <LandingPage />
-  }
-/>
+        {session && (
+          <MiniPlayer
+            onExpand={() => setShowFullPlayer(true)}
+            bottomOffset={60}
+          />
+        )}
 
-
-        {/* Authentication */}
-        <Route
-          path="/auth"
-          element={
-            !session
-            ? <AuthPage />
-            : <Navigate to="/" />
-          }
-        />
-
-
-        {/* Password reset */}
-        <Route
-          path="/reset-password"
-          element={
-            isRecovery
-            ? (
-              <ResetPasswordPage
-                onDone={() => setIsRecovery(false)}
-              />
-            )
-            : (
-              <Navigate
-                to={session ? "/" : "/auth"}
-              />
-            )
-          }
-        />
-<Route
-    path="/app"
-    element={
-        session
-        ? <ChatPage session={session}/>
-        : <Navigate to="/" />
-    }
-/>
-<Route path="/trusted-invite/:token" element={<TrustedInvitePage session={session} />} />
-        {/* Main app */}
-        <Route
-          path="/*"
-          element={
-            isRecovery
-            ?
-            <ResetPasswordPage
-              onDone={() => setIsRecovery(false)}
-            />
-
-            :
-
-            session
-
-            ?
-
-            (
-              needsMfa
-
-              ?
-
-              <MfaChallengePage
-                onVerified={() => setNeedsMfa(false)}
-              />
-
-              :
-
-            <ChatPage session={session} />
-
-            )
-
-            : <Navigate to="/" />
-
-          }
-        />
-
-
-      </Routes>
-
-    </BrowserRouter>
-
+      </BrowserRouter>
+    </MusicPlayerProvider>
   )
 }
