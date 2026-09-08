@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import DailyIframe from '@daily-co/daily-js'
 import { IconMic, IconBluetooth, IconVideo, IconPause, IconUserPlus, IconKeypad, IconPhoneOff, IconMinimize2 } from './Icons'
 
-export default function CallOverlay({ roomUrl, token, callType, callerName, startMuted = false, onEnd }) {
+export default function CallOverlay({ roomUrl, token, callType, callerName, avatarUrl, startMuted = false, onEnd }) {
   const callContainerRef = useRef(null)
   const callFrameRef     = useRef(null)
   const [muted, setMuted]         = useState(startMuted)
@@ -133,7 +133,11 @@ export default function CallOverlay({ roomUrl, token, callType, callerName, star
           <div style={{ ...styles.ring, animationDelay: '0s' }} />
           <div style={{ ...styles.ring, animationDelay: '0.5s' }} />
           <div style={styles.orbit}><span style={styles.orbitDot} /></div>
-          <div style={styles.avatar}>{callerName.charAt(0).toUpperCase()}</div>
+          {avatarUrl ? (
+           <img src={avatarUrl} alt={callerName} style={styles.avatarImgOverlay} />
+         ) : (
+           <div style={styles.avatar}>{callerName.charAt(0).toUpperCase()}</div>
+         )}
         </div>
         {connected && !onHold && (
           <div style={styles.waveBars} aria-hidden="true">
@@ -212,6 +216,10 @@ const styles = {
   orbit: { position: 'absolute', width: 150, height: 150, borderRadius: '50%', border: '1px dashed rgba(199,125,255,0.3)', animation: 'co-orbit 10s linear infinite' },
   orbitDot: { position: 'absolute', top: -3, left: '50%', width: 6, height: 6, borderRadius: '50%', background: '#c77dff', boxShadow: '0 0 10px #c77dff', transform: 'translateX(-50%)' },
   avatar: { width: 150, height: 150, borderRadius: '50%', background: 'linear-gradient(135deg, #6c63ff, #a78bfa)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 56, fontWeight: 700, color: '#fff', zIndex: 1, boxShadow: '0 0 40px rgba(108,99,255,0.45)' },
+  avatarImgOverlay: {
+  width: 150, height: 150, borderRadius: '50%', objectFit: 'cover', zIndex: 1,
+  boxShadow: '0 0 40px rgba(108,99,255,0.45)', border: '2px solid rgba(255,255,255,0.2)',
+ },
   waveBars: { display: 'flex', alignItems: 'flex-end', gap: 4, height: 26 },
   waveBar: { width: 3, height: 6, borderRadius: 2, background: 'linear-gradient(180deg, #c77dff, #6c63ff)', animation: 'co-wave 1.1s ease-in-out infinite' },
 
