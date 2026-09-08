@@ -25,6 +25,7 @@ import EmailSetupGuide from './EmailSetupGuide'
 import ContactsPage from './ContactsPage'
 import MattchatToolsCard from './MattchatToolsCard'
 import ScientificCalculator, { CalculatorGlyph } from './ScientificCalculator'
+import PulseMusicCard from './Music/PulseMusicCard'
 
 
 const LOCKED_PLATFORMS = Object.entries(PLATFORM_META).filter(([, meta]) => meta.supportLevel === 'native_only')
@@ -157,7 +158,9 @@ export default function PulsePage({
       <DeKUTHubCard onNavigate={(route) => setDekutView(route)} />
 
       {/* ── MATTCHAT TOOLS ── */}
-      <MattchatToolsCard onOpenTool={handleOpenTool} />
+<MattchatToolsCard onOpenTool={handleOpenTool} />
+
+<PulseMusicCard />
 
       {/* ── OTHER PULSE CONTENT (existing activity feed, unchanged) ── */}
       <input
