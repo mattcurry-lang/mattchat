@@ -32,6 +32,7 @@ export function useCallHistory(userId, conversations) {
       return {
         ...call,
         outgoing: call.initiated_by === userId,
+         convoName: convo?.is_group ? convo.name : (other?.profiles?.username || other?.profiles?.email || 'Unknown'),
          convoAvatarUrl: convo?.is_group ? null : (other?.profiles?.avatar_url || null),
       }
     })
