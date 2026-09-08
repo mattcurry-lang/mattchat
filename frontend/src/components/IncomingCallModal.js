@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { IconPhone, IconMic, IconBluetooth } from './Icons'
 import { useRingtone } from '../hooks/useRingtone'
 
-export default function IncomingCallModal({ callerName, callType, onAnswer, onDecline }) {
+export default function IncomingCallModal({ callerName, callType, avatarUrl, onAnswer, onDecline }) {
   const [dots, setDots] = useState('.')
   const [startMuted, setStartMuted] = useState(false)
 
@@ -43,7 +43,11 @@ export default function IncomingCallModal({ callerName, callType, onAnswer, onDe
           <div style={{ ...styles.ripple, animationDelay: '0.5s' }} />
           <div style={{ ...styles.ripple, animationDelay: '1s' }} />
           <div style={styles.orbit}><span style={styles.orbitDot} /></div>
-          <div style={styles.avatarCircle}>{callerName.charAt(0).toUpperCase()}</div>
+         {avatarUrl ? (
+           <img src={avatarUrl} alt={callerName} style={styles.avatarImg} />
+         ) : (
+           <div style={styles.avatarCircle}>{callerName.charAt(0).toUpperCase()}</div>
+          )}
         </div>
 
         <div style={styles.callerName}>{callerName}</div>
@@ -122,6 +126,10 @@ const styles = {
     fontSize: 40, fontWeight: 700, color: '#fff', zIndex: 1,
     animation: 'ic-avatar-glow 2.8s ease-in-out infinite',
   },
+   avatarImg: {
+    position: 'absolute', inset: 0, borderRadius: '50%', objectFit: 'cover',
+    zIndex: 1, border: '2px solid rgba(255,255,255,0.2)',
+ },
   callerName: { fontSize: 24, fontWeight: 700, color: '#fff', letterSpacing: '-0.4px', textAlign: 'center' },
   subLabel: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: 'rgba(255,255,255,0.4)', letterSpacing: 1.5, marginTop: -6 },
   preRow: { display: 'flex', gap: 14, marginTop: 10, marginBottom: 8 },
