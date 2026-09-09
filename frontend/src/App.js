@@ -135,7 +135,7 @@ if (session === undefined || !aalChecked) {
 
 
   return (
-    <MusicPlayerProvider>
+<MusicPlayerProvider session={session}>
       <BrowserRouter>
 
         <Routes>
