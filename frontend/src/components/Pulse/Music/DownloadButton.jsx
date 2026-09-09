@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { OfflineCache } from '../../../lib/music/OfflineCache'
 import { MattchatProvider } from '../../../lib/music/providers/MattchatProvider'
-import { IconDownload, IconCheck, IconTrash, IconLoader2 } from '../../Icons'
+import { IconDownload, IconCheck, IconLoader2 } from '../../Icons'
 
 /**
  * Only render this for track.provider === 'mattchat' && track.isDownloadable —
@@ -53,8 +53,9 @@ export default function DownloadButton({ track, size = 17 }) {
     >
       {status === 'downloading' && (
         <>
-          <IconLoader2 size={size} style={{ animation: 'spin 1s linear infinite' }} />
+          <IconLoader2 size={size} style={{ animation: 'mattchatDownloadSpin 1s linear infinite' }} />
           <span style={{ position: 'absolute', bottom: -14, fontSize: 9, fontWeight: 700 }}>{progress}%</span>
+          <style>{`@keyframes mattchatDownloadSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
         </>
       )}
       {status === 'done' && <IconCheck size={size} />}
