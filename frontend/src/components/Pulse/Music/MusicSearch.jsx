@@ -52,7 +52,7 @@ function TrackRow({ track, onPlay, isCurrent, isPlaying }) {
     MAINSTREAM
   </span>
 )}
-            )}
+            
           </div>
         </div>
         <div style={{
