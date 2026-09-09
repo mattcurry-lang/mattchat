@@ -6,6 +6,7 @@ import {
   IconVolume2, IconMusic,
 } from '../../Icons'
 import QueueDrawer from './QueueDrawer'
+import ShareTrackSheet from './ShareTrackSheet'
 
 function formatTime(seconds) {
   if (!Number.isFinite(seconds)) return '0:00'
@@ -24,7 +25,7 @@ function formatTime(seconds) {
  *
  *   {showFullPlayer && <FullPlayer onClose={() => setShowFullPlayer(false)} />}
  */
-export default function FullPlayer({ onClose }) {
+export default function FullPlayer({ onClose, conversations = [], onShareTrack }) {
   const {
     currentTrack, isPlaying, isLoading, error, currentTime, duration, volume,
     togglePlayPause, seekTo, setVolume, playNext, playPrevious,
@@ -34,6 +35,7 @@ export default function FullPlayer({ onClose }) {
 
   const [isScrubbing, setIsScrubbing] = useState(false)
   const [scrubValue, setScrubValue] = useState(0)
+  const [shareSheetOpen, setShareSheetOpen] = useState(false)
   const barRef = useRef(null)
 
   if (!currentTrack) return null
@@ -60,19 +62,7 @@ export default function FullPlayer({ onClose }) {
     setIsScrubbing(false)
   }
 
-  const handleShare = async () => {
-    const shareData = {
-      title: currentTrack.title,
-      text: `${currentTrack.title} — ${currentTrack.artist}`,
-    }
-    if (navigator.share) {
-      try { await navigator.share(shareData) } catch { /* user cancelled */ }
-    }
-    // In-chat sharing (structured music message, not raw audio — §20)
-    // is wired at the call site that has access to the active
-    // conversation; expose an onShare prop here if you want this
-    // component itself to trigger "send to chat".
-  }
+  const openShareSheet = () => setShareSheetOpen(true)
 
   return (
     <div
@@ -219,7 +209,7 @@ export default function FullPlayer({ onClose }) {
           style={{ flex: 1, accentColor: '#a78bfa' }}
         />
         <button
-          onClick={handleShare}
+          onClick={openShareSheet}
           aria-label="Share"
           style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, flexShrink: 0 }}
         >
@@ -228,6 +218,14 @@ export default function FullPlayer({ onClose }) {
       </div>
 
       {isQueueVisible && <QueueDrawer onClose={() => setIsQueueVisible(false)} />}
+      {shareSheetOpen && (
+        <ShareTrackSheet
+          track={currentTrack}
+          conversations={conversations}
+          onShare={(conversationId, track) => onShareTrack && onShareTrack(conversationId, track)}
+          onClose={() => setShareSheetOpen(false)}
+        />
+      )}
     </div>
   )
 }
