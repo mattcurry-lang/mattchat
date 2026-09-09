@@ -31,7 +31,7 @@ import {
   IconPhone, IconVideo, IconPhoneOff, IconSparkle, IconMoreVertical, IconSmile, IconMic, IconPlus, IconStatus,
   IconChart, IconCheckSquare, IconClock, IconSearch, IconMail, IconShield, IconLogOut, IconInbox, IconPin,
   IconMessageSquare, IconHistory, IconX, IconFolder, IconSettings, IconBell, IconCamera, IconFilm, IconTrash,
-  IconBrush
+  IconBrush,IconMusic
 } from '../components/Icons'
 import { ReactableMessage } from '../components/MessageReactions'
 import { useStatuses } from '../hooks/useStatuses'
@@ -54,6 +54,9 @@ import {deleteMessageForEveryone, deleteMessageForMe, getHiddenMessageIds, sendR
 } from '../lib/supabase'
 import ForwardModal from '../components/ForwardModal'
 import SpotifyMiniPlayer from '../components/SpotifyMiniPlayer'
+import MusicMessageBubble from '../components/Pulse/Music/MusicMessageBubble'
+import FullPlayer from '../components/Pulse/Music/FullPlayer'
+import { useMusicPlayer } from '../components/context/MusicPlayerContext'
 import PersonalAnalytics from '../components/PersonalAnalytics'
 import ProfileSetupModal from '../components/ProfileSetupModal'
 import { connectPinterest } from '../lib/supabase'   
@@ -132,6 +135,7 @@ function getMessagePreview(content) {
 if (content.startsWith('{')) {
   try {
     const parsed = JSON.parse(content)
+    if (parsed.providerTrackId) return `🎵 ${parsed.title || 'Song'}`
     if (parsed.videoId) return '📹 Short'
     if ('title' in parsed) return parsed.title ? `✨ ${parsed.title}` : '✨ Moment'
   } catch {
@@ -681,6 +685,23 @@ if (msg.message_type === 'media') {
     </div>
   )
 }
+
+ if (msg.message_type === 'music') {
+   let music
+   try { music = JSON.parse(msg.content) } catch { music = null }
+   return (
+     <div className={`msg-row ${isMe ? 'mine' : ''}`}>
+       {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
+       <div>
+         {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
+         <MusicMessageBubble music={music} />
+         <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+         <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
+       </div>
+     </div>
+   )
+ }
+
 const youtubeId = extractYouTubeId(msg.content)
 
   return (
@@ -858,6 +879,7 @@ const [curryPrefill, setCurryPrefill] = useState(null)
   const { tags, setTag } = useConvoTags()
   const { cache: smartReplyCache, fetchSuggestion, clear: clearSmartReply } = useSmartReplyCache()
   const { theme, toggleTheme } = useTheme()
+  const { isFullPlayerVisible, setIsFullPlayerVisible } = useMusicPlayer()
   
  
  
@@ -1531,6 +1553,34 @@ const handleSend = async () => {
   })
   bumpConversationActivity('📍 Location')
 }
+
+  // handleShareMusic — §20: structured music message, never the raw
+// stream URL or audio file. Targets an arbitrary conversationId (the
+// one picked in ShareTrackSheet), not necessarily activeConvo, so it
+// can't reuse bumpConversationActivity as-is.
+const handleShareMusic = async (conversationId, track) => {
+  if (!conversationId || !track) return
+  const payload = JSON.stringify({
+    provider: track.provider,
+    providerTrackId: track.providerTrackId,
+    title: track.title,
+    artist: track.artist,
+    artwork: track.artwork,
+    duration: track.duration,
+  })
+  await supabase.from('messages').insert({
+    conversation_id: conversationId,
+    sender_id: userId,
+    content: payload,
+    message_type: 'music',
+  })
+  await supabase
+    .from('conversations')
+    .update({ updated_at: new Date().toISOString(), last_message: payload })
+    .eq('id', conversationId)
+  reload()
+}
+  
 // handleShareContact — drop email from the payload
 const handleShareContact = async (profile) => {
   if (!activeConvo) return
@@ -1859,6 +1909,10 @@ const handleShareContact = async (profile) => {
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <IconPhone size={11} /> Call
                 </span>
+) : (c.last_message?.startsWith('{') && c.last_message.includes('"providerTrackId"')) ? (
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+    <IconMusic size={11} /> Song
+  </span>
 ) : (c.last_message?.startsWith('{') && c.last_message.includes('"title"')) ? (
   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
     ✨ Moment
@@ -2267,6 +2321,18 @@ const handleShareContact = async (profile) => {
     }}
   />  
 )}
+
+      {isFullPlayerVisible && (
+   <FullPlayer
+     onClose={() => setIsFullPlayerVisible(false)}
+     conversations={conversations.map(c => ({
+       id: c.id,
+       name: getConvoName(c),
+       avatarUrl: getOtherUserAvatar(c, userId),
+     }))}
+     onShareTrack={handleShareMusic}
+   />
+ )}
    {youtubePlayer && (
   <YouTubePlayer
     videoId={youtubePlayer.videoId}
