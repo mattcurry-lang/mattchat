@@ -1,6 +1,8 @@
 import { audiusProvider } from './providers/AudiusProvider'
 import { mattchatProviderAdapter } from './providers/MattchatProvider'
+import { YouTubeMusicProvider } from './providers/YouTubeMusicProvider'
 import { OfflineCache } from './OfflineCache'
+
 
 /**
  * lib/music/MusicService.js
@@ -18,6 +20,7 @@ import { OfflineCache } from './OfflineCache'
 const providers = {
   audius: audiusProvider,
   mattchat: mattchatProviderAdapter,
+  youtube: YouTubeMusicProvider,
 }
 
 let activeProviderKey = 'audius'
@@ -46,8 +49,6 @@ export const MusicService = {
     const cached = searchCache.get(key)
     if (cached && Date.now() - cached.at < CACHE_MS) return cached.data
 
-    // Explicit provider request (e.g. opts.provider === 'mattchat') bypasses
-    // the merge and behaves exactly like before — single provider, no overlay.
     if (opts.provider) {
       const data = await getProvider(opts.provider).search(query, opts)
       searchCache.set(key, { data, at: Date.now() })
@@ -55,13 +56,20 @@ export const MusicService = {
     }
 
     const external = getProvider(activeProviderKey)
-    const [externalResults, mattchatResults] = await Promise.all([
+    const [externalResults, mattchatResults, youtubeResults] = await Promise.all([
       external.search(query, opts),
       activeProviderKey === 'mattchat' ? Promise.resolve(null) : mattchatProviderAdapter.search(query, opts).catch(() => ({ tracks: [] })),
+      YouTubeMusicProvider.search(query, { limit: 8 }).catch(() => ({ tracks: [] })),
     ])
 
     const data = {
-      tracks: mattchatResults ? [...mattchatResults.tracks, ...externalResults.tracks] : externalResults.tracks,
+      // Mattchat artists first (your own catalog), then mainstream
+      // YouTube results, then whichever external provider is active
+      tracks: [
+        ...(mattchatResults ? mattchatResults.tracks : []),
+        ...youtubeResults.tracks,
+        ...externalResults.tracks,
+      ],
       artists: externalResults.artists || [],
       albums: externalResults.albums || [],
     }
