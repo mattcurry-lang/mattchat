@@ -193,7 +193,7 @@ useEffect(() => {
       setIsLoading(false)
       setIsPlaying(false)
       if (code === 101 || code === 150) {
-        setError('This track can't be played here — the owner disabled embedding')
+       setError("This track can't be played here — the owner disabled embedding")
       } else if (code === 100) {
         setError('Video no longer available')
       } else {
