@@ -48,7 +48,8 @@ function writeJSON(key, value) {
   }
 }
 
-export function MusicPlayerProvider({ children }) {
+export function MusicPlayerProvider({ children, session = null }) {
+  const userId = session?.user?.id || null
   const audioRef = useRef(null)
   if (!audioRef.current && typeof Audio !== 'undefined') {
     audioRef.current = new Audio()
@@ -302,6 +303,7 @@ export function MusicPlayerProvider({ children }) {
   )
 
   const value = {
+    userId,
     // playback
     currentTrack, isPlaying, isLoading, error, currentTime, duration, volume,
     isMiniPlayerVisible, playTrack, togglePlayPause, seekTo, setVolume, closeMiniPlayer,
