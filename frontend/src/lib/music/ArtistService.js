@@ -2,6 +2,9 @@ import { supabase } from '../supabase'
 
 const AUDIO_BUCKET = 'mattchat-music-audio'
 const COVER_BUCKET = 'mattchat-music-covers'
+ function coverUrl(coverPath) {
+   return coverPath ? supabase.storage.from(COVER_BUCKET).getPublicUrl(coverPath).data.publicUrl : null
+ }
 export const MAX_AUDIO_BYTES = 25 * 1024 * 1024 // 25MB — matches the storage bucket limit
 const ALLOWED_AUDIO_TYPES = ['audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/ogg', 'audio/x-m4a']
 
@@ -124,7 +127,7 @@ export const ArtistService = {
     const likeCounts = {}
     for (const row of likeRows || []) likeCounts[row.provider_track_id] = (likeCounts[row.provider_track_id] || 0) + 1
 
-    return data.map((t) => ({ ...t, like_count: likeCounts[t.id] || 0 }))
+   return data.map((t) => ({ ...t, like_count: likeCounts[t.id] || 0, cover_url: coverUrl(t.cover_path) }))
   },
 
   async setTrackStatus(trackId, status) {
