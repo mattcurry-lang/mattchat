@@ -309,6 +309,17 @@ export function PulseMusicOverlay({ onClose }) {
     </motion.div>
   )
 }
+<button onClick={() => playTrack({
+  id: 'youtube:jNQXAC9IVRw',
+  provider: 'youtube',
+  providerTrackId: 'jNQXAC9IVRw', // "Me at the zoo" - always embeddable, YouTube's own reference video
+  title: 'Test Video',
+  artist: 'Test',
+  artwork: null,
+  duration: 19,
+})}>
+  Test YouTube Playback
+</button>
 
 export default function PulseMusicCard() {
   const [open, setOpen] = useState(false)
