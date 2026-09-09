@@ -1,8 +1,9 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import MusicSearch from './MusicSearch'
 import TrackRail from './TrackRail'
 import PlaylistsSection from './PlaylistsSection'
 import { useMusicPlayer } from '../../context/MusicPlayerContext'
+import { MusicService } from '../../../lib/music/MusicService'
 import { IconMusic, IconX } from '../../Icons'
 
 /**
@@ -40,6 +41,16 @@ export function PulseMusicEntryCard({ onOpen }) {
 
 export function PulseMusicOverlay({ onClose }) {
   const { recentlyPlayed, likedTracks } = useMusicPlayer()
+  const [trending, setTrending] = useState([])
+  const [trendingError, setTrendingError] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    MusicService.getTrending({ limit: 15 })
+      .then((tracks) => { if (!cancelled) setTrending(tracks) })
+      .catch(() => { if (!cancelled) setTrendingError(true) })
+    return () => { cancelled = true }
+  }, [])
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto' }}>
@@ -70,6 +81,15 @@ export function PulseMusicOverlay({ onClose }) {
             Discover music, build your playlists, and keep listening while you use Mattchat.
           </div>
         </div>
+
+        {trending.length > 0 && (
+          <TrackRail title="Trending" tracks={trending} />
+        )}
+        {trendingError && trending.length === 0 && (
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 18 }}>
+            Trending is temporarily unavailable.
+          </div>
+        )}
 
         <PlaylistsSection />
 
