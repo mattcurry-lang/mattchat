@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useMusicPlayer } from '../../context/MusicPlayerContext'
 import { IconMusic, IconHeart, IconMoreHorizontal, IconPlus, IconPlay, IconListMusic } from '../../Icons'
 import AddToPlaylistPicker from './AddToPlaylistPicker'
+import DownloadButton from './DownloadButton'
 
 function formatDuration(seconds) {
   if (!Number.isFinite(seconds) || seconds <= 0) return null
@@ -51,10 +52,7 @@ export default function TrackRail({ title, tracks, emptyMessage }) {
 
 function RailHeader({ title }) {
   return (
-    <div style={{
-      fontSize: 14.5, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 10,
-      letterSpacing: -0.2,
-    }}>
+    <div style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 10, letterSpacing: -0.2 }}>
       {title}
     </div>
   )
@@ -70,6 +68,7 @@ function TrackCard({ track, isActive, isPlaying, onPress }) {
   const menuRef = useRef(null)
   const liked = isLiked(track.id)
   const durationLabel = formatDuration(track.duration)
+  const canDownload = track.provider === 'mattchat' && track.isDownloadable
 
   const openMenu = useCallback(() => {
     const rect = menuBtnRef.current?.getBoundingClientRect()
@@ -88,21 +87,19 @@ function TrackCard({ track, isActive, isPlaying, onPress }) {
       if (menuBtnRef.current?.contains(e.target)) return
       setMenuOpen(false)
     }
+    const onResize = () => setMenuOpen(false)
     document.addEventListener('mousedown', onDocClick)
-    window.addEventListener('resize', () => setMenuOpen(false))
-    return () => document.removeEventListener('mousedown', onDocClick)
+    window.addEventListener('resize', onResize)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      window.removeEventListener('resize', onResize)
+    }
   }, [menuOpen])
 
-  useEffect(() => {
-    if (!menuOpen) setAddingToPlaylist(false)
-  }, [menuOpen])
+  useEffect(() => { if (!menuOpen) setAddingToPlaylist(false) }, [menuOpen])
 
   return (
-    <div
-      style={{ width: 148, flexShrink: 0, position: 'relative' }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
+    <div style={{ width: 148, flexShrink: 0, position: 'relative' }} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
       <motion.button
         onClick={onPress}
         whileTap={{ scale: 0.96 }}
@@ -113,8 +110,7 @@ function TrackCard({ track, isActive, isPlaying, onPress }) {
           cursor: 'pointer', position: 'relative', background: 'var(--bg-surface-2)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           outline: isActive ? '2px solid #a78bfa' : 'none', outlineOffset: -2,
-          boxShadow: hovered ? '0 14px 30px rgba(0,0,0,0.45)' : '0 4px 14px rgba(0,0,0,0.25)',
-          transformOrigin: 'center',
+          boxShadow: hovered ? '0 14px 30px rgba(0,0,0,0.35)' : '0 4px 14px rgba(0,0,0,0.18)',
         }}
         aria-label={`Play ${track.title}`}
       >
@@ -124,33 +120,15 @@ function TrackCard({ track, isActive, isPlaying, onPress }) {
           <IconMusic size={30} style={{ color: 'var(--text-muted)' }} />
         )}
 
-        {/* darken-on-hover + centered play button, Spotify-style */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: hovered || isActive ? 'rgba(10,10,16,0.35)' : 'transparent',
-          transition: 'background 0.2s ease',
-        }} />
+        <div style={{ position: 'absolute', inset: 0, background: hovered || isActive ? 'rgba(10,10,16,0.35)' : 'transparent', transition: 'background 0.2s ease' }} />
 
         <AnimatePresence>
           {isActive ? (
-            <motion.div
-              key="active"
-              initial={{ opacity: 0, scale: 0.7 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.7 }}
-              style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
+            <motion.div key="active" initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }} style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {isPlaying ? <EqualizerBars /> : <PlayGlyph />}
             </motion.div>
           ) : hovered ? (
-            <motion.div
-              key="hover"
-              initial={{ opacity: 0, y: 8, scale: 0.85 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.85 }}
-              transition={{ duration: 0.15 }}
-              style={{ position: 'absolute', bottom: 8, right: 8 }}
-            >
+            <motion.div key="hover" initial={{ opacity: 0, y: 8, scale: 0.85 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.85 }} transition={{ duration: 0.15 }} style={{ position: 'absolute', bottom: 8, right: 8 }}>
               <PlayGlyph />
             </motion.div>
           ) : null}
@@ -159,19 +137,22 @@ function TrackCard({ track, isActive, isPlaying, onPress }) {
         <button
           onClick={(e) => { e.stopPropagation(); toggleLike(track) }}
           aria-label={liked ? 'Unlike' : 'Like'}
-          style={{
-            position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: '50%',
-            border: 'none', cursor: 'pointer', background: 'rgba(15,15,26,0.55)',
-            color: liked ? '#f87171' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
+          style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: '50%', border: 'none', cursor: 'pointer', background: 'rgba(15,15,26,0.55)', color: liked ? '#f87171' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <IconHeart size={13} filled={liked} />
         </button>
+
+        {canDownload && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ position: 'absolute', top: 6, left: 6, borderRadius: '50%', background: 'rgba(15,15,26,0.55)' }}
+          >
+            <DownloadButton track={track} size={13} />
+          </div>
+        )}
+
         {durationLabel && (
-          <div style={{
-            position: 'absolute', bottom: 6, left: 6, fontSize: 10, fontWeight: 700, color: '#fff',
-            background: 'rgba(15,15,26,0.55)', borderRadius: 5, padding: '1px 5px',
-          }}>
+          <div style={{ position: 'absolute', bottom: 6, left: 6, fontSize: 10, fontWeight: 700, color: '#fff', background: 'rgba(15,15,26,0.55)', borderRadius: 5, padding: '1px 5px' }}>
             {durationLabel}
           </div>
         )}
@@ -187,12 +168,7 @@ function TrackCard({ track, isActive, isPlaying, onPress }) {
           </div>
         </div>
 
-        <button
-          ref={menuBtnRef}
-          onClick={openMenu}
-          aria-label="More options"
-          style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2, flexShrink: 0 }}
-        >
+        <button ref={menuBtnRef} onClick={openMenu} aria-label="More options" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2, flexShrink: 0 }}>
           <IconMoreHorizontal size={15} />
         </button>
       </div>
@@ -208,8 +184,8 @@ function TrackCard({ track, isActive, isPlaying, onPress }) {
             style={{
               position: 'fixed', top: menuPos.top, left: menuPos.left, zIndex: 3000,
               minWidth: addingToPlaylist ? 200 : 140,
-              background: '#1e1a30', border: '1px solid var(--border)', borderRadius: 12,
-              boxShadow: '0 12px 30px rgba(0,0,0,0.5)', overflow: 'hidden',
+              background: 'var(--bg-surface-1)', border: '1px solid var(--border)', borderRadius: 12,
+              boxShadow: '0 12px 30px rgba(0,0,0,0.28)', overflow: 'hidden',
             }}
           >
             {addingToPlaylist ? (
@@ -231,10 +207,7 @@ function TrackCard({ track, isActive, isPlaying, onPress }) {
 
 function PlayGlyph() {
   return (
-    <div style={{
-      width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg,#a78bfa,#6c63ff)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 18px rgba(108,99,255,0.5)',
-    }}>
+    <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 18px rgba(108,99,255,0.5)' }}>
       <IconPlay size={17} style={{ color: '#fff', marginLeft: 2 }} />
     </div>
   )
@@ -244,11 +217,7 @@ function MenuItem({ icon, label, onClick }) {
   return (
     <button
       onClick={onClick}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 12px',
-        background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left',
-        fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)',
-      }}
+      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 12px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)' }}
     >
       <span style={{ color: 'var(--text-muted)', display: 'flex' }}>{icon}</span>
       {label}
@@ -260,10 +229,7 @@ function EqualizerBars() {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 18 }}>
       {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          style={{ width: 3.5, background: '#fff', borderRadius: 2, animation: `mattchatEq 0.9s ease-in-out ${i * 0.15}s infinite` }}
-        />
+        <span key={i} style={{ width: 3.5, background: '#fff', borderRadius: 2, animation: `mattchatEq 0.9s ease-in-out ${i * 0.15}s infinite` }} />
       ))}
       <style>{`@keyframes mattchatEq { 0%, 100% { height: 6px; } 50% { height: 18px; } }`}</style>
     </div>
