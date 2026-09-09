@@ -15,7 +15,6 @@ import { unlockFileAudio } from './lib/mattchatSounds'
 import TrustedInvitePage from './pages/TrustedInvitePage'
 import { MusicPlayerProvider } from './components/context/MusicPlayerContext';
 import MiniPlayer from './components/Pulse/Music/MiniPlayer'
-import FullPlayer from './components/Pulse/Music/FullPlayer'
 
 export default function App() {
 
@@ -23,7 +22,6 @@ export default function App() {
   const [isRecovery, setIsRecovery] = useState(false)
   const [needsMfa, setNeedsMfa] = useState(false)
   const [aalChecked, setAalChecked] = useState(false)
-  
 
 
   useEffect(() => {
@@ -135,7 +133,7 @@ if (session === undefined || !aalChecked) {
 
 
   return (
-<MusicPlayerProvider session={session}>
+    <MusicPlayerProvider session={session}>
       <BrowserRouter>
 
         <Routes>
@@ -187,9 +185,6 @@ if (session === undefined || !aalChecked) {
         </Routes>
 
         {session && <MiniPlayer bottomOffset={60} />}
-              {session && showFullPlayer && (
-        <FullPlayer onClose={() => setShowFullPlayer(false)} />
-      )}
 
       </BrowserRouter>
     </MusicPlayerProvider>
