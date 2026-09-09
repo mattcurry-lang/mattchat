@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useMusicPlayer } from '../../context/MusicPlayerContext'
-import { IconMusic, IconHeart, IconMoreHorizontal, IconPlus, IconPlay } from '../../Icons'
+import { IconMusic, IconHeart, IconMoreHorizontal, IconPlus, IconPlay, IconListMusic } from '../../Icons'
+import AddToPlaylistPicker from './AddToPlaylistPicker'
 
 function formatDuration(seconds) {
   if (!Number.isFinite(seconds) || seconds <= 0) return null
@@ -66,6 +67,7 @@ function RailHeader({ title }) {
 function TrackCard({ track, isActive, isPlaying, onPress }) {
   const { isLiked, toggleLike, addToQueue } = useMusicPlayer()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [addingToPlaylist, setAddingToPlaylist] = useState(false)
   const menuRef = useRef(null)
   const liked = isLiked(track.id)
   const durationLabel = formatDuration(track.duration)
@@ -75,6 +77,10 @@ function TrackCard({ track, isActive, isPlaying, onPress }) {
     const onDocClick = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false) }
     document.addEventListener('mousedown', onDocClick)
     return () => document.removeEventListener('mousedown', onDocClick)
+  }, [menuOpen])
+
+  useEffect(() => {
+    if (!menuOpen) setAddingToPlaylist(false)
   }, [menuOpen])
 
   return (
@@ -143,12 +149,19 @@ function TrackCard({ track, isActive, isPlaying, onPress }) {
           </button>
           {menuOpen && (
             <div style={{
-              position: 'absolute', top: 20, right: 0, zIndex: 20, minWidth: 140,
+              position: 'absolute', top: 20, right: 0, zIndex: 20, minWidth: addingToPlaylist ? 200 : 140,
               background: '#1e1a30', border: '1px solid var(--border)', borderRadius: 10,
               boxShadow: '0 8px 20px rgba(0,0,0,0.35)', overflow: 'hidden',
             }}>
-              <MenuItem icon={<IconPlus size={14} />} label="Add to queue" onClick={() => { addToQueue(track); setMenuOpen(false) }} />
-              <MenuItem icon={<IconHeart size={14} filled={liked} />} label={liked ? 'Unlike' : 'Like'} onClick={() => { toggleLike(track); setMenuOpen(false) }} />
+              {addingToPlaylist ? (
+                <AddToPlaylistPicker track={track} onDone={() => setMenuOpen(false)} />
+              ) : (
+                <>
+                  <MenuItem icon={<IconPlus size={14} />} label="Add to queue" onClick={() => { addToQueue(track); setMenuOpen(false) }} />
+                  <MenuItem icon={<IconListMusic size={14} />} label="Add to playlist" onClick={() => setAddingToPlaylist(true)} />
+                  <MenuItem icon={<IconHeart size={14} filled={liked} />} label={liked ? 'Unlike' : 'Like'} onClick={() => { toggleLike(track); setMenuOpen(false) }} />
+                </>
+              )}
             </div>
           )}
         </div>
