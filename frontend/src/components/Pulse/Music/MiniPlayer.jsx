@@ -19,12 +19,13 @@ function formatTime(seconds) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export default function MiniPlayer({ onExpand, bottomOffset = 0 }) {
-  const { currentTrack, isPlaying, isLoading, error, currentTime, duration, isMiniPlayerVisible, togglePlayPause, closeMiniPlayer } = useMusicPlayer()
+export default function MiniPlayer({ bottomOffset = 0 }) {
+  const { currentTrack, isPlaying, isLoading, error, currentTime, duration, isMiniPlayerVisible, togglePlayPause, closeMiniPlayer, setIsFullPlayerVisible } = useMusicPlayer()
 
   if (!isMiniPlayerVisible || !currentTrack) return null
 
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0
+  const expand = () => setIsFullPlayerVisible(true)
 
   return (
     <div
@@ -40,7 +41,7 @@ export default function MiniPlayer({ onExpand, bottomOffset = 0 }) {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', maxWidth: 640, margin: '0 auto' }}>
         <button
-          onClick={onExpand}
+          onClick={expand}
           style={{
             display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0,
             background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left',
@@ -83,7 +84,7 @@ export default function MiniPlayer({ onExpand, bottomOffset = 0 }) {
         </button>
 
         <button
-          onClick={onExpand}
+          onClick={expand}
           aria-label="Expand player"
           style={{
             width: 30, height: 30, borderRadius: '50%', flexShrink: 0, border: 'none', cursor: 'pointer',
