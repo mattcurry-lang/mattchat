@@ -47,6 +47,11 @@ function TrackRow({ track, onPlay, isCurrent, isPlaying }) {
               <span style={{ fontSize: 9, fontWeight: 800, color: '#a78bfa', background: 'rgba(167,139,250,0.14)', borderRadius: 4, padding: '1px 5px', letterSpacing: 0.3 }}>
                 MATTCHAT ARTIST
               </span>
+        {track.provider === 'youtube' && (
+  <span style={{ fontSize: 9, fontWeight: 800, color: '#f87171', background: 'rgba(248,113,113,0.14)', borderRadius: 4, padding: '1px 5px', letterSpacing: 0.3 }}>
+    MAINSTREAM
+  </span>
+)}
             )}
           </div>
         </div>
