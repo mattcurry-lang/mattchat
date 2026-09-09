@@ -986,3 +986,24 @@ export function IconMoreHorizontal({ size = 18, ...props }) {
     </svg>
   )
 }
+
+
+// ── Upload / loading — added for Artist Studio & downloads ─────
+
+export function IconUpload({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M12 21V9" />
+      <path d="M7 14l5-5 5 5" />
+      <path d="M4 19h16" />
+    </svg>
+  )
+}
+
+export function IconLoader2({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M12 3a9 9 0 1 0 9 9" />
+    </svg>
+  )
+}
