@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import MusicSearch from './MusicSearch'
 import TrackRail from './TrackRail'
 import PlaylistsSection from './PlaylistsSection'
@@ -7,9 +7,17 @@ import BecomeArtistModal from './BecomeArtistModal'
 import ArtistDashboard from './ArtistDashboard'
 import { useMusicPlayer } from '../../context/MusicPlayerContext'
 import { MusicService } from '../../../lib/music/MusicService'
+import { YouTubeMusicProvider } from '../../../lib/music/providers/YouTubeMusicProvider'
 import { ArtistService } from '../../../lib/music/ArtistService'
 import { useDominantColor, rgba } from '../../../lib/music/extractColor'
 import { IconMusic, IconX, IconPlay, IconMic } from '../../Icons'
+
+function greeting() {
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 18) return 'Good afternoon'
+  return 'Good evening'
+}
 
 export function PulseMusicEntryCard({ onOpen }) {
   return (
@@ -33,10 +41,14 @@ export function PulseMusicEntryCard({ onOpen }) {
   )
 }
 
-function QuickPickTile({ track, onPress }) {
+function QuickPickTile({ track, onPress, index }) {
   return (
-    <button
+    <motion.button
       onClick={onPress}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.04, duration: 0.25 }}
+      whileTap={{ scale: 0.97 }}
       style={{
         display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-surface-2)',
         border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', cursor: 'pointer',
@@ -49,13 +61,30 @@ function QuickPickTile({ track, onPress }) {
       <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 10 }}>
         {track.title}
       </div>
-    </button>
+    </motion.button>
   )
 }
 
-export function PulseMusicOverlay({ userId, onClose }) {
-  const { recentlyPlayed, likedTracks, playTrack } = useMusicPlayer()
+// staggered fade-up wrapper — every section on this screen uses it,
+// so the whole home feels like it's assembling itself smoothly
+// rather than popping in as one flat block
+function Section({ delay = 0, children, style }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay, duration: 0.35, ease: 'easeOut' }}
+      style={style}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
+export function PulseMusicOverlay({ onClose }) {
+  const { userId, recentlyPlayed, likedTracks, playTrack } = useMusicPlayer()
   const [trending, setTrending] = useState([])
+  const [mainstream, setMainstream] = useState([])
   const [trendingError, setTrendingError] = useState(false)
   const [artistProfile, setArtistProfile] = useState(null)
   const [artistChecked, setArtistChecked] = useState(false)
@@ -67,48 +96,46 @@ export function PulseMusicOverlay({ userId, onClose }) {
     MusicService.getTrending({ limit: 15 })
       .then((tracks) => { if (!cancelled) setTrending(tracks) })
       .catch(() => { if (!cancelled) setTrendingError(true) })
+    YouTubeMusicProvider.getTrending({ limit: 15 })
+      .then((tracks) => { if (!cancelled) setMainstream(tracks) })
+      .catch(() => {})
     return () => { cancelled = true }
   }, [])
 
-  // Powers the "Artist Studio" entry point — whether it opens
-  // BecomeArtistModal or straight into ArtistDashboard depends on
-  // whether this user already has an artist profile row.
   const refreshArtistProfile = useCallback(async () => {
     if (!userId) { setArtistChecked(true); return }
-    try {
-      const profile = await ArtistService.getMyArtistProfile(userId)
-      setArtistProfile(profile)
-    } catch {
-      setArtistProfile(null)
-    } finally {
-      setArtistChecked(true)
-    }
+    try { setArtistProfile(await ArtistService.getMyArtistProfile(userId)) }
+    catch { setArtistProfile(null) }
+    finally { setArtistChecked(true) }
   }, [userId])
 
   useEffect(() => { refreshArtistProfile() }, [refreshArtistProfile])
 
-  const heroTrack = trending[0] || recentlyPlayed[0] || likedTracks[0] || null
+  const heroTrack = mainstream[0] || trending[0] || recentlyPlayed[0] || likedTracks[0] || null
   const dominant = useDominantColor(heroTrack?.artwork)
   const quickPicks = [...recentlyPlayed.slice(0, 4), ...likedTracks.slice(0, 4)].slice(0, 6)
 
-  const openArtistStudio = () => {
-    if (artistProfile) setShowDashboard(true)
-    else setShowBecomeArtist(true)
-  }
+  const openArtistStudio = () => (artistProfile ? setShowDashboard(true) : setShowBecomeArtist(true))
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1)', overflowY: 'auto' }}>
-      {/* hero band — color pulled from whatever's on top of the mix,
-          fading down into the app's own surface color rather than a
-          hardcoded black, so this still reads correctly in light mode */}
-      <div style={{
-        position: 'relative', padding: '16px 16px 26px',
-        background: `linear-gradient(180deg, ${rgba(dominant, 0.55)} 0%, ${rgba(dominant, 0.18)} 55%, var(--bg-surface-1) 100%)`,
-        transition: 'background 0.6s ease',
-      }}>
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1)', overflowY: 'auto' }}
+    >
+      {/* hero — color pulled live from whatever's on top of the mix */}
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}
+        style={{
+          position: 'relative', padding: '16px 16px 26px',
+          background: `linear-gradient(180deg, ${rgba(dominant, 0.55)} 0%, ${rgba(dominant, 0.18)} 55%, var(--bg-surface-1) 100%)`,
+          transition: 'background 0.6s ease',
+        }}
+      >
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-            <h2 style={{ fontSize: 20, fontWeight: 900, color: '#fff', margin: 0, letterSpacing: -0.4, textShadow: '0 2px 12px rgba(0,0,0,0.35)' }}>Music</h2>
+            <h2 style={{ fontSize: 20, fontWeight: 900, color: '#fff', margin: 0, letterSpacing: -0.4, textShadow: '0 2px 12px rgba(0,0,0,0.35)' }}>
+              {greeting()}
+            </h2>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 onClick={openArtistStudio}
@@ -124,7 +151,11 @@ export function PulseMusicOverlay({ userId, onClose }) {
           </div>
 
           {heroTrack && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <motion.div
+              key={heroTrack.id}
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}
+              style={{ display: 'flex', alignItems: 'center', gap: 16 }}
+            >
               <div style={{ width: 96, height: 96, borderRadius: 14, overflow: 'hidden', flexShrink: 0, boxShadow: '0 16px 40px rgba(0,0,0,0.4)', background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {heroTrack.artwork ? <img src={heroTrack.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={30} style={{ color: 'var(--text-muted)' }} />}
               </div>
@@ -143,81 +174,93 @@ export function PulseMusicOverlay({ userId, onClose }) {
                   <IconPlay size={13} /> Play
                 </button>
               </div>
-            </div>
+            </motion.div>
           )}
         </div>
-      </div>
+      </motion.div>
 
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '20px 16px', paddingBottom: 140 }}>
-        {/* Prompt banner for users who haven't set up an artist
-            profile yet — the entry point isn't hidden behind an icon
-            only, in case people miss the header button. */}
         {artistChecked && !artistProfile && (
-          <motion.button
-            onClick={() => setShowBecomeArtist(true)}
-            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 12, width: '100%', marginBottom: 24,
-              background: 'linear-gradient(135deg, rgba(167,139,250,0.14), rgba(108,99,255,0.08))',
-              border: '1px solid rgba(167,139,250,0.28)', borderRadius: 14, padding: '12px 14px',
-              cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
-            }}
-          >
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <IconMic size={16} style={{ color: '#fff' }} />
-            </div>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>Make music? Publish it here.</div>
-              <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Upload tracks, get real plays and likes from Mattchat listeners</div>
-            </div>
-          </motion.button>
+          <Section>
+            <button
+              onClick={() => setShowBecomeArtist(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12, width: '100%', marginBottom: 24,
+                background: 'linear-gradient(135deg, rgba(167,139,250,0.14), rgba(108,99,255,0.08))',
+                border: '1px solid rgba(167,139,250,0.28)', borderRadius: 14, padding: '12px 14px',
+                cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+              }}
+            >
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <IconMic size={16} style={{ color: '#fff' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>Make music? Publish it here.</div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Upload tracks, get real plays and likes from Mattchat listeners</div>
+              </div>
+            </button>
+          </Section>
         )}
 
         {quickPicks.length > 0 && (
-          <div style={{ marginBottom: 26 }}>
+          <Section delay={0.03} style={{ marginBottom: 26 }}>
             <div style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 10, letterSpacing: -0.2 }}>Jump back in</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              {quickPicks.map((t) => <QuickPickTile key={t.id} track={t} onPress={() => playTrack(t, quickPicks)} />)}
+              {quickPicks.map((t, i) => <QuickPickTile key={t.id} track={t} index={i} onPress={() => playTrack(t, quickPicks)} />)}
             </div>
-          </div>
+          </Section>
         )}
 
-        {trending.length > 0 && <TrackRail title="Trending" tracks={trending} />}
+        {mainstream.length > 0 && (
+          <Section delay={0.06}>
+            <TrackRail title="Mainstream Hits" tracks={mainstream} />
+          </Section>
+        )}
+
+        {trending.length > 0 && (
+          <Section delay={0.09}>
+            <TrackRail title="Trending on Mattchat" tracks={trending} />
+          </Section>
+        )}
         {trendingError && trending.length === 0 && (
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 18 }}>Trending is temporarily unavailable.</div>
         )}
 
-        <PlaylistsSection />
+        <Section delay={0.12}><PlaylistsSection /></Section>
 
-        {recentlyPlayed.length > 0 && <TrackRail title="Recently Played" tracks={recentlyPlayed} />}
-        {likedTracks.length > 0 && <TrackRail title="Liked Music" tracks={likedTracks} />}
+        {recentlyPlayed.length > 0 && <Section delay={0.15}><TrackRail title="Recently Played" tracks={recentlyPlayed} /></Section>}
+        {likedTracks.length > 0 && <Section delay={0.18}><TrackRail title="Liked Music" tracks={likedTracks} /></Section>}
 
-        <div style={{ marginTop: 6 }}>
+        <Section delay={0.21} style={{ marginTop: 6 }}>
           <div style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 10, letterSpacing: -0.2 }}>Search</div>
           <MusicSearch autoFocus={false} />
-        </div>
+        </Section>
       </div>
 
-      {showBecomeArtist && (
-        <BecomeArtistModal
-          userId={userId}
-          onClose={() => setShowBecomeArtist(false)}
-          onCreated={(artist) => { setArtistProfile(artist); setShowBecomeArtist(false); setShowDashboard(true) }}
-        />
-      )}
-      {showDashboard && (
-        <ArtistDashboard userId={userId} onClose={() => setShowDashboard(false)} />
-      )}
-    </div>
+      <AnimatePresence>
+        {showBecomeArtist && (
+          <BecomeArtistModal
+            userId={userId}
+            onClose={() => setShowBecomeArtist(false)}
+            onCreated={(artist) => { setArtistProfile(artist); setShowBecomeArtist(false); setShowDashboard(true) }}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showDashboard && <ArtistDashboard userId={userId} onClose={() => setShowDashboard(false)} />}
+      </AnimatePresence>
+    </motion.div>
   )
 }
 
-export default function PulseMusicCard({ userId }) {
+// No userId prop needed anymore — it's pulled from MusicPlayerContext,
+// so PulseMusicCard can be mounted anywhere with zero wiring.
+export default function PulseMusicCard() {
   const [open, setOpen] = useState(false)
   return (
     <>
       <PulseMusicEntryCard onOpen={() => setOpen(true)} />
-      {open && <PulseMusicOverlay userId={userId} onClose={() => setOpen(false)} />}
+      <AnimatePresence>{open && <PulseMusicOverlay onClose={() => setOpen(false)} />}</AnimatePresence>
     </>
   )
 }
