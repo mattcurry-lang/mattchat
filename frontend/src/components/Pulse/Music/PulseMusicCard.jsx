@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import MusicSearch from './MusicSearch'
 import TrackRail from './TrackRail'
+import PlaylistsSection from './PlaylistsSection'
 import { useMusicPlayer } from '../../context/MusicPlayerContext'
 import { IconMusic, IconX } from '../../Icons'
 
@@ -69,6 +70,8 @@ export function PulseMusicOverlay({ onClose }) {
             Discover music, build your playlists, and keep listening while you use Mattchat.
           </div>
         </div>
+
+        <PlaylistsSection />
 
         {/* Only render rails with content — an empty "Recently Played"
             on someone's very first visit would just be dead space. */}
