@@ -174,28 +174,39 @@ export function MusicPlayerProvider({ children, session = null }) {
 
   // YouTube engine events — same job as the <audio> listeners above,
   // just fed by polling since the IFrame API has no timeupdate event
-  useEffect(() => {
-    YouTubeEngine.setListeners({
-      onTimeUpdate: (t, d) => {
-        if (stateRef.current.currentTrack?.provider !== 'youtube') return
-        setCurrentTime(t || 0)
-        setDuration(d || 0)
-        setIsLoading(false)
-      },
-      onStateChange: (ytState) => {
-        if (stateRef.current.currentTrack?.provider !== 'youtube') return
-        // 1 = playing, 2 = paused, 3 = buffering (per YT.PlayerState)
-        if (ytState === 1) { setIsPlaying(true); setIsLoading(false) }
-        if (ytState === 2) setIsPlaying(false)
-        if (ytState === 3) setIsLoading(true)
-      },
-      onEnded: () => {
-        if (stateRef.current.currentTrack?.provider !== 'youtube') return
-        if (stateRef.current.repeatMode === 'one') { YouTubeEngine.seekTo(0); YouTubeEngine.play(); return }
-        playNext()
-      },
-    })
-  }, [playNext])
+useEffect(() => {
+  YouTubeEngine.setListeners({
+    onTimeUpdate: (t, d) => {
+      if (stateRef.current.currentTrack?.provider !== 'youtube') return
+      setCurrentTime(t || 0)
+      setDuration(d || 0)
+      setIsLoading(false)
+    },
+    onStateChange: (ytState) => {
+      if (stateRef.current.currentTrack?.provider !== 'youtube') return
+      if (ytState === 1) { setIsPlaying(true); setIsLoading(false) }
+      if (ytState === 2) setIsPlaying(false)
+      if (ytState === 3) setIsLoading(true)
+    },
+    onPlaybackError: (code) => {
+      if (stateRef.current.currentTrack?.provider !== 'youtube') return
+      setIsLoading(false)
+      setIsPlaying(false)
+      if (code === 101 || code === 150) {
+        setError('This track can't be played here — the owner disabled embedding')
+      } else if (code === 100) {
+        setError('Video no longer available')
+      } else {
+        setError('Track unavailable')
+      }
+    },
+    onEnded: () => {
+      if (stateRef.current.currentTrack?.provider !== 'youtube') return
+      if (stateRef.current.repeatMode === 'one') { YouTubeEngine.seekTo(0); YouTubeEngine.play(); return }
+      playNext()
+    },
+  })
+}, [playNext])
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume
