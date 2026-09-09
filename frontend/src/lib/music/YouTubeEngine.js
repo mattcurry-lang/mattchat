@@ -61,12 +61,17 @@ async function ensurePlayer() {
   if (player) return player
   await loadApi()
   const container = ensureContainer()
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     player = new window.YT.Player(container, {
       height: '1', width: '1',
       playerVars: { autoplay: 0, controls: 0, disablekb: 1, modestbranding: 1, playsinline: 1 },
       events: {
         onReady: () => resolve(player),
+        onError: (e) => {
+          // 101 / 150 = embedding disabled by the video owner (common on
+          // official label uploads) — 100 = video removed/private
+          listeners.onPlaybackError?.(e.data)
+        },
         onStateChange: (e) => {
           listeners.onStateChange?.(e.data)
           if (e.data === window.YT.PlayerState.ENDED) { stopPolling(); listeners.onEnded?.() }
