@@ -1,53 +1,20 @@
+import { supabase } from '../../supabase'
+
 /**
  * lib/music/providers/YouTubeMusicProvider.js
  *
  * "Mainstream" source — searches YouTube's Music category for
  * official-audio uploads so mainstream/chart artists show up in
- * results. This is legal because we're playing back an official,
- * licensed upload through YouTube's own embedded player (IFrame API,
- * see YouTubeEngine.js) — we never extract or rehost the audio file
- * itself, which is what actually requires a label deal.
+ * results. All actual YouTube Data API calls happen server-side in
+ * the `youtube-music` Supabase Edge Function, which holds the real
+ * API key (YOUTUBE_API_KEY secret) — this file never touches that
+ * key directly, it just calls the Edge Function.
+ *
+ * Playback itself is NOT handled here — MusicPlayerContext checks
+ * track.provider === 'youtube' and routes to YouTubeEngine.js, which
+ * plays back through YouTube's own hidden IFrame player. This file
+ * only ever returns metadata (title, artist, artwork, duration).
  */
-
-const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY
-const BASE = 'https://www.googleapis.com/youtube/v3'
-const MUSIC_CATEGORY_ID = '10'
-
-function parseISODuration(iso) {
-  const m = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(iso || '')
-  if (!m) return 0
-  const [, h, min, s] = m
-  return (Number(h) || 0) * 3600 + (Number(min) || 0) * 60 + (Number(s) || 0)
-}
-
-function normalizeSearchItem(item) {
-  return {
-    id: `youtube:${item.id.videoId}`,
-    provider: 'youtube',
-    providerTrackId: item.id.videoId,
-    title: item.snippet.title,
-    artist: item.snippet.channelTitle,
-    artistId: item.snippet.channelId || null,
-    album: null,
-    artwork: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url || null,
-    duration: 0, // filled in by hydrateDurations()
-    streamUrl: null, // playback goes through YouTubeEngine, never a direct URL
-    isDownloadable: false,
-  }
-}
-
-// search.list doesn't return duration — needs a second call to videos.list
-async function hydrateDurations(tracks) {
-  const ids = tracks.map((t) => t.providerTrackId).filter(Boolean)
-  if (!ids.length) return tracks
-  const url = `${BASE}/videos?part=contentDetails&id=${ids.join(',')}&key=${API_KEY}`
-  const res = await fetch(url)
-  if (!res.ok) return tracks
-  const json = await res.json()
-  const byId = {}
-  for (const v of json.items || []) byId[v.id] = parseISODuration(v.contentDetails?.duration)
-  return tracks.map((t) => ({ ...t, duration: byId[t.providerTrackId] || 0 }))
-}
 
 export const YouTubeMusicProvider = {
   key: 'youtube',
@@ -58,16 +25,15 @@ export const YouTubeMusicProvider = {
   },
 
   async searchTracks(query, { limit = 12 } = {}) {
-    if (!query?.trim() || !API_KEY) return []
-    const q = encodeURIComponent(`${query} official audio`)
-    const url = `${BASE}/search?part=snippet&type=video&videoCategoryId=${MUSIC_CATEGORY_ID}&maxResults=${limit}&q=${q}&key=${API_KEY}`
+    if (!query?.trim()) return []
     try {
-      const res = await fetch(url)
-      if (!res.ok) return []
-      const json = await res.json()
-      const tracks = (json.items || []).map(normalizeSearchItem)
-      return hydrateDurations(tracks)
-    } catch {
+      const { data, error } = await supabase.functions.invoke('youtube-music', {
+        body: { action: 'search', query, limit },
+      })
+      if (error) throw error
+      return data?.tracks || []
+    } catch (err) {
+      console.error('[YouTubeMusicProvider] search failed', err)
       return []
     }
   },
@@ -89,26 +55,14 @@ export const YouTubeMusicProvider = {
   },
 
   async getTrending({ limit = 15, regionCode = 'US' } = {}) {
-    if (!API_KEY) return []
-    const url = `${BASE}/videos?part=snippet,contentDetails&chart=mostPopular&videoCategoryId=${MUSIC_CATEGORY_ID}&regionCode=${regionCode}&maxResults=${limit}&key=${API_KEY}`
     try {
-      const res = await fetch(url)
-      if (!res.ok) return []
-      const json = await res.json()
-      return (json.items || []).map((v) => ({
-        id: `youtube:${v.id}`,
-        provider: 'youtube',
-        providerTrackId: v.id,
-        title: v.snippet.title,
-        artist: v.snippet.channelTitle,
-        artistId: v.snippet.channelId || null,
-        album: null,
-        artwork: v.snippet.thumbnails?.high?.url || null,
-        duration: parseISODuration(v.contentDetails?.duration),
-        streamUrl: null,
-        isDownloadable: false,
-      }))
-    } catch {
+      const { data, error } = await supabase.functions.invoke('youtube-music', {
+        body: { action: 'trending', limit, regionCode },
+      })
+      if (error) throw error
+      return data?.tracks || []
+    } catch (err) {
+      console.error('[YouTubeMusicProvider] trending failed', err)
       return []
     }
   },
