@@ -1,27 +1,10 @@
 import React, { createContext, useContext, useRef, useState, useCallback, useEffect, useMemo } from 'react'
 import { MusicService } from '../../lib/music/MusicService'
-
-/**
- * context/MusicPlayerContext.jsx
- *
- * PHASE 2 UPDATE — additive on top of the Phase 1 context:
- *   - real queue (array + index) instead of a single currentTrack
- *   - onEnded now auto-advances instead of just stopping
- *   - shuffle / repeat
- *   - likes (localStorage-backed for now — swap for Supabase in the
- *     DB pass without changing the public API below)
- *   - recently played (localStorage-backed, same reasoning)
- *
- * playTrack(track) still works exactly like Phase 1 — a bare call
- * plays just that track. Existing call sites in MusicSearch.jsx and
- * PulseMusicCard.jsx don't need to change. New call sites (e.g. "play
- * this song, queue the rest of the search results") can pass a second
- * arg: playTrack(track, contextTracks).
- */
+import { YouTubeEngine } from '../../lib/music/YouTubeEngine'
 
 const MusicPlayerContext = createContext(null)
 
-const LIKES_KEY = 'mattchat:music:likedTracks' // { [trackId]: { ...track, likedAt } }
+const LIKES_KEY = 'mattchat:music:likedTracks'
 const RECENTLY_PLAYED_KEY = 'mattchat:music:recentlyPlayed'
 const RECENTLY_PLAYED_LIMIT = 50
 
@@ -32,20 +15,10 @@ export function useMusicPlayer() {
 }
 
 function readJSON(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw ? JSON.parse(raw) : fallback
-  } catch {
-    return fallback
-  }
+  try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback } catch { return fallback }
 }
-
 function writeJSON(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value))
-  } catch {
-    // storage full / unavailable — never let this block playback
-  }
+  try { localStorage.setItem(key, JSON.stringify(value)) } catch {}
 }
 
 export function MusicPlayerProvider({ children, session = null }) {
@@ -56,11 +29,10 @@ export function MusicPlayerProvider({ children, session = null }) {
     audioRef.current.preload = 'metadata'
   }
 
-  // ── queue state (replaces the old single `currentTrack` state) ──
-  const [queue, setQueue] = useState([])        // normalized tracks
+  const [queue, setQueue] = useState([])
   const [queueIndex, setQueueIndex] = useState(-1)
   const [shuffle, setShuffle] = useState(false)
-  const [repeatMode, setRepeatMode] = useState('off') // 'off' | 'all' | 'one'
+  const [repeatMode, setRepeatMode] = useState('off')
   const [isQueueVisible, setIsQueueVisible] = useState(false)
 
   const [isPlaying, setIsPlaying] = useState(false)
@@ -77,49 +49,16 @@ export function MusicPlayerProvider({ children, session = null }) {
 
   const currentTrack = queueIndex >= 0 && queueIndex < queue.length ? queue[queueIndex] : null
 
-  // refs so the stable event handlers below always see fresh values
-  // without having to be re-registered on every state change
   const stateRef = useRef({})
-  stateRef.current = { queue, queueIndex, shuffle, repeatMode, volume }
+  stateRef.current = { queue, queueIndex, shuffle, repeatMode, volume, currentTrack }
 
   const recordRecentlyPlayed = useCallback((track) => {
     setRecentlyPlayed((prev) => {
-      const next = [
-        { ...track, playedAt: Date.now() },
-        ...prev.filter((t) => t.id !== track.id),
-      ].slice(0, RECENTLY_PLAYED_LIMIT)
+      const next = [{ ...track, playedAt: Date.now() }, ...prev.filter((t) => t.id !== track.id)].slice(0, RECENTLY_PLAYED_LIMIT)
       writeJSON(RECENTLY_PLAYED_KEY, next)
       return next
     })
   }, [])
-
-  const loadAndPlay = useCallback(async (track, index) => {
-    const audio = audioRef.current
-    if (!audio || !track) return
-
-    setError(null)
-    setIsLoading(true)
-    setQueueIndex(index)
-    setIsMiniPlayerVisible(true)
-
-    try {
-      const url = await MusicService.resolveStreamUrl(track)
-      if (!url) {
-        setIsLoading(false)
-        setError('Track unavailable')
-        setIsPlaying(false)
-        return
-      }
-      audio.src = url
-      audio.volume = stateRef.current.volume
-      await audio.play()
-      recordRecentlyPlayed(track)
-    } catch {
-      setIsLoading(false)
-      setError('Track unavailable')
-      setIsPlaying(false)
-    }
-  }, [recordRecentlyPlayed])
 
   const computeNextIndex = useCallback(() => {
     const { queue: q, queueIndex: i, shuffle: sh, repeatMode: rm } = stateRef.current
@@ -134,6 +73,50 @@ export function MusicPlayerProvider({ children, session = null }) {
     return rm === 'all' ? 0 : -1
   }, [])
 
+  // ── the branch point: everything else in the app just calls
+  // loadAndPlay/togglePlayPause/etc — this is the only place that
+  // knows a YouTube track needs a different engine than <audio> ──
+  const loadAndPlay = useCallback(async (track, index) => {
+    if (!track) return
+    setError(null)
+    setIsLoading(true)
+    setQueueIndex(index)
+    setIsMiniPlayerVisible(true)
+
+    const audio = audioRef.current
+
+    if (track.provider === 'youtube') {
+      audio?.pause()
+      try {
+        await YouTubeEngine.load(track.providerTrackId)
+        await YouTubeEngine.setVolume(stateRef.current.volume)
+        await YouTubeEngine.play()
+        recordRecentlyPlayed(track)
+      } catch {
+        setIsLoading(false)
+        setError('Track unavailable')
+        setIsPlaying(false)
+      }
+      return
+    }
+
+    // non-YouTube: stop the YouTube engine if it was mid-playback,
+    // then fall back to the normal <audio> element flow
+    YouTubeEngine.stop()
+    try {
+      const url = await MusicService.resolveStreamUrl(track)
+      if (!url) { setIsLoading(false); setError('Track unavailable'); setIsPlaying(false); return }
+      audio.src = url
+      audio.volume = stateRef.current.volume
+      await audio.play()
+      recordRecentlyPlayed(track)
+    } catch {
+      setIsLoading(false)
+      setError('Track unavailable')
+      setIsPlaying(false)
+    }
+  }, [recordRecentlyPlayed])
+
   const playNext = useCallback(() => {
     const idx = computeNextIndex()
     if (idx === -1) { setIsPlaying(false); return }
@@ -141,9 +124,9 @@ export function MusicPlayerProvider({ children, session = null }) {
   }, [computeNextIndex, loadAndPlay])
 
   const playPrevious = useCallback(() => {
-    const { queue: q, queueIndex: i, repeatMode: rm } = stateRef.current
+    const { queue: q, queueIndex: i, repeatMode: rm, currentTrack: ct } = stateRef.current
     if (q.length === 0) return
-    if (audioRef.current && audioRef.current.currentTime > 3) {
+    if (ct?.provider !== 'youtube' && audioRef.current && audioRef.current.currentTime > 3) {
       audioRef.current.currentTime = 0
       setCurrentTime(0)
       return
@@ -152,31 +135,22 @@ export function MusicPlayerProvider({ children, session = null }) {
     loadAndPlay(q[idx], idx)
   }, [loadAndPlay])
 
-  // Wire the single <audio> element's events once — handlers read
-  // current state via stateRef/computeNextIndex so they never go stale.
+  // <audio> element events (Audius/Mattchat tracks)
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
 
-    const onTimeUpdate = () => setCurrentTime(audio.currentTime)
+    const onTimeUpdate = () => { if (stateRef.current.currentTrack?.provider !== 'youtube') setCurrentTime(audio.currentTime) }
     const onLoadedMetadata = () => setDuration(audio.duration || 0)
     const onWaiting = () => setIsLoading(true)
     const onCanPlay = () => setIsLoading(false)
-    const onPlay = () => setIsPlaying(true)
-    const onPause = () => setIsPlaying(false)
+    const onPlay = () => { if (stateRef.current.currentTrack?.provider !== 'youtube') setIsPlaying(true) }
+    const onPause = () => { if (stateRef.current.currentTrack?.provider !== 'youtube') setIsPlaying(false) }
     const onEnded = () => {
-      if (stateRef.current.repeatMode === 'one') {
-        audio.currentTime = 0
-        audio.play().catch(() => {})
-        return
-      }
+      if (stateRef.current.repeatMode === 'one') { audio.currentTime = 0; audio.play().catch(() => {}); return }
       playNext()
     }
-    const onError = () => {
-      setIsLoading(false)
-      setIsPlaying(false)
-      setError('Track unavailable')
-    }
+    const onError = () => { setIsLoading(false); setIsPlaying(false); setError('Track unavailable') }
 
     audio.addEventListener('timeupdate', onTimeUpdate)
     audio.addEventListener('loadedmetadata', onLoadedMetadata)
@@ -186,7 +160,6 @@ export function MusicPlayerProvider({ children, session = null }) {
     audio.addEventListener('pause', onPause)
     audio.addEventListener('ended', onEnded)
     audio.addEventListener('error', onError)
-
     return () => {
       audio.removeEventListener('timeupdate', onTimeUpdate)
       audio.removeEventListener('loadedmetadata', onLoadedMetadata)
@@ -199,16 +172,36 @@ export function MusicPlayerProvider({ children, session = null }) {
     }
   }, [playNext])
 
+  // YouTube engine events — same job as the <audio> listeners above,
+  // just fed by polling since the IFrame API has no timeupdate event
+  useEffect(() => {
+    YouTubeEngine.setListeners({
+      onTimeUpdate: (t, d) => {
+        if (stateRef.current.currentTrack?.provider !== 'youtube') return
+        setCurrentTime(t || 0)
+        setDuration(d || 0)
+        setIsLoading(false)
+      },
+      onStateChange: (ytState) => {
+        if (stateRef.current.currentTrack?.provider !== 'youtube') return
+        // 1 = playing, 2 = paused, 3 = buffering (per YT.PlayerState)
+        if (ytState === 1) { setIsPlaying(true); setIsLoading(false) }
+        if (ytState === 2) setIsPlaying(false)
+        if (ytState === 3) setIsLoading(true)
+      },
+      onEnded: () => {
+        if (stateRef.current.currentTrack?.provider !== 'youtube') return
+        if (stateRef.current.repeatMode === 'one') { YouTubeEngine.seekTo(0); YouTubeEngine.play(); return }
+        playNext()
+      },
+    })
+  }, [playNext])
+
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume
-  }, [volume])
+    if (currentTrack?.provider === 'youtube') YouTubeEngine.setVolume(volume)
+  }, [volume, currentTrack?.provider])
 
-  /**
-   * playTrack(track) — Phase 1 behavior, unchanged: plays just this track.
-   * playTrack(track, contextTracks) — Phase 2: seeds the queue with
-   * contextTracks (e.g. the full search-results list or an album),
-   * starting playback at `track`'s position within it.
-   */
   const playTrack = useCallback((track, contextTracks = null) => {
     const newQueue = contextTracks && contextTracks.length ? contextTracks : [track]
     const idx = newQueue.findIndex((t) => t.id === track.id)
@@ -217,76 +210,62 @@ export function MusicPlayerProvider({ children, session = null }) {
   }, [loadAndPlay])
 
   const togglePlayPause = useCallback(() => {
-    const audio = audioRef.current
-    if (!audio || !currentTrack) return
-    if (isPlaying) {
-      audio.pause()
-    } else {
-      audio.play().catch(() => setError('Playback failed'))
+    if (!currentTrack) return
+    if (currentTrack.provider === 'youtube') {
+      if (isPlaying) YouTubeEngine.pause()
+      else YouTubeEngine.play()
+      return
     }
+    const audio = audioRef.current
+    if (!audio) return
+    if (isPlaying) audio.pause()
+    else audio.play().catch(() => setError('Playback failed'))
   }, [isPlaying, currentTrack])
 
   const seekTo = useCallback((seconds) => {
+    if (currentTrack?.provider === 'youtube') { YouTubeEngine.seekTo(seconds); setCurrentTime(seconds); return }
     const audio = audioRef.current
     if (!audio) return
     audio.currentTime = seconds
     setCurrentTime(seconds)
-  }, [])
+  }, [currentTrack])
 
   const setVolume = useCallback((v) => setVolumeState(Math.max(0, Math.min(1, v))), [])
 
   const closeMiniPlayer = useCallback(() => {
     const audio = audioRef.current
-    if (audio) {
-      audio.pause()
-      audio.src = ''
-    }
+    if (audio) { audio.pause(); audio.src = '' }
+    YouTubeEngine.stop()
     setIsPlaying(false)
     setQueue([])
     setQueueIndex(-1)
     setIsMiniPlayerVisible(false)
   }, [])
 
-  // ── queue management ──
-  const addToQueue = useCallback((track) => {
-    setQueue((q) => [...q, track])
-  }, [])
-
+  const addToQueue = useCallback((track) => setQueue((q) => [...q, track]), [])
   const removeFromQueue = useCallback((trackId) => {
     setQueue((q) => {
       const removeAt = q.findIndex((t) => t.id === trackId)
       if (removeAt === -1) return q
       const next = q.filter((t) => t.id !== trackId)
-      // keep queueIndex pointing at the same *track* it was pointing
-      // at before the removal, not the same numeric slot
-      setQueueIndex((i) => {
-        if (removeAt < i) return i - 1
-        if (removeAt === i) return Math.min(i, next.length - 1)
-        return i
-      })
+      setQueueIndex((i) => (removeAt < i ? i - 1 : removeAt === i ? Math.min(i, next.length - 1) : i))
       return next
     })
   }, [])
-
   const playFromQueue = useCallback((trackId) => {
     const idx = stateRef.current.queue.findIndex((t) => t.id === trackId)
     if (idx === -1) return
     loadAndPlay(stateRef.current.queue[idx], idx)
   }, [loadAndPlay])
-
   const clearQueue = useCallback(() => {
     setQueue(currentTrack ? [currentTrack] : [])
     setQueueIndex(currentTrack ? 0 : -1)
   }, [currentTrack])
 
   const toggleShuffle = useCallback(() => setShuffle((s) => !s), [])
-  const cycleRepeat = useCallback(() => {
-    setRepeatMode((m) => (m === 'off' ? 'all' : m === 'all' ? 'one' : 'off'))
-  }, [])
+  const cycleRepeat = useCallback(() => setRepeatMode((m) => (m === 'off' ? 'all' : m === 'all' ? 'one' : 'off')), [])
 
-  // ── likes ──
   const isLiked = useCallback((trackId) => Boolean(likedTracksMap[trackId]), [likedTracksMap])
-
   const toggleLike = useCallback((track) => {
     setLikedTracksMap((prev) => {
       const next = { ...prev }
@@ -296,25 +275,16 @@ export function MusicPlayerProvider({ children, session = null }) {
       return next
     })
   }, [])
-
-  // Most-recently-liked first — used by the "Liked Music" rail.
-  const likedTracks = useMemo(
-    () => Object.values(likedTracksMap).sort((a, b) => b.likedAt - a.likedAt),
-    [likedTracksMap]
-  )
+  const likedTracks = useMemo(() => Object.values(likedTracksMap).sort((a, b) => b.likedAt - a.likedAt), [likedTracksMap])
 
   const value = {
     userId,
-    // playback
     currentTrack, isPlaying, isLoading, error, currentTime, duration, volume,
     isMiniPlayerVisible, isFullPlayerVisible, setIsFullPlayerVisible, playTrack, togglePlayPause, seekTo, setVolume, closeMiniPlayer,
     playNext, playPrevious,
-    // queue
     queue, queueIndex, shuffle, repeatMode, isQueueVisible, setIsQueueVisible,
     addToQueue, removeFromQueue, playFromQueue, clearQueue, toggleShuffle, cycleRepeat,
-    // likes
     isLiked, toggleLike, likedTracks,
-    // recently played
     recentlyPlayed,
   }
 
