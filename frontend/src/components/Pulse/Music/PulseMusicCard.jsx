@@ -32,7 +32,7 @@ export function PulseMusicEntryCard({ onOpen }) {
         <IconMusic size={18} style={{ color: '#fff' }} />
       </div>
       <div>
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>Music</div>
+       <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary, #f5f5f7)' }}>Music</div>
         <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Discover, search, and play — keeps going while you chat</div>
       </div>
     </button>
@@ -56,7 +56,7 @@ export function PulseMusicOverlay({ onClose }) {
     <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto' }}>
       <div style={{ maxWidth: 640, margin: '0 auto', padding: 16, paddingBottom: 100 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Music</h2>
+         <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary, #f5f5f7)', margin: 0 }}>Music</h2>
           <button
             onClick={onClose}
             style={{
@@ -74,7 +74,7 @@ export function PulseMusicOverlay({ onClose }) {
           background: 'linear-gradient(135deg, rgba(167,139,250,0.16), rgba(108,99,255,0.10))',
           border: '1px solid rgba(167,139,250,0.25)',
         }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>
+           <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary, #f5f5f7)', marginBottom: 4 }}>
             Music for your moment
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
