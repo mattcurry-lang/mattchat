@@ -23,7 +23,7 @@ export default function App() {
   const [isRecovery, setIsRecovery] = useState(false)
   const [needsMfa, setNeedsMfa] = useState(false)
   const [aalChecked, setAalChecked] = useState(false)
-  const [showFullPlayer, setShowFullPlayer] = useState(false)
+  
 
 
   useEffect(() => {
@@ -186,12 +186,7 @@ if (session === undefined || !aalChecked) {
 
         </Routes>
 
-        {session && (
-          <MiniPlayer
-            onExpand={() => setShowFullPlayer(true)}
-            bottomOffset={60}
-          />
-        )}
+        {session && <MiniPlayer bottomOffset={60} />}
               {session && showFullPlayer && (
         <FullPlayer onClose={() => setShowFullPlayer(false)} />
       )}
