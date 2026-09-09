@@ -70,6 +70,7 @@ export function MusicPlayerProvider({ children, session = null }) {
   const [duration, setDuration] = useState(0)
   const [volume, setVolumeState] = useState(0.85)
   const [isMiniPlayerVisible, setIsMiniPlayerVisible] = useState(false)
+  const [isFullPlayerVisible, setIsFullPlayerVisible] = useState(false)
 
   const [likedTracksMap, setLikedTracksMap] = useState(() => readJSON(LIKES_KEY, {}))
   const [recentlyPlayed, setRecentlyPlayed] = useState(() => readJSON(RECENTLY_PLAYED_KEY, []))
@@ -306,7 +307,7 @@ export function MusicPlayerProvider({ children, session = null }) {
     userId,
     // playback
     currentTrack, isPlaying, isLoading, error, currentTime, duration, volume,
-    isMiniPlayerVisible, playTrack, togglePlayPause, seekTo, setVolume, closeMiniPlayer,
+    isMiniPlayerVisible, isFullPlayerVisible, setIsFullPlayerVisible, playTrack, togglePlayPause, seekTo, setVolume, closeMiniPlayer,
     playNext, playPrevious,
     // queue
     queue, queueIndex, shuffle, repeatMode, isQueueVisible, setIsQueueVisible,
