@@ -1,4 +1,3 @@
-// QueueDrawer.jsx — only the wrapper changes; everything else (QueueRow, logic) stays the same
 import React from 'react'
 import { motion } from 'framer-motion'
 import { useMusicPlayer } from '../../context/MusicPlayerContext'
@@ -11,7 +10,7 @@ export default function QueueDrawer({ onClose }) {
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
-      style={{ position: 'fixed', inset: 0, zIndex: 800, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-end' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 800, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end' }}
       onClick={onClose}
     >
       <motion.div
@@ -20,9 +19,10 @@ export default function QueueDrawer({ onClose }) {
         transition={{ type: 'spring', stiffness: 380, damping: 34 }}
         style={{
           width: '100%', maxHeight: '70vh', overflowY: 'auto',
-          background: '#171225', borderTopLeftRadius: 20, borderTopRightRadius: 20,
+          background: 'var(--bg-surface-1)', border: '1px solid var(--border)', borderBottom: 'none',
+          borderTopLeftRadius: 20, borderTopRightRadius: 20,
           padding: '16px 16px calc(16px + env(safe-area-inset-bottom, 0px))',
-          boxShadow: '0 -12px 40px rgba(0,0,0,0.5)',
+          boxShadow: '0 -12px 40px rgba(0,0,0,0.3)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -31,8 +31,7 @@ export default function QueueDrawer({ onClose }) {
             {upcoming.length > 0 && (
               <button onClick={clearQueue} style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}>Clear</button>
             )}
-            <button onClick={onClose} aria-label="Close queue"
-              style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <button onClick={onClose} aria-label="Close queue" style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'var(--bg-surface-2)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
               <IconX size={14} />
             </button>
           </div>
@@ -64,8 +63,7 @@ export default function QueueDrawer({ onClose }) {
 function QueueRow({ track, active = false, onPlay, onRemove }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 6px', borderRadius: 10, background: active ? 'rgba(167,139,250,0.10)' : 'transparent' }}>
-      <button onClick={onPlay} disabled={active}
-        style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, background: 'transparent', border: 'none', cursor: active ? 'default' : 'pointer', padding: 0, textAlign: 'left' }}>
+      <button onClick={onPlay} disabled={active} style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, background: 'transparent', border: 'none', cursor: active ? 'default' : 'pointer', padding: 0, textAlign: 'left' }}>
         <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {track.artwork ? <img src={track.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={14} style={{ color: 'var(--text-muted)' }} />}
         </div>
