@@ -4,9 +4,11 @@ import { useMusicPlayer } from '../../context/MusicPlayerContext'
 import { PlaylistService } from '../../../lib/music/PlaylistService'
 import PlaylistDetailOverlay from './PlaylistDetailOverlay'
 import { IconListMusic, IconPlus, IconMusic } from '../../Icons'
+import { useMusicColors } from '../../../hooks/useMusicColors'
 
 export default function PlaylistsSection() {
   const { userId } = useMusicPlayer()
+  const colors = useMusicColors()
   const [playlists, setPlaylists] = useState([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -48,7 +50,7 @@ export default function PlaylistsSection() {
         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
           <input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleCreate()} placeholder="Playlist name"
-            style={{ flex: 1, fontSize: 13, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface-2)', color: colors.textPrimary }} />
+            style={{ flex: 1, fontSize: 13, padding: '8px 10px', borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.surface2, color: colors.textPrimary }} />
           <button onClick={handleCreate}
             style={{ fontSize: 12.5, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', border: 'none', borderRadius: 8, padding: '0 14px', cursor: 'pointer' }}>
             Create
@@ -63,9 +65,6 @@ export default function PlaylistsSection() {
           No playlists yet — create one, or add a song to a new playlist from its menu.
         </div>
       ) : (
-        // 2-column grid of square tiles, Spotify's library-view pattern,
-        // instead of a one-row horizontal scroller — reads as a proper
-        // library rather than an afterthought rail
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 14 }}>
           {playlists.map((p, i) => (
             <motion.button
@@ -80,7 +79,7 @@ export default function PlaylistsSection() {
             >
               <div style={{
                 width: '100%', aspectRatio: '1 / 1', borderRadius: 12, overflow: 'hidden',
-                background: p.artwork_url ? 'var(--bg-surface-2)' : 'linear-gradient(135deg, rgba(167,139,250,0.35), rgba(108,99,255,0.2))',
+                background: p.artwork_url ? colors.surface2 : 'linear-gradient(135deg, rgba(167,139,250,0.35), rgba(108,99,255,0.2))',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 boxShadow: '0 6px 18px rgba(0,0,0,0.3)',
               }}>
