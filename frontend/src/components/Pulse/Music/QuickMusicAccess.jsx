@@ -121,7 +121,7 @@ export default function QuickMusicAccess() {
           >
             {/* header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 12px 8px' }}>
-              <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text-primary)' }}>Music</div>
+              <div style={{ fontSize: 13.5, fontWeight: 800, color: colors.textPrimary }}>Music</div>
               <button
                 onClick={() => setOpen(false)}
                 aria-label="Close"
@@ -142,11 +142,11 @@ export default function QuickMusicAccess() {
                 }}
               >
                 <div style={{ width: 32, height: 32, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {currentTrack.artwork ? <img src={currentTrack.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={13} style={{ color: 'var(--text-muted)' }} />}
+                  {currentTrack.artwork ? <img src={currentTrack.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={13} style={{ color: colors.textMuted }} />}
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTrack.title}</div>
-                  <div style={{ fontSize: 10.5, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTrack.artist}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTrack.title}</div>
+                  <div style={{ fontSize: 10.5, color: colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTrack.artist}</div>
                 </div>
                 <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {isPlaying ? <IconPause size={11} /> : <IconPlay size={11} />}
@@ -157,25 +157,25 @@ export default function QuickMusicAccess() {
             {/* search */}
             <div style={{ padding: '0 12px 10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px' }}>
-                <IconSearch size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                <IconSearch size={14} style={{ color: colors.textMuted, flexShrink: 0 }} />
                 <input
                   autoFocus
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search songs…"
-                  style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit' }}
+                  style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: colors.textPrimary, fontSize: 13, fontFamily: 'inherit' }}
                 />
               </div>
             </div>
 
             {/* list */}
             <div style={{ overflowY: 'auto', padding: '0 8px 10px', flex: 1 }}>
-              <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, padding: '2px 8px 6px' }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, padding: '2px 8px 6px' }}>
                 {searching ? 'Searching…' : listLabel}
               </div>
 
               {!searching && quickList.length === 0 && (
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '10px 8px' }}>
+                <div style={{ fontSize: 12, color: colors.textMuted, padding: '10px 8px' }}>
                   {query.trim() ? 'No results.' : 'Nothing here yet — try a search.'}
                 </div>
               )}
@@ -192,11 +192,11 @@ export default function QuickMusicAccess() {
                     }}
                   >
                     <div style={{ width: 34, height: 34, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {track.artwork ? <img src={track.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={13} style={{ color: 'var(--text-muted)' }} />}
+                      {track.artwork ? <img src={track.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={13} style={{ color: colors.textMuted }} />}
                     </div>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: isThis ? '#a78bfa' : 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
-                      <div style={{ fontSize: 10.5, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.artist}</div>
+                      <div style={{ fontSize: 10.5, color: colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.artist}</div>
                     </div>
                     {isThis && isPlaying && (
                       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 14, flexShrink: 0 }}>
