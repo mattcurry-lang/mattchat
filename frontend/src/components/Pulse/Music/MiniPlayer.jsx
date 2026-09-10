@@ -4,7 +4,7 @@ import { useMusicPlayer } from '../../context/MusicPlayerContext'
 import { useTheme } from '../../../hooks/useTheme'
 import { IconPlay, IconPause, IconMusic, IconX } from '../../Icons'
 
-const TOP_OFFSET = 'calc(env(safe-area-inset-top, 0px) + 64px)'
+const TOP_OFFSET = 'calc(env(safe-area-inset-top, 0px) + 72px)' 
 
 function formatTime(seconds) {
   if (!Number.isFinite(seconds)) return '0:00'
