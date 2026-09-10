@@ -43,7 +43,7 @@ export default function LibraryPanel({ playlists, onOpenPlaylist, onClose }) {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Your Library</h3>
+          <h3 style={{ fontSize: 17, fontWeight: 800, color: colors.textPrimary, margin: 0 }}>Your Library</h3>
           <button onClick={onClose} aria-label="Close library"
             style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', cursor: 'pointer', background: 'var(--bg-surface-2)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <IconX size={15} />
@@ -64,7 +64,7 @@ export default function LibraryPanel({ playlists, onOpenPlaylist, onClose }) {
             <IconHeart size={18} filled style={{ color: '#fff' }} />
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text-primary)' }}>Liked Songs</div>
+            <div style={{ fontSize: 13.5, fontWeight: 800, color: colors.textPrimary }}>Liked Songs</div>
             <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{likedTracks.length} songs</div>
           </div>
         </button>
@@ -85,7 +85,7 @@ export default function LibraryPanel({ playlists, onOpenPlaylist, onClose }) {
               <div style={{ width: 44, height: 44, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {p.artwork_url ? <img src={p.artwork_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconListMusic size={17} style={{ color: 'var(--text-muted)' }} />}
               </div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
             </button>
           ))
         )}
@@ -106,7 +106,7 @@ export default function LibraryPanel({ playlists, onOpenPlaylist, onClose }) {
                   {t.artwork ? <img src={t.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={16} style={{ color: 'var(--text-muted)' }} />}
                 </div>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artist}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artist}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Artist</div>
                 </div>
               </button>
