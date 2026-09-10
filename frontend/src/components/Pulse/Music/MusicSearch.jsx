@@ -112,7 +112,7 @@ export default function MusicSearch({ autoFocus = false }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search songs or artists…"
-          style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-primary)', fontSize: 13.5, fontFamily: 'inherit' }}
+          style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: colors.textPrimary, fontSize: 13.5, fontFamily: 'inherit' }}
         />
       </div>
 
