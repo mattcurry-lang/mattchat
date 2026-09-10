@@ -35,14 +35,22 @@ export default function ShareTrackSheet({ track, conversations = [], onShare, on
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 16px 10px' }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>Share song</div>
-          <button onClick={onClose} aria-label="Close" style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'var(--bg-surface-2)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'var(--bg-surface-2)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+          >
             <IconX size={14} />
           </button>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px 12px' }}>
           <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {track.artwork ? <img src={track.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={14} style={{ color: 'var(--text-muted)' }} />}
+            {track.artwork ? (
+              <img src={track.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <IconMusic size={14} style={{ color: 'var(--text-muted)' }} />
+            )}
           </div>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
