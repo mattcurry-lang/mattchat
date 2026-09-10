@@ -23,12 +23,13 @@ function greeting() {
 }
 
 export function PulseMusicEntryCard({ onOpen }) {
+  const colors = useMusicColors()
   return (
     <button
       onClick={onOpen}
       style={{
         display: 'flex', alignItems: 'center', gap: 12, position: 'relative', overflow: 'hidden',
-        background: 'linear-gradient(135deg, rgba(167,139,250,0.18), rgba(108,99,255,0.10)), var(--bg-surface-2)',
+        background: `linear-gradient(135deg, rgba(167,139,250,0.18), rgba(108,99,255,0.10)), ${colors.surface2}`,
         border: '1px solid rgba(167,139,250,0.3)', borderRadius: 16, padding: '14px 16px',
         cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%',
       }}
@@ -44,7 +45,6 @@ export function PulseMusicEntryCard({ onOpen }) {
   )
 }
 
-function QuickPickTile({ track, onPress, index }) {
 function QuickPickTile({ track, onPress, index, colors }) {
   return (
     <motion.button
@@ -78,7 +78,7 @@ function Section({ delay = 0, children, style }) {
 const TABS = ['All', 'Songs', 'Playlists']
 
 export function PulseMusicOverlay({ onClose }) {
- const { userId, recentlyPlayed, likedTracks, playTrack } = useMusicPlayer()
+  const { userId, recentlyPlayed, likedTracks, playTrack } = useMusicPlayer()
   const colors = useMusicColors()
   const [trending, setTrending] = useState([])
   const [mainstream, setMainstream] = useState([])
@@ -121,36 +121,36 @@ export function PulseMusicOverlay({ onClose }) {
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
-      style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1)', display: 'flex', flexDirection: 'column' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 600, background: colors.surface1, display: 'flex', flexDirection: 'column' }}
     >
       {/* ── sticky top bar: search + library + close, Spotify's header row ── */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 10, display: 'flex', alignItems: 'center', gap: 10,
-        padding: '14px 16px', background: 'var(--bg-surface-1)', borderBottom: '1px solid var(--border)',
+        padding: '14px 16px', background: colors.surface1, borderBottom: `1px solid ${colors.border}`,
       }}>
-      <button
-  onClick={() => setShowSearch((s) => !s)}
-  style={{
-    flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-surface-2)',
-    border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px',
-    cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: colors.textMuted, fontSize: 13,
-    maxWidth: 420, height: 36,
-  }}
->
-  <IconSearch size={14} />
-  What do you want to play?
-</button>
+        <button
+          onClick={() => setShowSearch((s) => !s)}
+          style={{
+            flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: colors.surface2,
+            border: `1px solid ${colors.border}`, borderRadius: 8, padding: '8px 12px',
+            cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: colors.textMuted, fontSize: 13,
+            maxWidth: 420, height: 36,
+          }}
+        >
+          <IconSearch size={14} />
+          What do you want to play?
+        </button>
         <button
           onClick={() => setShowLibrary(true)}
           aria-label="Your Library"
-          style={{ width: 38, height: 38, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--bg-surface-2)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+          style={{ width: 38, height: 38, borderRadius: '50%', border: `1px solid ${colors.border}`, background: colors.surface2, color: colors.textSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
         >
           <IconListMusic size={16} />
         </button>
         <button
           onClick={onClose}
           aria-label="Close"
-          style={{ width: 38, height: 38, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--bg-surface-2)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+          style={{ width: 38, height: 38, borderRadius: '50%', border: `1px solid ${colors.border}`, background: colors.surface2, color: colors.textSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
         >
           <IconX size={16} />
         </button>
@@ -162,7 +162,7 @@ export function PulseMusicOverlay({ onClose }) {
           <motion.div
             initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25 }}
-            style={{ overflow: 'hidden', borderBottom: '1px solid var(--border)', background: 'var(--bg-surface-1)' }}
+            style={{ overflow: 'hidden', borderBottom: `1px solid ${colors.border}`, background: colors.surface1 }}
           >
             <div style={{ padding: '14px 16px', maxWidth: 640, margin: '0 auto', width: '100%' }}>
               <MusicSearch autoFocus />
@@ -177,7 +177,7 @@ export function PulseMusicOverlay({ onClose }) {
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}
           style={{
             position: 'relative', padding: '20px 16px 26px',
-            background: `linear-gradient(180deg, ${rgba(dominant, 0.5)} 0%, ${rgba(dominant, 0.15)} 55%, var(--bg-surface-1) 100%)`,
+            background: `linear-gradient(180deg, ${rgba(dominant, 0.5)} 0%, ${rgba(dominant, 0.15)} 55%, ${colors.surface1} 100%)`,
             transition: 'background 0.6s ease',
           }}
         >
@@ -214,7 +214,7 @@ export function PulseMusicOverlay({ onClose }) {
 
             {heroTrack && (
               <motion.div key={heroTrack.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <div style={{ width: 88, height: 88, borderRadius: 14, overflow: 'hidden', flexShrink: 0, boxShadow: '0 16px 40px rgba(0,0,0,0.4)', background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 88, height: 88, borderRadius: 14, overflow: 'hidden', flexShrink: 0, boxShadow: '0 16px 40px rgba(0,0,0,0.4)', background: colors.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {heroTrack.artwork ? <img src={heroTrack.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={28} style={{ color: colors.textMuted }} />}
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
@@ -264,7 +264,9 @@ export function PulseMusicOverlay({ onClose }) {
             <Section delay={0.03} style={{ marginBottom: 26 }}>
               <div style={{ fontSize: 14.5, fontWeight: 800, color: colors.textPrimary, marginBottom: 10, letterSpacing: -0.2 }}>Jump back in</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                {quickPicks.map((t, i) => <QuickPickTile key={t.id} track={t} index={i} onPress={() => playTrack(t, quickPicks)} />)}
+                {quickPicks.map((t, i) => (
+                  <QuickPickTile key={t.id} track={t} index={i} colors={colors} onPress={() => playTrack(t, quickPicks)} />
+                ))}
               </div>
             </Section>
           )}
@@ -313,17 +315,6 @@ export function PulseMusicOverlay({ onClose }) {
     </motion.div>
   )
 }
-<button onClick={() => playTrack({
-  id: 'youtube:jNQXAC9IVRw',
-  provider: 'youtube',
-  providerTrackId: 'jNQXAC9IVRw', // "Me at the zoo" - always embeddable, YouTube's own reference video
-  title: 'Test Video',
-  artist: 'Test',
-  artwork: null,
-  duration: 19,
-})}>
-  Test YouTube Playback
-</button>
 
 export default function PulseMusicCard() {
   const [open, setOpen] = useState(false)
