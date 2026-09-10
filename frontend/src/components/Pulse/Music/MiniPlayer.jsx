@@ -32,18 +32,17 @@ export default function MiniPlayer() {
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0
   const expand = () => setIsFullPlayerVisible(true)
 
-  // The pill is a floating "glass chip" that sits over arbitrary chat
-  // content, so it needs its own contrast-safe surface rather than
-  // reusing the page's --bg-surface (which could be near-white in
-  // light mode and make the white play-icon disappear). It still
-  // flips its tint by theme so it doesn't look like a foreign object
-  // bolted onto a light UI.
-  const pillBg = isDark ? 'rgba(24,20,36,0.82)' : 'rgba(255,255,255,0.86)'
-  const pillBorder = isDark ? 'rgba(167,139,250,0.28)' : 'rgba(108,99,255,0.22)'
-  const titleColor = isDark ? '#f5f5f7' : '#161320'
-  const subColor = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(22,19,32,0.55)'
+  // Floating chip needs its own contrast-safe surface — it sits over
+  // arbitrary chat content, not a page background, so it can't just
+  // reuse var(--bg-surface-*) and hope for contrast. Still flips by
+  // theme so it doesn't look bolted-on in light mode.
+  const pillBg = isDark ? 'rgba(24,20,36,0.85)' : 'rgba(255,255,255,0.92)'
+  const pillBorder = isDark ? 'rgba(167,139,250,0.3)' : 'rgba(108,99,255,0.25)'
+  const titleColor = isDark ? '#f5f5f7' : '#18142a'
+  const subColor = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(24,20,42,0.6)'
   const closeBg = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'
-  const closeColor = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(22,19,32,0.5)'
+  const closeColor = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(24,20,42,0.5)'
+  const shadow = isDark ? '0 8px 24px rgba(0,0,0,0.4)' : '0 8px 24px rgba(60,50,100,0.22)'
 
   return (
     <AnimatePresence>
@@ -68,7 +67,7 @@ export default function MiniPlayer() {
               border: `1px solid ${pillBorder}`,
               boxShadow: pulse
                 ? '0 10px 30px rgba(108,99,255,0.4), 0 0 0 2px rgba(167,139,250,0.3)'
-                : isDark ? '0 8px 24px rgba(0,0,0,0.35)' : '0 8px 24px rgba(60,50,100,0.18)',
+                : shadow,
               transition: 'box-shadow 0.5s ease, background 0.2s ease',
             }}
           >
