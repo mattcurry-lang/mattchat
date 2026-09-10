@@ -125,17 +125,18 @@ export function PulseMusicOverlay({ onClose }) {
         position: 'sticky', top: 0, zIndex: 10, display: 'flex', alignItems: 'center', gap: 10,
         padding: '14px 16px', background: 'var(--bg-surface-1)', borderBottom: '1px solid var(--border)',
       }}>
-        <button
-          onClick={() => setShowSearch((s) => !s)}
-          style={{
-            flex: 1, display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-surface-2)',
-            border: '1px solid var(--border)', borderRadius: 999, padding: '10px 16px',
-            cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: 'var(--text-muted)', fontSize: 13.5,
-          }}
-        >
-          <IconSearch size={16} />
-          What do you want to play?
-        </button>
+      <button
+  onClick={() => setShowSearch((s) => !s)}
+  style={{
+    flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-surface-2)',
+    border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px',
+    cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: 'var(--text-muted)', fontSize: 13,
+    maxWidth: 420, height: 36,
+  }}
+>
+  <IconSearch size={14} />
+  What do you want to play?
+</button>
         <button
           onClick={() => setShowLibrary(true)}
           aria-label="Your Library"
