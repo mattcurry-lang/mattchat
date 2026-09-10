@@ -37,7 +37,7 @@ export default function PlaylistsSection() {
   return (
     <div style={{ marginBottom: 26 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <div style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: -0.2 }}>My Playlists</div>
+        <div style={{ fontSize: 14.5, fontWeight: 800, color: colors.textPrimary, letterSpacing: -0.2 }}>My Playlists</div>
         <button onClick={() => setCreating((c) => !c)}
           style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 700, color: '#a78bfa', background: 'transparent', border: 'none', cursor: 'pointer' }}>
           <IconPlus size={13} /> New
@@ -48,7 +48,7 @@ export default function PlaylistsSection() {
         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
           <input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleCreate()} placeholder="Playlist name"
-            style={{ flex: 1, fontSize: 13, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface-2)', color: 'var(--text-primary)' }} />
+            style={{ flex: 1, fontSize: 13, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface-2)', color: colors.textPrimary }} />
           <button onClick={handleCreate}
             style={{ fontSize: 12.5, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', border: 'none', borderRadius: 8, padding: '0 14px', cursor: 'pointer' }}>
             Create
@@ -90,7 +90,7 @@ export default function PlaylistsSection() {
                   <IconListMusic size={30} style={{ color: 'rgba(255,255,255,0.85)' }} />
                 )}
               </div>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', marginTop: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: colors.textPrimary, marginTop: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {p.name}
               </div>
             </motion.button>
