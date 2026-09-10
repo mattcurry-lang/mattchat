@@ -2,9 +2,9 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useMusicPlayer } from '../../context/MusicPlayerContext'
+import { useMusicColors } from '../../../hooks/useMusicColors'
 import { IconMusic, IconHeart, IconMoreHorizontal, IconPlus, IconPlay, IconListMusic } from '../../Icons'
 import AddToPlaylistPicker from './AddToPlaylistPicker'
-import DownloadButton from './DownloadButton'
 
 function formatDuration(seconds) {
   if (!Number.isFinite(seconds) || seconds <= 0) return null
@@ -15,20 +15,21 @@ function formatDuration(seconds) {
 
 export default function TrackRail({ title, tracks, emptyMessage }) {
   const { playTrack, currentTrack, isPlaying } = useMusicPlayer()
+  const colors = useMusicColors()
 
   if (!tracks || tracks.length === 0) {
     if (!emptyMessage) return null
     return (
       <div style={{ marginBottom: 26 }}>
-        <RailHeader title={title} />
-        <div style={{ fontSize: 12.5, color: 'var(--text-muted)', padding: '4px 2px' }}>{emptyMessage}</div>
+        <RailHeader title={title} colors={colors} />
+        <div style={{ fontSize: 12.5, color: colors.textMuted, padding: '4px 2px' }}>{emptyMessage}</div>
       </div>
     )
   }
 
   return (
     <div style={{ marginBottom: 26 }}>
-      <RailHeader title={title} />
+      <RailHeader title={title} colors={colors} />
       <div
         style={{
           display: 'flex', gap: 14, overflowX: 'auto', overflowY: 'visible', paddingBottom: 6, paddingTop: 2,
@@ -40,6 +41,7 @@ export default function TrackRail({ title, tracks, emptyMessage }) {
           <TrackCard
             key={track.id}
             track={track}
+            colors={colors}
             isActive={currentTrack?.id === track.id}
             isPlaying={isPlaying && currentTrack?.id === track.id}
             onPress={() => playTrack(track, tracks)}
@@ -50,15 +52,15 @@ export default function TrackRail({ title, tracks, emptyMessage }) {
   )
 }
 
-function RailHeader({ title }) {
+function RailHeader({ title, colors }) {
   return (
-    <div style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 10, letterSpacing: -0.2 }}>
+    <div style={{ fontSize: 14.5, fontWeight: 800, color: colors.textPrimary, marginBottom: 10, letterSpacing: -0.2 }}>
       {title}
     </div>
   )
 }
 
-function TrackCard({ track, isActive, isPlaying, onPress }) {
+function TrackCard({ track, isActive, isPlaying, onPress, colors }) {
   const { isLiked, toggleLike, addToQueue } = useMusicPlayer()
   const [hovered, setHovered] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -68,7 +70,6 @@ function TrackCard({ track, isActive, isPlaying, onPress }) {
   const menuRef = useRef(null)
   const liked = isLiked(track.id)
   const durationLabel = formatDuration(track.duration)
-  const canDownload = track.provider === 'mattchat' && track.isDownloadable
 
   const openMenu = useCallback(() => {
     const rect = menuBtnRef.current?.getBoundingClientRect()
@@ -107,7 +108,7 @@ function TrackCard({ track, isActive, isPlaying, onPress }) {
         transition={{ type: 'spring', stiffness: 380, damping: 22 }}
         style={{
           width: 148, height: 148, borderRadius: 16, overflow: 'hidden', border: 'none', padding: 0,
-          cursor: 'pointer', position: 'relative', background: 'var(--bg-surface-2)',
+          cursor: 'pointer', position: 'relative', background: colors.surface2,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           outline: isActive ? '2px solid #a78bfa' : 'none', outlineOffset: -2,
           boxShadow: hovered ? '0 14px 30px rgba(0,0,0,0.35)' : '0 4px 14px rgba(0,0,0,0.18)',
@@ -117,7 +118,7 @@ function TrackCard({ track, isActive, isPlaying, onPress }) {
         {track.artwork ? (
           <img src={track.artwork} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
-          <IconMusic size={30} style={{ color: 'var(--text-muted)' }} />
+          <IconMusic size={30} style={{ color: colors.textMuted }} />
         )}
 
         <div style={{ position: 'absolute', inset: 0, background: hovered || isActive ? 'rgba(10,10,16,0.35)' : 'transparent', transition: 'background 0.2s ease' }} />
@@ -141,16 +142,6 @@ function TrackCard({ track, isActive, isPlaying, onPress }) {
         >
           <IconHeart size={13} filled={liked} />
         </button>
-
-        {canDownload && (
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{ position: 'absolute', top: 6, left: 6, borderRadius: '50%', background: 'rgba(15,15,26,0.55)' }}
-          >
-            <DownloadButton track={track} size={13} />
-          </div>
-        )}
-
         {durationLabel && (
           <div style={{ position: 'absolute', bottom: 6, left: 6, fontSize: 10, fontWeight: 700, color: '#fff', background: 'rgba(15,15,26,0.55)', borderRadius: 5, padding: '1px 5px' }}>
             {durationLabel}
@@ -160,15 +151,15 @@ function TrackCard({ track, isActive, isPlaying, onPress }) {
 
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4, marginTop: 8 }}>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: isActive ? '#a78bfa' : 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: isActive ? '#a78bfa' : colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {track.title}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{ fontSize: 11, color: colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {track.artist}
           </div>
         </div>
 
-        <button ref={menuBtnRef} onClick={openMenu} aria-label="More options" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2, flexShrink: 0 }}>
+        <button ref={menuBtnRef} onClick={openMenu} aria-label="More options" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: colors.textMuted, padding: 2, flexShrink: 0 }}>
           <IconMoreHorizontal size={15} />
         </button>
       </div>
@@ -184,7 +175,7 @@ function TrackCard({ track, isActive, isPlaying, onPress }) {
             style={{
               position: 'fixed', top: menuPos.top, left: menuPos.left, zIndex: 3000,
               minWidth: addingToPlaylist ? 200 : 140,
-              background: 'var(--bg-surface-1)', border: '1px solid var(--border)', borderRadius: 12,
+              background: colors.surface1, border: `1px solid ${colors.border}`, borderRadius: 12,
               boxShadow: '0 12px 30px rgba(0,0,0,0.28)', overflow: 'hidden',
             }}
           >
@@ -192,9 +183,9 @@ function TrackCard({ track, isActive, isPlaying, onPress }) {
               <AddToPlaylistPicker track={track} onDone={() => setMenuOpen(false)} />
             ) : (
               <>
-                <MenuItem icon={<IconPlus size={14} />} label="Add to queue" onClick={() => { addToQueue(track); setMenuOpen(false) }} />
-                <MenuItem icon={<IconListMusic size={14} />} label="Add to playlist" onClick={() => setAddingToPlaylist(true)} />
-                <MenuItem icon={<IconHeart size={14} filled={liked} />} label={liked ? 'Unlike' : 'Like'} onClick={() => { toggleLike(track); setMenuOpen(false) }} />
+                <MenuItem icon={<IconPlus size={14} />} label="Add to queue" onClick={() => { addToQueue(track); setMenuOpen(false) }} colors={colors} />
+                <MenuItem icon={<IconListMusic size={14} />} label="Add to playlist" onClick={() => setAddingToPlaylist(true)} colors={colors} />
+                <MenuItem icon={<IconHeart size={14} filled={liked} />} label={liked ? 'Unlike' : 'Like'} onClick={() => { toggleLike(track); setMenuOpen(false) }} colors={colors} />
               </>
             )}
           </motion.div>
@@ -213,13 +204,13 @@ function PlayGlyph() {
   )
 }
 
-function MenuItem({ icon, label, onClick }) {
+function MenuItem({ icon, label, onClick, colors }) {
   return (
     <button
       onClick={onClick}
-      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 12px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)' }}
+      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 12px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 12.5, fontWeight: 600, color: colors.textPrimary }}
     >
-      <span style={{ color: 'var(--text-muted)', display: 'flex' }}>{icon}</span>
+      <span style={{ color: colors.textMuted, display: 'flex' }}>{icon}</span>
       {label}
     </button>
   )
