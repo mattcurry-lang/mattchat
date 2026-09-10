@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useRef, useState, useCallback, useEffect, useMemo } from 'react'
 import { MusicService } from '../../lib/music/MusicService'
 import { YouTubeEngine } from '../../lib/music/YouTubeEngine'
+import { RecommendationEngine } from '../../lib/music/RecommendationEngine'
 
 const MusicPlayerContext = createContext(null)
 
@@ -51,15 +52,15 @@ export function MusicPlayerProvider({ children, session = null }) {
 
   const stateRef = useRef({})
   stateRef.current = { queue, queueIndex, shuffle, repeatMode, volume, currentTrack }
-
-  const recordRecentlyPlayed = useCallback((track) => {
-    setRecentlyPlayed((prev) => {
-      const next = [{ ...track, playedAt: Date.now() }, ...prev.filter((t) => t.id !== track.id)].slice(0, RECENTLY_PLAYED_LIMIT)
-      writeJSON(RECENTLY_PLAYED_KEY, next)
-      return next
-    })
-  }, [])
-
+const sessionPlayedRef = useRef(new Set())
+const recordRecentlyPlayed = useCallback((track) => {
+  sessionPlayedRef.current.add(track.id)
+  setRecentlyPlayed((prev) => {
+    const next = [{ ...track, playedAt: Date.now() }, ...prev.filter((t) => t.id !== track.id)].slice(0, RECENTLY_PLAYED_LIMIT)
+    writeJSON(RECENTLY_PLAYED_KEY, next)
+    return next
+  })
+}, [])
   const computeNextIndex = useCallback(() => {
     const { queue: q, queueIndex: i, shuffle: sh, repeatMode: rm } = stateRef.current
     if (q.length === 0) return -1
@@ -117,11 +118,39 @@ export function MusicPlayerProvider({ children, session = null }) {
     }
   }, [recordRecentlyPlayed])
 
-  const playNext = useCallback(() => {
-    const idx = computeNextIndex()
-    if (idx === -1) { setIsPlaying(false); return }
+ const [isAutoContinuing, setIsAutoContinuing] = useState(false)
+
+const playNext = useCallback(async () => {
+  const idx = computeNextIndex()
+  if (idx !== -1) {
     loadAndPlay(stateRef.current.queue[idx], idx)
-  }, [computeNextIndex, loadAndPlay])
+    return
+  }
+
+  // Queue's out of manually-added tracks — this is the "keep the
+  // music going" moment. Generate related tracks from whatever was
+  // playing last, rather than just stopping playback.
+  const lastTrack = stateRef.current.currentTrack
+  if (!lastTrack) { setIsPlaying(false); return }
+
+  setIsAutoContinuing(true)
+  try {
+    const excludeIds = new Set([...sessionPlayedRef.current, ...stateRef.current.queue.map((t) => t.id)])
+    const related = await RecommendationEngine.getSimilarTracks(lastTrack, excludeIds, 8)
+
+    if (related.length === 0) { setIsPlaying(false); return }
+
+    setQueue((prevQueue) => [...prevQueue, ...related])
+    // play the first of the newly-appended batch — index is the old
+    // queue length, since we just appended after it
+    const nextIndex = stateRef.current.queue.length
+    loadAndPlay(related[0], nextIndex)
+  } catch {
+    setIsPlaying(false)
+  } finally {
+    setIsAutoContinuing(false)
+  }
+}, [computeNextIndex, loadAndPlay])
 
   const playPrevious = useCallback(() => {
     const { queue: q, queueIndex: i, repeatMode: rm, currentTrack: ct } = stateRef.current
@@ -288,16 +317,16 @@ useEffect(() => {
   }, [])
   const likedTracks = useMemo(() => Object.values(likedTracksMap).sort((a, b) => b.likedAt - a.likedAt), [likedTracksMap])
 
-  const value = {
-    userId,
-    currentTrack, isPlaying, isLoading, error, currentTime, duration, volume,
-    isMiniPlayerVisible, isFullPlayerVisible, setIsFullPlayerVisible, playTrack, togglePlayPause, seekTo, setVolume, closeMiniPlayer,
-    playNext, playPrevious,
-    queue, queueIndex, shuffle, repeatMode, isQueueVisible, setIsQueueVisible,
-    addToQueue, removeFromQueue, playFromQueue, clearQueue, toggleShuffle, cycleRepeat,
-    isLiked, toggleLike, likedTracks,
-    recentlyPlayed,
-  }
+ const value = {
+  userId,
+  currentTrack, isPlaying, isLoading, error, currentTime, duration, volume,
+  isMiniPlayerVisible, isFullPlayerVisible, setIsFullPlayerVisible, playTrack, togglePlayPause, seekTo, setVolume, closeMiniPlayer,
+  playNext, playPrevious, isAutoContinuing,
+  queue, queueIndex, shuffle, repeatMode, isQueueVisible, setIsQueueVisible,
+  addToQueue, removeFromQueue, playFromQueue, clearQueue, toggleShuffle, cycleRepeat,
+  isLiked, toggleLike, likedTracks,
+  recentlyPlayed,
+}
 
   return <MusicPlayerContext.Provider value={value}>{children}</MusicPlayerContext.Provider>
 }
