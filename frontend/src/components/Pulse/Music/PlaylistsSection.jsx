@@ -57,9 +57,9 @@ export default function PlaylistsSection() {
       )}
 
       {loading ? (
-        <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Loading playlists…</div>
+        <div style={{ fontSize: 12.5, color: colors.textMuted }}>Loading playlists…</div>
       ) : playlists.length === 0 ? (
-        <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+        <div style={{ fontSize: 12.5, color: colors.textMuted }}>
           No playlists yet — create one, or add a song to a new playlist from its menu.
         </div>
       ) : (
