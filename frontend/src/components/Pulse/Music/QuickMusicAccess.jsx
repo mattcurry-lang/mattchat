@@ -4,24 +4,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useMusicPlayer } from '../../context/MusicPlayerContext'
 import { MusicService } from '../../../lib/music/MusicService'
 import { IconMusic, IconSearch, IconPlay, IconPause, IconX } from '../../Icons'
+import { useMusicColors } from '../../../hooks/useMusicColors'
 
 const DEBOUNCE_MS = 320
 
-/**
- * components/Pulse/Music/QuickMusicAccess.jsx
- *
- * Header icon + popover, mounted in ChatPage next to the theme toggle.
- * Lets someone search and play music WITHOUT leaving the chat and
- * navigating into Pulse — solves "user gets tired going to Pulse just
- * to change a song." Playback still runs through the same global
- * MusicPlayerContext, so whatever plays here shows up in MiniPlayer
- * and FullPlayer exactly like it would from the Music tab.
- *
- * Positioned as a portal so it floats above chat content and can't be
- * clipped by any scrolling container in the header.
- */
 export default function QuickMusicAccess() {
   const { currentTrack, isPlaying, playTrack, togglePlayPause, recentlyPlayed, likedTracks } = useMusicPlayer()
+  const colors = useMusicColors()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
@@ -33,8 +22,6 @@ export default function QuickMusicAccess() {
   const panelRef = useRef(null)
   const debounceRef = useRef(null)
 
-  // position the popover under the header icon, right-aligned so it
-  // never runs off the right edge of the screen
   const openPanel = () => {
     const rect = btnRef.current?.getBoundingClientRect()
     if (rect) setPos({ top: rect.bottom + 8, right: Math.max(8, window.innerWidth - rect.right) })
@@ -89,9 +76,9 @@ export default function QuickMusicAccess() {
         onClick={() => (open ? setOpen(false) : openPanel())}
         aria-label="Quick music access"
         style={{
-          width: 36, height: 36, borderRadius: '50%', border: '1px solid var(--border)',
-          background: currentTrack ? 'linear-gradient(135deg, rgba(167,139,250,0.22), rgba(108,99,255,0.14))' : 'var(--bg-surface-2)',
-          color: currentTrack ? '#a78bfa' : 'var(--text-secondary)',
+          width: 36, height: 36, borderRadius: '50%', border: `1px solid ${colors.border}`,
+          background: currentTrack ? 'linear-gradient(135deg, rgba(167,139,250,0.22), rgba(108,99,255,0.14))' : colors.surface2,
+          color: currentTrack ? '#a78bfa' : colors.textSecondary,
           display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', position: 'relative',
         }}
       >
@@ -99,7 +86,7 @@ export default function QuickMusicAccess() {
         {isPlaying && (
           <span style={{
             position: 'absolute', bottom: -1, right: -1, width: 9, height: 9, borderRadius: '50%',
-            background: '#a78bfa', border: '2px solid var(--bg-surface-1)',
+            background: '#a78bfa', border: `2px solid ${colors.surface1}`,
           }} />
         )}
       </button>
@@ -115,23 +102,21 @@ export default function QuickMusicAccess() {
             style={{
               position: 'fixed', top: pos.top, right: pos.right, zIndex: 2000,
               width: 'min(340px, calc(100vw - 24px))', maxHeight: '70vh', display: 'flex', flexDirection: 'column',
-              background: 'var(--bg-surface-1)', border: '1px solid var(--border)', borderRadius: 16,
+              background: colors.surface1, border: `1px solid ${colors.border}`, borderRadius: 16,
               boxShadow: '0 16px 40px rgba(0,0,0,0.35)', overflow: 'hidden',
             }}
           >
-            {/* header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 12px 8px' }}>
               <div style={{ fontSize: 13.5, fontWeight: 800, color: colors.textPrimary }}>Music</div>
               <button
                 onClick={() => setOpen(false)}
                 aria-label="Close"
-                style={{ width: 24, height: 24, borderRadius: '50%', border: 'none', background: 'var(--bg-surface-2)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                style={{ width: 24, height: 24, borderRadius: '50%', border: 'none', background: colors.surface2, color: colors.textSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
               >
                 <IconX size={12} />
               </button>
             </div>
 
-            {/* now playing strip — only shown if something's active */}
             {currentTrack && (
               <button
                 onClick={togglePlayPause}
@@ -141,7 +126,7 @@ export default function QuickMusicAccess() {
                   cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
                 }}
               >
-                <div style={{ width: 32, height: 32, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 32, height: 32, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: colors.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {currentTrack.artwork ? <img src={currentTrack.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={13} style={{ color: colors.textMuted }} />}
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
@@ -154,9 +139,8 @@ export default function QuickMusicAccess() {
               </button>
             )}
 
-            {/* search */}
             <div style={{ padding: '0 12px 10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: colors.surface2, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '7px 10px' }}>
                 <IconSearch size={14} style={{ color: colors.textMuted, flexShrink: 0 }} />
                 <input
                   autoFocus
@@ -168,7 +152,6 @@ export default function QuickMusicAccess() {
               </div>
             </div>
 
-            {/* list */}
             <div style={{ overflowY: 'auto', padding: '0 8px 10px', flex: 1 }}>
               <div style={{ fontSize: 10.5, fontWeight: 700, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, padding: '2px 8px 6px' }}>
                 {searching ? 'Searching…' : listLabel}
@@ -191,11 +174,11 @@ export default function QuickMusicAccess() {
                       background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', borderRadius: 8, fontFamily: 'inherit',
                     }}
                   >
-                    <div style={{ width: 34, height: 34, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: colors.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {track.artwork ? <img src={track.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={13} style={{ color: colors.textMuted }} />}
                     </div>
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: isThis ? '#a78bfa' : 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: isThis ? '#a78bfa' : colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
                       <div style={{ fontSize: 10.5, color: colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.artist}</div>
                     </div>
                     {isThis && isPlaying && (
