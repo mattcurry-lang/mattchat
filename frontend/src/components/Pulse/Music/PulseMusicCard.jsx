@@ -13,6 +13,7 @@ import { ArtistService } from '../../../lib/music/ArtistService'
 import { PlaylistService } from '../../../lib/music/PlaylistService'
 import { useDominantColor, rgba } from '../../../lib/music/extractColor'
 import { IconMusic, IconX, IconPlay, IconMic, IconSearch, IconListMusic } from '../../Icons'
+import { useMusicColors } from '../../../hooks/useMusicColors'
 
 function greeting() {
   const h = new Date().getHours()
@@ -36,29 +37,30 @@ export function PulseMusicEntryCard({ onOpen }) {
         <IconMusic size={19} style={{ color: '#fff' }} />
       </div>
       <div>
-        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>Music</div>
-        <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Discover, search, and play — keeps going while you chat</div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: colors.textPrimary }}>Music</div>
+        <div style={{ fontSize: 11.5, color: colors.textMuted }}>Discover, search, and play — keeps going while you chat</div>
       </div>
     </button>
   )
 }
 
 function QuickPickTile({ track, onPress, index }) {
+function QuickPickTile({ track, onPress, index, colors }) {
   return (
     <motion.button
       onClick={onPress}
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04, duration: 0.25 }}
-      whileHover={{ background: 'var(--bg-surface-2)' }} whileTap={{ scale: 0.97 }}
+      whileTap={{ scale: 0.97 }}
       style={{
-        display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.045)',
-        border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', cursor: 'pointer',
+        display: 'flex', alignItems: 'center', gap: 10, background: colors.surface2,
+        border: `1px solid ${colors.border}`, borderRadius: 10, overflow: 'hidden', cursor: 'pointer',
         padding: 0, textAlign: 'left', height: 56,
       }}
     >
-      <div style={{ width: 56, height: 56, flexShrink: 0, background: 'var(--bg-surface-1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {track.artwork ? <img src={track.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={16} style={{ color: 'var(--text-muted)' }} />}
+      <div style={{ width: 56, height: 56, flexShrink: 0, background: colors.surface1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {track.artwork ? <img src={track.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={16} style={{ color: colors.textMuted }} />}
       </div>
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 10 }}>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 10 }}>
         {track.title}
       </div>
     </motion.button>
@@ -76,7 +78,8 @@ function Section({ delay = 0, children, style }) {
 const TABS = ['All', 'Songs', 'Playlists']
 
 export function PulseMusicOverlay({ onClose }) {
-  const { userId, recentlyPlayed, likedTracks, playTrack } = useMusicPlayer()
+ const { userId, recentlyPlayed, likedTracks, playTrack } = useMusicPlayer()
+  const colors = useMusicColors()
   const [trending, setTrending] = useState([])
   const [mainstream, setMainstream] = useState([])
   const [trendingError, setTrendingError] = useState(false)
@@ -130,7 +133,7 @@ export function PulseMusicOverlay({ onClose }) {
   style={{
     flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-surface-2)',
     border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px',
-    cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: 'var(--text-muted)', fontSize: 13,
+    cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: colors.textMuted, fontSize: 13,
     maxWidth: 420, height: 36,
   }}
 >
@@ -212,7 +215,7 @@ export function PulseMusicOverlay({ onClose }) {
             {heroTrack && (
               <motion.div key={heroTrack.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 <div style={{ width: 88, height: 88, borderRadius: 14, overflow: 'hidden', flexShrink: 0, boxShadow: '0 16px 40px rgba(0,0,0,0.4)', background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {heroTrack.artwork ? <img src={heroTrack.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={28} style={{ color: 'var(--text-muted)' }} />}
+                  {heroTrack.artwork ? <img src={heroTrack.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={28} style={{ color: colors.textMuted }} />}
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.75)', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4, textShadow: '0 1px 6px rgba(0,0,0,0.3)' }}>
@@ -250,8 +253,8 @@ export function PulseMusicOverlay({ onClose }) {
                   <IconMic size={16} style={{ color: '#fff' }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>Make music? Publish it here.</div>
-                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Upload tracks, get real plays and likes from Mattchat listeners</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: colors.textPrimary }}>Make music? Publish it here.</div>
+                  <div style={{ fontSize: 11.5, color: colors.textMuted }}>Upload tracks, get real plays and likes from Mattchat listeners</div>
                 </div>
               </button>
             </Section>
@@ -259,7 +262,7 @@ export function PulseMusicOverlay({ onClose }) {
 
           {(activeTab === 'All' || activeTab === 'Songs') && quickPicks.length > 0 && (
             <Section delay={0.03} style={{ marginBottom: 26 }}>
-              <div style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 10, letterSpacing: -0.2 }}>Jump back in</div>
+              <div style={{ fontSize: 14.5, fontWeight: 800, color: colors.textPrimary, marginBottom: 10, letterSpacing: -0.2 }}>Jump back in</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 {quickPicks.map((t, i) => <QuickPickTile key={t.id} track={t} index={i} onPress={() => playTrack(t, quickPicks)} />)}
               </div>
@@ -274,7 +277,7 @@ export function PulseMusicOverlay({ onClose }) {
             <Section delay={0.09}><TrackRail title="Trending on Mattchat" tracks={trending} /></Section>
           )}
           {trendingError && trending.length === 0 && (
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 18 }}>Trending is temporarily unavailable.</div>
+            <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 18 }}>Trending is temporarily unavailable.</div>
           )}
 
           {(activeTab === 'All' || activeTab === 'Playlists') && (
