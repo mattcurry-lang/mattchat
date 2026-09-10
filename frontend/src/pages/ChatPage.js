@@ -105,6 +105,7 @@ import MomentViewer from '../components/media/MomentViewer'
 import { motion } from 'framer-motion'
 import ProfileMenuSheet, { PlaceholderIcons } from '../components/ProfileMenuSheet'
 import CallsLandingPanel from '../components/CallsLandingPanel'
+import QuickMusicAccess from '../components/Pulse/Music/QuickMusicAccess'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -1702,7 +1703,8 @@ const handleShareContact = async (profile) => {
 <div className="top-header-brand">
   <img src="/logo.png" alt="Mattchat" className="top-header-logo" />
   <span className="top-header-name">Mattchat</span>
-
+<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+  <QuickMusicAccess />
   <button
     className="theme-toggle-btn"
     onClick={toggleTheme}
@@ -1719,7 +1721,7 @@ const handleShareContact = async (profile) => {
       </svg>
     )}
   </button>
-
+</div>
  
   <button
     className="top-header-search-btn"
