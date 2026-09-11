@@ -5,6 +5,7 @@ import { PlaylistService } from '../../../lib/music/PlaylistService'
 import PlaylistDetailOverlay from './PlaylistDetailOverlay'
 import { IconListMusic, IconPlus, IconMusic } from '../../Icons'
 import { useMusicColors } from '../../../hooks/useMusicColors'
+import { useIsMobile } from '../../../hooks/useIsMobile'
 
 export default function PlaylistsSection() {
   const { userId } = useMusicPlayer()
@@ -65,7 +66,7 @@ export default function PlaylistsSection() {
           No playlists yet — create one, or add a song to a new playlist from its menu.
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 14 }}>
+         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(140px, 1fr))', gap: isMobile ? 10 : 14 }}>
           {playlists.map((p, i) => (
             <motion.button
               key={p.id}
