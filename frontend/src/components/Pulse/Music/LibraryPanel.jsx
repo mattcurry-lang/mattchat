@@ -3,10 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useMusicPlayer } from '../../context/MusicPlayerContext'
 import { IconX, IconMusic, IconHeart, IconListMusic } from '../../Icons'
 import { useMusicColors } from '../../../hooks/useMusicColors'
+import { useIsMobile } from '../../../hooks/useIsMobile'
 
 export default function LibraryPanel({ playlists, onOpenPlaylist, onClose }) {
   const { likedTracks, recentlyPlayed, playTrack } = useMusicPlayer()
   const colors = useMusicColors()
+  const isMobile = useIsMobile()
 
   const recentArtists = []
   const seen = new Set()
@@ -20,20 +22,32 @@ export default function LibraryPanel({ playlists, onOpenPlaylist, onClose }) {
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
-      style={{ position: 'fixed', inset: 0, zIndex: 850, background: 'rgba(0,0,0,0.55)', display: 'flex', justifyContent: 'flex-end' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 850, background: 'rgba(0,0,0,0.55)', display: 'flex', justifyContent: isMobile ? 'stretch' : 'flex-end', alignItems: isMobile ? 'flex-end' : 'stretch' }}
       onClick={onClose}
     >
       <motion.div
         onClick={(e) => e.stopPropagation()}
-        initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+        initial={isMobile ? { y: '100%' } : { x: '100%' }}
+       animate={isMobile ? { y: 0 } : { x: 0 }}
+       exit={isMobile ? { y: '100%' } : { x: '100%' }}
         transition={{ type: 'spring', stiffness: 360, damping: 34 }}
         style={{
-          width: 'min(360px, 88vw)', height: '100%', overflowY: 'auto',
-          background: colors.surface1, borderLeft: `1px solid ${colors.border}`,
-          boxShadow: '-12px 0 40px rgba(0,0,0,0.4)',
+           width: isMobile ? '100%' : 'min(360px, 88vw)',
+         height: isMobile ? '85vh' : '100%',
+         overflowY: 'auto',
+         background: colors.surface1,
+         borderLeft: isMobile ? 'none' : `1px solid ${colors.border}`,
+         borderTop: isMobile ? `1px solid ${colors.border}` : 'none',
+         borderTopLeftRadius: isMobile ? 18 : 0,
+         borderTopRightRadius: isMobile ? 18 : 0,
+         boxShadow: isMobile ? '0 -12px 40px rgba(0,0,0,0.4)' : '-12px 0 40px rgba(0,0,0,0.4)',
           padding: '18px 16px calc(18px + env(safe-area-inset-bottom, 0px))',
         }}
       >
+ {isMobile && (
+         <div style={{ width: 36, height: 4, borderRadius: 2, background: colors.border, margin: '0 auto 14px' }} />
+       )}
+        
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <h3 style={{ fontSize: 17, fontWeight: 800, color: colors.textPrimary, margin: 0 }}>Your Library</h3>
           <button onClick={onClose} aria-label="Close library"
