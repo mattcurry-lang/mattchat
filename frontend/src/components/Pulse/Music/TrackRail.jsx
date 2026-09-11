@@ -213,7 +213,7 @@ function MenuItem({ icon, label, onClick, colors }) {
       onClick={onClick}
       style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 12px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary, #f2f0f8)' }}
       <span style={{ color: 'var(--text-secondary, #c9c4dd)', display: 'flex' }}>{icon}</span>
-      {label}
+      
     </button>
   )
 }
