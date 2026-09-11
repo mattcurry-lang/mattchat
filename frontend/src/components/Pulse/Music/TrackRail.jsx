@@ -34,7 +34,7 @@ export default function TrackRail({ title, tracks, emptyMessage }) {
       <RailHeader title={title} colors={colors} />
       <div
         style={{
-           display: 'flex', gap: isMobile ? 10 : 14, overflowX: 'auto', overflowY: 'visible', paddingBottom: 6, paddingTop: 2,
+          display: 'flex', gap: isMobile ? 10 : 14, overflowX: 'auto', overflowY: 'visible', paddingBottom: 6, paddingTop: 2,
           WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
           overscrollBehaviorX: 'contain', touchAction: 'pan-x',
         }}
@@ -44,7 +44,7 @@ export default function TrackRail({ title, tracks, emptyMessage }) {
             key={track.id}
             track={track}
             colors={colors}
-             isMobile={isMobile}
+            isMobile={isMobile}
             isActive={currentTrack?.id === track.id}
             isPlaying={isPlaying && currentTrack?.id === track.id}
             onPress={() => playTrack(track, tracks)}
@@ -212,9 +212,9 @@ function MenuItem({ icon, label, onClick, colors }) {
     <button
       onClick={onClick}
       style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 12px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary, #f2f0f8)' }}
+    >
       <span style={{ color: 'var(--text-secondary, #c9c4dd)', display: 'flex' }}>{icon}</span>
-       {label}
-      
+      {label}
     </button>
   )
 }
