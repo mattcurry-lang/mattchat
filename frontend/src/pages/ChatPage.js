@@ -813,6 +813,7 @@ function getOtherUserAvatar(convo, myUserId) {
 
 export default function ChatPage({ session }) {
   const [activeConvo, setActiveConvo]   = useState(null)
+  const userId = session.user.id
   const [newContact, setNewContact]     = useState('')
    const [showWhatsApp, setShowWhatsApp] = useState(false)
   const [showNewChat, setShowNewChat]   = useState(false)
@@ -902,8 +903,7 @@ const msgRefs        = useRef({})
   const threeDotBtnRef = useRef(null)
   const mediaFlowRef = useRef(null)
 
-  const userId = session.user.id
-const { isOnline, getLastSeenLabel } = usePresence(userId)
+  const { isOnline, getLastSeenLabel } = usePresence(userId)
   const igQuick = useInstagramConnection(session, userId)
    const watchTogether = useWatchTogether(
   activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
