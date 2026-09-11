@@ -2274,7 +2274,7 @@ const handleShareContact = async (profile) => {
     onPrevGroup={viewerIndex > 0 ? () => setViewerIndex(i => i - 1) : undefined}
   />
 )}
-<PulseMusicCard onFullscreenChange={onFullscreenChange} />
+ 
         {/* Always rendered — on mobile/tablet this is hidden automatically
             because the whole .sidebar hides when a chat is open; on desktop
             the sidebar (and this) stays visible the whole time.
