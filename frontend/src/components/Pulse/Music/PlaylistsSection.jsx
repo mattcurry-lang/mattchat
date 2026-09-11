@@ -49,7 +49,10 @@ export default function PlaylistsSection() {
       </div>
 
       {creating && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <motion.div
+          initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+          style={{ display: 'flex', gap: 8, marginBottom: 12, overflow: 'hidden' }}
+        >
           <input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleCreate()} placeholder="Playlist name"
             style={{ flex: 1, fontSize: 13, padding: '8px 10px', borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.surface2, color: colors.textPrimary }} />
@@ -57,17 +60,23 @@ export default function PlaylistsSection() {
             style={{ fontSize: 12.5, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', border: 'none', borderRadius: 8, padding: '0 14px', cursor: 'pointer' }}>
             Create
           </button>
-        </div>
+        </motion.div>
       )}
 
       {loading ? (
         <div style={{ fontSize: 12.5, color: colors.textMuted }}>Loading playlists…</div>
       ) : playlists.length === 0 ? (
-        <div style={{ fontSize: 12.5, color: colors.textMuted }}>
-          No playlists yet — create one, or add a song to a new playlist from its menu.
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, textAlign: 'center',
+          padding: '22px 16px', borderRadius: 14, background: colors.surface2, border: `1px dashed ${colors.border}`,
+        }}>
+          <IconListMusic size={22} style={{ color: colors.textMuted }} />
+          <div style={{ fontSize: 12.5, color: colors.textSecondary }}>
+            No playlists yet — create one, or add a song to a new playlist from its menu.
+          </div>
         </div>
       ) : (
-         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(140px, 1fr))', gap: isMobile ? 10 : 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(140px, 1fr))', gap: isMobile ? 10 : 14 }}>
           {playlists.map((p, i) => (
             <motion.button
               key={p.id}
@@ -80,7 +89,7 @@ export default function PlaylistsSection() {
               style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
             >
               <div style={{
-                width: '100%', aspectRatio: '1 / 1', borderRadius: 12, overflow: 'hidden',
+                width: '100%', aspectRatio: '1 / 1', borderRadius: 14, overflow: 'hidden', position: 'relative',
                 background: p.artwork_url ? colors.surface2 : 'linear-gradient(135deg, rgba(167,139,250,0.35), rgba(108,99,255,0.2))',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 boxShadow: '0 6px 18px rgba(0,0,0,0.3)',
