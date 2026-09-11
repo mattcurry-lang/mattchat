@@ -63,7 +63,8 @@ function RailHeader({ title, colors }) {
   )
 }
 
-function TrackCard({ track, isActive, isPlaying, onPress, colors, isMobile }) {
+function TrackCard({ track, isActive, isPlaying, onPress, colors }) {
+  const isMobile = useIsMobile()
   const { isLiked, toggleLike, addToQueue } = useMusicPlayer()
   const [hovered, setHovered] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
