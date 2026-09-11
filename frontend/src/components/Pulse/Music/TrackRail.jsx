@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useMusicPlayer } from '../../context/MusicPlayerContext'
 import { useMusicColors } from '../../../hooks/useMusicColors'
+import { useIsMobile } from '../../../hooks/useIsMobile'
 import { IconMusic, IconHeart, IconMoreHorizontal, IconPlus, IconPlay, IconListMusic } from '../../Icons'
 import AddToPlaylistPicker from './AddToPlaylistPicker'
 
@@ -16,13 +17,14 @@ function formatDuration(seconds) {
 export default function TrackRail({ title, tracks, emptyMessage }) {
   const { playTrack, currentTrack, isPlaying } = useMusicPlayer()
   const colors = useMusicColors()
+  const isMobile = useIsMobile()
 
   if (!tracks || tracks.length === 0) {
     if (!emptyMessage) return null
     return (
       <div style={{ marginBottom: 26 }}>
         <RailHeader title={title} colors={colors} />
-        <div style={{ fontSize: 12.5, color: colors.textMuted, padding: '4px 2px' }}>{emptyMessage}</div>
+        <div style={{ fontSize: 12.5, color: 'var(--text-secondary, #c9c4dd)', padding: '4px 2px' }}>{emptyMessage}</div>
       </div>
     )
   }
@@ -32,7 +34,7 @@ export default function TrackRail({ title, tracks, emptyMessage }) {
       <RailHeader title={title} colors={colors} />
       <div
         style={{
-          display: 'flex', gap: 14, overflowX: 'auto', overflowY: 'visible', paddingBottom: 6, paddingTop: 2,
+           display: 'flex', gap: isMobile ? 10 : 14, overflowX: 'auto', overflowY: 'visible', paddingBottom: 6, paddingTop: 2,
           WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
           overscrollBehaviorX: 'contain', touchAction: 'pan-x',
         }}
@@ -42,6 +44,7 @@ export default function TrackRail({ title, tracks, emptyMessage }) {
             key={track.id}
             track={track}
             colors={colors}
+             isMobile={isMobile}
             isActive={currentTrack?.id === track.id}
             isPlaying={isPlaying && currentTrack?.id === track.id}
             onPress={() => playTrack(track, tracks)}
@@ -54,13 +57,13 @@ export default function TrackRail({ title, tracks, emptyMessage }) {
 
 function RailHeader({ title, colors }) {
   return (
-    <div style={{ fontSize: 14.5, fontWeight: 800, color: colors.textPrimary, marginBottom: 10, letterSpacing: -0.2 }}>
+    <div style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--text-primary, #f2f0f8)', marginBottom: 10, letterSpacing: -0.2 }}>
       {title}
     </div>
   )
 }
 
-function TrackCard({ track, isActive, isPlaying, onPress, colors }) {
+function TrackCard({ track, isActive, isPlaying, onPress, colors, isMobile }) {
   const { isLiked, toggleLike, addToQueue } = useMusicPlayer()
   const [hovered, setHovered] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -100,14 +103,14 @@ function TrackCard({ track, isActive, isPlaying, onPress, colors }) {
   useEffect(() => { if (!menuOpen) setAddingToPlaylist(false) }, [menuOpen])
 
   return (
-    <div style={{ width: 148, flexShrink: 0, position: 'relative' }} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+    <div style={{ width: isMobile ? 118 : 148, flexShrink: 0, position: 'relative' }} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
       <motion.button
         onClick={onPress}
         whileTap={{ scale: 0.96 }}
         animate={{ scale: hovered ? 1.035 : 1 }}
         transition={{ type: 'spring', stiffness: 380, damping: 22 }}
         style={{
-          width: 148, height: 148, borderRadius: 16, overflow: 'hidden', border: 'none', padding: 0,
+          width: isMobile ? 118 : 148, height: isMobile ? 118 : 148, borderRadius: 16, overflow: 'hidden', border: 'none', padding: 0,
           cursor: 'pointer', position: 'relative', background: colors.surface2,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           outline: isActive ? '2px solid #a78bfa' : 'none', outlineOffset: -2,
@@ -151,10 +154,10 @@ function TrackCard({ track, isActive, isPlaying, onPress, colors }) {
 
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4, marginTop: 8 }}>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: isActive ? '#a78bfa' : colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: isActive ? '#a78bfa' : 'var(--text-primary, #f2f0f8)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {track.title}
           </div>
-          <div style={{ fontSize: 11, color: colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary, #c9c4dd)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {track.artist}
           </div>
         </div>
@@ -208,9 +211,8 @@ function MenuItem({ icon, label, onClick, colors }) {
   return (
     <button
       onClick={onClick}
-      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 12px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 12.5, fontWeight: 600, color: colors.textPrimary }}
-    >
-      <span style={{ color: colors.textMuted, display: 'flex' }}>{icon}</span>
+      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 12px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary, #f2f0f8)' }}
+      <span style={{ color: 'var(--text-secondary, #c9c4dd)', display: 'flex' }}>{icon}</span>
       {label}
     </button>
   )
