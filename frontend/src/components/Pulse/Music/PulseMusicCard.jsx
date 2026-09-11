@@ -17,6 +17,7 @@ import {
   IconMusic, IconX, IconPlay, IconPause, IconMic, IconSearch, IconListMusic,
   IconSkipBack, IconSkipForward, IconShuffle, IconRepeat, IconHeart, IconVolume2, IconPlus,
 } from '../../Icons'
+import { useIsMobile } from '../../../hooks/useIsMobile'
 
 function greeting() {
   const h = new Date().getHours()
@@ -156,7 +157,7 @@ function NowPlayingPanel({ colors }) {
 
 // ── Bottom playback bar — full Spotify-style transport, replaces the
 // floating pill for this screen since it's a persistent desktop layout ──
-function PlaybackBar({ colors }) {
+function PlaybackBar({ colors, isMobile }) {
   const {
     currentTrack, isPlaying, currentTime, duration, volume,
     togglePlayPause, seekTo, setVolume, playNext, playPrevious,
@@ -165,7 +166,7 @@ function PlaybackBar({ colors }) {
 
   if (!currentTrack) {
     return (
-      <div style={{ height: 72, borderTop: `1px solid ${colors.border}`, background: colors.surface1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textMuted, fontSize: 12 }}>
+     <div style={{ height: isMobile ? 56 : 72, borderTop: `1px solid ${colors.border}`, background: colors.surface1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textMuted, fontSize: 12 }}>
         Nothing playing
       </div>
     )
@@ -173,6 +174,36 @@ function PlaybackBar({ colors }) {
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
   const liked = isLiked(currentTrack.id)
+
+  
+  // Spotify-mobile-style compact strip: artwork, title/artist, a thin
+  // progress sliver on the top edge, like/play only. Shuffle, repeat,
+  // scrubber and volume move to a full-screen "Now Playing" view on
+  // real Spotify — not built yet, so they're just dropped here rather
+  // than crammed into 56px.
+  if (isMobile) {
+    return (
+      <div style={{ position: 'relative', height: 56, borderTop: `1px solid ${colors.border}`, background: colors.surface2, display: 'flex', alignItems: 'center', padding: '0 10px', gap: 10 }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, height: 2, width: `${progress}%`, background: '#a78bfa' }} />
+        <div style={{ width: 38, height: 38, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: colors.surface1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {currentTrack.artwork ? <img src={currentTrack.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={14} style={{ color: colors.textMuted }} />}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTrack.title}</div>
+          <div style={{ fontSize: 10.5, color: colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTrack.artist}</div>
+        </div>
+        <button onClick={() => toggleLike(currentTrack)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: liked ? '#f87171' : colors.textMuted, flexShrink: 0 }}>
+          <IconHeart size={16} filled={liked} />
+        </button>
+        <button
+          onClick={togglePlayPause}
+          style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', cursor: 'pointer', background: '#fff', color: '#0f0f1a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+        >
+          {isPlaying ? <IconPause size={13} /> : <IconPlay size={13} />}
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div style={{ height: 72, borderTop: `1px solid ${colors.border}`, background: colors.surface1, display: 'flex', alignItems: 'center', padding: '0 16px', gap: 16 }}>
@@ -264,6 +295,7 @@ const TABS = ['All', 'Songs', 'Playlists']
 export function PulseMusicOverlay({ onClose }) {
   const { userId, recentlyPlayed, likedTracks, playTrack } = useMusicPlayer()
   const colors = useMusicColors()
+  const isMobile = useIsMobile()
   const [trending, setTrending] = useState([])
   const [mainstream, setMainstream] = useState([])
   const [trendingError, setTrendingError] = useState(false)
@@ -316,20 +348,21 @@ export function PulseMusicOverlay({ onClose }) {
           onClick={() => setShowSearch((s) => !s)}
           style={{
             display: 'flex', alignItems: 'center', gap: 8, background: colors.surface2,
-            border: `1px solid ${colors.border}`, borderRadius: 999, padding: '8px 16px',
+           border: `1px solid ${colors.border}`, borderRadius: 999,
+           padding: isMobile ? '8px 10px' : '8px 16px',
             cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: colors.textMuted, fontSize: 13,
-            width: 340, height: 36,
+             width: isMobile ? 36 : 340, height: 36, justifyContent: 'center',
           }}
         >
           <IconSearch size={14} />
-          What do you want to play?
+         {!isMobile && 'What do you want to play?'}
         </button>
         <div style={{ flex: 1 }} />
         <button
           onClick={openArtistStudio}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, height: 32, padding: '0 12px', borderRadius: 999, border: `1px solid ${colors.border}`, cursor: 'pointer', background: colors.surface2, color: colors.textPrimary, fontSize: 11.5, fontWeight: 700 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, height: 32, padding: isMobile ? '0 10px' : '0 12px', borderRadius: 999, border: `1px solid ${colors.border}`, cursor: 'pointer', background: colors.surface2, color: colors.textPrimary, fontSize: 11.5, fontWeight: 700 }}
         >
-          <IconMic size={13} /> {artistProfile ? 'Your Studio' : 'Become an Artist'}
+         <IconMic size={13} /> {!isMobile && (artistProfile ? 'Your Studio' : 'Become an Artist')}
         </button>
         <button
           onClick={onClose}
@@ -356,17 +389,19 @@ export function PulseMusicOverlay({ onClose }) {
 
       {/* ── main 3-column desktop layout ── */}
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
-        <LibraryRail playlists={playlists} colors={colors} onOpenLibrary={() => setShowLibrary(true)} />
+        {!isMobile && (
+          <LibraryRail playlists={playlists} colors={colors} onOpenLibrary={() => setShowLibrary(true)} />
+        )}
 
         <div style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}
             style={{
-              position: 'relative', padding: '18px 24px 20px',
+             position: 'relative', padding: isMobile ? '14px 14px 16px' : '18px 24px 20px',
               background: `linear-gradient(180deg, ${rgba(dominant, 0.4)} 0%, ${rgba(dominant, 0.12)} 55%, ${colors.surface1} 100%)`,
             }}
           >
-            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14, overflowX: isMobile ? 'auto' : 'visible', WebkitOverflowScrolling: 'touch' }}>
               {TABS.map((tab) => (
                 <button
                   key={tab}
@@ -386,7 +421,7 @@ export function PulseMusicOverlay({ onClose }) {
             </h2>
           </motion.div>
 
-          <div style={{ padding: '0 24px 40px' }}>
+          <div style={{ padding: isMobile ? '0 14px 100px' : '0 24px 40px' }}>
             {artistChecked && !artistProfile && (
               <Section>
                 <button
@@ -411,7 +446,7 @@ export function PulseMusicOverlay({ onClose }) {
 
             {(activeTab === 'All' || activeTab === 'Songs') && quickPicks.length > 0 && (
               <Section delay={0.03} style={{ marginBottom: 26 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(220px, 1fr))', gap: isMobile ? 8 : 10 }}>
                   {quickPicks.map((t, i) => (
                     <QuickPickTile key={t.id} track={t} index={i} colors={colors} onPress={() => playTrack(t, quickPicks)} />
                   ))}
@@ -440,7 +475,7 @@ export function PulseMusicOverlay({ onClose }) {
           </div>
         </div>
 
-        <NowPlayingPanel colors={colors} />
+        {!isMobile && <NowPlayingPanel colors={colors} />}
       </div>
 
       <PlaybackBar colors={colors} />
