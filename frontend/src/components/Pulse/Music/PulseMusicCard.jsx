@@ -12,14 +12,24 @@ import { YouTubeMusicProvider } from '../../../lib/music/providers/YouTubeMusicP
 import { ArtistService } from '../../../lib/music/ArtistService'
 import { PlaylistService } from '../../../lib/music/PlaylistService'
 import { useDominantColor, rgba } from '../../../lib/music/extractColor'
-import { IconMusic, IconX, IconPlay, IconMic, IconSearch, IconListMusic } from '../../Icons'
 import { useMusicColors } from '../../../hooks/useMusicColors'
+import {
+  IconMusic, IconX, IconPlay, IconPause, IconMic, IconSearch, IconListMusic,
+  IconSkipBack, IconSkipForward, IconShuffle, IconRepeat, IconHeart, IconVolume2, IconPlus,
+} from '../../Icons'
 
 function greeting() {
   const h = new Date().getHours()
   if (h < 12) return 'Good morning'
   if (h < 18) return 'Good afternoon'
   return 'Good evening'
+}
+
+function formatTime(seconds) {
+  if (!Number.isFinite(seconds)) return '0:00'
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
 }
 
 export function PulseMusicEntryCard({ onOpen }) {
@@ -42,6 +52,180 @@ export function PulseMusicEntryCard({ onOpen }) {
         <div style={{ fontSize: 11.5, color: colors.textMuted }}>Discover, search, and play — keeps going while you chat</div>
       </div>
     </button>
+  )
+}
+
+// ── Left icon rail — Spotify's collapsed sidebar: pinned Liked Songs
+// + a scrollable strip of playlist/mix thumbnails, no text labels ──
+function LibraryRail({ playlists, colors, onOpenLibrary }) {
+  const { likedTracks, playTrack } = useMusicPlayer()
+  return (
+    <div style={{
+      width: 64, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center',
+      gap: 10, padding: '14px 0', background: colors.surface1, borderRight: `1px solid ${colors.border}`,
+      height: '100%', overflowY: 'auto',
+    }}>
+      <button
+        onClick={onOpenLibrary}
+        title="Your Library"
+        style={{ width: 40, height: 40, borderRadius: 10, border: 'none', background: colors.surface2, color: colors.textSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', marginBottom: 4 }}
+      >
+        <IconListMusic size={17} />
+      </button>
+
+      <button
+        onClick={() => likedTracks.length && playTrack(likedTracks[0], likedTracks)}
+        title="Liked Songs"
+        style={{
+          width: 44, height: 44, borderRadius: 10, border: 'none', cursor: 'pointer',
+          background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+      >
+        <IconHeart size={18} filled style={{ color: '#fff' }} />
+      </button>
+
+      {playlists.map((p) => (
+        <button
+          key={p.id}
+          onClick={onOpenLibrary}
+          title={p.name}
+          style={{
+            width: 44, height: 44, borderRadius: 10, overflow: 'hidden', border: 'none', cursor: 'pointer', padding: 0,
+            background: p.artwork_url ? colors.surface2 : 'linear-gradient(135deg, rgba(167,139,250,0.35), rgba(108,99,255,0.2))',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}
+        >
+          {p.artwork_url ? <img src={p.artwork_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconListMusic size={16} style={{ color: 'rgba(255,255,255,0.85)' }} />}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ── Right "Now Playing" panel — mirrors Spotify's context panel ──
+function NowPlayingPanel({ colors }) {
+  const { currentTrack, isLiked, toggleLike } = useMusicPlayer()
+  const dominant = useDominantColor(currentTrack?.artwork)
+
+  if (!currentTrack) {
+    return (
+      <div style={{ width: 300, flexShrink: 0, borderLeft: `1px solid ${colors.border}`, background: colors.surface1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div style={{ textAlign: 'center', color: colors.textMuted, fontSize: 12.5 }}>
+          <IconMusic size={28} style={{ marginBottom: 8, opacity: 0.5 }} />
+          <div>Play something to see it here</div>
+        </div>
+      </div>
+    )
+  }
+
+  const liked = isLiked(currentTrack.id)
+
+  return (
+    <div style={{ width: 300, flexShrink: 0, borderLeft: `1px solid ${colors.border}`, background: colors.surface1, overflowY: 'auto', padding: 16 }}>
+      <div style={{ fontSize: 14, fontWeight: 800, color: colors.textPrimary, marginBottom: 14 }}>
+        {currentTrack.title}
+      </div>
+      <motion.div
+        key={currentTrack.id}
+        initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }}
+        style={{
+          width: '100%', aspectRatio: '1 / 1', borderRadius: 12, overflow: 'hidden', marginBottom: 14,
+          background: colors.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: `0 16px 40px ${rgba(dominant, 0.35)}`,
+        }}
+      >
+        {currentTrack.artwork ? (
+          <img src={currentTrack.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <IconMusic size={40} style={{ color: colors.textMuted }} />
+        )}
+      </motion.div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+          {currentTrack.title}
+        </div>
+        <button onClick={() => toggleLike(currentTrack)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: liked ? '#f87171' : colors.textMuted, flexShrink: 0, marginLeft: 8 }}>
+          <IconHeart size={17} filled={liked} />
+        </button>
+      </div>
+      <div style={{ fontSize: 13, color: colors.textMuted }}>{currentTrack.artist}</div>
+    </div>
+  )
+}
+
+// ── Bottom playback bar — full Spotify-style transport, replaces the
+// floating pill for this screen since it's a persistent desktop layout ──
+function PlaybackBar({ colors }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume,
+    togglePlayPause, seekTo, setVolume, playNext, playPrevious,
+    shuffle, toggleShuffle, repeatMode, cycleRepeat, isLiked, toggleLike,
+  } = useMusicPlayer()
+
+  if (!currentTrack) {
+    return (
+      <div style={{ height: 72, borderTop: `1px solid ${colors.border}`, background: colors.surface1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textMuted, fontSize: 12 }}>
+        Nothing playing
+      </div>
+    )
+  }
+
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0
+  const liked = isLiked(currentTrack.id)
+
+  return (
+    <div style={{ height: 72, borderTop: `1px solid ${colors.border}`, background: colors.surface1, display: 'flex', alignItems: 'center', padding: '0 16px', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: 220, minWidth: 0 }}>
+        <div style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: colors.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {currentTrack.artwork ? <img src={currentTrack.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={16} style={{ color: colors.textMuted }} />}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTrack.title}</div>
+          <div style={{ fontSize: 11, color: colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTrack.artist}</div>
+        </div>
+        <button onClick={() => toggleLike(currentTrack)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: liked ? '#f87171' : colors.textMuted, flexShrink: 0 }}>
+          <IconHeart size={15} filled={liked} />
+        </button>
+      </div>
+
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, maxWidth: 640, margin: '0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <button onClick={toggleShuffle} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: shuffle ? '#a78bfa' : colors.textMuted }}><IconShuffle size={15} /></button>
+          <button onClick={playPrevious} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: colors.textPrimary }}><IconSkipBack size={17} /></button>
+          <button
+            onClick={togglePlayPause}
+            style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', cursor: 'pointer', background: '#fff', color: '#0f0f1a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            {isPlaying ? <IconPause size={14} /> : <IconPlay size={14} />}
+          </button>
+          <button onClick={playNext} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: colors.textPrimary }}><IconSkipForward size={17} /></button>
+          <button onClick={cycleRepeat} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: repeatMode !== 'off' ? '#a78bfa' : colors.textMuted, position: 'relative' }}>
+            <IconRepeat size={15} />
+            {repeatMode === 'one' && <span style={{ position: 'absolute', bottom: -3, right: -3, fontSize: 7, fontWeight: 800 }}>1</span>}
+          </button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+          <span style={{ fontSize: 10.5, color: colors.textMuted, width: 32, textAlign: 'right' }}>{formatTime(currentTime)}</span>
+          <div
+            onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); seekTo(((e.clientX - r.left) / r.width) * duration) }}
+            style={{ flex: 1, height: 4, borderRadius: 2, background: colors.surface2, cursor: 'pointer', position: 'relative' }}
+          >
+            <div style={{ position: 'absolute', inset: '0 auto 0 0', width: `${progress}%`, borderRadius: 2, background: '#a78bfa' }} />
+          </div>
+          <span style={{ fontSize: 10.5, color: colors.textMuted, width: 32 }}>{formatTime(duration)}</span>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: 140, justifyContent: 'flex-end' }}>
+        <IconVolume2 size={15} style={{ color: colors.textMuted }} />
+        <input
+          type="range" min={0} max={1} step={0.01} value={volume}
+          onChange={(e) => setVolume(parseFloat(e.target.value))}
+          style={{ width: 90, accentColor: '#a78bfa' }}
+        />
+      </div>
+    </div>
   )
 }
 
@@ -123,79 +307,66 @@ export function PulseMusicOverlay({ onClose }) {
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
       style={{ position: 'fixed', inset: 0, zIndex: 600, background: colors.surface1, display: 'flex', flexDirection: 'column' }}
     >
-      {/* ── sticky top bar: search + library + close, Spotify's header row ── */}
+      {/* ── top bar: search pill (Spotify-sized) + close ── */}
       <div style={{
-        position: 'sticky', top: 0, zIndex: 10, display: 'flex', alignItems: 'center', gap: 10,
-        padding: '14px 16px', background: colors.surface1, borderBottom: `1px solid ${colors.border}`,
+        display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
+        background: colors.surface1, borderBottom: `1px solid ${colors.border}`, flexShrink: 0,
       }}>
         <button
           onClick={() => setShowSearch((s) => !s)}
           style={{
-            flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: colors.surface2,
-            border: `1px solid ${colors.border}`, borderRadius: 8, padding: '8px 12px',
+            display: 'flex', alignItems: 'center', gap: 8, background: colors.surface2,
+            border: `1px solid ${colors.border}`, borderRadius: 999, padding: '8px 16px',
             cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: colors.textMuted, fontSize: 13,
-            maxWidth: 420, height: 36,
+            width: 340, height: 36,
           }}
         >
           <IconSearch size={14} />
           What do you want to play?
         </button>
+        <div style={{ flex: 1 }} />
         <button
-          onClick={() => setShowLibrary(true)}
-          aria-label="Your Library"
-          style={{ width: 38, height: 38, borderRadius: '50%', border: `1px solid ${colors.border}`, background: colors.surface2, color: colors.textSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+          onClick={openArtistStudio}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, height: 32, padding: '0 12px', borderRadius: 999, border: `1px solid ${colors.border}`, cursor: 'pointer', background: colors.surface2, color: colors.textPrimary, fontSize: 11.5, fontWeight: 700 }}
         >
-          <IconListMusic size={16} />
+          <IconMic size={13} /> {artistProfile ? 'Your Studio' : 'Become an Artist'}
         </button>
         <button
           onClick={onClose}
           aria-label="Close"
-          style={{ width: 38, height: 38, borderRadius: '50%', border: `1px solid ${colors.border}`, background: colors.surface2, color: colors.textSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+          style={{ width: 32, height: 32, borderRadius: '50%', border: `1px solid ${colors.border}`, background: colors.surface2, color: colors.textSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
         >
           <IconX size={16} />
         </button>
       </div>
 
-      {/* expandable search — Spotify pops a results overlay when you click the bar */}
       <AnimatePresence>
         {showSearch && (
           <motion.div
             initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25 }}
-            style={{ overflow: 'hidden', borderBottom: `1px solid ${colors.border}`, background: colors.surface1 }}
+            style={{ overflow: 'hidden', borderBottom: `1px solid ${colors.border}`, background: colors.surface1, flexShrink: 0 }}
           >
-            <div style={{ padding: '14px 16px', maxWidth: 640, margin: '0 auto', width: '100%' }}>
+            <div style={{ padding: '14px 16px', maxWidth: 640 }}>
               <MusicSearch autoFocus />
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {/* hero */}
-        <motion.div
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}
-          style={{
-            position: 'relative', padding: '20px 16px 26px',
-            background: `linear-gradient(180deg, ${rgba(dominant, 0.5)} 0%, ${rgba(dominant, 0.15)} 55%, ${colors.surface1} 100%)`,
-            transition: 'background 0.6s ease',
-          }}
-        >
-          <div style={{ maxWidth: 640, margin: '0 auto' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 900, color: '#fff', margin: 0, letterSpacing: -0.4, textShadow: '0 2px 12px rgba(0,0,0,0.35)' }}>
-                {greeting()}
-              </h2>
-              <button
-                onClick={openArtistStudio}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, height: 32, padding: '0 12px', borderRadius: 999, border: 'none', cursor: 'pointer', background: 'rgba(255,255,255,0.16)', color: '#fff', fontSize: 11.5, fontWeight: 700 }}
-              >
-                <IconMic size={13} /> {artistProfile ? 'Your Studio' : 'Become an Artist'}
-              </button>
-            </div>
+      {/* ── main 3-column desktop layout ── */}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+        <LibraryRail playlists={playlists} colors={colors} onOpenLibrary={() => setShowLibrary(true)} />
 
-            {/* tabs — filters the home feed sections below */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: heroTrack ? 16 : 0 }}>
+        <div style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}
+            style={{
+              position: 'relative', padding: '18px 24px 20px',
+              background: `linear-gradient(180deg, ${rgba(dominant, 0.4)} 0%, ${rgba(dominant, 0.12)} 55%, ${colors.surface1} 100%)`,
+            }}
+          >
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
               {TABS.map((tab) => (
                 <button
                   key={tab}
@@ -204,102 +375,81 @@ export function PulseMusicOverlay({ onClose }) {
                     fontSize: 12.5, fontWeight: 700, padding: '7px 14px', borderRadius: 999, cursor: 'pointer',
                     border: 'none', color: activeTab === tab ? '#0f0f1a' : '#fff',
                     background: activeTab === tab ? '#fff' : 'rgba(255,255,255,0.14)',
-                    transition: 'background 0.15s ease',
                   }}
                 >
                   {tab}
                 </button>
               ))}
             </div>
+            <h2 style={{ fontSize: 20, fontWeight: 900, color: '#fff', margin: '0 0 14px', letterSpacing: -0.4, textShadow: '0 2px 12px rgba(0,0,0,0.35)' }}>
+              {greeting()}
+            </h2>
+          </motion.div>
 
-            {heroTrack && (
-              <motion.div key={heroTrack.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <div style={{ width: 88, height: 88, borderRadius: 14, overflow: 'hidden', flexShrink: 0, boxShadow: '0 16px 40px rgba(0,0,0,0.4)', background: colors.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {heroTrack.artwork ? <img src={heroTrack.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={28} style={{ color: colors.textMuted }} />}
-                </div>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.75)', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4, textShadow: '0 1px 6px rgba(0,0,0,0.3)' }}>
-                    Pick up where you left off
+          <div style={{ padding: '0 24px 40px' }}>
+            {artistChecked && !artistProfile && (
+              <Section>
+                <button
+                  onClick={() => setShowBecomeArtist(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12, width: '100%', marginBottom: 24, maxWidth: 640,
+                    background: 'linear-gradient(135deg, rgba(167,139,250,0.14), rgba(108,99,255,0.08))',
+                    border: '1px solid rgba(167,139,250,0.28)', borderRadius: 14, padding: '12px 14px',
+                    cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+                  }}
+                >
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <IconMic size={16} style={{ color: '#fff' }} />
                   </div>
-                  <div style={{ fontSize: 16.5, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textShadow: '0 1px 8px rgba(0,0,0,0.3)' }}>
-                    {heroTrack.title}
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: colors.textPrimary }}>Make music? Publish it here.</div>
+                    <div style={{ fontSize: 11.5, color: colors.textMuted }}>Upload tracks, get real plays and likes from Mattchat listeners</div>
                   </div>
-                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 10, textShadow: '0 1px 6px rgba(0,0,0,0.3)' }}>{heroTrack.artist}</div>
-                  <button
-  onClick={() => playTrack(heroTrack)}
-  style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 800, color: '#fff', background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', border: 'none', borderRadius: 999, padding: '9px 18px', cursor: 'pointer', boxShadow: '0 4px 14px rgba(108,99,255,0.4)' }}
->
-  <IconPlay size={13} /> Play
-</button>
+                </button>
+              </Section>
+            )}
+
+            {(activeTab === 'All' || activeTab === 'Songs') && quickPicks.length > 0 && (
+              <Section delay={0.03} style={{ marginBottom: 26 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
+                  {quickPicks.map((t, i) => (
+                    <QuickPickTile key={t.id} track={t} index={i} colors={colors} onPress={() => playTrack(t, quickPicks)} />
+                  ))}
                 </div>
-              </motion.div>
+              </Section>
+            )}
+
+            {(activeTab === 'All' || activeTab === 'Songs') && mainstream.length > 0 && (
+              <Section delay={0.06}><TrackRail title="Mainstream Hits" tracks={mainstream} /></Section>
+            )}
+            {(activeTab === 'All' || activeTab === 'Songs') && trending.length > 0 && (
+              <Section delay={0.09}><TrackRail title="Trending on Mattchat" tracks={trending} /></Section>
+            )}
+            {trendingError && trending.length === 0 && (
+              <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 18 }}>Trending is temporarily unavailable.</div>
+            )}
+            {(activeTab === 'All' || activeTab === 'Playlists') && (
+              <Section delay={0.12}><PlaylistsSection /></Section>
+            )}
+            {(activeTab === 'All' || activeTab === 'Songs') && recentlyPlayed.length > 0 && (
+              <Section delay={0.15}><TrackRail title="Recently Played" tracks={recentlyPlayed} /></Section>
+            )}
+            {(activeTab === 'All' || activeTab === 'Songs') && likedTracks.length > 0 && (
+              <Section delay={0.18}><TrackRail title="Liked Music" tracks={likedTracks} /></Section>
             )}
           </div>
-        </motion.div>
-
-        <div style={{ maxWidth: 640, margin: '0 auto', padding: '20px 16px', paddingBottom: 140 }}>
-          {artistChecked && !artistProfile && (
-            <Section>
-              <button
-                onClick={() => setShowBecomeArtist(true)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 12, width: '100%', marginBottom: 24,
-                  background: 'linear-gradient(135deg, rgba(167,139,250,0.14), rgba(108,99,255,0.08))',
-                  border: '1px solid rgba(167,139,250,0.28)', borderRadius: 14, padding: '12px 14px',
-                  cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
-                }}
-              >
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <IconMic size={16} style={{ color: '#fff' }} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: colors.textPrimary }}>Make music? Publish it here.</div>
-                  <div style={{ fontSize: 11.5, color: colors.textMuted }}>Upload tracks, get real plays and likes from Mattchat listeners</div>
-                </div>
-              </button>
-            </Section>
-          )}
-
-          {(activeTab === 'All' || activeTab === 'Songs') && quickPicks.length > 0 && (
-            <Section delay={0.03} style={{ marginBottom: 26 }}>
-              <div style={{ fontSize: 14.5, fontWeight: 800, color: colors.textPrimary, marginBottom: 10, letterSpacing: -0.2 }}>Jump back in</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                {quickPicks.map((t, i) => (
-                  <QuickPickTile key={t.id} track={t} index={i} colors={colors} onPress={() => playTrack(t, quickPicks)} />
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {(activeTab === 'All' || activeTab === 'Songs') && mainstream.length > 0 && (
-            <Section delay={0.06}><TrackRail title="Mainstream Hits" tracks={mainstream} /></Section>
-          )}
-
-          {(activeTab === 'All' || activeTab === 'Songs') && trending.length > 0 && (
-            <Section delay={0.09}><TrackRail title="Trending on Mattchat" tracks={trending} /></Section>
-          )}
-          {trendingError && trending.length === 0 && (
-            <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 18 }}>Trending is temporarily unavailable.</div>
-          )}
-
-          {(activeTab === 'All' || activeTab === 'Playlists') && (
-            <Section delay={0.12}><PlaylistsSection /></Section>
-          )}
-
-          {(activeTab === 'All' || activeTab === 'Songs') && recentlyPlayed.length > 0 && (
-            <Section delay={0.15}><TrackRail title="Recently Played" tracks={recentlyPlayed} /></Section>
-          )}
-          {(activeTab === 'All' || activeTab === 'Songs') && likedTracks.length > 0 && (
-            <Section delay={0.18}><TrackRail title="Liked Music" tracks={likedTracks} /></Section>
-          )}
         </div>
+
+        <NowPlayingPanel colors={colors} />
       </div>
+
+      <PlaybackBar colors={colors} />
 
       <AnimatePresence>
         {showLibrary && (
           <LibraryPanel
             playlists={playlists}
-            onOpenPlaylist={() => { /* PlaylistsSection already owns the open-detail flow — this closes the drawer and lets the user tap the tile themselves for now */ }}
+            onOpenPlaylist={() => {}}
             onClose={() => setShowLibrary(false)}
           />
         )}
@@ -316,12 +466,20 @@ export function PulseMusicOverlay({ onClose }) {
   )
 }
 
-export default function PulseMusicCard() {
+// onFullscreenChange: reuses the same mechanism PulsePage already
+// uses for its DEKUT feature (see ChatPage.jsx's onFullscreenChange={setDekutFullscreen})
+// to hide BottomNav, FloatingCurryOrb, and AIInsightsPanel while this
+// screen is open — no new wiring needed in ChatPage.jsx.
+export default function PulseMusicCard({ onFullscreenChange }) {
   const [open, setOpen] = useState(false)
+
+  const handleOpen = () => { setOpen(true); onFullscreenChange?.(true) }
+  const handleClose = () => { setOpen(false); onFullscreenChange?.(false) }
+
   return (
     <>
-      <PulseMusicEntryCard onOpen={() => setOpen(true)} />
-      <AnimatePresence>{open && <PulseMusicOverlay onClose={() => setOpen(false)} />}</AnimatePresence>
+      <PulseMusicEntryCard onOpen={handleOpen} />
+      <AnimatePresence>{open && <PulseMusicOverlay onClose={handleClose} />}</AnimatePresence>
     </>
   )
 }
