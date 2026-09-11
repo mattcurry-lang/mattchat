@@ -106,6 +106,8 @@ import { motion } from 'framer-motion'
 import ProfileMenuSheet, { PlaceholderIcons } from '../components/ProfileMenuSheet'
 import CallsLandingPanel from '../components/CallsLandingPanel'
 import QuickMusicAccess from '../components/Pulse/Music/QuickMusicAccess'
+import RingtonePicker from '../components/Pulse/Music/RingtonePicker'
+import { RingtoneService } from '../lib/music/RingtoneService'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -881,6 +883,13 @@ const [curryPrefill, setCurryPrefill] = useState(null)
   const { cache: smartReplyCache, fetchSuggestion, clear: clearSmartReply } = useSmartReplyCache()
   const { theme, toggleTheme } = useTheme()
   const { isFullPlayerVisible, setIsFullPlayerVisible } = useMusicPlayer()
+  const [myRingtone, setMyRingtone] = useState(null)
+const [showRingtonePicker, setShowRingtonePicker] = useState(false)
+
+useEffect(() => {
+  if (!userId) return
+  RingtoneService.getMyRingtone(userId).then(setMyRingtone).catch(() => setMyRingtone(null))
+}, [userId])
   
  
  
@@ -2086,16 +2095,18 @@ const handleShareContact = async (profile) => {
           ...(profileLoaded && profile?.is_admin ? [{ id: 'announcements', icon: <IconMail size={15} />, label: 'Announcements', onClick: () => { setShowAnnouncements(true); setShowProfileMenu(false) } }] : []),
         ],
       },
-      {
-        id: 'preferences', label: 'Preferences',
-        items: [
-          { id: 'notifications', icon: <IconBell size={15} />, label: 'Notifications', onClick: () => { setShowNotificationSettings(true); setShowProfileMenu(false) } },
-          // Placeholders below — wire these up whenever you're ready;
-          // left as clearly-labeled stubs per your "give it functionality
-          // later" request rather than left out entirely.
-          { id: 'storage', icon: <PlaceholderIcons.IconDatabase size={15} />, label: 'Storage & Data', subtitle: 'Coming soon', onClick: () => alert('Storage & Data — not wired up yet') },
-        ],
-      },
+     {
+  id: 'preferences', label: 'Preferences',
+  items: [
+    { id: 'notifications', icon: <IconBell size={15} />, label: 'Notifications', onClick: () => { setShowNotificationSettings(true); setShowProfileMenu(false) } },
+    {
+      id: 'ringtone', icon: <IconMusic size={15} />, label: 'Ringtone',
+      subtitle: myRingtone ? `${myRingtone.title} — ${myRingtone.artist}` : 'Default',
+      onClick: () => { setShowRingtonePicker(true); setShowProfileMenu(false) },
+    },
+    { id: 'storage', icon: <PlaceholderIcons.IconDatabase size={15} />, label: 'Storage & Data', subtitle: 'Coming soon', onClick: () => alert('Storage & Data — not wired up yet') },
+  ],
+},
       {
         id: 'support', label: 'Support',
         items: [
@@ -2122,6 +2133,15 @@ const handleShareContact = async (profile) => {
     onClose={() => setShowChangePicture(false)}
   />
 )} 
+{showRingtonePicker && (
+  <RingtonePicker
+    userId={userId}
+    currentRingtone={myRingtone}
+    onSaved={(track) => { setMyRingtone(track); setShowRingtonePicker(false) }}
+    onClose={() => setShowRingtonePicker(false)}
+  />
+)}
+
 {showNotificationSettings && <NotificationSettingsModal userId={userId} onClose={() => setShowNotificationSettings(false)} />}
         {show2FA && <TwoFactorModal onClose={() => setShow2FA(false)} />}
 {showProfileSetup && (
