@@ -10,6 +10,7 @@ import { useIsMobile } from '../../../hooks/useIsMobile'
 export default function PlaylistsSection() {
   const { userId } = useMusicPlayer()
   const colors = useMusicColors()
+  const isMobile = useIsMobile()
   const [playlists, setPlaylists] = useState([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
