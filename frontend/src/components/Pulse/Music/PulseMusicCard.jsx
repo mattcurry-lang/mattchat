@@ -226,11 +226,11 @@ export function PulseMusicOverlay({ onClose }) {
                   </div>
                   <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 10, textShadow: '0 1px 6px rgba(0,0,0,0.3)' }}>{heroTrack.artist}</div>
                   <button
-                    onClick={() => playTrack(heroTrack)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 800, color: '#0f0f1a', background: '#fff', border: 'none', borderRadius: 999, padding: '9px 18px', cursor: 'pointer' }}
-                  >
-                    <IconPlay size={13} /> Play
-                  </button>
+  onClick={() => playTrack(heroTrack)}
+  style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 800, color: '#fff', background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', border: 'none', borderRadius: 999, padding: '9px 18px', cursor: 'pointer', boxShadow: '0 4px 14px rgba(108,99,255,0.4)' }}
+>
+  <IconPlay size={13} /> Play
+</button>
                 </div>
               </motion.div>
             )}
