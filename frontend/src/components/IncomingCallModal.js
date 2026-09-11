@@ -1,12 +1,18 @@
 import React, { useEffect, useState } from 'react'
 import { IconPhone, IconMic, IconBluetooth } from './Icons'
 import { useRingtone } from '../hooks/useRingtone'
+import { useCustomRingtone } from '../hooks/useCustomRingtone'
 
-export default function IncomingCallModal({ callerName, callType, avatarUrl, onAnswer, onDecline }) {
+export default function IncomingCallModal({ callerName, callType, avatarUrl, onAnswer, onDecline, userId }) {
   const [dots, setDots] = useState('.')
   const [startMuted, setStartMuted] = useState(false)
 
-  useRingtone(true, 'ringtone')
+  // Check for a user-chosen Mattchat ringtone first. While that check
+  // is in flight (undefined), hold off on the default tone so the two
+  // can't briefly overlap. Once resolved: custom ringtone plays via
+  // useCustomRingtone, or we fall back to the bundled default.
+  const hasCustomRingtone = useCustomRingtone(userId, true)
+  useRingtone(hasCustomRingtone === false, 'ringtone')
 
   useEffect(() => {
     const id = setInterval(() => setDots(d => (d.length >= 3 ? '.' : d + '.')), 500)
