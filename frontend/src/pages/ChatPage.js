@@ -1670,6 +1670,7 @@ const handleShareContact = async (profile) => {
           callType={activeCall.callType}
           onAnswer={(muted) => { setStartMuted(muted); answerCall() }}
           onDecline={declineCall}
+             userId={session?.user?.id}
         />
       )}
  
