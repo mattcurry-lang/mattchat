@@ -3,7 +3,6 @@ import { mattchatProviderAdapter } from './providers/MattchatProvider'
 import { YouTubeMusicProvider } from './providers/YouTubeMusicProvider'
 import { OfflineCache } from './OfflineCache'
 
-
 /**
  * lib/music/MusicService.js
  *
@@ -15,22 +14,34 @@ import { OfflineCache } from './OfflineCache'
  * artists surface first, Audius (or Spotify/Boomplay in Phase 5) fills
  * the rest. When Spotify/Boomplay come online they register the same
  * way, with routing decided here, not in the UI.
+ *
+ * NOTE: provider lookup is intentionally LAZY (a function, not a
+ * module-scope object literal). Some providers import this file back
+ * (e.g. to call setActiveProvider), which makes this a circular
+ * import. Building `{ audius: audiusProvider, ... }` at module load
+ * time reads those bindings before the cycle has finished resolving,
+ * which throws "Cannot access '<name>' before initialization". Doing
+ * the lookup inside a function defers it until call time, by which
+ * point every module involved has finished initializing.
  */
-
-const providers = {
-  audius: audiusProvider,
-  mattchat: mattchatProviderAdapter,
-  youtube: YouTubeMusicProvider,
-}
 
 let activeProviderKey = 'audius'
 
 export function setActiveProvider(key) {
-  if (providers[key]) activeProviderKey = key
+  if (getProvider(key)) activeProviderKey = key
 }
 
 function getProvider(key) {
-  return providers[key || activeProviderKey]
+  switch (key || activeProviderKey) {
+    case 'audius':
+      return audiusProvider
+    case 'mattchat':
+      return mattchatProviderAdapter
+    case 'youtube':
+      return YouTubeMusicProvider
+    default:
+      return null
+  }
 }
 
 // Tiny in-memory cache so retyping/backspacing during a debounced
