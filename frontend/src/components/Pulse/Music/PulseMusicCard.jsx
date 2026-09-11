@@ -157,7 +157,7 @@ function NowPlayingPanel({ colors }) {
 
 // ── Bottom playback bar — full Spotify-style transport, replaces the
 // floating pill for this screen since it's a persistent desktop layout ──
-function PlaybackBar({ colors, isMobile }) {
+function PlaybackBar({ colors}) {
   const isMobile = useIsMobile()
   const {
     currentTrack, isPlaying, currentTime, duration, volume,
