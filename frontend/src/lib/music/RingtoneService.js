@@ -1,5 +1,4 @@
 import { supabase } from '../supabase'
-import { MusicService } from './MusicService'
 import { makeTrackId } from './MusicProvider'
 
 /**
@@ -81,21 +80,22 @@ export const RingtoneService = {
    * ringtone set or the track can't be resolved, so callers can
    * fall back to a default tone.
    */
-  async playRingtone(track) {
-    if (!track) return false
-    const audio = getRingtoneAudioEl()
-    if (!audio) return false
-    try {
-      const url = await MusicService.resolveStreamUrl(track)
-      if (!url) return false
-      audio.src = url
-      audio.currentTime = 0
-      await audio.play()
-      return true
-    } catch {
-      return false
-    }
-  },
+async playRingtone(track) {
+  if (!track) return false
+  const audio = getRingtoneAudioEl()
+  if (!audio) return false
+  try {
+    const { MusicService } = await import('./MusicService') // lazy — breaks any load-order cycle
+    const url = await MusicService.resolveStreamUrl(track)
+    if (!url) return false
+    audio.src = url
+    audio.currentTime = 0
+    await audio.play()
+    return true
+  } catch {
+    return false
+  }
+},
 
   stopRingtone() {
     if (ringtoneAudio) {
