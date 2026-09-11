@@ -159,8 +159,7 @@ export default function PulsePage({
 
       {/* ── MATTCHAT TOOLS ── */}
 <MattchatToolsCard onOpenTool={handleOpenTool} />
-
-<PulseMusicCard />
+<PulseMusicCard onFullscreenChange={onFullscreenChange} />
 
       {/* ── OTHER PULSE CONTENT (existing activity feed, unchanged) ── */}
       <input
