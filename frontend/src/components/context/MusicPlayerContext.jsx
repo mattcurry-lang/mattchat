@@ -16,7 +16,7 @@ import {
   IconMusic, IconX, IconPlay, IconPause, IconMic, IconSearch, IconListMusic,
   IconSkipBack, IconSkipForward, IconShuffle, IconRepeat, IconHeart, IconVolume2, IconPlus,
   IconQueueList, IconLyrics, IconShare2, IconLoader2,
-} from './Icons'
+} from '../Icons'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
 function greeting() {
