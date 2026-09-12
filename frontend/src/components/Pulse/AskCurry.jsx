@@ -6,10 +6,8 @@
 // actions, or a Yes/No confirm prompt for CONFIRM_REQUIRED (consequential
 // actions Curry proposed but hasn't executed yet, e.g. filing a ticket).
 //
-// ACTION_SERVICE_ID below maps a tool action type to a service id in
-// your registry (src/data/dekutServices.js) — adjust these ids to match
-// whatever they actually are; the ones here are best guesses based on
-// the existing DEFAULT_FEATURED_IDS / DekutHubCard.jsx naming pattern.
+// ACTION_SERVICE_ID maps a tool action type to a real service id from
+// src/data/dekutServices.js.
 //
 // onNavigate: forwarded through, same contract as DeKUTHubCard.jsx /
 // DekutFAQ.jsx — lets internal services route in-app.
@@ -36,15 +34,21 @@ const QUICK_ACTIONS = [
   "How do I access eLearning?",
 ]
 
-// type -> service id. Update to match your real registry ids.
 const ACTION_SERVICE_ID = {
-  OPEN_STUDENT_PORTAL: 'portal',
+  OPEN_STUDENT_PORTAL: 'student-portal',
   OPEN_ELEARNING: 'elearning',
   OPEN_LIBRARY: 'library',
   OPEN_CATERING: 'catering',
-  OPEN_SUPPORT: 'support',
+  // No dedicated ticketing/support service exists yet. 'it-helpdesk' is
+  // the closest match by name, but it's status: 'pending' with no url —
+  // openDekutService won't treat it as clickable. 'contacts' (Location &
+  // Contacts) is the only active, internally-routed option that's
+  // actually support-adjacent, so that's the safer default until a real
+  // support/ticketing service exists in the registry.
+  OPEN_SUPPORT: 'contacts',
   SHOW_ROUTE: 'room-finder',
   SHOW_LOCATION: 'room-finder',
+  SHOW_CONTACT: 'contacts',
 }
 
 const ACTION_LABEL = {
@@ -55,6 +59,7 @@ const ACTION_LABEL = {
   OPEN_SUPPORT: 'Get Support',
   SHOW_ROUTE: 'Show on Campus Map',
   SHOW_LOCATION: 'Show on Campus Map',
+  SHOW_CONTACT: 'View Contact Details',
 }
 
 function SourceChips({ sources }) {
