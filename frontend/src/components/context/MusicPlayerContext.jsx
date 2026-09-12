@@ -12,7 +12,7 @@ import { YouTubeMusicProvider } from '../../../lib/music/providers/YouTubeMusicP
 import { ArtistService } from '../../../lib/music/ArtistService'
 import { PlaylistService } from '../../../lib/music/PlaylistService'
 import { useDominantColor, rgba } from '../../../lib/music/extractColor'
-import { useMusicColors } from '../../../hooks/useMusicColors'
+import { useMusicColors } from '../../hooks/useMusicColors'
 import {
   IconMusic, IconX, IconPlay, IconPause, IconMic, IconSearch, IconListMusic,
   IconSkipBack, IconSkipForward, IconShuffle, IconRepeat, IconHeart, IconVolume2, IconPlus,
