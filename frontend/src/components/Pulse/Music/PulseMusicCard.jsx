@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import MusicSearch from './MusicSearch'
 import TrackRail from './TrackRail'
@@ -16,6 +16,7 @@ import { useMusicColors } from '../../../hooks/useMusicColors'
 import {
   IconMusic, IconX, IconPlay, IconPause, IconMic, IconSearch, IconListMusic,
   IconSkipBack, IconSkipForward, IconShuffle, IconRepeat, IconHeart, IconVolume2, IconPlus,
+  IconQueueList, IconLyrics, IconShare2,
 } from '../../Icons'
 import { useIsMobile } from '../../../hooks/useIsMobile'
 
@@ -35,6 +36,7 @@ function formatTime(seconds) {
 
 export function PulseMusicEntryCard({ onOpen }) {
   const colors = useMusicColors()
+  const { isPlaying, currentTrack } = useMusicPlayer()
   return (
     <button
       onClick={onOpen}
@@ -45,19 +47,31 @@ export function PulseMusicEntryCard({ onOpen }) {
         cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%',
       }}
     >
-      <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 16px rgba(108,99,255,0.4)' }}>
-        <IconMusic size={19} style={{ color: '#fff' }} />
+      <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 16px rgba(108,99,255,0.4)', flexShrink: 0 }}>
+        {isPlaying && currentTrack ? <EqBarsSmall /> : <IconMusic size={19} style={{ color: '#fff' }} />}
       </div>
-      <div>
+      <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: colors.textPrimary }}>Music</div>
-        <div style={{ fontSize: 11.5, color: colors.textMuted }}>Discover, search, and play — keeps going while you chat</div>
+        <div style={{ fontSize: 11.5, color: colors.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {isPlaying && currentTrack ? `Playing · ${currentTrack.title}` : 'Discover, search, and play — keeps going while you chat'}
+        </div>
       </div>
     </button>
   )
 }
 
-// ── Left icon rail — Spotify's collapsed sidebar: pinned Liked Songs
-// + a scrollable strip of playlist/mix thumbnails, no text labels ──
+function EqBarsSmall() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, height: 14 }}>
+      {[0, 1, 2].map((i) => (
+        <span key={i} style={{ width: 2.5, background: '#fff', borderRadius: 1, animation: `mattchatEqSm 0.9s ease-in-out ${i * 0.15}s infinite` }} />
+      ))}
+      <style>{`@keyframes mattchatEqSm { 0%, 100% { height: 4px; } 50% { height: 14px; } }`}</style>
+    </div>
+  )
+}
+
+// ── Left icon rail — Spotify's collapsed sidebar ──
 function LibraryRail({ playlists, colors, onOpenLibrary }) {
   const { likedTracks, playTrack } = useMusicPlayer()
   return (
@@ -74,7 +88,8 @@ function LibraryRail({ playlists, colors, onOpenLibrary }) {
         <IconListMusic size={17} />
       </button>
 
-      <button
+      <motion.button
+        whileTap={{ scale: 0.92 }}
         onClick={() => likedTracks.length && playTrack(likedTracks[0], likedTracks)}
         title="Liked Songs"
         style={{
@@ -83,11 +98,13 @@ function LibraryRail({ playlists, colors, onOpenLibrary }) {
         }}
       >
         <IconHeart size={18} filled style={{ color: '#fff' }} />
-      </button>
+      </motion.button>
 
       {playlists.map((p) => (
-        <button
+        <motion.button
           key={p.id}
+          whileHover={{ scale: 1.06 }}
+          whileTap={{ scale: 0.94 }}
           onClick={onOpenLibrary}
           title={p.name}
           style={{
@@ -97,16 +114,18 @@ function LibraryRail({ playlists, colors, onOpenLibrary }) {
           }}
         >
           {p.artwork_url ? <img src={p.artwork_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconListMusic size={16} style={{ color: 'rgba(255,255,255,0.85)' }} />}
-        </button>
+        </motion.button>
       ))}
     </div>
   )
 }
 
-// ── Right "Now Playing" panel — mirrors Spotify's context panel ──
+// ── Right "Now Playing" panel — Spotify context panel + Boomplay-style Lyrics tab ──
 function NowPlayingPanel({ colors }) {
-  const { currentTrack, isLiked, toggleLike } = useMusicPlayer()
+  const { currentTrack, isLiked, toggleLike, recentlyPlayed } = useMusicPlayer()
   const dominant = useDominantColor(currentTrack?.artwork)
+  const [tab, setTab] = useState('details') // 'details' | 'lyrics'
+  const [burst, setBurst] = useState(false)
 
   if (!currentTrack) {
     return (
@@ -120,12 +139,44 @@ function NowPlayingPanel({ colors }) {
   }
 
   const liked = isLiked(currentTrack.id)
+  const related = recentlyPlayed.filter((t) => t.id !== currentTrack.id).slice(0, 5)
+
+  const handleLike = () => {
+    if (!liked) { setBurst(true); setTimeout(() => setBurst(false), 600) }
+    toggleLike(currentTrack)
+  }
+
+  const share = () => {
+    if (navigator.share) {
+      navigator.share({ title: currentTrack.title, text: `${currentTrack.title} — ${currentTrack.artist}` }).catch(() => {})
+    }
+  }
 
   return (
-    <div style={{ width: 300, flexShrink: 0, borderLeft: `1px solid ${colors.border}`, background: colors.surface1, overflowY: 'auto', padding: 16 }}>
-      <div style={{ fontSize: 14, fontWeight: 800, color: colors.textPrimary, marginBottom: 14 }}>
-        {currentTrack.title}
+    <div style={{ width: 300, flexShrink: 0, borderLeft: `1px solid ${colors.border}`, background: colors.surface1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+        <button
+          onClick={() => setTab('details')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, padding: '6px 12px', borderRadius: 999,
+            border: 'none', cursor: 'pointer', background: tab === 'details' ? 'linear-gradient(135deg,#a78bfa,#6c63ff)' : colors.surface2,
+            color: tab === 'details' ? '#fff' : colors.textSecondary,
+          }}
+        >
+          <IconMusic size={12} /> Now Playing
+        </button>
+        <button
+          onClick={() => setTab('lyrics')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, padding: '6px 12px', borderRadius: 999,
+            border: 'none', cursor: 'pointer', background: tab === 'lyrics' ? 'linear-gradient(135deg,#a78bfa,#6c63ff)' : colors.surface2,
+            color: tab === 'lyrics' ? '#fff' : colors.textSecondary,
+          }}
+        >
+          <IconLyrics size={12} /> Lyrics
+        </button>
       </div>
+
       <motion.div
         key={currentTrack.id}
         initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }}
@@ -146,18 +197,63 @@ function NowPlayingPanel({ colors }) {
         <div style={{ fontSize: 15, fontWeight: 800, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
           {currentTrack.title}
         </div>
-        <button onClick={() => toggleLike(currentTrack)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: liked ? '#f87171' : colors.textMuted, flexShrink: 0, marginLeft: 8 }}>
-          <IconHeart size={17} filled={liked} />
-        </button>
+        <div style={{ display: 'flex', gap: 4, marginLeft: 8, flexShrink: 0, position: 'relative' }}>
+          <button onClick={handleLike} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: liked ? '#f87171' : colors.textMuted, position: 'relative' }}>
+            <IconHeart size={17} filled={liked} />
+            <AnimatePresence>
+              {burst && [0, 1, 2].map((i) => (
+                <motion.span
+                  key={i}
+                  initial={{ opacity: 1, scale: 0.4, x: 0, y: 0 }}
+                  animate={{ opacity: 0, scale: 1, x: (i - 1) * 14, y: -20 }}
+                  transition={{ duration: 0.55, ease: 'easeOut' }}
+                  style={{ position: 'absolute', top: 0, right: 0, color: '#f87171', pointerEvents: 'none' }}
+                >
+                  <IconHeart size={10} filled />
+                </motion.span>
+              ))}
+            </AnimatePresence>
+          </button>
+          <button onClick={share} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: colors.textMuted }}>
+            <IconShare2 size={16} />
+          </button>
+        </div>
       </div>
-      <div style={{ fontSize: 13, color: colors.textMuted }}>{currentTrack.artist}</div>
+      <div style={{ fontSize: 13, color: colors.textMuted, marginBottom: 18 }}>{currentTrack.artist}</div>
+
+      <AnimatePresence mode="wait">
+        {tab === 'lyrics' ? (
+          <motion.div key="lyrics" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ textAlign: 'center', color: colors.textMuted, fontSize: 12.5, padding: '30px 10px' }}>
+            <IconLyrics size={26} style={{ marginBottom: 10, opacity: 0.5 }} />
+            <div>Lyrics for this track aren't available yet.</div>
+          </motion.div>
+        ) : (
+          related.length > 0 && (
+            <motion.div key="details">
+              <div style={{ fontSize: 11, fontWeight: 700, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+                More like this
+              </div>
+              {related.map((t) => (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0' }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: colors.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {t.artwork ? <img src={t.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={13} style={{ color: colors.textMuted }} />}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                    <div style={{ fontSize: 10.5, color: colors.textMuted }}>{t.artist}</div>
+                  </div>
+                </div>
+              ))}
+            </motion.div>
+          )
+        )}
+      </AnimatePresence>
     </div>
   )
 }
 
-// ── Bottom playback bar — full Spotify-style transport, replaces the
-// floating pill for this screen since it's a persistent desktop layout ──
-function PlaybackBar({ colors}) {
+// ── Bottom playback bar — mobile version is now swipeable (drag left/right to skip) ──
+function PlaybackBar({ colors }) {
   const isMobile = useIsMobile()
   const {
     currentTrack, isPlaying, currentTime, duration, volume,
@@ -167,7 +263,7 @@ function PlaybackBar({ colors}) {
 
   if (!currentTrack) {
     return (
-     <div style={{ height: isMobile ? 56 : 72, borderTop: `1px solid ${colors.border}`, background: colors.surface1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textMuted, fontSize: 12 }}>
+      <div style={{ height: isMobile ? 56 : 72, borderTop: `1px solid ${colors.border}`, background: colors.surface1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textMuted, fontSize: 12 }}>
         Nothing playing
       </div>
     )
@@ -176,15 +272,19 @@ function PlaybackBar({ colors}) {
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
   const liked = isLiked(currentTrack.id)
 
-  
-  // Spotify-mobile-style compact strip: artwork, title/artist, a thin
-  // progress sliver on the top edge, like/play only. Shuffle, repeat,
-  // scrubber and volume move to a full-screen "Now Playing" view on
-  // real Spotify — not built yet, so they're just dropped here rather
-  // than crammed into 56px.
   if (isMobile) {
     return (
-      <div style={{ position: 'relative', height: 56, borderTop: `1px solid ${colors.border}`, background: colors.surface2, display: 'flex', alignItems: 'center', padding: '0 10px', gap: 10 }}>
+      <motion.div
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.5}
+        onDragEnd={(e, info) => {
+          if (info.offset.x < -60) playNext()
+          else if (info.offset.x > 60) playPrevious()
+        }}
+        whileDrag={{ scale: 0.98 }}
+        style={{ position: 'relative', height: 56, borderTop: `1px solid ${colors.border}`, background: colors.surface2, display: 'flex', alignItems: 'center', padding: '0 10px', gap: 10, touchAction: 'pan-y' }}
+      >
         <div style={{ position: 'absolute', top: 0, left: 0, height: 2, width: `${progress}%`, background: '#a78bfa' }} />
         <div style={{ width: 38, height: 38, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: colors.surface1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {currentTrack.artwork ? <img src={currentTrack.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={14} style={{ color: colors.textMuted }} />}
@@ -202,7 +302,7 @@ function PlaybackBar({ colors}) {
         >
           {isPlaying ? <IconPause size={13} /> : <IconPlay size={13} />}
         </button>
-      </div>
+      </motion.div>
     )
   }
 
@@ -225,12 +325,13 @@ function PlaybackBar({ colors}) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
           <button onClick={toggleShuffle} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: shuffle ? '#a78bfa' : colors.textMuted }}><IconShuffle size={15} /></button>
           <button onClick={playPrevious} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: colors.textPrimary }}><IconSkipBack size={17} /></button>
-          <button
+          <motion.button
+            whileTap={{ scale: 0.88 }}
             onClick={togglePlayPause}
             style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', cursor: 'pointer', background: '#fff', color: '#0f0f1a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             {isPlaying ? <IconPause size={14} /> : <IconPlay size={14} />}
-          </button>
+          </motion.button>
           <button onClick={playNext} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: colors.textPrimary }}><IconSkipForward size={17} /></button>
           <button onClick={cycleRepeat} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: repeatMode !== 'off' ? '#a78bfa' : colors.textMuted, position: 'relative' }}>
             <IconRepeat size={15} />
@@ -291,6 +392,82 @@ function Section({ delay = 0, children, style }) {
   )
 }
 
+// ── Boomplay-style hero carousel — swipeable "For You" cards above the fold ──
+function ForYouCarousel({ tracks, onPress, isMobile }) {
+  const [index, setIndex] = useState(0)
+  const timerRef = useRef(null)
+
+  useEffect(() => {
+    if (tracks.length < 2) return
+    timerRef.current = setInterval(() => setIndex((i) => (i + 1) % tracks.length), 5000)
+    return () => clearInterval(timerRef.current)
+  }, [tracks.length])
+
+  if (!tracks || tracks.length === 0) return null
+  const track = tracks[index]
+
+  const restartTimer = () => {
+    clearInterval(timerRef.current)
+    if (tracks.length > 1) timerRef.current = setInterval(() => setIndex((i) => (i + 1) % tracks.length), 5000)
+  }
+
+  return (
+    <div style={{ marginBottom: 26 }}>
+      <div style={{ fontSize: 14.5, fontWeight: 800, color: '#fff', marginBottom: 10, letterSpacing: -0.2, textShadow: '0 2px 10px rgba(0,0,0,0.4)' }}>
+        For You
+      </div>
+      <div style={{ position: 'relative', borderRadius: 18, overflow: 'hidden', height: isMobile ? 150 : 190 }}>
+        <AnimatePresence mode="wait">
+          <motion.button
+            key={track.id}
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.6}
+            onDragEnd={(e, info) => {
+              if (info.offset.x < -50) setIndex((i) => (i + 1) % tracks.length)
+              else if (info.offset.x > 50) setIndex((i) => (i - 1 + tracks.length) % tracks.length)
+              restartTimer()
+            }}
+            onClick={() => onPress(track)}
+            initial={{ opacity: 0, scale: 1.02 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            style={{
+              position: 'absolute', inset: 0, width: '100%', border: 'none', cursor: 'pointer', padding: 0,
+              background: track.artwork ? `url(${track.artwork}) center/cover no-repeat` : 'linear-gradient(135deg,#a78bfa,#6c63ff)',
+            }}
+          >
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.15) 100%)' }} />
+            <div style={{ position: 'absolute', left: isMobile ? 14 : 22, bottom: isMobile ? 12 : 18, right: 70, textAlign: 'left' }}>
+              <div style={{ fontSize: 10.5, fontWeight: 800, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 }}>Recommended</div>
+              <div style={{ fontSize: isMobile ? 15 : 19, fontWeight: 900, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.title}</div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.artist}</div>
+            </div>
+            <div style={{ position: 'absolute', right: isMobile ? 12 : 20, bottom: isMobile ? 12 : 18, width: 42, height: 42, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 18px rgba(0,0,0,0.4)' }}>
+              <IconPlay size={17} style={{ color: '#0f0f1a', marginLeft: 2 }} />
+            </div>
+          </motion.button>
+        </AnimatePresence>
+      </div>
+      {tracks.length > 1 && (
+        <div style={{ display: 'flex', gap: 5, justifyContent: 'center', marginTop: 10 }}>
+          {tracks.slice(0, 8).map((_, i) => (
+            <button
+              key={i}
+              onClick={() => { setIndex(i); restartTimer() }}
+              style={{
+                width: i === index ? 16 : 6, height: 6, borderRadius: 3, border: 'none', cursor: 'pointer',
+                background: i === index ? '#a78bfa' : 'rgba(255,255,255,0.25)', transition: 'width 0.2s ease',
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const TABS = ['All', 'Songs', 'Playlists']
 
 export function PulseMusicOverlay({ onClose }) {
@@ -333,6 +510,7 @@ export function PulseMusicOverlay({ onClose }) {
   const heroTrack = mainstream[0] || trending[0] || recentlyPlayed[0] || likedTracks[0] || null
   const dominant = useDominantColor(heroTrack?.artwork)
   const quickPicks = [...recentlyPlayed.slice(0, 4), ...likedTracks.slice(0, 4)].slice(0, 6)
+  const forYou = [...mainstream, ...trending].slice(0, 8)
   const openArtistStudio = () => (artistProfile ? setShowDashboard(true) : setShowBecomeArtist(true))
 
   return (
@@ -340,7 +518,7 @@ export function PulseMusicOverlay({ onClose }) {
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
       style={{ position: 'fixed', inset: 0, zIndex: 600, background: colors.surface1, display: 'flex', flexDirection: 'column' }}
     >
-      {/* ── top bar: search pill (Spotify-sized) + close ── */}
+      {/* ── top bar ── */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
         background: colors.surface1, borderBottom: `1px solid ${colors.border}`, flexShrink: 0,
@@ -349,21 +527,21 @@ export function PulseMusicOverlay({ onClose }) {
           onClick={() => setShowSearch((s) => !s)}
           style={{
             display: 'flex', alignItems: 'center', gap: 8, background: colors.surface2,
-           border: `1px solid ${colors.border}`, borderRadius: 999,
-           padding: isMobile ? '8px 10px' : '8px 16px',
+            border: `1px solid ${colors.border}`, borderRadius: 999,
+            padding: isMobile ? '8px 10px' : '8px 16px',
             cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: colors.textMuted, fontSize: 13,
-             width: isMobile ? 36 : 340, height: 36, justifyContent: 'center',
+            width: isMobile ? 36 : 340, height: 36, justifyContent: 'center',
           }}
         >
           <IconSearch size={14} />
-         {!isMobile && 'What do you want to play?'}
+          {!isMobile && 'What do you want to play?'}
         </button>
         <div style={{ flex: 1 }} />
         <button
           onClick={openArtistStudio}
           style={{ display: 'flex', alignItems: 'center', gap: 6, height: 32, padding: isMobile ? '0 10px' : '0 12px', borderRadius: 999, border: `1px solid ${colors.border}`, cursor: 'pointer', background: colors.surface2, color: colors.textPrimary, fontSize: 11.5, fontWeight: 700 }}
         >
-         <IconMic size={13} /> {!isMobile && (artistProfile ? 'Your Studio' : 'Become an Artist')}
+          <IconMic size={13} /> {!isMobile && (artistProfile ? 'Your Studio' : 'Become an Artist')}
         </button>
         <button
           onClick={onClose}
@@ -398,31 +576,44 @@ export function PulseMusicOverlay({ onClose }) {
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}
             style={{
-             position: 'relative', padding: isMobile ? '14px 14px 16px' : '18px 24px 20px',
+              position: 'relative', padding: isMobile ? '14px 14px 16px' : '18px 24px 20px',
               background: `linear-gradient(180deg, ${rgba(dominant, 0.4)} 0%, ${rgba(dominant, 0.12)} 55%, ${colors.surface1} 100%)`,
             }}
           >
-            <div style={{ display: 'flex', gap: 8, marginBottom: 14, overflowX: isMobile ? 'auto' : 'visible', WebkitOverflowScrolling: 'touch' }}>
-              {TABS.map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  style={{
-                    fontSize: 12.5, fontWeight: 700, padding: '7px 14px', borderRadius: 999, cursor: 'pointer',
-                    border: 'none', color: activeTab === tab ? '#0f0f1a' : '#fff',
-                    background: activeTab === tab ? '#fff' : 'rgba(255,255,255,0.14)',
-                  }}
-                >
-                  {tab}
-                </button>
-              ))}
+            {/* Dark scrim behind hero text — guarantees contrast no matter
+                the theme or how light the extracted dominant color is. This
+                was the source of most of the "can't see text" complaints. */}
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.38) 0%, rgba(0,0,0,0.12) 60%, transparent 100%)', pointerEvents: 'none' }} />
+
+            <div style={{ position: 'relative' }}>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 14, overflowX: isMobile ? 'auto' : 'visible', WebkitOverflowScrolling: 'touch' }}>
+                {TABS.map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    style={{
+                      fontSize: 12.5, fontWeight: 700, padding: '7px 14px', borderRadius: 999, cursor: 'pointer',
+                      border: 'none', color: activeTab === tab ? '#0f0f1a' : '#fff',
+                      background: activeTab === tab ? '#fff' : 'rgba(255,255,255,0.18)',
+                    }}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+              <h2 style={{ fontSize: 20, fontWeight: 900, color: '#fff', margin: '0 0 14px', letterSpacing: -0.4, textShadow: '0 2px 12px rgba(0,0,0,0.45)' }}>
+                {greeting()}
+              </h2>
             </div>
-            <h2 style={{ fontSize: 20, fontWeight: 900, color: '#fff', margin: '0 0 14px', letterSpacing: -0.4, textShadow: '0 2px 12px rgba(0,0,0,0.35)' }}>
-              {greeting()}
-            </h2>
           </motion.div>
 
           <div style={{ padding: isMobile ? '0 14px 100px' : '0 24px 40px' }}>
+            {(activeTab === 'All') && forYou.length > 0 && (
+              <Section>
+                <ForYouCarousel tracks={forYou} isMobile={isMobile} onPress={(t) => playTrack(t, forYou)} />
+              </Section>
+            )}
+
             {artistChecked && !artistProfile && (
               <Section>
                 <button
@@ -502,10 +693,6 @@ export function PulseMusicOverlay({ onClose }) {
   )
 }
 
-// onFullscreenChange: reuses the same mechanism PulsePage already
-// uses for its DEKUT feature (see ChatPage.jsx's onFullscreenChange={setDekutFullscreen})
-// to hide BottomNav, FloatingCurryOrb, and AIInsightsPanel while this
-// screen is open — no new wiring needed in ChatPage.jsx.
 export default function PulseMusicCard({ onFullscreenChange }) {
   const [open, setOpen] = useState(false)
 
