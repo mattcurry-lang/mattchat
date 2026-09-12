@@ -18,7 +18,7 @@ import {
   IconSkipBack, IconSkipForward, IconShuffle, IconRepeat, IconHeart, IconVolume2, IconPlus,
   IconQueueList, IconLyrics, IconShare2, IconLoader2,
 } from '../../Icons'
-import { useIsMobile } from '../../../hooks/useIsMobile'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 function greeting() {
   const h = new Date().getHours()
