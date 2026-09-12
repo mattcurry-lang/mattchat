@@ -20,7 +20,7 @@ import { usePendingTrustedInvites } from '../../hooks/usePendingTrustedInvites'
 import DeKUTHubCard from './DeKUTHubCard'
 import RoomFinder from './RoomFinder'
 import FresherMode from './FresherMode'
-import DekutFAQ from './DekutFAQ'
+import AskCurry from './AskCurry'
 import EmailSetupGuide from './EmailSetupGuide'
 import ContactsPage from './ContactsPage'
 import MattchatToolsCard from './MattchatToolsCard'
@@ -318,10 +318,10 @@ export default function PulsePage({
       )}
 
       {dekutView === 'faq' && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
-          <DekutFAQ onNavigate={(route) => setDekutView(route)} onClose={() => setDekutView(null)} />
-        </div>
-      )}
+  <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
+    <AskCurry userId={userId} onNavigate={(route) => setDekutView(route)} onClose={() => setDekutView(null)} />
+  </div>
+)}
 
       {dekutView === 'email-setup' && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
