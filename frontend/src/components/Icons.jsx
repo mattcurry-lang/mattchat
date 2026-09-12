@@ -1007,3 +1007,28 @@ export function IconLoader2({ size = 18, ...props }) {
     </svg>
   )
 }
+
+// ── Now Playing panel tabs — added for Music upgrade ────────────
+
+export function IconQueueList({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <line x1="4" y1="6" x2="16" y2="6" />
+      <line x1="4" y1="12" x2="16" y2="12" />
+      <line x1="4" y1="18" x2="12" y2="18" />
+      <path d="M19 9v9" />
+      <path d="M16.5 15.5 19 18l2.5-2.5" />
+    </svg>
+  )
+}
+
+export function IconLyrics({ size = 18, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M9 3v10.5" />
+      <circle cx="6.5" cy="15" r="2.5" />
+      <path d="M9 3l6-1v10.5" />
+      <circle cx="12.5" cy="14" r="2.5" />
+    </svg>
+  )
+}
