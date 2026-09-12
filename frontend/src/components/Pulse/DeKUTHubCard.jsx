@@ -4,7 +4,7 @@ import { DekutIcon, ICON_GRADIENTS } from './dekutIcons'
 import { DEKUT_CATEGORIES, DEFAULT_FEATURED_IDS, getServiceById } from '../../data/dekutServices'
 import { useDekutUsage } from '../../hooks/useDekutUsage'
 import DekutServicesModal from './DekutServicesModal'
-import CurryOrbButton from './CurryOrbButton'
+import CurryOrb from './CurryOrb'
 import { openDekutService } from '../../utils/dekutOpenService'
 
 // onNavigate: (route, service) => void — forwarded from PulsePage so
@@ -42,7 +42,7 @@ export default function DeKUTHubCard({ onNavigate }) {
     // background circle moves to an inner wrapper that keeps its own
     // overflow:hidden instead.
     <div style={{ position: 'relative' }}>
-      <CurryOrbButton onOpen={() => onNavigate?.('faq')} />
+      <CurryOrb onOpen={() => onNavigate?.('faq')} />
 
       <div
         style={{
