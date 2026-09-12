@@ -49,12 +49,16 @@ export const DEKUT_CATEGORIES = [
         route: 'fresher-mode',
       },
       {
+        // Renamed from "Ask DeKUT" — DekutFAQ.jsx (static FAQ search) is
+        // replaced by AskCurry.jsx (RAG-backed chat with tool access).
+        // route/id kept as 'faq' so no other reference needs to change;
+        // rename both to 'curry' instead if you'd rather the route match.
         id: 'faq',
-        name: 'Ask DeKUT',
-        description: 'Answers to common questions about email, fees, registration and more.',
+        name: 'Ask Curry',
+        description: 'Chat with Curry — DeKUT Hub\'s AI assistant for questions, procedures and campus services.',
         url: null,
         icon: 'star',
-        keywords: ['faq', 'help', 'questions', 'ask', 'ask dekut', 'ai', 'support'],
+        keywords: ['faq', 'help', 'questions', 'ask', 'ask curry', 'curry', 'ai', 'support'],
         status: 'active',
         type: 'internal',
         route: 'faq',
