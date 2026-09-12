@@ -24,7 +24,7 @@ export default function TrackRail({ title, tracks, emptyMessage }) {
     return (
       <div style={{ marginBottom: 26 }}>
         <RailHeader title={title} colors={colors} />
-        <div style={{ fontSize: 12.5, color: colors.textMuted, padding: '4px 2px' }}>{emptyMessage}</div>
+        <div style={{ fontSize: 12.5, color: colors.textSecondary, padding: '4px 2px' }}>{emptyMessage}</div>
       </div>
     )
   }
@@ -63,13 +63,34 @@ function RailHeader({ title, colors }) {
   )
 }
 
-function TrackCard({ track, isActive, isPlaying, onPress, colors, isMobile }) {
+// Small floating-heart burst shown for ~600ms when a track is liked —
+// self-contained, no context changes needed.
+function LikeBurst() {
+  return (
+    <>
+      {[0, 1, 2].map((i) => (
+        <motion.span
+          key={i}
+          initial={{ opacity: 1, scale: 0.4, x: 0, y: 0 }}
+          animate={{ opacity: 0, scale: 1, x: (i - 1) * 14, y: -22 }}
+          transition={{ duration: 0.55, ease: 'easeOut' }}
+          style={{ position: 'absolute', top: 4, right: 4, color: '#f87171', pointerEvents: 'none' }}
+        >
+          <IconHeart size={10} filled />
+        </motion.span>
+      ))}
+    </>
+  )
+}
+
+function TrackCard({ track, isActive, isPlaying, onPress, colors }) {
+  const isMobile = useIsMobile()
   const { isLiked, toggleLike, addToQueue } = useMusicPlayer()
   const [hovered, setHovered] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [addingToPlaylist, setAddingToPlaylist] = useState(false)
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 })
-  const [likeBurst, setLikeBurst] = useState(0)
+  const [burst, setBurst] = useState(false)
   const menuBtnRef = useRef(null)
   const menuRef = useRef(null)
   const liked = isLiked(track.id)
@@ -103,9 +124,12 @@ function TrackCard({ track, isActive, isPlaying, onPress, colors, isMobile }) {
 
   useEffect(() => { if (!menuOpen) setAddingToPlaylist(false) }, [menuOpen])
 
-  const handleLike = (e) => {
+  const handleLikeClick = (e) => {
     e.stopPropagation()
-    if (!liked) setLikeBurst((b) => b + 1)
+    if (!liked) {
+      setBurst(true)
+      setTimeout(() => setBurst(false), 600)
+    }
     toggleLike(track)
   }
 
@@ -117,11 +141,12 @@ function TrackCard({ track, isActive, isPlaying, onPress, colors, isMobile }) {
         animate={{ scale: hovered ? 1.035 : 1 }}
         transition={{ type: 'spring', stiffness: 380, damping: 22 }}
         style={{
-          width: isMobile ? 118 : 148, height: isMobile ? 118 : 148, borderRadius: 18, overflow: 'hidden', border: 'none', padding: 0,
+          width: isMobile ? 118 : 148, height: isMobile ? 118 : 148, borderRadius: 16, overflow: 'hidden', border: 'none', padding: 0,
           cursor: 'pointer', position: 'relative', background: colors.surface2,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          outline: isActive ? '2px solid #a78bfa' : 'none', outlineOffset: -2,
+          outline: isActive ? '2px solid #a78bfa' : hovered ? '2px solid rgba(167,139,250,0.45)' : 'none', outlineOffset: -2,
           boxShadow: hovered ? '0 14px 30px rgba(0,0,0,0.35)' : '0 4px 14px rgba(0,0,0,0.18)',
+          transition: 'outline-color 0.15s ease',
         }}
         aria-label={`Play ${track.title}`}
       >
@@ -145,26 +170,15 @@ function TrackCard({ track, isActive, isPlaying, onPress, colors, isMobile }) {
           ) : null}
         </AnimatePresence>
 
-        <button
-          onClick={handleLike}
+        <motion.button
+          onClick={handleLikeClick}
+          whileTap={{ scale: 0.8 }}
           aria-label={liked ? 'Unlike' : 'Like'}
           style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: '50%', border: 'none', cursor: 'pointer', background: 'rgba(15,15,26,0.55)', color: liked ? '#f87171' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <IconHeart size={13} filled={liked} />
-          <AnimatePresence>
-            {likeBurst > 0 && (
-              <motion.span
-                key={likeBurst}
-                initial={{ opacity: 1, scale: 0.5, y: 0 }}
-                animate={{ opacity: 0, scale: 2, y: -14 }}
-                transition={{ duration: 0.5, ease: 'easeOut' }}
-                style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', color: '#f87171' }}
-              >
-                <IconHeart size={13} filled />
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </button>
+          <AnimatePresence>{burst && <LikeBurst />}</AnimatePresence>
+        </motion.button>
         {durationLabel && (
           <div style={{ position: 'absolute', bottom: 6, left: 6, fontSize: 10, fontWeight: 700, color: '#fff', background: 'rgba(15,15,26,0.55)', borderRadius: 5, padding: '1px 5px' }}>
             {durationLabel}
