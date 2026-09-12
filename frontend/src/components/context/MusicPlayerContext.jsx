@@ -12,13 +12,13 @@ import { YouTubeMusicProvider } from '../../../lib/music/providers/YouTubeMusicP
 import { ArtistService } from '../../../lib/music/ArtistService'
 import { PlaylistService } from '../../../lib/music/PlaylistService'
 import { useDominantColor, rgba } from '../../../lib/music/extractColor'
-import { useMusicColors } from '../../hooks/useMusicColors'
+import { useMusicColors } from '../../../hooks/useMusicColors'
 import {
   IconMusic, IconX, IconPlay, IconPause, IconMic, IconSearch, IconListMusic,
   IconSkipBack, IconSkipForward, IconShuffle, IconRepeat, IconHeart, IconVolume2, IconPlus,
   IconQueueList, IconLyrics, IconShare2, IconLoader2,
 } from '../../Icons'
-import { useIsMobile } from '../../hooks/useIsMobile'
+import { useIsMobile } from '../../../hooks/useIsMobile'
 
 function greeting() {
   const h = new Date().getHours()
