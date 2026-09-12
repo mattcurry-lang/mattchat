@@ -223,8 +223,7 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
     lastSpokenIdRef.current = last.id
     voice.speak(last.text, () => {
       voice.startListening((finalText) => sendMessage(finalText))
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }) 
   }, [messages, sending, mode])
 
   const handleSend = (text) => {
