@@ -1,5 +1,5 @@
 import React from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useMusicPlayer } from '../../context/MusicPlayerContext'
 import { IconX, IconMusic, IconHeart, IconListMusic } from '../../Icons'
 import { useMusicColors } from '../../../hooks/useMusicColors'
@@ -28,26 +28,26 @@ export default function LibraryPanel({ playlists, onOpenPlaylist, onClose }) {
       <motion.div
         onClick={(e) => e.stopPropagation()}
         initial={isMobile ? { y: '100%' } : { x: '100%' }}
-       animate={isMobile ? { y: 0 } : { x: 0 }}
-       exit={isMobile ? { y: '100%' } : { x: '100%' }}
+        animate={isMobile ? { y: 0 } : { x: 0 }}
+        exit={isMobile ? { y: '100%' } : { x: '100%' }}
         transition={{ type: 'spring', stiffness: 360, damping: 34 }}
         style={{
-           width: isMobile ? '100%' : 'min(360px, 88vw)',
-         height: isMobile ? '85vh' : '100%',
-         overflowY: 'auto',
-         background: colors.surface1,
-         borderLeft: isMobile ? 'none' : `1px solid ${colors.border}`,
-         borderTop: isMobile ? `1px solid ${colors.border}` : 'none',
-         borderTopLeftRadius: isMobile ? 18 : 0,
-         borderTopRightRadius: isMobile ? 18 : 0,
-         boxShadow: isMobile ? '0 -12px 40px rgba(0,0,0,0.4)' : '-12px 0 40px rgba(0,0,0,0.4)',
+          width: isMobile ? '100%' : 'min(360px, 88vw)',
+          height: isMobile ? '85vh' : '100%',
+          overflowY: 'auto',
+          background: colors.surface1,
+          borderLeft: isMobile ? 'none' : `1px solid ${colors.border}`,
+          borderTop: isMobile ? `1px solid ${colors.border}` : 'none',
+          borderTopLeftRadius: isMobile ? 18 : 0,
+          borderTopRightRadius: isMobile ? 18 : 0,
+          boxShadow: isMobile ? '0 -12px 40px rgba(0,0,0,0.4)' : '-12px 0 40px rgba(0,0,0,0.4)',
           padding: '18px 16px calc(18px + env(safe-area-inset-bottom, 0px))',
         }}
       >
- {isMobile && (
-         <div style={{ width: 36, height: 4, borderRadius: 2, background: colors.border, margin: '0 auto 14px' }} />
-       )}
-        
+        {isMobile && (
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: colors.border, margin: '0 auto 14px' }} />
+        )}
+
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <h3 style={{ fontSize: 17, fontWeight: 800, color: colors.textPrimary, margin: 0 }}>Your Library</h3>
           <button onClick={onClose} aria-label="Close library"
@@ -56,7 +56,9 @@ export default function LibraryPanel({ playlists, onOpenPlaylist, onClose }) {
           </button>
         </div>
 
-        <button
+        <motion.button
+          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
+          whileTap={{ scale: 0.98 }}
           onClick={() => likedTracks.length && playTrack(likedTracks[0], likedTracks)}
           style={{
             display: 'flex', alignItems: 'center', gap: 12, width: '100%', marginBottom: 8,
@@ -72,7 +74,7 @@ export default function LibraryPanel({ playlists, onOpenPlaylist, onClose }) {
             <div style={{ fontSize: 13.5, fontWeight: 800, color: colors.textPrimary }}>Liked Songs</div>
             <div style={{ fontSize: 11.5, color: colors.textMuted }}>{likedTracks.length} songs</div>
           </div>
-        </button>
+        </motion.button>
 
         <div style={{ fontSize: 11, fontWeight: 700, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, margin: '18px 0 8px' }}>
           Playlists
@@ -80,9 +82,10 @@ export default function LibraryPanel({ playlists, onOpenPlaylist, onClose }) {
         {playlists.length === 0 ? (
           <div style={{ fontSize: 12, color: colors.textMuted, padding: '4px 2px 12px' }}>No playlists yet.</div>
         ) : (
-          playlists.map((p) => (
-            <button
+          playlists.map((p, i) => (
+            <motion.button
               key={p.id}
+              initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: Math.min(i, 8) * 0.03, duration: 0.2 }}
               onClick={() => { onOpenPlaylist(p.id); onClose() }}
               style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '8px 4px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
             >
@@ -90,7 +93,7 @@ export default function LibraryPanel({ playlists, onOpenPlaylist, onClose }) {
                 {p.artwork_url ? <img src={p.artwork_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconListMusic size={17} style={{ color: colors.textMuted }} />}
               </div>
               <div style={{ fontSize: 13, fontWeight: 700, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-            </button>
+            </motion.button>
           ))
         )}
 
@@ -99,9 +102,10 @@ export default function LibraryPanel({ playlists, onOpenPlaylist, onClose }) {
             <div style={{ fontSize: 11, fontWeight: 700, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, margin: '18px 0 8px' }}>
               Recently Played
             </div>
-            {recentArtists.map((t) => (
-              <button
+            {recentArtists.map((t, i) => (
+              <motion.button
                 key={t.id}
+                initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: Math.min(i, 8) * 0.03, duration: 0.2 }}
                 onClick={() => playTrack(t)}
                 style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '8px 4px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
               >
@@ -112,7 +116,7 @@ export default function LibraryPanel({ playlists, onOpenPlaylist, onClose }) {
                   <div style={{ fontSize: 13, fontWeight: 700, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artist}</div>
                   <div style={{ fontSize: 11, color: colors.textMuted }}>Artist</div>
                 </div>
-              </button>
+              </motion.button>
             ))}
           </>
         )}
