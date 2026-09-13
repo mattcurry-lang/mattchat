@@ -14,6 +14,12 @@
 // voice mode entirely when it's false rather than show a broken button.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { supabase } from '../lib/supabase'
+
+// Name of the deployed ElevenLabs TTS edge function — confirm this matches
+// your actual function folder name (supabase/functions/<name>/index.ts).
+// It takes { text } and streams back audio/mpeg.
+const TTS_FUNCTION_NAME = 'text-to-speech'
 
 const SpeechRecognitionImpl =
   typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null
@@ -46,6 +52,8 @@ export function useCurryVoice() {
   const rafRef = useRef(null)
   const onFinalRef = useRef(null)
   const finalTextRef = useRef('') // accumulates finalized speech across the whole listening session
+  const audioRef = useRef(null) // currently-playing ElevenLabs audio element, if any
+  const audioUrlRef = useRef(null) // its object URL, so we can revoke it on cleanup
 
   const stopVolumeLoop = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
@@ -150,21 +158,53 @@ export function useCurryVoice() {
     recognitionRef.current?.stop()
   }, [])
 
-  const speak = useCallback((text) => {
-    if (!supported || !text) return
-    window.speechSynthesis.cancel() // never let two replies overlap
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.rate = 1
-    utterance.onstart = () => setSpeaking(true)
-    utterance.onend = () => setSpeaking(false)
-    utterance.onerror = () => setSpeaking(false)
-    window.speechSynthesis.speak(utterance)
-  }, [supported])
+  const cleanupAudio = useCallback(() => {
+    audioRef.current?.pause()
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current)
+      audioUrlRef.current = null
+    }
+    audioRef.current = null
+  }, [])
+
+  // Speaks via your ElevenLabs TTS function (same voice as the main
+  // assistant everywhere else in Mattchat). Falls back to the browser's
+  // built-in voice ONLY if that call fails — so voice mode never just
+  // goes silent because of a network hiccup or a quota limit.
+  const speak = useCallback(async (text) => {
+    if (!text) return
+    cancelSpeech()
+    setSpeaking(true)
+
+    try {
+      const { data, error } = await supabase.functions.invoke(TTS_FUNCTION_NAME, { body: { text } })
+      if (error) throw error
+      // supabase-js returns a Blob for a non-JSON (audio/mpeg) response.
+      const audioUrl = URL.createObjectURL(data)
+      audioUrlRef.current = audioUrl
+      const audio = new Audio(audioUrl)
+      audioRef.current = audio
+      audio.onended = () => { setSpeaking(false); cleanupAudio() }
+      audio.onerror = () => { setSpeaking(false); cleanupAudio() }
+      await audio.play()
+    } catch (err) {
+      console.error('Curry voice: ElevenLabs TTS failed, falling back to browser voice:', err)
+      if (!supported) { setSpeaking(false); return }
+      window.speechSynthesis.cancel()
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.rate = 1
+      utterance.onstart = () => setSpeaking(true)
+      utterance.onend = () => setSpeaking(false)
+      utterance.onerror = () => setSpeaking(false)
+      window.speechSynthesis.speak(utterance)
+    }
+  }, [supported, cleanupAudio])
 
   const cancelSpeech = useCallback(() => {
+    cleanupAudio()
     if (supported) window.speechSynthesis.cancel()
     setSpeaking(false)
-  }, [supported])
+  }, [supported, cleanupAudio])
 
   // Release the mic and stop any speech if the component unmounts
   // mid-conversation (e.g. the student closes Curry while it's talking).
@@ -173,7 +213,7 @@ export function useCurryVoice() {
       stop()
       cancelSpeech()
     }
-    
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount-only cleanup
   }, [])
 
   return { supported, listening, speaking, volume, transcript, error, start, stop, speak, cancelSpeech }
