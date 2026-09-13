@@ -16,6 +16,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { DekutIcon, ICON_GRADIENTS } from './dekutIcons'
+import CurryOrbGraphic from './CurryOrbGraphic'
 import { useCurryChat } from '../../hooks/useCurryChat'
 import { useCurryVoice } from '../../hooks/useCurryVoice'
 import { DEKUT_CATEGORIES, getServiceById } from '../../data/dekutServices'
@@ -72,7 +73,7 @@ function StreamingText({ text }) {
       })
     }, stepMs)
     return () => clearInterval(id)
-    
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- animate once per mount
   }, [])
   return <>{text.slice(0, count)}</>
 }
@@ -98,7 +99,7 @@ function ActionCard({ action, message, onOpenService, onConfirm }) {
 
   if (action.type === 'CONFIRM_REQUIRED') {
     if (message.confirmed) {
-      return <div style={{ marginTop: 8, fontSize: 11.5, color: TEXT_SECONDARY }}>✓ Confirmed</div>
+      return <div style={{ marginTop: 8, fontSize: 11.5, color: TEXT_SECONDARY }}>Confirmed</div>
     }
     return (
       <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
@@ -139,11 +140,16 @@ function MessageBubble({ message, onOpenService, onConfirm }) {
   const isUser = message.role === 'user'
   return (
     <div style={{
-      display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start',
+      display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: 8,
       animation: 'curryMsgIn 220ms ease',
     }}>
+      {!isUser && (
+        <div style={{ width: 22, height: 22, flexShrink: 0, marginBottom: 2 }}>
+          <CurryOrbGraphic size={22} state="idle" animate={false} />
+        </div>
+      )}
       <div style={{
-        maxWidth: '82%',
+        maxWidth: '78%',
         background: isUser ? 'linear-gradient(135deg,#a78bfa,#6c63ff)' : SURFACE,
         border: isUser ? 'none' : `1px solid ${BORDER}`,
         color: isUser ? '#fff' : message.error ? '#fca5a5' : TEXT_PRIMARY,
@@ -160,7 +166,10 @@ function MessageBubble({ message, onOpenService, onConfirm }) {
 
 function TypingIndicator() {
   return (
-    <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+    <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'flex-end', gap: 8 }}>
+      <div style={{ width: 22, height: 22, flexShrink: 0, marginBottom: 2 }}>
+        <CurryOrbGraphic size={22} state="thinking" animate />
+      </div>
       <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: '14px 14px 14px 4px', padding: '11px 14px', display: 'flex', gap: 4, alignItems: 'center' }}>
         {[0, 1, 2].map((i) => (
           <span key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: TEXT_SECONDARY, animation: `curryBounce 1.1s ${i * 0.15}s infinite ease-in-out` }} />
@@ -168,36 +177,6 @@ function TypingIndicator() {
       </div>
     </div>
   )
-}
-
-// Color/animation per voice state — this is the "ambient" cue that
-// tells the student what Curry is doing without reading any text.
-function voiceOrbStyle({ listening, thinking, speaking, volume }) {
-  if (listening) {
-    const scale = 1 + Math.min(volume, 1) * 0.35
-    return {
-      background: 'linear-gradient(135deg,#22d3ee,#0891b2)',
-      boxShadow: `0 0 ${30 + volume * 40}px rgba(34,211,238,${0.35 + volume * 0.35})`,
-      transform: `scale(${scale})`,
-      transition: 'transform 60ms linear, box-shadow 60ms linear',
-    }
-  }
-  if (thinking) {
-    return {
-      background: 'linear-gradient(135deg,#fbbf24,#f59e0b)',
-      animation: 'curryVoicePulse 1s ease-in-out infinite',
-    }
-  }
-  if (speaking) {
-    return {
-      background: 'linear-gradient(135deg,#fb923c,#f97316)',
-      animation: 'curryVoicePulse 0.7s ease-in-out infinite',
-    }
-  }
-  return {
-    background: 'linear-gradient(135deg,#a78bfa,#6c63ff)',
-    animation: 'curryVoicePulse 2.6s ease-in-out infinite',
-  }
 }
 
 function VoiceMode({ voice, sending, onFinalTranscript, lastAssistantText }) {
@@ -217,7 +196,9 @@ function VoiceMode({ voice, sending, onFinalTranscript, lastAssistantText }) {
     )
   }
 
-  const caption = listening ? (transcript || 'Listening…') : speaking ? (lastAssistantText || 'Curry is speaking…') : sending ? 'Thinking…' : 'Tap to talk to Curry'
+  const orbState = listening ? 'listening' : sending ? 'thinking' : speaking ? 'speaking' : 'idle'
+  const glowColor = { idle: 'rgba(108,99,255,0.35)', listening: 'rgba(34,211,238,0.4)', thinking: 'rgba(245,158,11,0.4)', speaking: 'rgba(249,115,22,0.4)' }[orbState]
+  const caption = listening ? (transcript || 'Listening…') : speaking ? (lastAssistantText || 'Curry is speaking…') : sending ? 'Thinking…' : 'Tap the beacon to talk to Curry'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: 320, gap: 24 }}>
@@ -225,22 +206,17 @@ function VoiceMode({ voice, sending, onFinalTranscript, lastAssistantText }) {
         onClick={handleOrbTap}
         aria-label={listening ? 'Stop listening' : speaking ? 'Stop Curry speaking' : 'Start talking to Curry'}
         style={{
-          width: 140, height: 140, borderRadius: '50%', border: 'none', cursor: 'pointer',
+          width: 176, height: 176, borderRadius: '50%', border: 'none', cursor: 'pointer',
+          background: 'transparent', boxShadow: `0 0 60px 10px ${glowColor}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          ...voiceOrbStyle({ listening, thinking: sending, speaking, volume }),
+          transition: 'box-shadow 200ms ease',
         }}
       >
-        <span aria-hidden="true" style={{ fontSize: 40 }}>{listening || speaking ? '⏹' : '🎤'}</span>
+        <CurryOrbGraphic size={160} state={orbState} volume={volume} animate />
       </button>
       <div style={{ fontSize: 13.5, color: TEXT_PRIMARY, textAlign: 'center', maxWidth: 300, lineHeight: 1.5, minHeight: 40 }}>
         {caption}
       </div>
-      <style>{`
-        @keyframes curryVoicePulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.08); }
-        }
-      `}</style>
     </div>
   )
 }
@@ -267,7 +243,7 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
       spokenIdsRef.current.add(last.id)
       voice.speak(last.text)
     }
- 
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- voice.speak is stable enough for this
   }, [messages, mode])
 
   const handleSend = (text) => {
@@ -293,12 +269,8 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
     <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div aria-hidden="true" style={{
-            width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
-            background: 'linear-gradient(135deg,#a78bfa,#6c63ff)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
-          }}>
-            🤖
+          <div aria-hidden="true" style={{ width: 38, height: 38, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <CurryOrbGraphic size={38} state="idle" animate={false} />
           </div>
           <div>
             <div style={{ fontSize: 18, fontWeight: 800, color: TEXT_PRIMARY }}>Curry</div>
