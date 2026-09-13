@@ -21,6 +21,19 @@ const SpeechRecognitionImpl =
 export function useCurryVoice() {
   const supported = !!SpeechRecognitionImpl && typeof window !== 'undefined' && 'speechSynthesis' in window
 
+  // Brave strips the Google API key Chrome's SpeechRecognition depends
+  // on, so recognition.start() always fails there with a generic
+  // "network" error — regardless of actual connectivity. This is a
+  // long-standing, unresolved Brave limitation, not a bug here. Detect
+  // it up front so Curry can say that plainly instead of implying the
+  // student's internet is the problem.
+  const [isBrave, setIsBrave] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    navigator.brave?.isBrave?.().then((result) => { if (!cancelled) setIsBrave(!!result) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
   const [listening, setListening] = useState(false)
   const [speaking, setSpeaking] = useState(false)
   const [volume, setVolume] = useState(0) // 0–1 live mic amplitude, only meaningful while listening
@@ -160,7 +173,7 @@ export function useCurryVoice() {
       stop()
       cancelSpeech()
     }
-  
+    
   }, [])
 
   return { supported, listening, speaking, volume, transcript, error, start, stop, speak, cancelSpeech }
