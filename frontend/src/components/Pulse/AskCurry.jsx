@@ -75,7 +75,7 @@ function StreamingText({ text }) {
       })
     }, stepMs)
     return () => clearInterval(id)
-    
+ 
   }, [])
   return <>{text.slice(0, count)}</>
 }
@@ -241,7 +241,7 @@ function TypingIndicator() {
 }
 
 function VoiceMode({ voice, sending, onFinalTranscript, lastAssistantText }) {
-  const { supported, listening, speaking, volume, transcript, start, stop, cancelSpeech } = voice
+  const { supported, listening, speaking, volume, transcript, error, start, stop, cancelSpeech } = voice
 
   const handleOrbTap = () => {
     if (listening) { stop(); return }
@@ -259,7 +259,13 @@ function VoiceMode({ voice, sending, onFinalTranscript, lastAssistantText }) {
 
   const orbState = listening ? 'listening' : sending ? 'thinking' : speaking ? 'speaking' : 'idle'
   const glowColor = { idle: 'rgba(108,99,255,0.35)', listening: 'rgba(34,211,238,0.4)', thinking: 'rgba(245,158,11,0.4)', speaking: 'rgba(249,115,22,0.4)' }[orbState]
-  const caption = listening ? (transcript || 'Listening…') : speaking ? (lastAssistantText || 'Curry is speaking…') : sending ? 'Thinking…' : 'Tap the beacon to talk to Curry'
+  const caption = listening
+    ? (transcript || 'Listening…')
+    : speaking
+      ? (lastAssistantText || 'Curry is speaking…')
+      : sending
+        ? 'Thinking…'
+        : error || 'Tap the beacon to talk to Curry'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: 320, gap: 24 }}>
@@ -275,7 +281,7 @@ function VoiceMode({ voice, sending, onFinalTranscript, lastAssistantText }) {
       >
         <CurryOrbGraphic size={160} state={orbState} volume={volume} animate />
       </button>
-      <div style={{ fontSize: 13.5, color: TEXT_PRIMARY, textAlign: 'center', maxWidth: 300, lineHeight: 1.5, minHeight: 40 }}>
+      <div style={{ fontSize: 13.5, color: (!listening && !speaking && !sending && error) ? '#fca5a5' : TEXT_PRIMARY, textAlign: 'center', maxWidth: 300, lineHeight: 1.5, minHeight: 40 }}>
         {caption}
       </div>
     </div>
@@ -305,7 +311,7 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
       spokenIdsRef.current.add(last.id)
       voice.speak(last.text)
     }
-  
+ 
   }, [messages, mode])
 
   const handleSend = (text) => {
