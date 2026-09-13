@@ -25,12 +25,14 @@ export function useCurryVoice() {
   const [speaking, setSpeaking] = useState(false)
   const [volume, setVolume] = useState(0) // 0–1 live mic amplitude, only meaningful while listening
   const [transcript, setTranscript] = useState('') // interim + final, for live captions
+  const [error, setError] = useState(null) // last recognition problem, surfaced to the UI instead of silently reverting
 
   const recognitionRef = useRef(null)
   const audioCtxRef = useRef(null)
   const micStreamRef = useRef(null)
   const rafRef = useRef(null)
   const onFinalRef = useRef(null)
+  const finalTextRef = useRef('') // accumulates finalized speech across the whole listening session
 
   const stopVolumeLoop = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
@@ -71,35 +73,54 @@ export function useCurryVoice() {
     }
   }, [])
 
-  // onFinalTranscript(text) fires once per completed utterance.
+  // onFinalTranscript(text) fires once, when the student taps to stop
+  // listening (or the browser ends the session) — not per recognized
+  // chunk, so a longer sentence isn't cut into multiple sent messages.
   const start = useCallback((onFinalTranscript) => {
     if (!supported || listening) return
     onFinalRef.current = onFinalTranscript
+    finalTextRef.current = ''
+    setError(null)
 
     const recognition = new SpeechRecognitionImpl()
-    recognition.continuous = false
+    // continuous: true — with `false`, Chrome auto-stops the session
+    // after a very short window if it doesn't detect speech starting
+    // right away, which is exactly the "says Listening then disappears"
+    // bug. continuous keeps the mic open until the student explicitly
+    // taps stop (or a real error occurs).
+    recognition.continuous = true
     recognition.interimResults = true
     recognition.lang = 'en-US'
 
     recognition.onresult = (event) => {
       let interim = ''
-      let final = ''
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const chunk = event.results[i][0].transcript
-        if (event.results[i].isFinal) final += chunk
+        if (event.results[i].isFinal) finalTextRef.current += (finalTextRef.current ? ' ' : '') + chunk
         else interim += chunk
       }
-      setTranscript((final || interim).trim())
-      if (final.trim()) onFinalRef.current?.(final.trim())
+      setTranscript((finalTextRef.current + ' ' + interim).trim())
     }
     recognition.onerror = (event) => {
       console.error('Curry voice: speech recognition error:', event.error)
+      const messages = {
+        'no-speech': "Didn't catch anything — tap the beacon to try again.",
+        'not-allowed': 'Microphone access is blocked — check your browser permissions.',
+        'audio-capture': 'No microphone found — check your device.',
+        network: 'Voice recognition needs an internet connection.',
+      }
+      setError(messages[event.error] || 'Something interrupted voice mode — tap to try again.')
       setListening(false)
       stopVolumeLoop()
     }
     recognition.onend = () => {
       setListening(false)
       stopVolumeLoop()
+      // Send whatever was actually captured, however the session ended
+      // (explicit stop() or the browser closing it) — never drop speech
+      // the student already gave just because the session ended.
+      const finalText = finalTextRef.current.trim()
+      if (finalText) onFinalRef.current?.(finalText)
     }
 
     recognitionRef.current = recognition
@@ -109,11 +130,12 @@ export function useCurryVoice() {
     startVolumeLoop()
   }, [supported, listening, startVolumeLoop, stopVolumeLoop])
 
+  // Stopping just ends the recognition session — onend (above) is the
+  // single place that sends the accumulated transcript, so there's only
+  // ever one send path regardless of why listening stopped.
   const stop = useCallback(() => {
     recognitionRef.current?.stop()
-    setListening(false)
-    stopVolumeLoop()
-  }, [stopVolumeLoop])
+  }, [])
 
   const speak = useCallback((text) => {
     if (!supported || !text) return
@@ -138,8 +160,8 @@ export function useCurryVoice() {
       stop()
       cancelSpeech()
     }
-     
+  
   }, [])
 
-  return { supported, listening, speaking, volume, transcript, start, stop, speak, cancelSpeech }
+  return { supported, listening, speaking, volume, transcript, error, start, stop, speak, cancelSpeech }
 }
