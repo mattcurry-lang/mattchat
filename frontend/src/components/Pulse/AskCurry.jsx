@@ -28,12 +28,14 @@ const TEXT_SECONDARY = 'rgba(245,245,250,0.6)'
 const BORDER = 'rgba(245,245,250,0.16)'
 const SURFACE = 'rgba(245,245,250,0.06)'
 
+// Empty-state quick actions — icon + color per action, not plain text
+// pills, so the hero reads as designed rather than a generic FAQ list.
 const QUICK_ACTIONS = [
-  "Where is RC18?",
-  "How do I register my units?",
-  "Where is the library?",
-  "I'm a first-year student",
-  "How do I access eLearning?",
+  { text: "Where is RC18?", icon: 'file', color: '#38bdf8' },
+  { text: "How do I register my units?", icon: 'cap', color: '#a78bfa' },
+  { text: "Where is the library?", icon: 'book', color: '#34d399' },
+  { text: "I'm a first-year student", icon: 'star', color: '#f59e0b' },
+  { text: "How do I access eLearning?", icon: 'cpu', color: '#f472b6' },
 ]
 
 const ACTION_SERVICE_ID = {
@@ -73,6 +75,7 @@ function StreamingText({ text }) {
       })
     }, stepMs)
     return () => clearInterval(id)
+    
   }, [])
   return <>{text.slice(0, count)}</>
 }
@@ -163,6 +166,65 @@ function MessageBubble({ message, onOpenService, onConfirm }) {
   )
 }
 
+// The empty-state hero — the actual "first glance" moment. Radar rings
+// behind the beacon extend its own visual language rather than adding a
+// second, unrelated decoration; the quick actions are icon-led cards
+// that glow in their own color on hover, not plain text pills.
+function CurryHero({ onQuickAction }) {
+  return (
+    <div style={{ position: 'relative', textAlign: 'center', padding: '30px 6px 6px' }}>
+      <div aria-hidden="true" style={{
+        position: 'absolute', top: 2, left: '50%', transform: 'translateX(-50%)',
+        width: 260, height: 260, pointerEvents: 'none',
+      }}>
+        {[0, 1, 2].map((i) => (
+          <div key={i} style={{ position: 'absolute', inset: i * 42, borderRadius: '50%', border: '1px dashed rgba(167,139,250,0.16)' }} />
+        ))}
+      </div>
+
+      <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+        <CurryOrbGraphic size={84} state="idle" animate />
+      </div>
+
+      <div style={{ position: 'relative', fontSize: 17, fontWeight: 800, color: TEXT_PRIMARY, marginBottom: 6 }}>Hey! I'm Curry.</div>
+      <div style={{ position: 'relative', fontSize: 12.5, color: TEXT_SECONDARY, marginBottom: 20, maxWidth: 320, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
+        I can help you navigate DeKUT, understand procedures, and get to campus services.
+      </div>
+
+      <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, textAlign: 'left' }}>
+        {QUICK_ACTIONS.map((qa, i) => (
+          <button
+            key={qa.text}
+            onClick={() => onQuickAction(qa.text)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              gridColumn: i === QUICK_ACTIONS.length - 1 ? '1 / -1' : 'auto',
+              background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '10px 12px',
+              cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+              transition: 'transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)'
+              e.currentTarget.style.borderColor = qa.color
+              e.currentTarget.style.boxShadow = `0 8px 20px -10px ${qa.color}`
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)'
+              e.currentTarget.style.borderColor = BORDER
+              e.currentTarget.style.boxShadow = 'none'
+            }}
+          >
+            <div style={{ width: 30, height: 30, borderRadius: 9, flexShrink: 0, background: `${qa.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <DekutIcon type={qa.icon} size={15} color={qa.color} strokeWidth={2.2} />
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 600, color: TEXT_PRIMARY, lineHeight: 1.3 }}>{qa.text}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function TypingIndicator() {
   return (
     <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'flex-end', gap: 8 }}>
@@ -224,6 +286,7 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
   const { messages, sending, sendMessage, confirmAction, declineAction } = useCurryChat({ userId })
   const voice = useCurryVoice()
   const [input, setInput] = useState('')
+  const [inputFocused, setInputFocused] = useState(false)
   const [mode, setMode] = useState('chat') // 'chat' | 'voice'
   const scrollRef = useRef(null)
   const usage = useDekutUsage('dekut')
@@ -242,7 +305,7 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
       spokenIdsRef.current.add(last.id)
       voice.speak(last.text)
     }
-   
+  
   }, [messages, mode])
 
   const handleSend = (text) => {
@@ -288,18 +351,26 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
 
       {voice.supported && (
         <div style={{
-          display: 'flex', gap: 4, background: SURFACE, border: `1px solid ${BORDER}`,
-          borderRadius: 999, padding: 3, marginTop: 14, width: 'fit-content',
+          position: 'relative', display: 'flex', background: SURFACE, border: `1px solid ${BORDER}`,
+          borderRadius: 999, padding: 3, marginTop: 14, width: 200,
         }}>
+          <div aria-hidden="true" style={{
+            position: 'absolute', top: 3, bottom: 3, left: mode === 'chat' ? 3 : 'calc(50% + 0px)',
+            width: 'calc(50% - 6px)', borderRadius: 999,
+            background: 'linear-gradient(135deg,#a78bfa,#6c63ff)',
+            transition: 'left 220ms cubic-bezier(0.34,1.56,0.64,1)',
+          }} />
           {[{ id: 'chat', label: 'Chat' }, { id: 'voice', label: 'Voice' }].map((t) => (
             <button
               key={t.id}
               onClick={() => setMode(t.id)}
               style={{
+                position: 'relative', zIndex: 1, flex: 1,
                 fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
-                border: 'none', borderRadius: 999, padding: '6px 16px',
-                background: mode === t.id ? 'linear-gradient(135deg,#a78bfa,#6c63ff)' : 'transparent',
+                border: 'none', borderRadius: 999, padding: '6px 0',
+                background: 'transparent',
                 color: mode === t.id ? '#fff' : TEXT_SECONDARY,
+                transition: 'color 160ms ease',
               }}
             >
               {t.label}
@@ -318,24 +389,7 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
             border: `1px solid ${BORDER}`, borderRadius: 16, padding: 14,
             background: 'rgba(15,15,26,0.4)', margin: '16px 0 10px',
           }}>
-            {messages.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '20px 10px' }}>
-                <div style={{ fontSize: 13.5, color: TEXT_PRIMARY, fontWeight: 700, marginBottom: 4 }}>Hey! I'm Curry.</div>
-                <div style={{ fontSize: 12, color: TEXT_SECONDARY, marginBottom: 14 }}>
-                  I can help you navigate DeKUT, understand procedures, and get to campus services. What do you need?
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
-                  {QUICK_ACTIONS.map((q) => (
-                    <button key={q} onClick={() => handleSend(q)} style={{
-                      fontSize: 11.5, fontWeight: 600, color: TEXT_PRIMARY, fontFamily: 'inherit',
-                      border: `1px solid ${BORDER}`, borderRadius: 999, padding: '7px 12px', background: SURFACE, cursor: 'pointer',
-                    }}>
-                      {q}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            {messages.length === 0 && <CurryHero onQuickAction={handleSend} />}
 
             {messages.map((m) => (
               <MessageBubble key={m.id} message={m} onOpenService={handleOpenService} onConfirm={handleConfirm} />
@@ -343,10 +397,17 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
             {sending && <TypingIndicator />}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '9px 12px', background: SURFACE }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, borderRadius: 12, padding: '9px 12px', background: SURFACE,
+            border: `1px solid ${inputFocused ? '#a78bfa' : BORDER}`,
+            boxShadow: inputFocused ? '0 0 0 3px rgba(167,139,250,0.18)' : 'none',
+            transition: 'border-color 160ms ease, box-shadow 160ms ease',
+          }}>
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
               placeholder="Ask Curry anything about DeKUT..."
               style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 13.5, color: TEXT_PRIMARY, width: '100%', fontFamily: 'inherit' }}
