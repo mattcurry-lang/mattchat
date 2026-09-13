@@ -1,95 +1,69 @@
 // src/components/Pulse/CurryOrb.jsx
 //
-// Curry's visual identity: a living gradient orb rather than a static
-// icon or emoji. Same component renders three sizes/contexts —
-// CurryOrbButton's badge, AskCurry's header avatar, and the big
-// voice-mode centerpiece — driven entirely by the `state` prop so they
-// always animate in sync with what Curry is actually doing.
+// Floating "Ask Curry" launcher. Portals to document.body so it floats
+// fixed above the viewport no matter where DeKUTHubCard sits in Pulse's
+// scroll container — same reasoning as DekutServicesModal's portal use.
 //
-// States:
-//   idle      — slow violet-blue breathing. Curry's resting state.
-//   listening — cooler cyan-violet blend, faster pulse, expanding rings
-//               (the student is talking).
-//   thinking  — a conic-gradient arc sweeps around the orb (Curry is
-//               working — RAG lookup, tool call, generation).
-//   speaking  — warm coral blended in, with a small kick on every
-//               `pulseTick` change (fired on each TTS word boundary —
-//               there's no real mic/speaker amplitude available from the
-//               Web Speech API, so this is a stylized approximation of
-//               "reacting to sound" rather than true amplitude).
-//
-// All motion respects prefers-reduced-motion: reduce (falls back to a
-// static gradient, no animation).
+// hidden: pass true while another DeKUT Hub fullscreen view is already
+// open (RoomFinder, FresherMode, etc.) so two fullscreen layers never
+// stack. This does NOT affect the orb's own opened AskCurry overlay in
+// normal use — see PulsePage's orbHidden calculation.
 
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
+import { createPortal } from 'react-dom'
+import AskCurry from './AskCurry'
 
-const STATE_GRADIENTS = {
-  idle: 'conic-gradient(from 0deg, #a78bfa, #6c63ff, #a78bfa)',
-  listening: 'conic-gradient(from 0deg, #67e8f9, #a78bfa, #6c63ff, #67e8f9)',
-  thinking: 'conic-gradient(from 0deg, #a78bfa, #6c63ff, #a78bfa)',
-  speaking: 'conic-gradient(from 0deg, #fda4af, #a78bfa, #6c63ff, #fda4af)',
-}
+export default function CurryOrb({ userId, onNavigate, hidden }) {
+  const [open, setOpen] = useState(false)
 
-const STATE_GLOW = {
-  idle: 'rgba(167,139,250,0.35)',
-  listening: 'rgba(103,232,249,0.45)',
-  thinking: 'rgba(167,139,250,0.4)',
-  speaking: 'rgba(253,164,175,0.45)',
-}
+  if (hidden) return null
 
-export default function CurryOrb({ state = 'idle', size = 64, pulseTick = 0, style }) {
-  const [kick, setKick] = useState(false)
-
-  useEffect(() => {
-    if (state !== 'speaking' || pulseTick === 0) return
-    setKick(true)
-    const t = setTimeout(() => setKick(false), 140)
-    return () => clearTimeout(t)
-  }, [pulseTick, state])
-
-  return (
-    <div
-      aria-hidden="true"
-      style={{
-        position: 'relative', width: size, height: size, flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        ...style,
-      }}
-    >
-      <style>{`
-        @media (prefers-reduced-motion: no-preference) {
-          .curry-orb-core { animation: curryBreathe 4s ease-in-out infinite; }
-          .curry-orb-core.is-listening { animation: curryBreatheFast 1.8s ease-in-out infinite; }
-          .curry-orb-core.is-thinking { animation: currySpin 2.2s linear infinite; }
-          .curry-orb-core.is-speaking { animation: curryBreatheFast 1.6s ease-in-out infinite; }
-          .curry-orb-core.is-kicked { transform: scale(1.14) !important; }
-          .curry-orb-ring { animation: curryRing 2.4s ease-out infinite; }
-        }
-        @keyframes curryBreathe { 0%, 100% { transform: scale(0.94); } 50% { transform: scale(1.04); } }
-        @keyframes curryBreatheFast { 0%, 100% { transform: scale(0.92); } 50% { transform: scale(1.08); } }
-        @keyframes currySpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes curryRing {
-          0% { transform: scale(0.85); opacity: 0.5; }
-          100% { transform: scale(1.55); opacity: 0; }
-        }
-      `}</style>
-
-      {state === 'listening' && (
-        <span className="curry-orb-ring" style={{
-          position: 'absolute', inset: 0, borderRadius: '50%',
-          border: `2px solid ${STATE_GLOW.listening}`, pointerEvents: 'none',
-        }} />
+  return createPortal(
+    <>
+      {!open && (
+        <button
+          onClick={() => setOpen(true)}
+          aria-label="Ask Curry"
+          style={{
+            position: 'fixed', bottom: 22, right: 20, zIndex: 900,
+            width: 58, height: 58, borderRadius: '50%', border: 'none', cursor: 'pointer',
+            background: 'linear-gradient(135deg,#a78bfa,#6c63ff)',
+            boxShadow: '0 8px 24px -6px rgba(108,99,255,0.55)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            animation: 'curryOrbBreathe 3.2s ease-in-out infinite',
+          }}
+        >
+          <span aria-hidden="true" style={{ fontSize: 24, position: 'relative', zIndex: 1 }}>🤖</span>
+          <span aria-hidden="true" style={{
+            position: 'absolute', inset: -6, borderRadius: '50%',
+            border: '1.5px solid rgba(167,139,250,0.5)', pointerEvents: 'none',
+            animation: 'curryOrbRing 3.2s ease-in-out infinite',
+          }} />
+          <style>{`
+            @keyframes curryOrbBreathe {
+              0%, 100% { transform: scale(1); box-shadow: 0 8px 24px -6px rgba(108,99,255,0.55); }
+              50% { transform: scale(1.06); box-shadow: 0 10px 30px -4px rgba(108,99,255,0.75); }
+            }
+            @keyframes curryOrbRing {
+              0% { opacity: 0.6; transform: scale(1); }
+              100% { opacity: 0; transform: scale(1.35); }
+            }
+            @media (prefers-reduced-motion: reduce) {
+              button[aria-label="Ask Curry"], button[aria-label="Ask Curry"] span { animation: none !important; }
+            }
+          `}</style>
+        </button>
       )}
 
-      <div
-        className={`curry-orb-core${state !== 'idle' ? ` is-${state}` : ''}${kick ? ' is-kicked' : ''}`}
-        style={{
-          width: '78%', height: '78%', borderRadius: '50%',
-          background: STATE_GRADIENTS[state] || STATE_GRADIENTS.idle,
-          boxShadow: `0 0 ${size * 0.4}px ${STATE_GLOW[state] || STATE_GLOW.idle}`,
-          transition: 'background 400ms ease, box-shadow 400ms ease, transform 140ms ease',
-        }}
-      />
-    </div>
+      {open && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 950,
+          background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16,
+        }}>
+          <AskCurry userId={userId} onNavigate={onNavigate} onClose={() => setOpen(false)} />
+        </div>
+      )}
+    </>,
+    document.body
   )
 }
