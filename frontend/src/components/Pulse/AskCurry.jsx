@@ -1,32 +1,23 @@
 // src/components/Pulse/AskCurry.jsx
 //
-// Redesigned Ask Curry: the orb (CurryOrb) is now Curry's visual
-// identity throughout — header avatar, and in Voice Mode, the entire
-// interaction surface. Two modes:
-//
-//   Text mode  — refined version of the original chat: bubbles, source
-//                chips, action cards, a mic button that DICTATES into
-//                the input (fills it, doesn't send — the student stays
-//                in control before sending).
-//   Voice mode — hands-free: tap the orb to talk, Curry answers out
-//                loud and then automatically starts listening again
-//                (barge-in supported — tapping the orb while Curry is
-//                speaking interrupts it and starts listening). The
-//                orb's animated state (listening/thinking/speaking) is
-//                the headline; the transcript and Curry's last answer
-//                are shown small underneath, per the standard
-//                voice-UI pattern of "voice for the headline, screen
-//                for the detail."
-//
-// Voice mode requires browser Speech Recognition support (Chrome/Edge;
-// Safari partial; no Firefox) — the toggle is hidden/disabled with an
-// explanation when unsupported, never silently broken.
+// Curry's chat surface. Two modes:
+//   - Chat: refined bubbles, source chips, action cards (unchanged
+//     logic from Phase 2), plus a lightweight client-side "streaming"
+//     reveal on assistant replies for a more alive feel — the backend
+//     still returns one full response, this just reveals it
+//     progressively rather than dumping it in all at once. True
+//     token-by-token streaming would need the edge function to speak
+//     SSE, which is a bigger backend change, not a UI one.
+//   - Voice: push-to-talk. Tap the orb to listen, tap again to send;
+//     the orb's color and pulse reflect real mic amplitude while
+//     listening, and Curry speaks its reply aloud via the browser's
+//     speech synthesis. Falls back to chat-only if the browser doesn't
+//     support the Web Speech API (see useCurryVoice's `supported` flag).
 
 import React, { useEffect, useRef, useState } from 'react'
 import { DekutIcon, ICON_GRADIENTS } from './dekutIcons'
-import CurryOrb from './CurryOrb'
 import { useCurryChat } from '../../hooks/useCurryChat'
-import { useVoiceMode } from '../../hooks/useVoiceMode'
+import { useCurryVoice } from '../../hooks/useCurryVoice'
 import { DEKUT_CATEGORIES, getServiceById } from '../../data/dekutServices'
 import { useDekutUsage } from '../../hooks/useDekutUsage'
 import { openDekutService } from '../../utils/dekutOpenService'
@@ -66,13 +57,24 @@ const ACTION_LABEL = {
   SHOW_CONTACT: 'View Contact Details',
 }
 
-function iconButtonStyle(active) {
-  return {
-    background: active ? 'linear-gradient(135deg,#a78bfa,#6c63ff)' : SURFACE,
-    border: `1px solid ${active ? 'transparent' : BORDER}`,
-    borderRadius: 10, width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    cursor: 'pointer', flexShrink: 0,
-  }
+// Reveals text progressively on mount rather than all at once. Caps
+// total duration so long replies don't feel sluggish.
+function StreamingText({ text }) {
+  const [count, setCount] = useState(0)
+  useEffect(() => {
+    if (!text) return
+    const totalMs = Math.min(900, Math.max(150, text.length * 8))
+    const stepMs = Math.max(8, totalMs / text.length)
+    const id = setInterval(() => {
+      setCount((c) => {
+        if (c >= text.length) { clearInterval(id); return c }
+        return c + 1
+      })
+    }, stepMs)
+    return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- animate once per mount
+  }, [])
+  return <>{text.slice(0, count)}</>
 }
 
 function SourceChips({ sources }) {
@@ -96,7 +98,7 @@ function ActionCard({ action, message, onOpenService, onConfirm }) {
 
   if (action.type === 'CONFIRM_REQUIRED') {
     if (message.confirmed) {
-      return <div style={{ marginTop: 8, fontSize: 11.5, color: TEXT_SECONDARY }}>✓ {message.declined ? 'Not submitted' : 'Confirmed'}</div>
+      return <div style={{ marginTop: 8, fontSize: 11.5, color: TEXT_SECONDARY }}>✓ Confirmed</div>
     }
     return (
       <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
@@ -136,17 +138,19 @@ function ActionCard({ action, message, onOpenService, onConfirm }) {
 function MessageBubble({ message, onOpenService, onConfirm }) {
   const isUser = message.role === 'user'
   return (
-    <div style={{ display: 'flex', gap: 8, justifyContent: isUser ? 'flex-end' : 'flex-start', alignItems: 'flex-end' }}>
-      {!isUser && <CurryOrb state="idle" size={22} style={{ marginBottom: 2 }} />}
+    <div style={{
+      display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start',
+      animation: 'curryMsgIn 220ms ease',
+    }}>
       <div style={{
-        maxWidth: '78%',
+        maxWidth: '82%',
         background: isUser ? 'linear-gradient(135deg,#a78bfa,#6c63ff)' : SURFACE,
         border: isUser ? 'none' : `1px solid ${BORDER}`,
         color: isUser ? '#fff' : message.error ? '#fca5a5' : TEXT_PRIMARY,
         borderRadius: isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
         padding: '10px 13px', fontSize: 13, lineHeight: 1.5,
       }}>
-        {message.text}
+        {isUser || message.error ? message.text : <StreamingText text={message.text} />}
         {!isUser && <SourceChips sources={message.sources} />}
         {!isUser && <ActionCard action={message.action} message={message} onOpenService={onOpenService} onConfirm={onConfirm} />}
       </div>
@@ -154,99 +158,123 @@ function MessageBubble({ message, onOpenService, onConfirm }) {
   )
 }
 
-// ── Voice mode ──────────────────────────────────────────────────────────
-
-function VoiceSurface({ orbState, interimTranscript, lastExchange, onTapOrb, voiceError, onOpenService, onConfirm }) {
+function TypingIndicator() {
   return (
-    <div style={{
-      flex: 1, minHeight: 320, display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', gap: 18, padding: '20px 16px',
-      border: `1px solid ${BORDER}`, borderRadius: 16, background: 'rgba(15,15,26,0.4)', margin: '16px 0 10px',
-    }}>
-      <button
-        onClick={onTapOrb}
-        aria-label={orbState === 'listening' ? 'Stop listening' : orbState === 'speaking' ? 'Interrupt and talk' : 'Start talking'}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 12 }}
-      >
-        <CurryOrb state={orbState} size={150} />
-      </button>
-
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: TEXT_PRIMARY, minHeight: 18 }}>
-        {orbState === 'listening' && (interimTranscript || 'Listening…')}
-        {orbState === 'thinking' && 'Thinking…'}
-        {orbState === 'speaking' && 'Speaking…'}
-        {orbState === 'idle' && 'Tap the orb to talk'}
+    <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+      <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: '14px 14px 14px 4px', padding: '11px 14px', display: 'flex', gap: 4, alignItems: 'center' }}>
+        {[0, 1, 2].map((i) => (
+          <span key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: TEXT_SECONDARY, animation: `curryBounce 1.1s ${i * 0.15}s infinite ease-in-out` }} />
+        ))}
       </div>
+    </div>
+  )
+}
 
-      {voiceError && (
-        <div style={{ fontSize: 11.5, color: '#fca5a5', textAlign: 'center', maxWidth: 280 }}>{voiceError}</div>
-      )}
+// Color/animation per voice state — this is the "ambient" cue that
+// tells the student what Curry is doing without reading any text.
+function voiceOrbStyle({ listening, thinking, speaking, volume }) {
+  if (listening) {
+    const scale = 1 + Math.min(volume, 1) * 0.35
+    return {
+      background: 'linear-gradient(135deg,#22d3ee,#0891b2)',
+      boxShadow: `0 0 ${30 + volume * 40}px rgba(34,211,238,${0.35 + volume * 0.35})`,
+      transform: `scale(${scale})`,
+      transition: 'transform 60ms linear, box-shadow 60ms linear',
+    }
+  }
+  if (thinking) {
+    return {
+      background: 'linear-gradient(135deg,#fbbf24,#f59e0b)',
+      animation: 'curryVoicePulse 1s ease-in-out infinite',
+    }
+  }
+  if (speaking) {
+    return {
+      background: 'linear-gradient(135deg,#fb923c,#f97316)',
+      animation: 'curryVoicePulse 0.7s ease-in-out infinite',
+    }
+  }
+  return {
+    background: 'linear-gradient(135deg,#a78bfa,#6c63ff)',
+    animation: 'curryVoicePulse 2.6s ease-in-out infinite',
+  }
+}
 
-      {lastExchange && (
-        <div style={{ width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-          <div style={{ fontSize: 11.5, color: TEXT_SECONDARY, textAlign: 'center' }}>"{lastExchange.userText}"</div>
-          <div style={{
-            fontSize: 12.5, color: TEXT_PRIMARY, background: SURFACE, border: `1px solid ${BORDER}`,
-            borderRadius: 12, padding: '10px 13px', textAlign: 'left',
-          }}>
-            {lastExchange.text}
-            <SourceChips sources={lastExchange.sources} />
-            <ActionCard action={lastExchange.action} message={lastExchange} onOpenService={onOpenService} onConfirm={onConfirm} />
-          </div>
-        </div>
-      )}
+function VoiceMode({ voice, sending, onFinalTranscript, lastAssistantText }) {
+  const { supported, listening, speaking, volume, transcript, start, stop, cancelSpeech } = voice
+
+  const handleOrbTap = () => {
+    if (listening) { stop(); return }
+    if (speaking) { cancelSpeech(); return } // barge-in: tap to interrupt Curry talking
+    start(onFinalTranscript)
+  }
+
+  if (!supported) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px 20px', color: TEXT_SECONDARY, fontSize: 13 }}>
+        Voice mode isn't supported in this browser yet — try Chrome or Edge, or use text chat below.
+      </div>
+    )
+  }
+
+  const caption = listening ? (transcript || 'Listening…') : speaking ? (lastAssistantText || 'Curry is speaking…') : sending ? 'Thinking…' : 'Tap to talk to Curry'
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: 320, gap: 24 }}>
+      <button
+        onClick={handleOrbTap}
+        aria-label={listening ? 'Stop listening' : speaking ? 'Stop Curry speaking' : 'Start talking to Curry'}
+        style={{
+          width: 140, height: 140, borderRadius: '50%', border: 'none', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          ...voiceOrbStyle({ listening, thinking: sending, speaking, volume }),
+        }}
+      >
+        <span aria-hidden="true" style={{ fontSize: 40 }}>{listening || speaking ? '⏹' : '🎤'}</span>
+      </button>
+      <div style={{ fontSize: 13.5, color: TEXT_PRIMARY, textAlign: 'center', maxWidth: 300, lineHeight: 1.5, minHeight: 40 }}>
+        {caption}
+      </div>
+      <style>{`
+        @keyframes curryVoicePulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.08); }
+        }
+      `}</style>
     </div>
   )
 }
 
 export default function AskCurry({ userId, onNavigate, onClose }) {
   const { messages, sending, sendMessage, confirmAction, declineAction } = useCurryChat({ userId })
-  const voice = useVoiceMode()
+  const voice = useCurryVoice()
   const [input, setInput] = useState('')
-  const [mode, setMode] = useState('text') // 'text' | 'voice'
+  const [mode, setMode] = useState('chat') // 'chat' | 'voice'
   const scrollRef = useRef(null)
   const usage = useDekutUsage('dekut')
-  const lastSpokenIdRef = useRef(null)
+  const spokenIdsRef = useRef(new Set())
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, sending])
 
-  // Auto-speak Curry's newest reply while in voice mode, then
-  // automatically resume listening — the hands-free loop. Never speaks
-  // the same message twice (lastSpokenIdRef), and never fires while
-  // still waiting on a response.
+  // Speak each new assistant reply aloud while in voice mode — but only
+  // once per message, so re-renders never trigger a second read-out.
   useEffect(() => {
-    if (mode !== 'voice' || sending) return
+    if (mode !== 'voice') return
     const last = messages[messages.length - 1]
-    if (!last || last.role !== 'assistant' || last.id === lastSpokenIdRef.current) return
-    lastSpokenIdRef.current = last.id
-    voice.speak(last.text, () => {
-      voice.startListening((finalText) => sendMessage(finalText))
-    }) 
-  }, [messages, sending, mode])
+    if (last && last.role === 'assistant' && !last.error && !spokenIdsRef.current.has(last.id)) {
+      spokenIdsRef.current.add(last.id)
+      voice.speak(last.text)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- voice.speak is stable enough for this
+  }, [messages, mode])
 
   const handleSend = (text) => {
     const value = (text ?? input).trim()
     if (!value) return
     sendMessage(value)
     setInput('')
-  }
-
-  const handleDictateIntoInput = () => {
-    voice.startListening((finalText) => setInput((prev) => (prev ? `${prev} ${finalText}` : finalText)))
-  }
-
-  const handleTapOrb = () => {
-    if (voice.speaking) { voice.stopSpeaking(); voice.startListening((finalText) => sendMessage(finalText)); return }
-    if (voice.listening) { voice.stopListening(); return }
-    voice.startListening((finalText) => sendMessage(finalText))
-  }
-
-  const toggleMode = () => {
-    voice.stopListening()
-    voice.stopSpeaking()
-    setMode((m) => (m === 'text' ? 'voice' : 'text'))
   }
 
   const handleOpenService = (serviceId) => {
@@ -259,131 +287,123 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
     else declineAction(messageId)
   }
 
-  const orbState = sending ? 'thinking' : voice.speaking ? 'speaking' : voice.listening ? 'listening' : 'idle'
-  const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant')
-  const lastUser = [...messages].reverse().find((m) => m.role === 'user')
-  const lastExchange = mode === 'voice' && lastAssistant ? { ...lastAssistant, userText: lastUser?.text } : null
+  const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant' && !m.error)
 
   return (
-    <div className="curry-mount" style={{ maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <style>{`
-        @media (prefers-reduced-motion: no-preference) {
-          .curry-mount { animation: curryMountIn 260ms cubic-bezier(0.16, 1, 0.3, 1); }
-        }
-        @keyframes curryMountIn {
-          from { opacity: 0; transform: scale(0.97) translateY(6px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-      `}</style>
-
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
+    <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <CurryOrb state={mode === 'voice' ? orbState : 'idle'} size={32} />
+          <div aria-hidden="true" style={{
+            width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
+            background: 'linear-gradient(135deg,#a78bfa,#6c63ff)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+          }}>
+            🤖
+          </div>
           <div>
             <div style={{ fontSize: 18, fontWeight: 800, color: TEXT_PRIMARY }}>Curry</div>
-            <div style={{ fontSize: 11.5, color: TEXT_SECONDARY, maxWidth: 300 }}>
-              {mode === 'voice'
-                ? { listening: 'Listening…', thinking: 'Thinking…', speaking: 'Speaking…', idle: 'Tap the orb to talk' }[orbState]
-                : "Answers from verified DeKUT info and can open services for you."}
-            </div>
+            <div style={{ fontSize: 11.5, color: TEXT_SECONDARY }}>Your DeKUT campus assistant</div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {voice.speechRecognitionSupported && (
-            <button onClick={toggleMode} aria-label={mode === 'voice' ? 'Switch to text mode' : 'Switch to voice mode'} title={mode === 'voice' ? 'Switch to text' : 'Switch to voice mode'} style={iconButtonStyle(mode === 'voice')}>
-              <DekutIcon type={mode === 'voice' ? 'search' : 'cpu'} size={16} color={mode === 'voice' ? '#fff' : TEXT_SECONDARY} strokeWidth={2} />
-            </button>
-          )}
-          {typeof onClose === 'function' && (
-            <button onClick={onClose} aria-label="Close Ask Curry" style={iconButtonStyle(false)}>
-              <DekutIcon type="x" size={16} color={TEXT_PRIMARY} strokeWidth={2.2} />
-            </button>
-          )}
-        </div>
+        {typeof onClose === 'function' && (
+          <button onClick={onClose} aria-label="Close Ask Curry" style={{
+            background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, width: 34, height: 34,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
+          }}>
+            <DekutIcon type="x" size={16} color={TEXT_PRIMARY} strokeWidth={2.2} />
+          </button>
+        )}
       </div>
+
+      {voice.supported && (
+        <div style={{
+          display: 'flex', gap: 4, background: SURFACE, border: `1px solid ${BORDER}`,
+          borderRadius: 999, padding: 3, marginTop: 14, width: 'fit-content',
+        }}>
+          {[{ id: 'chat', label: 'Chat' }, { id: 'voice', label: 'Voice' }].map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setMode(t.id)}
+              style={{
+                fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+                border: 'none', borderRadius: 999, padding: '6px 16px',
+                background: mode === t.id ? 'linear-gradient(135deg,#a78bfa,#6c63ff)' : 'transparent',
+                color: mode === t.id ? '#fff' : TEXT_SECONDARY,
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {mode === 'voice' ? (
-        <VoiceSurface
-          orbState={orbState}
-          interimTranscript={voice.interimTranscript}
-          lastExchange={lastExchange}
-          onTapOrb={handleTapOrb}
-          voiceError={voice.error}
-          onOpenService={handleOpenService}
-          onConfirm={handleConfirm}
-        />
+        <VoiceMode voice={voice} sending={sending} onFinalTranscript={handleSend} lastAssistantText={lastAssistant?.text} />
       ) : (
-        <div ref={scrollRef} style={{
-          flex: 1, minHeight: 260, maxHeight: 'calc(100vh - 260px)', overflowY: 'auto',
-          display: 'flex', flexDirection: 'column', gap: 10,
-          border: `1px solid ${BORDER}`, borderRadius: 16, padding: 14,
-          background: 'rgba(15,15,26,0.4)', margin: '16px 0 10px',
-        }}>
-          {messages.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '20px 10px' }}>
-              <CurryOrb state="idle" size={56} style={{ margin: '0 auto 10px' }} />
-              <div style={{ fontSize: 13.5, color: TEXT_PRIMARY, fontWeight: 700, marginBottom: 4 }}>Hey! I'm Curry.</div>
-              <div style={{ fontSize: 12, color: TEXT_SECONDARY, marginBottom: 14 }}>
-                I can help you navigate DeKUT, understand procedures, and get to campus services. What do you need?
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
-                {QUICK_ACTIONS.map((q) => (
-                  <button key={q} onClick={() => handleSend(q)} style={{
-                    fontSize: 11.5, fontWeight: 600, color: TEXT_PRIMARY, fontFamily: 'inherit',
-                    border: `1px solid ${BORDER}`, borderRadius: 999, padding: '7px 12px', background: SURFACE, cursor: 'pointer',
-                  }}>
-                    {q}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {messages.map((m) => (
-            <MessageBubble key={m.id} message={m} onOpenService={handleOpenService} onConfirm={handleConfirm} />
-          ))}
-          {sending && (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-              <CurryOrb state="thinking" size={22} />
-              <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: '14px 14px 14px 4px', padding: '11px 14px', fontSize: 12, color: TEXT_SECONDARY }}>
-                Thinking…
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {mode === 'text' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '9px 12px', background: SURFACE }}>
-          {voice.speechRecognitionSupported && (
-            <button onClick={handleDictateIntoInput} aria-label="Dictate" title="Dictate into the box" style={iconButtonStyle(voice.listening)}>
-              <DekutIcon type="cpu" size={15} color={voice.listening ? '#fff' : TEXT_SECONDARY} strokeWidth={2} />
-            </button>
-          )}
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-            placeholder={voice.listening ? 'Listening…' : 'Ask Curry anything about DeKUT...'}
-            style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 13.5, color: TEXT_PRIMARY, width: '100%', fontFamily: 'inherit' }}
-          />
-          <button onClick={() => handleSend()} disabled={sending || !input.trim()} aria-label="Send" style={{
-            ...iconButtonStyle(false), background: ICON_GRADIENTS.cpu,
-            opacity: sending || !input.trim() ? 0.5 : 1, cursor: sending || !input.trim() ? 'default' : 'pointer',
+        <>
+          <div ref={scrollRef} style={{
+            flex: 1, minHeight: 260, maxHeight: 'calc(100vh - 300px)', overflowY: 'auto',
+            display: 'flex', flexDirection: 'column', gap: 10,
+            border: `1px solid ${BORDER}`, borderRadius: 16, padding: 14,
+            background: 'rgba(15,15,26,0.4)', margin: '16px 0 10px',
           }}>
-            <DekutIcon type="chevronRight" size={15} color="#fff" strokeWidth={2.4} />
-          </button>
-        </div>
+            {messages.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '20px 10px' }}>
+                <div style={{ fontSize: 13.5, color: TEXT_PRIMARY, fontWeight: 700, marginBottom: 4 }}>Hey! I'm Curry.</div>
+                <div style={{ fontSize: 12, color: TEXT_SECONDARY, marginBottom: 14 }}>
+                  I can help you navigate DeKUT, understand procedures, and get to campus services. What do you need?
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+                  {QUICK_ACTIONS.map((q) => (
+                    <button key={q} onClick={() => handleSend(q)} style={{
+                      fontSize: 11.5, fontWeight: 600, color: TEXT_PRIMARY, fontFamily: 'inherit',
+                      border: `1px solid ${BORDER}`, borderRadius: 999, padding: '7px 12px', background: SURFACE, cursor: 'pointer',
+                    }}>
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {messages.map((m) => (
+              <MessageBubble key={m.id} message={m} onOpenService={handleOpenService} onConfirm={handleConfirm} />
+            ))}
+            {sending && <TypingIndicator />}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '9px 12px', background: SURFACE }}>
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+              placeholder="Ask Curry anything about DeKUT..."
+              style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 13.5, color: TEXT_PRIMARY, width: '100%', fontFamily: 'inherit' }}
+            />
+            <button onClick={() => handleSend()} disabled={sending || !input.trim()} aria-label="Send" style={{
+              background: ICON_GRADIENTS.cpu, border: 'none', borderRadius: 9, width: 30, height: 30,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: sending || !input.trim() ? 'default' : 'pointer', opacity: sending || !input.trim() ? 0.5 : 1, flexShrink: 0,
+            }}>
+              <DekutIcon type="chevronRight" size={15} color="#fff" strokeWidth={2.4} />
+            </button>
+          </div>
+
+          <div style={{ marginTop: 10, borderRadius: 14, border: `1px dashed ${BORDER}`, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 11.5, color: TEXT_SECONDARY }}>Curry not finding what you need?</div>
+            </div>
+            <a href="mailto:studentadmin@dkut.ac.ke" style={{ fontSize: 11.5, fontWeight: 700, color: '#c4b5fd', textDecoration: 'none', flexShrink: 0 }}>
+              Email ICT
+            </a>
+          </div>
+        </>
       )}
 
-      <div style={{ marginTop: 10, borderRadius: 14, border: `1px dashed ${BORDER}`, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11.5, color: TEXT_SECONDARY }}>Curry not finding what you need?</div>
-        </div>
-        <a href="mailto:studentadmin@dkut.ac.ke" style={{ fontSize: 11.5, fontWeight: 700, color: '#c4b5fd', textDecoration: 'none', flexShrink: 0 }}>
-          Email ICT
-        </a>
-      </div>
+      <style>{`
+        @keyframes curryMsgIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes curryBounce { 0%, 80%, 100% { opacity: 0.3; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+      `}</style>
     </div>
   )
 }
