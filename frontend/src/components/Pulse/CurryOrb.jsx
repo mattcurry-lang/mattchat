@@ -2,16 +2,16 @@
 //
 // Floating "Ask Curry" launcher. Portals to document.body so it floats
 // fixed above the viewport no matter where DeKUTHubCard sits in Pulse's
-// scroll container — same reasoning as DekutServicesModal's portal use.
+// scroll container.
 //
 // hidden: pass true while another DeKUT Hub fullscreen view is already
 // open (RoomFinder, FresherMode, etc.) so two fullscreen layers never
-// stack. This does NOT affect the orb's own opened AskCurry overlay in
-// normal use — see PulsePage's orbHidden calculation.
+// stack.
 
 import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
 import AskCurry from './AskCurry'
+import CurryOrbGraphic from './CurryOrbGraphic'
 
 export default function CurryOrb({ userId, onNavigate, hidden }) {
   const [open, setOpen] = useState(false)
@@ -27,31 +27,13 @@ export default function CurryOrb({ userId, onNavigate, hidden }) {
           style={{
             position: 'fixed', bottom: 22, right: 20, zIndex: 900,
             width: 58, height: 58, borderRadius: '50%', border: 'none', cursor: 'pointer',
-            background: 'linear-gradient(135deg,#a78bfa,#6c63ff)',
+            background: 'rgba(15,15,26,0.7)',
+            backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
             boxShadow: '0 8px 24px -6px rgba(108,99,255,0.55)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            animation: 'curryOrbBreathe 3.2s ease-in-out infinite',
           }}
         >
-          <span aria-hidden="true" style={{ fontSize: 24, position: 'relative', zIndex: 1 }}>🤖</span>
-          <span aria-hidden="true" style={{
-            position: 'absolute', inset: -6, borderRadius: '50%',
-            border: '1.5px solid rgba(167,139,250,0.5)', pointerEvents: 'none',
-            animation: 'curryOrbRing 3.2s ease-in-out infinite',
-          }} />
-          <style>{`
-            @keyframes curryOrbBreathe {
-              0%, 100% { transform: scale(1); box-shadow: 0 8px 24px -6px rgba(108,99,255,0.55); }
-              50% { transform: scale(1.06); box-shadow: 0 10px 30px -4px rgba(108,99,255,0.75); }
-            }
-            @keyframes curryOrbRing {
-              0% { opacity: 0.6; transform: scale(1); }
-              100% { opacity: 0; transform: scale(1.35); }
-            }
-            @media (prefers-reduced-motion: reduce) {
-              button[aria-label="Ask Curry"], button[aria-label="Ask Curry"] span { animation: none !important; }
-            }
-          `}</style>
+          <CurryOrbGraphic size={40} state="idle" animate />
         </button>
       )}
 
