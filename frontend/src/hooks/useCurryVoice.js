@@ -213,7 +213,6 @@ export function useCurryVoice() {
       stop()
       cancelSpeech()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount-only cleanup
   }, [])
 
   return { supported, listening, speaking, volume, transcript, error, start, stop, speak, cancelSpeech }
