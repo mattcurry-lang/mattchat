@@ -79,7 +79,7 @@ export function useCurryVoice() {
       }, SILENCE_DURATION)
     }
     animFrameRef.current = requestAnimationFrame(monitorVolume)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- finishRecording is stable enough here
+     
   }, [])
 
   const startListening = useCallback(async () => {
@@ -112,7 +112,7 @@ export function useCurryVoice() {
       setStatus('idle')
       stoppedRef.current = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- monitorVolume is stable enough here
+ 
   }, [])
 
   async function finishRecording() {
@@ -252,7 +252,7 @@ export function useCurryVoice() {
       stop()
       cancelSpeech()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount-only cleanup
+ 
   }, [])
 
   return {
