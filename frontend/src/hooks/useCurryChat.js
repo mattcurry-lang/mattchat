@@ -31,9 +31,12 @@ export function useCurryChat({ userId } = {}) {
     return data
   }, [])
 
+  // Returns the assistant's reply text (or null on failure) — text-mode
+  // callers (button click, Enter key) ignore the return value; voice
+  // mode uses it to know what to speak next.
   const sendMessage = useCallback(async (text) => {
     const trimmed = text.trim()
-    if (!trimmed || sending) return
+    if (!trimmed || sending) return null
 
     const userMsg = { id: crypto.randomUUID(), role: 'user', text: trimmed }
     setMessages((prev) => [...prev, userMsg])
@@ -52,12 +55,14 @@ export function useCurryChat({ userId } = {}) {
         ...prev,
         { id: crypto.randomUUID(), role: 'assistant', text: data.response, sources: data.sources || [], action: data.action || null },
       ])
+      return data.response
     } catch (err) {
       console.error('Curry sendMessage failed:', err)
       setMessages((prev) => [
         ...prev,
         { id: crypto.randomUUID(), role: 'assistant', text: "Something went wrong reaching Curry. Please try again in a moment.", error: true },
       ])
+      return null
     } finally {
       setSending(false)
     }
