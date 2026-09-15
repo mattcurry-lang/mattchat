@@ -12,9 +12,9 @@
 //     the orb's color and pulse reflect real mic amplitude while
 //     listening, and Curry speaks its reply aloud via the browser's
 //     speech synthesis. Falls back to chat-only if the browser doesn't
-//     support the Web Speech API (see useCurryVoice's `supported` flag).
+//     support microphone access — see useCurryVoice's `supported` flag).
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { DekutIcon, ICON_GRADIENTS } from './dekutIcons'
 import CurryOrbGraphic from './CurryOrbGraphic'
 import { useCurryChat } from '../../hooks/useCurryChat'
@@ -75,7 +75,7 @@ function StreamingText({ text }) {
       })
     }, stepMs)
     return () => clearInterval(id)
- 
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- animate once per mount
   }, [])
   return <>{text.slice(0, count)}</>
 }
@@ -240,40 +240,42 @@ function TypingIndicator() {
   )
 }
 
-function VoiceMode({ voice, sending, onFinalTranscript, lastAssistantText }) {
-  const { supported, listening, speaking, volume, transcript, error, start, stop, cancelSpeech } = voice
+function VoiceMode({ voice }) {
+  const { supported, listening, thinking, speaking, volume, transcript, error, cancelSpeech } = voice
 
+  // Nothing to tap during listening/thinking — the loop is automatic.
+  // The only interactive moment is barge-in: tap to interrupt Curry
+  // mid-sentence and jump straight back to listening.
   const handleOrbTap = () => {
-    if (listening) { stop(); return }
-    if (speaking) { cancelSpeech(); return } // barge-in: tap to interrupt Curry talking
-    start(onFinalTranscript)
+    if (speaking) cancelSpeech()
   }
 
   if (!supported) {
     return (
       <div style={{ textAlign: 'center', padding: '40px 20px', color: TEXT_SECONDARY, fontSize: 13 }}>
-        Voice mode isn't supported in this browser yet — try Chrome or Edge, or use text chat below.
+        Voice mode isn't supported in this browser — it needs microphone access.
       </div>
     )
   }
 
-  const orbState = listening ? 'listening' : sending ? 'thinking' : speaking ? 'speaking' : 'idle'
+  const orbState = listening ? 'listening' : thinking ? 'thinking' : speaking ? 'speaking' : 'idle'
   const glowColor = { idle: 'rgba(108,99,255,0.35)', listening: 'rgba(34,211,238,0.4)', thinking: 'rgba(245,158,11,0.4)', speaking: 'rgba(249,115,22,0.4)' }[orbState]
   const caption = listening
-    ? (transcript || 'Listening…')
-    : speaking
-      ? (lastAssistantText || 'Curry is speaking…')
-      : sending
-        ? 'Thinking…'
-        : error || 'Tap the beacon to talk to Curry'
+    ? 'Listening…'
+    : thinking
+      ? 'Thinking…'
+      : speaking
+        ? (transcript ? `You said: "${transcript}"` : 'Curry is speaking…')
+        : error || 'Starting up…'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: 320, gap: 24 }}>
       <button
         onClick={handleOrbTap}
-        aria-label={listening ? 'Stop listening' : speaking ? 'Stop Curry speaking' : 'Start talking to Curry'}
+        aria-label={speaking ? 'Stop Curry speaking' : 'Curry voice'}
         style={{
-          width: 176, height: 176, borderRadius: '50%', border: 'none', cursor: 'pointer',
+          width: 176, height: 176, borderRadius: '50%', border: 'none',
+          cursor: speaking ? 'pointer' : 'default',
           background: 'transparent', boxShadow: `0 0 60px 10px ${glowColor}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'box-shadow 200ms ease',
@@ -281,7 +283,7 @@ function VoiceMode({ voice, sending, onFinalTranscript, lastAssistantText }) {
       >
         <CurryOrbGraphic size={160} state={orbState} volume={volume} animate />
       </button>
-      <div style={{ fontSize: 13.5, color: (!listening && !speaking && !sending && error) ? '#fca5a5' : TEXT_PRIMARY, textAlign: 'center', maxWidth: 300, lineHeight: 1.5, minHeight: 40 }}>
+      <div style={{ fontSize: 13.5, color: (!listening && !thinking && !speaking && error) ? '#fca5a5' : TEXT_PRIMARY, textAlign: 'center', maxWidth: 300, lineHeight: 1.5, minHeight: 40 }}>
         {caption}
       </div>
     </div>
@@ -296,23 +298,32 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
   const [mode, setMode] = useState('chat') // 'chat' | 'voice'
   const scrollRef = useRef(null)
   const usage = useDekutUsage('dekut')
-  const spokenIdsRef = useRef(new Set())
+  const handleVoiceTurnRef = useRef(null) // always points at the latest handleVoiceTurn, so the loop never calls a stale closure
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, sending])
 
-  // Speak each new assistant reply aloud while in voice mode — but only
-  // once per message, so re-renders never trigger a second read-out.
+  // Sends the transcribed speech to Curry and hands the reply text back
+  // to useCurryVoice, which speaks it and then resumes listening.
+  const handleVoiceTurn = useCallback(async (text) => sendMessage(text), [sendMessage])
+  handleVoiceTurnRef.current = handleVoiceTurn
+  // Stable indirection so the loop (started once per mode change) always
+  // calls whatever handleVoiceTurn currently is, not a stale closure.
+  const callLatestVoiceTurn = useCallback((text) => handleVoiceTurnRef.current(text), [])
+
+  // Starts/stops the whole listen -> transcribe -> reply -> speak loop
+  // as the student switches tabs — the loop itself is fully owned by
+  // useCurryVoice now, this just turns it on/off.
   useEffect(() => {
-    if (mode !== 'voice') return
-    const last = messages[messages.length - 1]
-    if (last && last.role === 'assistant' && !last.error && !spokenIdsRef.current.has(last.id)) {
-      spokenIdsRef.current.add(last.id)
-      voice.speak(last.text)
+    if (mode === 'voice') {
+      voice.start(callLatestVoiceTurn)
+    } else {
+      voice.stop()
     }
- 
-  }, [messages, mode])
+    return () => voice.stop()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- voice.start/stop are stable; only mode should retrigger this
+  }, [mode])
 
   const handleSend = (text) => {
     const value = (text ?? input).trim()
@@ -330,8 +341,6 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
     if (action) confirmAction(messageId, action)
     else declineAction(messageId)
   }
-
-  const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant' && !m.error)
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -386,7 +395,7 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
       )}
 
       {mode === 'voice' ? (
-        <VoiceMode voice={voice} sending={sending} onFinalTranscript={handleSend} lastAssistantText={lastAssistant?.text} />
+        <VoiceMode voice={voice} />
       ) : (
         <>
           <div ref={scrollRef} style={{
