@@ -75,7 +75,7 @@ function StreamingText({ text }) {
       })
     }, stepMs)
     return () => clearInterval(id)
- 
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- animate once per mount
   }, [])
   return <>{text.slice(0, count)}</>
 }
@@ -96,8 +96,83 @@ function SourceChips({ sources }) {
   )
 }
 
+// Masks all but the last 3 digits — enough for the student to recognize
+// their own number, not enough to display it in full in a chat log.
+function maskPhone(phone) {
+  if (!phone) return ''
+  const digits = String(phone)
+  return digits.length <= 3 ? digits : `${'•'.repeat(digits.length - 3)}${digits.slice(-3)}`
+}
+
+// The spec's "Catering Order Card" — mess, line items, total, masked
+// customer info, then Confirm/Edit. "Edit" here just means telling
+// Curry what to change in plain language (e.g. "make it 3 chapatis")
+// rather than a separate edit UI — a fresh catering_prepare_order call
+// naturally produces a new one of these cards with the updated total.
+function CateringOrderCard({ action, message, onConfirm }) {
+  const { mess_name, items, total, customer_name, customer_phone } = action.args
+
+  if (message.confirmed) {
+    return <div style={{ marginTop: 8, fontSize: 11.5, color: TEXT_SECONDARY }}>Confirmed</div>
+  }
+
+  return (
+    <div style={{
+      marginTop: 10, border: `1px solid ${BORDER}`, borderRadius: 14, overflow: 'hidden',
+      background: 'rgba(15,15,26,0.5)',
+    }}>
+      <div style={{ padding: '10px 14px', borderBottom: `1px solid ${BORDER}` }}>
+        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', color: TEXT_SECONDARY, textTransform: 'uppercase' }}>DeKUT Catering</div>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: TEXT_PRIMARY, marginTop: 2 }}>{mess_name}</div>
+      </div>
+      <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {items.map((item, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: TEXT_PRIMARY }}>
+            <span>{item.quantity} × {item.name}</span>
+            <span>KSh {item.unit_price * item.quantity}</span>
+          </div>
+        ))}
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: TEXT_PRIMARY, marginTop: 4, paddingTop: 8, borderTop: `1px solid ${BORDER}` }}>
+          <span>Total</span>
+          <span>KSh {total}</span>
+        </div>
+        <div style={{ fontSize: 11, color: TEXT_SECONDARY, marginTop: 6 }}>
+          {customer_name} · {maskPhone(customer_phone)}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 8, padding: '10px 14px', borderTop: `1px solid ${BORDER}` }}>
+        <button onClick={() => onConfirm(message.id, action)} style={{
+          flex: 1, fontSize: 12, fontWeight: 700, color: '#fff', fontFamily: 'inherit',
+          border: 'none', borderRadius: 9, padding: '8px 0', cursor: 'pointer',
+          background: 'linear-gradient(135deg,#a78bfa,#6c63ff)',
+        }}>
+          Confirm Order
+        </button>
+        <button onClick={() => onConfirm(message.id, null)} style={{
+          fontSize: 12, fontWeight: 700, color: TEXT_SECONDARY, fontFamily: 'inherit',
+          border: `1px solid ${BORDER}`, borderRadius: 9, padding: '8px 14px', cursor: 'pointer', background: 'none',
+        }}>
+          Not now
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function ActionCard({ action, message, onOpenService, onConfirm }) {
   if (!action) return null
+
+  if (action.type === 'CATERING_CONFIRM_REQUIRED') {
+    return <CateringOrderCard action={action} message={message} onConfirm={onConfirm} />
+  }
+
+  if (action.type === 'CATERING_ORDER_PLACED') {
+    return (
+      <div style={{ marginTop: 8, fontSize: 11.5, color: '#6ee7b7' }}>
+        Order placed — KSh {action.order?.total}. Complete payment via the usual DeKUT process.
+      </div>
+    )
+  }
 
   if (action.type === 'CONFIRM_REQUIRED') {
     if (message.confirmed) {
@@ -322,7 +397,7 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
       voice.stop()
     }
     return () => voice.stop()
-     
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- voice.start/stop are stable; only mode should retrigger this
   }, [mode])
 
   const handleSend = (text) => {
