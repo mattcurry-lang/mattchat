@@ -1,10 +1,12 @@
 // src/hooks/useDekutLocations.js
 //
-// Data layer for the DeKUT Room Finder (spec §4). Verified locations are
-// visible to everyone; a student's own pending suggestions are visible
-// only to them; admins see the full pending queue for moderation.
-// RLS (see the dekut_locations table policies) enforces all of this
-// server-side too — this hook doesn't do any authorization itself.
+// Data layer for the DeKUT Room Finder (spec §4) plus, as of Phase 3,
+// the walking-path graph between verified locations (spec §11/§15).
+// Verified locations are visible to everyone; a student's own pending
+// suggestions are visible only to them; admins see the full pending
+// queue for moderation. RLS (see the dekut_locations/dekut_location_edges
+// table policies) enforces all of this server-side too — this hook
+// doesn't do any authorization itself.
 
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
@@ -12,9 +14,10 @@ import { supabase } from '../lib/supabase'
 export function useDekutLocations({ userId, isAdmin } = {}) {
   const [locations, setLocations] = useState([]) // verified only
   const [pending, setPending] = useState([])     // admin-only queue
+  const [edges, setEdges] = useState([])         // walking-path graph, verified locations only
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-    const [pendingVideos, setPendingVideos] = useState([])
+  const [pendingVideos, setPendingVideos] = useState([])
 
   const loadVerified = useCallback(async () => {
     setLoading(true)
@@ -31,6 +34,12 @@ export function useDekutLocations({ userId, isAdmin } = {}) {
       setError(null)
     }
     setLoading(false)
+  }, [])
+
+  const loadEdges = useCallback(async () => {
+    const { data, error } = await supabase.from('dekut_location_edges').select('*')
+    if (error) console.error('loadEdges failed:', error)
+    else setEdges(data || [])
   }, [])
 
   const loadPending = useCallback(async () => {
@@ -50,6 +59,7 @@ export function useDekutLocations({ userId, isAdmin } = {}) {
   }, [isAdmin])
 
   useEffect(() => { loadVerified() }, [loadVerified])
+  useEffect(() => { loadEdges() }, [loadEdges])
   useEffect(() => { loadPending() }, [loadPending])
 
     // Uploads a video file to Storage and returns its public URL — call this
@@ -66,10 +76,6 @@ export function useDekutLocations({ userId, isAdmin } = {}) {
     return data.publicUrl
   }, [userId])
 
-  // Attaches a video (uploaded or an external link) to an EXISTING
-  // verified location. Anyone can suggest one — it doesn't need admin
-  // approval separately since it's just enriching an already-verified
-  // room, not adding a new unverified one.
   // Attaches a video (upload or external link) to an EXISTING verified
   // location. Always lands unverified — same moderation model as new
   // location suggestions. Nothing shows publicly until approveVideo.
@@ -97,8 +103,6 @@ export function useDekutLocations({ userId, isAdmin } = {}) {
     await Promise.all([loadVerified(), loadPending()])
   }, [loadVerified, loadPending])
 
-  // Rejecting a video removes it entirely rather than leaving a dead
-  // is_video_verified:false row hanging around forever unresolved.
   const rejectVideo = useCallback(async (locationId) => {
     const { error } = await supabase
       .from('dekut_locations')
@@ -150,11 +154,33 @@ export function useDekutLocations({ userId, isAdmin } = {}) {
     await loadVerified()
   }, [loadVerified])
 
+  // Admin-only: draw (or remove) a walking-path connection between two
+  // verified, placed locations — the only way an edge for route
+  // calculation ever comes to exist. locationAId/locationBId order
+  // doesn't matter; the DB constraint treats the pair as unordered.
+  const connectLocations = useCallback(async (locationAId, locationBId, weight = 1) => {
+    if (!userId) throw new Error('You need to be signed in to connect locations.')
+    const { error } = await supabase.from('dekut_location_edges').insert({
+      location_a_id: locationAId,
+      location_b_id: locationBId,
+      weight,
+      created_by: userId,
+    })
+    if (error) throw error
+    await loadEdges()
+  }, [userId, loadEdges])
+
+  const disconnectLocations = useCallback(async (edgeId) => {
+    const { error } = await supabase.from('dekut_location_edges').delete().eq('id', edgeId)
+    if (error) throw error
+    await loadEdges()
+  }, [loadEdges])
+
    return {
-    locations, pending, pendingVideos, loading, error,
+    locations, pending, pendingVideos, edges, loading, error,
     submitLocation, approveLocation, rejectLocation, setMapPosition,
     uploadLocationVideo, attachVideo, approveVideo, rejectVideo,
-    deleteLocation,   
+    deleteLocation, connectLocations, disconnectLocations,
     reload: loadVerified,
   }
 }
