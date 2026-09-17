@@ -75,7 +75,7 @@ function StreamingText({ text }) {
       })
     }, stepMs)
     return () => clearInterval(id)
-     
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- animate once per mount
   }, [])
   return <>{text.slice(0, count)}</>
 }
@@ -127,7 +127,7 @@ function ActionCard({ action, message, onOpenService, onConfirm }) {
   if (!serviceId || !label) return null
 
   return (
-    <button onClick={() => onOpenService(serviceId)} style={{
+    <button onClick={() => onOpenService(serviceId, action)} style={{
       display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10,
       fontSize: 11.5, fontWeight: 700, color: '#c4b5fd', fontFamily: 'inherit',
       border: '1px solid rgba(167,139,250,0.4)', borderRadius: 9, padding: '7px 12px',
@@ -322,7 +322,7 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
       voice.stop()
     }
     return () => voice.stop()
-    
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- voice.start/stop are stable; only mode should retrigger this
   }, [mode])
 
   const handleSend = (text) => {
@@ -332,9 +332,21 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
     setInput('')
   }
 
-  const handleOpenService = (serviceId) => {
+  // For SHOW_LOCATION/SHOW_ROUTE, forwards origin/destination/location
+  // data as a third onNavigate argument, so whatever mounts RoomFinder
+  // can pass originLocationId/destinationLocationId into DekutCampusMap
+  // and it opens already routed. RoomFinder.jsx and PulsePage's
+  // onNavigate handler need a small update to actually read this third
+  // argument — right now it's forwarded as far as this component reaches.
+  const handleOpenService = (serviceId, action) => {
     const service = getServiceById(serviceId, DEKUT_CATEGORIES)
-    if (service) openDekutService(service, { usage, onNavigate })
+    if (!service) return
+    const routeContext = action?.type === 'SHOW_ROUTE'
+      ? { originLocationId: action.origin?.id, destinationLocationId: action.destination?.id }
+      : action?.type === 'SHOW_LOCATION'
+        ? { destinationLocationId: action.location?.id }
+        : undefined
+    openDekutService(service, { usage, onNavigate: routeContext ? (route, svc) => onNavigate?.(route, svc, routeContext) : onNavigate })
   }
 
   const handleConfirm = (messageId, action) => {
