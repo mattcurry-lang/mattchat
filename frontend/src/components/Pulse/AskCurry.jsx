@@ -31,11 +31,11 @@ const SURFACE = 'rgba(245,245,250,0.06)'
 // Empty-state quick actions — icon + color per action, not plain text
 // pills, so the hero reads as designed rather than a generic FAQ list.
 const QUICK_ACTIONS = [
+  { text: "What's on the menu today?", icon: 'utensils', color: '#fb923c' },
   { text: "Where is RC18?", icon: 'file', color: '#38bdf8' },
   { text: "How do I register my units?", icon: 'cap', color: '#a78bfa' },
   { text: "Where is the library?", icon: 'book', color: '#34d399' },
   { text: "I'm a first-year student", icon: 'star', color: '#f59e0b' },
-  { text: "How do I access eLearning?", icon: 'cpu', color: '#f472b6' },
 ]
 
 const ACTION_SERVICE_ID = {
@@ -75,7 +75,7 @@ function StreamingText({ text }) {
       })
     }, stepMs)
     return () => clearInterval(id)
- 
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- animate once per mount
   }, [])
   return <>{text.slice(0, count)}</>
 }
@@ -159,8 +159,155 @@ function CateringOrderCard({ action, message, onConfirm }) {
   )
 }
 
-function ActionCard({ action, message, onOpenService, onConfirm }) {
+// SHOW_MENU — tappable menu card. One or more messes; the student picks
+// a mess (if more than one), taps items to build a running cart, then
+// submits a draft for pricing. No prices are ever typed by Curry — they
+// come straight off the item objects the backend sent.
+function CateringMenuCard({ action, message, onOrder }) {
+  const [messId, setMessId] = useState(action.messes.length === 1 ? action.messes[0].id : null)
+  const [cart, setCart] = useState({}) // item_id -> quantity
+
+  if (message.confirmed) return null // superseded by whatever card came after it
+
+  const mess = action.messes.find((m) => m.id === messId)
+  const setQty = (itemId, qty) => setCart((c) => {
+    const next = { ...c }
+    if (qty <= 0) delete next[itemId]
+    else next[itemId] = qty
+    return next
+  })
+
+  const cartItems = mess ? mess.items.filter((i) => cart[i.id] > 0).map((i) => ({ ...i, quantity: cart[i.id] })) : []
+  const total = cartItems.reduce((sum, i) => sum + i.unit_price * i.quantity, 0)
+
+  const handleOrder = () => {
+    if (cartItems.length === 0) return
+    const summary = `${cartItems.map((i) => `${i.quantity} × ${i.name}`).join(', ')} from ${mess.name}`
+    onOrder(
+      { intent: 'catering_draft', draft: { mess_id: mess.id, items: cartItems.map((i) => ({ item_id: i.id, quantity: i.quantity })) } },
+      summary,
+      message.id
+    )
+  }
+
+  return (
+    <div style={{ marginTop: 10, border: `1px solid ${BORDER}`, borderRadius: 14, overflow: 'hidden', background: 'rgba(15,15,26,0.5)', maxWidth: 320 }}>
+      {!mess ? (
+        <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ fontSize: 11, color: TEXT_SECONDARY, marginBottom: 2 }}>Choose a mess</div>
+          {action.messes.map((m) => (
+            <button key={m.id} onClick={() => setMessId(m.id)} style={{
+              textAlign: 'left', fontSize: 13, fontWeight: 700, color: TEXT_PRIMARY, fontFamily: 'inherit',
+              background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '9px 12px', cursor: 'pointer',
+            }}>
+              {m.name}{m.notes && <span style={{ fontSize: 11, fontWeight: 400, color: TEXT_SECONDARY }}> — {m.notes}</span>}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <>
+          <div style={{ padding: '10px 14px', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: TEXT_PRIMARY }}>{mess.name}</div>
+            {action.messes.length > 1 && (
+              <button onClick={() => { setMessId(null); setCart({}) }} style={{ background: 'none', border: 'none', color: TEXT_SECONDARY, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Change
+              </button>
+            )}
+          </div>
+          <div style={{ padding: '8px 14px', display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 260, overflowY: 'auto' }}>
+            {mess.items.map((item) => {
+              const qty = cart[item.id] || 0
+              return (
+                <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_PRIMARY }}>{item.name}</div>
+                    <div style={{ fontSize: 11, color: TEXT_SECONDARY }}>KSh {item.unit_price}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button onClick={() => setQty(item.id, qty - 1)} disabled={qty === 0} style={{
+                      width: 22, height: 22, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'none',
+                      color: TEXT_PRIMARY, cursor: qty === 0 ? 'default' : 'pointer', opacity: qty === 0 ? 0.4 : 1, fontFamily: 'inherit',
+                    }}>−</button>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: TEXT_PRIMARY, minWidth: 14, textAlign: 'center' }}>{qty}</span>
+                    <button onClick={() => setQty(item.id, qty + 1)} style={{
+                      width: 22, height: 22, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'none',
+                      color: TEXT_PRIMARY, cursor: 'pointer', fontFamily: 'inherit',
+                    }}>+</button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <div style={{ padding: '10px 14px', borderTop: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ flex: 1, fontSize: 12.5, fontWeight: 700, color: TEXT_PRIMARY }}>
+              {cartItems.length > 0 ? `Total: KSh ${total}` : 'Tap items to add them'}
+            </div>
+            <button onClick={handleOrder} disabled={cartItems.length === 0} style={{
+              fontSize: 12, fontWeight: 700, color: '#fff', fontFamily: 'inherit', border: 'none', borderRadius: 9,
+              padding: '8px 14px', cursor: cartItems.length === 0 ? 'default' : 'pointer',
+              background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', opacity: cartItems.length === 0 ? 0.5 : 1,
+            }}>
+              Order
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// CATERING_DETAILS_REQUIRED — first-order name/phone capture. Curry
+// never asks for this in the conversation text; this form is the only
+// place it's collected, and it's saved for every order after.
+function CateringDetailsForm({ action, message, onSubmit }) {
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+
+  if (message.confirmed) return null
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!name.trim() || !phone.trim()) return
+    onSubmit(
+      { intent: 'save_contact', customer_name: name.trim(), customer_phone: phone.trim(), draft: action.draft },
+      `${name.trim()}, ${phone.trim()}`,
+      message.id
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} style={{
+      marginTop: 10, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 14,
+      background: 'rgba(15,15,26,0.5)', display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 300,
+    }}>
+      <input
+        value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name"
+        style={{ border: `1px solid ${BORDER}`, borderRadius: 8, padding: '8px 10px', fontSize: 12.5, background: SURFACE, color: TEXT_PRIMARY, fontFamily: 'inherit' }}
+      />
+      <input
+        value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="07XXXXXXXX"
+        style={{ border: `1px solid ${BORDER}`, borderRadius: 8, padding: '8px 10px', fontSize: 12.5, background: SURFACE, color: TEXT_PRIMARY, fontFamily: 'inherit' }}
+      />
+      <button type="submit" style={{
+        fontSize: 12, fontWeight: 700, color: '#fff', fontFamily: 'inherit', border: 'none', borderRadius: 9,
+        padding: '8px 0', cursor: 'pointer', background: 'linear-gradient(135deg,#a78bfa,#6c63ff)',
+      }}>
+        Continue
+      </button>
+    </form>
+  )
+}
+
+function ActionCard({ action, message, onOpenService, onConfirm, onCateringIntent }) {
   if (!action) return null
+
+  if (action.type === 'SHOW_MENU') {
+    return <CateringMenuCard action={action} message={message} onOrder={onCateringIntent} />
+  }
+
+  if (action.type === 'CATERING_DETAILS_REQUIRED') {
+    return <CateringDetailsForm action={action} message={message} onSubmit={onCateringIntent} />
+  }
 
   if (action.type === 'CATERING_CONFIRM_REQUIRED') {
     return <CateringOrderCard action={action} message={message} onConfirm={onConfirm} />
@@ -213,7 +360,7 @@ function ActionCard({ action, message, onOpenService, onConfirm }) {
   )
 }
 
-function MessageBubble({ message, onOpenService, onConfirm }) {
+function MessageBubble({ message, onOpenService, onConfirm, onCateringIntent }) {
   const isUser = message.role === 'user'
   return (
     <div style={{
@@ -235,7 +382,7 @@ function MessageBubble({ message, onOpenService, onConfirm }) {
       }}>
         {isUser || message.error ? message.text : <StreamingText text={message.text} />}
         {!isUser && <SourceChips sources={message.sources} />}
-        {!isUser && <ActionCard action={message.action} message={message} onOpenService={onOpenService} onConfirm={onConfirm} />}
+        {!isUser && <ActionCard action={message.action} message={message} onOpenService={onOpenService} onConfirm={onConfirm} onCateringIntent={onCateringIntent} />}
       </div>
     </div>
   )
@@ -366,7 +513,7 @@ function VoiceMode({ voice }) {
 }
 
 export default function AskCurry({ userId, onNavigate, onClose }) {
-  const { messages, sending, sendMessage, confirmAction, declineAction } = useCurryChat({ userId })
+  const { messages, sending, sendMessage, sendIntent, confirmAction, declineAction } = useCurryChat({ userId })
   const voice = useCurryVoice()
   const [input, setInput] = useState('')
   const [inputFocused, setInputFocused] = useState(false)
@@ -397,7 +544,7 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
       voice.stop()
     }
     return () => voice.stop()
-     
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- voice.start/stop are stable; only mode should retrigger this
   }, [mode])
 
   const handleSend = (text) => {
@@ -427,6 +574,12 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
   const handleConfirm = (messageId, action) => {
     if (action) confirmAction(messageId, action)
     else declineAction(messageId)
+  }
+
+  // Menu taps and the contact form both funnel here — sendIntent
+  // handles both shapes (they just differ in what's in intentPayload).
+  const handleCateringIntent = (intentPayload, summary, messageId) => {
+    sendIntent(intentPayload, summary, messageId)
   }
 
   return (
@@ -494,7 +647,7 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
             {messages.length === 0 && <CurryHero onQuickAction={handleSend} />}
 
             {messages.map((m) => (
-              <MessageBubble key={m.id} message={m} onOpenService={handleOpenService} onConfirm={handleConfirm} />
+              <MessageBubble key={m.id} message={m} onOpenService={handleOpenService} onConfirm={handleConfirm} onCateringIntent={handleCateringIntent} />
             ))}
             {sending && <TypingIndicator />}
           </div>
