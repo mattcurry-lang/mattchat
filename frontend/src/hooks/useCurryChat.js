@@ -1,16 +1,10 @@
 // src/hooks/useCurryChat.js
 //
-// Chat state for "Ask Curry". Phase 3: adds sendIntent() — a structured,
-// model-free channel the cards use to talk to the edge function.
-//
-// Why it exists: ordering food used to require the language model to
-// rebuild the whole order (mess + items + quantities + name + phone) out
-// of chat history on every turn, which is exactly where it kept failing.
-// Now the menu card sends real item ids straight to the backend, which
-// prices and stages the order itself. The model is never in the loop for
-// the parts that must be exact.
-//
-// Message shape: { id, role, text, sources?, action?, error?, confirmed? }
+// Chat state for "Ask Curry". Phase 2: messages now carry an `action`
+// (from the tool registry — e.g. OPEN_STUDENT_PORTAL, SHOW_ROUTE,
+// CONFIRM_REQUIRED) alongside `sources`, and confirmAction() lets the
+// UI approve a consequential action (e.g. filing a support ticket)
+// that Curry proposed but didn't execute yet.
 
 import { useCallback, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
@@ -27,7 +21,7 @@ function getConversationId() {
 }
 
 export function useCurryChat({ userId } = {}) {
-  const [messages, setMessages] = useState([])
+  const [messages, setMessages] = useState([]) // { id, role, text, sources?, action?, error?, confirmed? }
   const [sending, setSending] = useState(false)
   const conversationIdRef = useRef(getConversationId())
 
@@ -37,30 +31,15 @@ export function useCurryChat({ userId } = {}) {
     return data
   }, [])
 
-  const pushAssistant = useCallback((data) => {
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        text: data.response,
-        sources: data.sources || [],
-        action: data.action || null,
-      },
-    ])
-  }, [])
-
-  const pushError = useCallback((text) => {
-    setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'assistant', text, error: true }])
-  }, [])
-
   // Returns the assistant's reply text (or null on failure) — text-mode
-  // callers ignore it; voice mode uses it to know what to speak.
+  // callers (button click, Enter key) ignore the return value; voice
+  // mode uses it to know what to speak next.
   const sendMessage = useCallback(async (text) => {
     const trimmed = text.trim()
     if (!trimmed || sending) return null
 
-    setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'user', text: trimmed }])
+    const userMsg = { id: crypto.randomUUID(), role: 'user', text: trimmed }
+    setMessages((prev) => [...prev, userMsg])
     setSending(true)
 
     const history = messages.slice(-8).map((m) => ({ role: m.role, message: m.text }))
@@ -72,56 +51,65 @@ export function useCurryChat({ userId } = {}) {
         message: trimmed,
         history,
       })
-      pushAssistant(data)
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: 'assistant', text: data.response, sources: data.sources || [], action: data.action || null },
+      ])
       return data.response
     } catch (err) {
       console.error('Curry sendMessage failed:', err)
-      pushError('I lost the connection there. Try that again in a moment.')
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: 'assistant', text: "Something went wrong reaching Curry. Please try again in a moment.", error: true },
+      ])
       return null
     } finally {
       setSending(false)
     }
-  }, [messages, sending, userId, invoke, pushAssistant, pushError])
+  }, [messages, sending, userId, invoke])
 
-  // Structured, model-free request from a card:
-  //   sendIntent({ intent: 'catering_draft', draft }, { userText: 'Order 2 × Chapati' })
-  //
-  // `userText` is optional and cosmetic — it drops the student's tap into
-  // the transcript so the thread still reads like a conversation.
-  // `replaceMessageId` marks the originating card as spent.
-  const sendIntent = useCallback(async (payload, { userText, replaceMessageId } = {}) => {
-    if (sending) return null
-    if (userText) {
-      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'user', text: userText }])
-    }
-    if (replaceMessageId) {
-      setMessages((prev) => prev.map((m) => (m.id === replaceMessageId ? { ...m, confirmed: true } : m)))
-    }
+  // Approves a CONFIRM_REQUIRED action attached to a specific message —
+  // e.g. the student tapping "Yes, submit it" under a proposed support
+  // ticket. Marks that message confirmed so its button doesn't fire twice.
+  // For card-driven requests (tapping the menu, submitting the contact
+  // form) — these hit the backend's model-free `intent` path, not the
+  // chat path. userTextSummary is optional plain-text logged as what
+  // the student "said" (e.g. "2 × Chapati, 1 × Beef from Mess A"), so
+  // history/logs read naturally even though nothing was typed.
+  // sourceMessageId: the message whose card triggered this — gets
+  // marked confirmed so the card (menu/details form) doesn't stay live
+  // and re-submittable after the student's already acted on it.
+  const sendIntent = useCallback(async (intentPayload, userTextSummary, sourceMessageId) => {
+    if (sending) return
     setSending(true)
+    if (userTextSummary) {
+      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'user', text: userTextSummary }])
+    }
     try {
       const data = await invoke({
         conversation_id: conversationIdRef.current,
         user_id: userId ?? null,
-        user_text: userText ?? null,
-        ...payload,
+        user_text: userTextSummary ?? null,
+        ...intentPayload,
       })
-      pushAssistant(data)
+      setMessages((prev) => [
+        ...prev.map((m) => (sourceMessageId && m.id === sourceMessageId ? { ...m, confirmed: true } : m)),
+        { id: crypto.randomUUID(), role: 'assistant', text: data.response, sources: data.sources || [], action: data.action || null },
+      ])
       return data.response
     } catch (err) {
       console.error('Curry sendIntent failed:', err)
-      pushError("That didn't reach the kitchen. Try again in a moment.")
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: 'assistant', text: "Something went wrong reaching Curry. Please try again in a moment.", error: true },
+      ])
       return null
     } finally {
       setSending(false)
     }
-  }, [sending, userId, invoke, pushAssistant, pushError])
+  }, [sending, userId, invoke])
 
-  // Approves a CONFIRM_REQUIRED / CATERING_CONFIRM_REQUIRED action on a
-  // specific message. The card is marked spent before the request goes
-  // out, so a double tap can never place two orders.
   const confirmAction = useCallback(async (messageId, action) => {
-    if (sending) return
-    setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, confirmed: true } : m)))
     setSending(true)
     try {
       const data = await invoke({
@@ -130,18 +118,23 @@ export function useCurryChat({ userId } = {}) {
         confirm_tool: action.tool,
         confirm_args: action.args,
       })
-      pushAssistant(data)
+      setMessages((prev) => [
+        ...prev.map((m) => (m.id === messageId ? { ...m, confirmed: true } : m)),
+        { id: crypto.randomUUID(), role: 'assistant', text: data.response, sources: data.sources || [], action: data.action || null },
+      ])
     } catch (err) {
       console.error('Curry confirmAction failed:', err)
-      // Nothing was placed, so give the button back.
-      setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, confirmed: false } : m)))
-      pushError("That didn't go through, and nothing was ordered. Try confirming again.")
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: 'assistant', text: "That didn't go through — please try again.", error: true },
+      ])
     } finally {
       setSending(false)
     }
-  }, [sending, userId, invoke, pushAssistant, pushError])
+  }, [userId, invoke])
 
-  // Declining never touches the backend — nothing was submitted.
+  // Declining a proposed action never touches the backend — nothing was
+  // submitted, so there's nothing to tell the server about.
   const declineAction = useCallback((messageId) => {
     setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, confirmed: true, declined: true } : m)))
   }, [])
