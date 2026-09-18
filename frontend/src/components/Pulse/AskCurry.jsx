@@ -75,7 +75,7 @@ function StreamingText({ text }) {
       })
     }, stepMs)
     return () => clearInterval(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- animate once per mount
+     
   }, [])
   return <>{text.slice(0, count)}</>
 }
@@ -544,7 +544,7 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
       voice.stop()
     }
     return () => voice.stop()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- voice.start/stop are stable; only mode should retrigger this
+ 
   }, [mode])
 
   const handleSend = (text) => {
