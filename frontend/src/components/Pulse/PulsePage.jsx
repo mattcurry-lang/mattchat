@@ -26,6 +26,7 @@ import ContactsPage from './ContactsPage'
 import MattchatToolsCard from './MattchatToolsCard'
 import ScientificCalculator, { CalculatorGlyph } from './ScientificCalculator'
 import PulseMusicCard from './Music/PulseMusicCard'
+import DekutCateringAdmin from './DekutCateringAdmin'
 
 
 const LOCKED_PLATFORMS = Object.entries(PLATFORM_META).filter(([, meta]) => meta.supportLevel === 'native_only')
@@ -108,6 +109,19 @@ export default function PulsePage({
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l2.5 5 5.5.8-4 4 1 5.5L12 15l-5 2.3 1-5.5-4-4 5.5-.8z" /></svg>
             </button>
           )}
+          {profile?.is_admin && (
+  <button
+    onClick={() => setDekutView('catering-admin')}
+    title="Catering Admin"
+    style={{
+      background: 'var(--bg-surface-2)', border: '1px solid var(--border)',
+      borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      cursor: 'pointer', fontSize: 13,
+    }}
+  >
+    🍛
+  </button>
+)}
           <button
             onClick={() => setShowCalculator(true)}
             title="Scientific Calculator"
@@ -304,7 +318,11 @@ export default function PulsePage({
           onExplainWithCurry={handleExplainWithCurry}
         />
       )}
-
+{dekutView === 'catering-admin' && profile?.is_admin && (
+  <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
+    <DekutCateringAdmin onClose={() => setDekutView(null)} />
+  </div>
+)}
     {dekutView === 'room-finder' && (
   <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
     <RoomFinder onClose={() => setDekutView(null)} userId={userId} isAdmin={profile?.is_admin} />
