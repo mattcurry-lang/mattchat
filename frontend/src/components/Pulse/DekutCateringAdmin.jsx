@@ -94,7 +94,7 @@ function ItemRow({ item, onToggleAvailable, onDelete }) {
   )
 }
 
-export default function DekutCateringAdmin() {
+export default function DekutCateringAdmin({ onClose }) {
   const { messes, items, loading, saveMess, deleteMess, saveItem, deleteItem } = useDekutCatering()
   const [newMessName, setNewMessName] = useState('')
   const [saving, setSaving] = useState(false)
@@ -120,6 +120,17 @@ export default function DekutCateringAdmin() {
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: TEXT_PRIMARY }}>Catering Admin</div>
+        {onClose && (
+          <button onClick={onClose} aria-label="Close Catering Admin" style={{
+            background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, width: 34, height: 34,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+          }}>
+            <DekutIcon type="x" size={16} color={TEXT_PRIMARY} strokeWidth={2.2} />
+          </button>
+        )}
+      </div>
       <div>
         <div style={{ fontSize: 18, fontWeight: 800, color: TEXT_PRIMARY, marginBottom: 4 }}>Catering Menu</div>
         <div style={{ fontSize: 12.5, color: TEXT_SECONDARY, marginBottom: 14 }}>
