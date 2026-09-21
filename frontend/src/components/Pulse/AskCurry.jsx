@@ -385,28 +385,7 @@ function CateringDetailsForm({ action, message, onSubmit }) {
   )
 }
 
-  return (
-    <form onSubmit={handleSubmit} style={{
-      marginTop: 10, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 14,
-      background: 'rgba(15,15,26,0.5)', display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 300,
-    }}>
-      <input
-        value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name"
-        style={{ border: `1px solid ${BORDER}`, borderRadius: 8, padding: '8px 10px', fontSize: 12.5, background: SURFACE, color: TEXT_PRIMARY, fontFamily: 'inherit' }}
-      />
-      <input
-        value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="07XXXXXXXX"
-        style={{ border: `1px solid ${BORDER}`, borderRadius: 8, padding: '8px 10px', fontSize: 12.5, background: SURFACE, color: TEXT_PRIMARY, fontFamily: 'inherit' }}
-      />
-      <button type="submit" style={{
-        fontSize: 12, fontWeight: 700, color: '#fff', fontFamily: 'inherit', border: 'none', borderRadius: 9,
-        padding: '8px 0', cursor: 'pointer', background: 'linear-gradient(135deg,#a78bfa,#6c63ff)',
-      }}>
-        Continue
-      </button>
-    </form>
-  )
-}
+  
 
 function ActionCard({ action, message, onOpenService, onConfirm, onCateringIntent }) {
   if (!action) return null
@@ -503,7 +482,7 @@ function MessageBubble({ message, onOpenService, onConfirm, onCateringIntent }) 
           {isUser || message.error ? message.text : <StreamingText text={message.text} />}
         </div>
         {!isUser && <SourceChips sources={message.sources} />}
-        {!isUser && <ActionCard ... />}
+        {!isUser && <ActionCard action={message.action} message={message} onOpenService={onOpenService} onConfirm={onConfirm} onCateringIntent={onCateringIntent} />}
       </div>
     </div>
   )
