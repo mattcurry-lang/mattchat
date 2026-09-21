@@ -206,49 +206,63 @@ function CateringMenuCard({ action, message, onOrder }) {
         </div>
       ) : (
         <>
-          <div style={{ padding: '10px 14px', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: TEXT_PRIMARY }}>{mess.name}</div>
-            {action.messes.length > 1 && (
-              <button onClick={() => { setMessId(null); setCart({}) }} style={{ background: 'none', border: 'none', color: TEXT_SECONDARY, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
-                Change
-              </button>
-            )}
-          </div>
+         <div style={{ padding: '10px 14px', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg,#16a34a,#15803d)' }}>
+  <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>{mess.name}</div>
+  {action.messes.length > 1 && (
+    <button onClick={() => { setMessId(null); setCart({}) }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.85)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+      Change
+    </button>
+  )}
+</div>
           <div style={{ padding: '8px 14px', display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 260, overflowY: 'auto' }}>
-            {mess.items.map((item) => {
-              const qty = cart[item.id] || 0
-              return (
-                <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_PRIMARY }}>{item.name}</div>
-                    <div style={{ fontSize: 11, color: TEXT_SECONDARY }}>KSh {item.unit_price}</div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <button onClick={() => setQty(item.id, qty - 1)} disabled={qty === 0} style={{
-                      width: 22, height: 22, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'none',
-                      color: TEXT_PRIMARY, cursor: qty === 0 ? 'default' : 'pointer', opacity: qty === 0 ? 0.4 : 1, fontFamily: 'inherit',
-                    }}>−</button>
-                    <span style={{ fontSize: 12.5, fontWeight: 700, color: TEXT_PRIMARY, minWidth: 14, textAlign: 'center' }}>{qty}</span>
-                    <button onClick={() => setQty(item.id, qty + 1)} style={{
-                      width: 22, height: 22, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'none',
-                      color: TEXT_PRIMARY, cursor: 'pointer', fontFamily: 'inherit',
-                    }}>+</button>
-                  </div>
-                </div>
-              )
-            })}
+        // REPLACE the item row inside CateringMenuCard's mess.items.map((item) => { ... }):
+{mess.items.map((item) => {
+  const qty = cart[item.id] || 0
+  return (
+    <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative' }}>
+      <div style={{ width: 48, height: 48, borderRadius: 10, flexShrink: 0, overflow: 'hidden', position: 'relative', background: SURFACE }}>
+        {item.image_url && (
+          <img src={item.image_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        )}
+        <span style={{
+          position: 'absolute', top: 2, left: 2, fontSize: 8, fontWeight: 800, color: '#7c2d12',
+          background: '#fbbf24', borderRadius: 999, padding: '1px 5px',
+        }}>
+          Available
+        </span>
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_PRIMARY }}>{item.name}</div>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: '#166534', background: '#dcfce7', borderRadius: 999, padding: '2px 8px', marginTop: 3 }}>
+          💰 KSh {item.unit_price}
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button onClick={() => setQty(item.id, qty - 1)} disabled={qty === 0} style={{
+          width: 22, height: 22, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'none',
+          color: TEXT_PRIMARY, cursor: qty === 0 ? 'default' : 'pointer', opacity: qty === 0 ? 0.4 : 1, fontFamily: 'inherit',
+        }}>−</button>
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: TEXT_PRIMARY, minWidth: 14, textAlign: 'center' }}>{qty}</span>
+        <button onClick={() => setQty(item.id, qty + 1)} style={{
+          width: 22, height: 22, borderRadius: 6, border: 'none',
+          background: 'linear-gradient(135deg,#22c55e,#15803d)', color: '#fff', cursor: 'pointer', fontFamily: 'inherit',
+        }}>+</button>
+      </div>
+    </div>
+  )
+})}
           </div>
           <div style={{ padding: '10px 14px', borderTop: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ flex: 1, fontSize: 12.5, fontWeight: 700, color: TEXT_PRIMARY }}>
               {cartItems.length > 0 ? `Total: KSh ${total}` : 'Tap items to add them'}
             </div>
-            <button onClick={handleOrder} disabled={cartItems.length === 0} style={{
-              fontSize: 12, fontWeight: 700, color: '#fff', fontFamily: 'inherit', border: 'none', borderRadius: 9,
-              padding: '8px 14px', cursor: cartItems.length === 0 ? 'default' : 'pointer',
-              background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', opacity: cartItems.length === 0 ? 0.5 : 1,
-            }}>
-              Order
-            </button>
+           <button onClick={handleOrder} disabled={cartItems.length === 0} style={{
+  fontSize: 12, fontWeight: 700, color: '#fff', fontFamily: 'inherit', border: 'none', borderRadius: 999,
+  padding: '8px 16px', cursor: cartItems.length === 0 ? 'default' : 'pointer',
+  background: 'linear-gradient(135deg,#22c55e,#15803d)', opacity: cartItems.length === 0 ? 0.5 : 1,
+}}>
+  🛒 Add to Cart
+</button>
           </div>
         </>
       )}
