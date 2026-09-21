@@ -96,20 +96,48 @@ function SourceChips({ sources }) {
   )
 }
 
-// Masks all but the last 3 digits — enough for the student to recognize
-// their own number, not enough to display it in full in a chat log.
-function maskPhone(phone) {
-  if (!phone) return ''
-  const digits = String(phone)
-  return digits.length <= 3 ? digits : `${'•'.repeat(digits.length - 3)}${digits.slice(-3)}`
+const ACCENT = 'linear-gradient(135deg,#a78bfa,#6c63ff)'
+const CARD_STYLE = {
+  marginTop: 12, width: '100%', border: `1px solid ${BORDER}`, borderRadius: 16,
+  overflow: 'hidden', background: 'rgba(15,15,26,0.55)',
+}
+const fieldStyle = {
+  width: '100%', boxSizing: 'border-box', border: `1px solid ${BORDER}`, borderRadius: 10,
+  padding: '11px 12px', fontSize: 13.5, background: SURFACE, color: TEXT_PRIMARY, fontFamily: 'inherit', outline: 'none',
 }
 
-// The spec's "Catering Order Card" — mess, line items, total, masked
-// customer info, then Confirm/Edit. "Edit" here just means telling
-// Curry what to change in plain language (e.g. "make it 3 chapatis")
-// rather than a separate edit UI — a fresh catering_prepare_order call
-// naturally produces a new one of these cards with the updated total.
-function CateringOrderCard({ action, message, onConfirm }) {
+function formatTime(iso) {
+  if (!iso) return null
+  try {
+    return new Date(iso).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })
+  } catch { return null }
+}
+
+function maskPhone(phone) {
+  if (!phone) return ''
+  const p = String(phone)
+  const local = p.startsWith('254') ? `0${p.slice(3)}` : p
+  return local.length <= 6 ? local : `${local.slice(0, 4)}•••${local.slice(-3)}`
+}
+
+function OrderLines({ items, total }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {items.map((item, i) => (
+        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13, color: TEXT_PRIMARY }}>
+          <span>{item.quantity} × {item.name}</span>
+          <span style={{ color: TEXT_SECONDARY, whiteSpace: 'nowrap' }}>KSh {item.unit_price * item.quantity}</span>
+        </div>
+      ))}
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 800, color: TEXT_PRIMARY, paddingTop: 10, borderTop: `1px solid ${BORDER}` }}>
+        <span>Total</span><span>KSh {total}</span>
+      </div>
+    </div>
+  )
+}
+
+// Review step: everything the student needs to say yes, nothing they don't.
+function CateringOrderCard({ action, message, onConfirm, onChange }) {
   const { mess_name, items, total, customer_name, customer_phone } = action.args
 
   if (message.confirmed) {
@@ -117,59 +145,56 @@ function CateringOrderCard({ action, message, onConfirm }) {
   }
 
   return (
-    <div style={{
-      marginTop: 10, border: `1px solid ${BORDER}`, borderRadius: 14, overflow: 'hidden',
-      background: 'rgba(15,15,26,0.5)',
-    }}>
-      <div style={{ padding: '10px 14px', borderBottom: `1px solid ${BORDER}` }}>
-        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', color: TEXT_SECONDARY, textTransform: 'uppercase' }}>DeKUT Catering</div>
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: TEXT_PRIMARY, marginTop: 2 }}>{mess_name}</div>
+    <div style={CARD_STYLE}>
+      <div style={{ padding: '14px 16px 12px', borderBottom: `1px solid ${BORDER}` }}>
+        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', color: TEXT_SECONDARY, textTransform: 'uppercase' }}>Your order</div>
+        <div style={{ fontSize: 15, fontWeight: 800, color: TEXT_PRIMARY, marginTop: 3 }}>{mess_name}</div>
       </div>
-      <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {items.map((item, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: TEXT_PRIMARY }}>
-            <span>{item.quantity} × {item.name}</span>
-            <span>KSh {item.unit_price * item.quantity}</span>
-          </div>
-        ))}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: TEXT_PRIMARY, marginTop: 4, paddingTop: 8, borderTop: `1px solid ${BORDER}` }}>
-          <span>Total</span>
-          <span>KSh {total}</span>
-        </div>
-        <div style={{ fontSize: 11, color: TEXT_SECONDARY, marginTop: 6 }}>
-          {customer_name} · {maskPhone(customer_phone)}
+      <div style={{ padding: '14px 16px' }}>
+        <OrderLines items={items} total={total} />
+        <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 10, background: SURFACE, fontSize: 12, color: TEXT_SECONDARY, lineHeight: 1.5 }}>
+          Payment prompt goes to <span style={{ color: TEXT_PRIMARY, fontWeight: 700 }}>{maskPhone(customer_phone)}</span> · {customer_name}
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 8, padding: '10px 14px', borderTop: `1px solid ${BORDER}` }}>
+      <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         <button onClick={() => onConfirm(message.id, action)} style={{
-          flex: 1, fontSize: 12, fontWeight: 700, color: '#fff', fontFamily: 'inherit',
-          border: 'none', borderRadius: 9, padding: '8px 0', cursor: 'pointer',
-          background: 'linear-gradient(135deg,#a78bfa,#6c63ff)',
+          width: '100%', fontSize: 14, fontWeight: 800, color: '#fff', fontFamily: 'inherit',
+          border: 'none', borderRadius: 12, padding: '13px 0', cursor: 'pointer', background: ACCENT,
         }}>
-          Confirm Order
+          Place order · KSh {total}
         </button>
-        <button onClick={() => onConfirm(message.id, null)} style={{
-          fontSize: 12, fontWeight: 700, color: TEXT_SECONDARY, fontFamily: 'inherit',
-          border: `1px solid ${BORDER}`, borderRadius: 9, padding: '8px 14px', cursor: 'pointer', background: 'none',
-        }}>
-          Not now
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => onChange({ intent: 'catering_menu', mess: mess_name }, 'Change my order', message.id)} style={{
+            flex: 1, fontSize: 12.5, fontWeight: 700, color: TEXT_PRIMARY, fontFamily: 'inherit',
+            border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 0', cursor: 'pointer', background: 'none',
+          }}>
+            Change items
+          </button>
+          <button onClick={() => onConfirm(message.id, null)} style={{
+            flex: 1, fontSize: 12.5, fontWeight: 700, color: TEXT_SECONDARY, fontFamily: 'inherit',
+            border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 0', cursor: 'pointer', background: 'none',
+          }}>
+            Cancel
+          </button>
+        </div>
       </div>
     </div>
   )
 }
 
-// SHOW_MENU — tappable menu card. One or more messes; the student picks
-// a mess (if more than one), taps items to build a running cart, then
-// submits a draft for pricing. No prices are ever typed by Curry — they
-// come straight off the item objects the backend sent.
+// SHOW_MENU: live menu with a tab per mess, real stock, search, and a
+// single primary action. Prices and quantities come from the backend.
 function CateringMenuCard({ action, message, onOrder }) {
-  const [messId, setMessId] = useState(action.messes.length === 1 ? action.messes[0].id : null)
-  const [cart, setCart] = useState({}) // item_id -> quantity
+  const messes = action.messes || []
+  const [messId, setMessId] = useState((messes.find((m) => m.open) || messes[0])?.id ?? null)
+  const [cart, setCart] = useState({}) // item_id -> quantity (ids are unique across messes)
+  const [query, setQuery] = useState('')
 
-  if (message.confirmed) return null // superseded by whatever card came after it
+  if (message.confirmed) return null
 
-  const mess = action.messes.find((m) => m.id === messId)
+  const mess = messes.find((m) => m.id === messId) || messes[0]
+  if (!mess) return null
+
   const setQty = (itemId, qty) => setCart((c) => {
     const next = { ...c }
     if (qty <= 0) delete next[itemId]
@@ -177,116 +202,188 @@ function CateringMenuCard({ action, message, onOrder }) {
     return next
   })
 
-  const cartItems = mess ? mess.items.filter((i) => cart[i.id] > 0).map((i) => ({ ...i, quantity: cart[i.id] })) : []
-  const total = cartItems.reduce((sum, i) => sum + i.unit_price * i.quantity, 0)
+  const q = query.trim().toLowerCase()
+  const visible = mess.items.filter((i) => !q || i.name.toLowerCase().includes(q))
+  const cartItems = mess.items.filter((i) => cart[i.id] > 0).map((i) => ({ ...i, quantity: cart[i.id] }))
+  const count = cartItems.reduce((s, i) => s + i.quantity, 0)
+  const total = cartItems.reduce((s, i) => s + i.unit_price * i.quantity, 0)
+  const countIn = (m) => m.items.reduce((s, i) => s + (cart[i.id] || 0), 0)
+  const asOf = formatTime(action.as_of)
 
   const handleOrder = () => {
     if (cartItems.length === 0) return
-    const summary = `${cartItems.map((i) => `${i.quantity} × ${i.name}`).join(', ')} from ${mess.name}`
     onOrder(
       { intent: 'catering_draft', draft: { mess_id: mess.id, items: cartItems.map((i) => ({ item_id: i.id, quantity: i.quantity })) } },
-      summary,
+      `${cartItems.map((i) => `${i.quantity} × ${i.name}`).join(', ')} from ${mess.name}`,
       message.id
     )
   }
 
   return (
-    <div style={{ marginTop: 10, border: `1px solid ${BORDER}`, borderRadius: 14, overflow: 'hidden', background: 'rgba(15,15,26,0.5)', maxWidth: 320 }}>
-      {!mess ? (
-        <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ fontSize: 11, color: TEXT_SECONDARY, marginBottom: 2 }}>Choose a mess</div>
-          {action.messes.map((m) => (
-            <button key={m.id} onClick={() => setMessId(m.id)} style={{
-              textAlign: 'left', fontSize: 13, fontWeight: 700, color: TEXT_PRIMARY, fontFamily: 'inherit',
-              background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '9px 12px', cursor: 'pointer',
-            }}>
-              {m.name}{m.notes && <span style={{ fontSize: 11, fontWeight: 400, color: TEXT_SECONDARY }}> — {m.notes}</span>}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <>
-         <div style={{ padding: '10px 14px', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg,#16a34a,#15803d)' }}>
-  <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>{mess.name}</div>
-  {action.messes.length > 1 && (
-    <button onClick={() => { setMessId(null); setCart({}) }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.85)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
-      Change
-    </button>
-  )}
-</div>
-          <div style={{ padding: '8px 14px', display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 260, overflowY: 'auto' }}>
-{mess.items.map((item) => {
-  const qty = cart[item.id] || 0
-  return (
-    <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative' }}>
-      <div style={{ width: 48, height: 48, borderRadius: 10, flexShrink: 0, overflow: 'hidden', position: 'relative', background: SURFACE }}>
-        {item.image_url && (
-          <img src={item.image_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        )}
-        <span style={{
-          position: 'absolute', top: 2, left: 2, fontSize: 8, fontWeight: 800, color: '#7c2d12',
-          background: '#fbbf24', borderRadius: 999, padding: '1px 5px',
-        }}>
-          Available
-        </span>
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_PRIMARY }}>{item.name}</div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: '#166534', background: '#dcfce7', borderRadius: 999, padding: '2px 8px', marginTop: 3 }}>
-          💰 KSh {item.unit_price}
+    <div style={CARD_STYLE}>
+      {/* Status line */}
+      <div style={{ padding: '12px 16px 4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: TEXT_PRIMARY }}>Today's menu</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: TEXT_SECONDARY }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: action.live ? '#34d399' : '#f59e0b' }} />
+          {action.live ? (asOf ? `Live · ${asOf}` : 'Live') : (asOf ? `Last updated ${asOf}` : 'May be out of date')}
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <button onClick={() => setQty(item.id, qty - 1)} disabled={qty === 0} style={{
-          width: 22, height: 22, borderRadius: 6, border: `1px solid ${BORDER}`, background: 'none',
-          color: TEXT_PRIMARY, cursor: qty === 0 ? 'default' : 'pointer', opacity: qty === 0 ? 0.4 : 1, fontFamily: 'inherit',
-        }}>−</button>
-        <span style={{ fontSize: 12.5, fontWeight: 700, color: TEXT_PRIMARY, minWidth: 14, textAlign: 'center' }}>{qty}</span>
-        <button onClick={() => setQty(item.id, qty + 1)} style={{
-          width: 22, height: 22, borderRadius: 6, border: 'none',
-          background: 'linear-gradient(135deg,#22c55e,#15803d)', color: '#fff', cursor: 'pointer', fontFamily: 'inherit',
-        }}>+</button>
-      </div>
-    </div>
-  )
-})}
-          </div>
-          <div style={{ padding: '10px 14px', borderTop: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ flex: 1, fontSize: 12.5, fontWeight: 700, color: TEXT_PRIMARY }}>
-              {cartItems.length > 0 ? `Total: KSh ${total}` : 'Tap items to add them'}
-            </div>
-           <button onClick={handleOrder} disabled={cartItems.length === 0} style={{
-  fontSize: 12, fontWeight: 700, color: '#fff', fontFamily: 'inherit', border: 'none', borderRadius: 999,
-  padding: '8px 16px', cursor: cartItems.length === 0 ? 'default' : 'pointer',
-  background: 'linear-gradient(135deg,#22c55e,#15803d)', opacity: cartItems.length === 0 ? 0.5 : 1,
-}}>
-  🛒 Add to Cart
-</button>
-          </div>
-        </>
+
+      {/* One tab per mess, always shown */}
+      {messes.length > 1 && (
+        <div style={{ display: 'flex', gap: 8, padding: '10px 16px 12px', overflowX: 'auto' }}>
+          {messes.map((m) => {
+            const active = m.id === mess.id
+            const inCart = countIn(m)
+            return (
+              <button key={m.id} onClick={() => { setMessId(m.id); setQuery('') }} style={{
+                flexShrink: 0, textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer',
+                padding: '8px 12px', borderRadius: 12, minWidth: 96,
+                border: `1px solid ${active ? '#a78bfa' : BORDER}`,
+                background: active ? 'rgba(167,139,250,0.14)' : SURFACE,
+                opacity: m.open || active ? 1 : 0.65,
+              }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: TEXT_PRIMARY, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {m.name}
+                  {inCart > 0 && <span style={{ fontSize: 10, background: '#a78bfa', color: '#fff', borderRadius: 999, padding: '1px 6px' }}>{inCart}</span>}
+                </div>
+                <div style={{ fontSize: 10.5, marginTop: 2, color: m.open ? '#6ee7b7' : TEXT_SECONDARY }}>
+                  {m.open ? `${m.available_count} available` : 'Nothing on now'}
+                </div>
+              </button>
+            )
+          })}
+        </div>
       )}
+
+      {mess.items.length > 8 && (
+        <div style={{ padding: '0 16px 10px' }}>
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${mess.name}`} style={fieldStyle} />
+        </div>
+      )}
+
+      {/* Items */}
+      <div style={{ maxHeight: 340, overflowY: 'auto', borderTop: `1px solid ${BORDER}` }}>
+        {visible.length === 0 && (
+          <div style={{ padding: '28px 16px', textAlign: 'center', fontSize: 12.5, color: TEXT_SECONDARY, lineHeight: 1.5 }}>
+            {mess.items.length === 0
+              ? `Nothing is being served at ${mess.name} right now. Check back a little later.`
+              : `No items match "${query}".`}
+          </div>
+        )}
+        {visible.map((item) => {
+          const qty = cart[item.id] || 0
+          const left = item.available_quantity
+          const soldOut = !item.is_available || left <= 0
+          const maxQty = Math.min(20, left)
+          return (
+            <div key={item.id} style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
+              borderBottom: `1px solid ${BORDER}`, opacity: soldOut ? 0.5 : 1,
+            }}>
+              <div style={{ width: 52, height: 52, borderRadius: 12, flexShrink: 0, overflow: 'hidden', background: SURFACE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: TEXT_SECONDARY }}>
+                {item.image_url
+                  ? <img src={item.image_url} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none' }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : item.name.charAt(0)}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: TEXT_PRIMARY, lineHeight: 1.3 }}>{item.name}</div>
+                <div style={{ fontSize: 12, marginTop: 3, color: TEXT_SECONDARY }}>
+                  <span style={{ color: TEXT_PRIMARY, fontWeight: 700 }}>KSh {item.unit_price}</span>
+                  {!soldOut && <span style={{ color: left <= 5 ? '#fbbf24' : TEXT_SECONDARY }}> · {left} left</span>}
+                </div>
+              </div>
+              {soldOut ? (
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: TEXT_SECONDARY }}>Sold out</span>
+              ) : qty === 0 ? (
+                <button onClick={() => setQty(item.id, 1)} style={{
+                  fontSize: 12.5, fontWeight: 700, color: '#c4b5fd', fontFamily: 'inherit', cursor: 'pointer',
+                  border: '1px solid rgba(167,139,250,0.5)', background: 'rgba(167,139,250,0.1)', borderRadius: 999, padding: '7px 16px',
+                }}>Add</button>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <button onClick={() => setQty(item.id, qty - 1)} aria-label={`Remove one ${item.name}`} style={{
+                    width: 30, height: 30, borderRadius: 999, border: `1px solid ${BORDER}`, background: 'none', color: TEXT_PRIMARY, cursor: 'pointer', fontSize: 16, fontFamily: 'inherit',
+                  }}>−</button>
+                  <span style={{ fontSize: 13.5, fontWeight: 800, color: TEXT_PRIMARY, minWidth: 16, textAlign: 'center' }}>{qty}</span>
+                  <button onClick={() => setQty(item.id, Math.min(maxQty, qty + 1))} disabled={qty >= maxQty} aria-label={`Add one ${item.name}`} style={{
+                    width: 30, height: 30, borderRadius: 999, border: 'none', background: ACCENT, color: '#fff', fontSize: 16, fontFamily: 'inherit',
+                    cursor: qty >= maxQty ? 'default' : 'pointer', opacity: qty >= maxQty ? 0.4 : 1,
+                  }}>+</button>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Footer */}
+      <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, borderTop: `1px solid ${BORDER}` }}>
+        <div style={{ flex: 1, fontSize: 13, color: TEXT_PRIMARY }}>
+          {count > 0
+            ? <><span style={{ fontWeight: 800 }}>{count} item{count > 1 ? 's' : ''}</span><span style={{ color: TEXT_SECONDARY }}> · KSh {total}</span></>
+            : <span style={{ color: TEXT_SECONDARY }}>Tap Add to start your order</span>}
+        </div>
+        <button onClick={handleOrder} disabled={count === 0} style={{
+          fontSize: 13, fontWeight: 800, color: '#fff', fontFamily: 'inherit', border: 'none', borderRadius: 999,
+          padding: '10px 18px', background: ACCENT,
+          cursor: count === 0 ? 'default' : 'pointer', opacity: count === 0 ? 0.4 : 1,
+        }}>
+          Review order
+        </button>
+      </div>
     </div>
   )
 }
 
-// CATERING_DETAILS_REQUIRED — first-order name/phone capture. Curry
-// never asks for this in the conversation text; this form is the only
-// place it's collected, and it's saved for every order after.
+// First-order name/phone capture, with the order summary in view so the
+// student knows what they're about to pay for.
 function CateringDetailsForm({ action, message, onSubmit }) {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
 
   if (message.confirmed) return null
 
+  const draft = action.draft
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!name.trim() || !phone.trim()) return
     onSubmit(
-      { intent: 'save_contact', customer_name: name.trim(), customer_phone: phone.trim(), draft: action.draft },
+      { intent: 'save_contact', customer_name: name.trim(), customer_phone: phone.trim(), draft },
       `${name.trim()}, ${phone.trim()}`,
       message.id
     )
   }
+
+  return (
+    <form onSubmit={handleSubmit} style={{ ...CARD_STYLE, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {draft?.items && (
+        <div style={{ paddingBottom: 12, borderBottom: `1px solid ${BORDER}` }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', color: TEXT_SECONDARY, textTransform: 'uppercase', marginBottom: 8 }}>
+            {draft.mess_name}
+          </div>
+          <OrderLines items={draft.items} total={draft.total} />
+        </div>
+      )}
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11.5, fontWeight: 600, color: TEXT_SECONDARY }}>
+        Your name
+        <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" placeholder="e.g. Mathew" style={fieldStyle} />
+      </label>
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11.5, fontWeight: 600, color: TEXT_SECONDARY }}>
+        M-Pesa number
+        <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" autoComplete="tel" placeholder="07XXXXXXXX" style={fieldStyle} />
+      </label>
+      <div style={{ fontSize: 11, color: TEXT_SECONDARY, lineHeight: 1.5 }}>Saved on this account so you only do this once.</div>
+      <button type="submit" style={{
+        fontSize: 14, fontWeight: 800, color: '#fff', fontFamily: 'inherit', border: 'none', borderRadius: 12,
+        padding: '13px 0', cursor: 'pointer', background: ACCENT,
+      }}>
+        Continue
+      </button>
+    </form>
+  )
+}
 
   return (
     <form onSubmit={handleSubmit} style={{
@@ -323,13 +420,19 @@ function ActionCard({ action, message, onOpenService, onConfirm, onCateringInten
   }
 
   if (action.type === 'CATERING_CONFIRM_REQUIRED') {
-    return <CateringOrderCard action={action} message={message} onConfirm={onConfirm} />
+    return <CateringOrderCard action={action} message={message} onConfirm={onConfirm} onChange={onCateringIntent} />
   }
 
   if (action.type === 'CATERING_ORDER_PLACED') {
+    const o = action.order || {}
     return (
-      <div style={{ marginTop: 8, fontSize: 11.5, color: '#6ee7b7' }}>
-        Order placed — KSh {action.order?.total}. Complete payment via the usual DeKUT process.
+      <div style={{ ...CARD_STYLE, padding: '14px 16px' }}>
+        <div style={{ fontSize: 13.5, fontWeight: 800, color: '#6ee7b7' }}>Order placed · KSh {o.total}</div>
+        <div style={{ fontSize: 12, color: TEXT_SECONDARY, marginTop: 4, lineHeight: 1.5 }}>
+          {o.payment_status === 'prompted'
+            ? `Check ${maskPhone(o.payment_phone || o.customer_phone)} for the payment prompt.`
+            : 'Complete payment through the usual DeKUT process.'}
+        </div>
       </div>
     )
   }
@@ -375,6 +478,7 @@ function ActionCard({ action, message, onOpenService, onConfirm, onCateringInten
 
 function MessageBubble({ message, onOpenService, onConfirm, onCateringIntent }) {
   const isUser = message.role === 'user'
+    const wide = ['SHOW_MENU', 'CATERING_DETAILS_REQUIRED', 'CATERING_CONFIRM_REQUIRED', 'CATERING_ORDER_PLACED'].includes(message.action?.type)
   return (
     <div style={{
       display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: 8,
@@ -386,16 +490,20 @@ function MessageBubble({ message, onOpenService, onConfirm, onCateringIntent }) 
         </div>
       )}
       <div style={{
-        maxWidth: '78%',
+        maxWidth: wide ? '100%' : '78%',
+        minWidth: 0,
+        flex: wide ? '1 1 auto' : undefined,
         background: isUser ? 'linear-gradient(135deg,#a78bfa,#6c63ff)' : SURFACE,
         border: isUser ? 'none' : `1px solid ${BORDER}`,
         color: isUser ? '#fff' : message.error ? '#fca5a5' : TEXT_PRIMARY,
         borderRadius: isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
         padding: '10px 13px', fontSize: 13, lineHeight: 1.5,
       }}>
-        {isUser || message.error ? message.text : <StreamingText text={message.text} />}
+         <div style={{ whiteSpace: 'pre-line' }}>
+          {isUser || message.error ? message.text : <StreamingText text={message.text} />}
+        </div>
         {!isUser && <SourceChips sources={message.sources} />}
-        {!isUser && <ActionCard action={message.action} message={message} onOpenService={onOpenService} onConfirm={onConfirm} onCateringIntent={onCateringIntent} />}
+        {!isUser && <ActionCard ... />}
       </div>
     </div>
   )
