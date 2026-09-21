@@ -10,7 +10,16 @@ import { useCallback, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 const CONVERSATION_KEY = 'mattchat:dekut:curry-conversation-id'
+const GUEST_KEY_STORAGE = 'mattchat:dekut:curry-guest-key'
 
+function getGuestKey() {
+  let key = localStorage.getItem(GUEST_KEY_STORAGE) // localStorage, not sessionStorage — persists across app restarts
+  if (!key) {
+    key = crypto.randomUUID()
+    localStorage.setItem(GUEST_KEY_STORAGE, key)
+  }
+  return key
+}
 function getConversationId() {
   let id = sessionStorage.getItem(CONVERSATION_KEY)
   if (!id) {
@@ -24,6 +33,7 @@ export function useCurryChat({ userId } = {}) {
   const [messages, setMessages] = useState([]) // { id, role, text, sources?, action?, error?, confirmed? }
   const [sending, setSending] = useState(false)
   const conversationIdRef = useRef(getConversationId())
+  const guestKeyRef = useRef(getGuestKey())
 
   const invoke = useCallback(async (body) => {
     const { data, error } = await supabase.functions.invoke('dekut-curry', { body })
@@ -48,6 +58,7 @@ export function useCurryChat({ userId } = {}) {
       const data = await invoke({
         conversation_id: conversationIdRef.current,
         user_id: userId ?? null,
+        guest_key: guestKeyRef.current,
         message: trimmed,
         history,
       })
@@ -89,6 +100,7 @@ export function useCurryChat({ userId } = {}) {
       const data = await invoke({
         conversation_id: conversationIdRef.current,
         user_id: userId ?? null,
+        guest_key: guestKeyRef.current,
         user_text: userTextSummary ?? null,
         ...intentPayload,
       })
@@ -115,6 +127,7 @@ export function useCurryChat({ userId } = {}) {
       const data = await invoke({
         conversation_id: conversationIdRef.current,
         user_id: userId ?? null,
+        guest_key: guestKeyRef.current,
         confirm_tool: action.tool,
         confirm_args: action.args,
       })
