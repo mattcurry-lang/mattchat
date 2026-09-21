@@ -215,7 +215,6 @@ function CateringMenuCard({ action, message, onOrder }) {
   )}
 </div>
           <div style={{ padding: '8px 14px', display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 260, overflowY: 'auto' }}>
-        // REPLACE the item row inside CateringMenuCard's mess.items.map((item) => { ... }):
 {mess.items.map((item) => {
   const qty = cart[item.id] || 0
   return (
