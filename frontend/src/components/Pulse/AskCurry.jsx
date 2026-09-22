@@ -642,8 +642,28 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
 
   // Sends the transcribed speech to Curry and hands the reply text back
   // to useCurryVoice, which speaks it and then resumes listening.
-  const handleVoiceTurn = useCallback(async (text) => sendMessage(text), [sendMessage])
-  handleVoiceTurnRef.current = handleVoiceTurn
+const handleVoiceTurn = useCallback(async (text) => {
+  const last = messages[messages.length - 1]
+  const action = last?.role === 'assistant' && !last?.confirmed ? last?.action : null
+  const said = text.trim().toLowerCase()
+  const isYes = /^(yes|yeah|yep|sure|go ahead|okay|ok|confirm|place it|do it)\b/.test(said)
+  const isNo = /^(no|nope|not now|cancel|stop)\b/.test(said)
+
+  if (action?.type === 'CATERING_USE_SAVED_REQUIRED' && (isYes || isNo)) {
+    return sendIntent(
+      { intent: 'catering_use_saved', draft: action.draft, use_saved: isYes },
+      isYes ? 'Yes, the usual' : 'Different details',
+      last.id
+    )
+  }
+  if ((action?.type === 'CATERING_CONFIRM_REQUIRED' || action?.type === 'CONFIRM_REQUIRED') && (isYes || isNo)) {
+    if (isYes) return confirmAction(last.id, action)
+    declineAction(last.id)
+    return 'Okay, cancelled.'
+  }
+  return sendMessage(text)
+}, [messages, sendMessage, sendIntent, confirmAction, declineAction])
+handleVoiceTurnRef.current = handleVoiceTurn
   // Stable indirection so the loop (started once per mode change) always
   // calls whatever handleVoiceTurn currently is, not a stale closure.
   const callLatestVoiceTurn = useCallback((text) => handleVoiceTurnRef.current(text), [])
