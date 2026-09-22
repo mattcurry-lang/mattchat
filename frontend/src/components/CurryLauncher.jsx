@@ -9,7 +9,7 @@ import { useState, useRef, useEffect } from 'react'
 import { IconSparkle } from './Icons'
 import CurryOrbGraphic from './Pulse/CurryOrbGraphic'
 
-export default function CurryLauncher({ onOpenCurryAI, onOpenDekutCurry, hidden }) {
+export default function CurryLauncher({ onOpenCurryAI, onOpenDekutCurry, hidden, dekutBadge = false }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
 
@@ -56,10 +56,16 @@ export default function CurryLauncher({ onOpenCurryAI, onOpenDekutCurry, hidden 
             transform: open ? 'translateY(0) scale(1)' : 'translateY(8px) scale(0.9)',
             transition: `opacity 160ms ease ${i * 40}ms, transform 160ms ease ${i * 40}ms`,
           }}>
-            <span style={{
+           <span style={{ position: 'relative',
               width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
               background: item.bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>{item.icon}</span>
+            {item.id === 'dekut-curry' && dekutBadge && (
+            <span style={{
+              position: 'absolute', top: 4, right: 4, width: 8, height: 8, borderRadius: '50%',
+              background: '#ef4444', border: '1.5px solid rgba(20,20,31,0.96)',
+            }} />
+          )}
             <span style={{ textAlign: 'left' }}>
               <div style={{ fontSize: 12.5, fontWeight: 700, color: '#f0f0f0' }}>{item.label}</div>
               <div style={{ fontSize: 10.5, color: '#9ca3af' }}>{item.sublabel}</div>
@@ -86,6 +92,12 @@ export default function CurryLauncher({ onOpenCurryAI, onOpenDekutCurry, hidden 
           <IconSparkle size={22} />
         </span>
         {!open && <><div style={ring1} /><div style={ring2} /></>}
+        {!open && dekutBadge && (
+        <span style={{
+          position: 'absolute', top: 2, right: 2, width: 12, height: 12, borderRadius: '50%',
+          background: '#ef4444', border: '2px solid #0f0f1a',
+        }} />
+      )}
       </button>
     </div>
   )
