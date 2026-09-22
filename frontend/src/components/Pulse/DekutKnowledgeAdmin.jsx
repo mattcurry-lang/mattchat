@@ -138,7 +138,7 @@ function KnowledgeRow({ item, onEdit, onArchive, onDelete }) {
   )
 }
 
-export default function DekutKnowledgeAdmin() {
+export default function DekutKnowledgeAdmin({ onClose }) {
   const { items, loading, saving, saveItem, archiveItem, deleteItem } = useDekutKnowledge()
   const [editing, setEditing] = useState(null) // item being edited, or null = add mode
   const [query, setQuery] = useState('')
@@ -170,6 +170,17 @@ const handleArchive = async (id) => {
       <div style={{ fontSize: 18, fontWeight: 800, color: TEXT_PRIMARY, marginBottom: 4 }}>
         Curry Knowledge Base
       </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+  <div style={{ fontSize: 18, fontWeight: 800, color: TEXT_PRIMARY }}>Curry Knowledge Base</div>
+  {onClose && (
+    <button onClick={onClose} aria-label="Close" style={{
+      background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, width: 34, height: 34,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+    }}>
+      <DekutIcon type="x" size={16} color={TEXT_PRIMARY} strokeWidth={2.2} />
+    </button>
+  )}
+</div>
       <div style={{ fontSize: 12.5, color: TEXT_SECONDARY, marginBottom: 16 }}>
         Everything here is what Curry is allowed to say. Nothing gets embedded until you save it.
       </div>
