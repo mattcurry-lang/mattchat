@@ -1,17 +1,22 @@
-import { Agent } from 'node:undici'
+// scripts/scrape-dekut-knowledge.mjs
+//
+// Crawls DeKUT's site (a curated seed list + sitemap discovery), extracts
+// readable text, and sends new pages to dekut-knowledge-ingest as ACTIVE
+// items — Curry serves these to students immediately, no review step.
+// Skips URLs already ingested from a previous run.
+//
+// Run: node scripts/scrape-dekut-knowledge.mjs
+// Requires env vars: SUPABASE_URL, SUPABASE_ANON_KEY, ADMIN_EMAIL, ADMIN_PASSWORD
 
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD
 
-// DeKUT's TLS cert chain is missing its intermediate certificate — a
-// real server misconfiguration, not a spoofing risk we're choosing to
-// ignore. Scoped ONLY to requests to dkut.ac.ke domains; the Supabase
-// calls below (which carry admin credentials) keep full verification.
-// Worst case if this domain were ever actually compromised in transit:
-// bad content lands as a 'draft' row nobody has activated yet — it
-// never reaches a student without a human reviewing and approving it.
+// DeKUT's TLS cert chain is missing its intermediate certificate — a real
+// server misconfiguration. Scoped ONLY to dkut.ac.ke domains below; the
+// Supabase calls (which carry admin credentials) keep full verification.
+import { Agent } from 'node:undici'
 const insecureDekutDispatcher = new Agent({ connect: { rejectUnauthorized: false } })
 
 const SEED_PAGES = [
@@ -35,11 +40,6 @@ function stripHtml(html) {
     .trim()
 }
 
-// Strips characters Postgres text columns reject outright — control
-// characters and lone UTF-16 surrogates (half of a broken multi-byte
-// character, usually from a page served in a different encoding than
-// we assumed). Scraped web text is the one place this kind of garbage
-// reliably shows up; hand-typed knowledge-admin entries won't need this.
 function sanitizeText(str) {
   return str
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
@@ -67,26 +67,36 @@ async function scrapePage({ url, category }) {
     })
     clearTimeout(timer)
 
-    if (!res.ok) {
-      console.error(`  ✗ ${url} → HTTP ${res.status}`)
-      return null
-    }
+    if (!res.ok) { console.error(`  ✗ ${url} → HTTP ${res.status}`); return null }
     const html = await res.text()
     const title = extractTitle(html, url)
     let content = sanitizeText(stripHtml(html))
     if (content.length > 2000) content = content.slice(0, 2000) + '…'
-    if (content.length < 40) {
-      console.error(`  ✗ ${url} → too little extractable text, skipping`)
-      return null
+    if (content.length < 40) { console.error(`  ✗ ${url} → too little extractable text, skipping`); return null }
+
+    return {
+      title, content, category, source: url,
+      authority: 'DeKUT website (auto-collected)',
+      status: 'active',
     }
-   return {
-  title, content, category, source: url,
-  authority: 'DeKUT website (auto-collected)',
-  status: 'active',  
-}
   } catch (err) {
     console.error(`  ✗ ${url} → ${err.message}${err.cause ? ` (cause: ${err.cause.code || err.cause.message})` : ''}`)
     return null
+  }
+}
+
+async function discoverUrls(sitemapUrl, limit = 60) {
+  try {
+    const res = await fetch(sitemapUrl, { dispatcher: insecureDekutDispatcher })
+    if (!res.ok) return []
+    const xml = await res.text()
+    const urls = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map((m) => m[1].trim())
+    return urls
+      .filter((u) => !/\.(pdf|jpg|jpeg|png|zip|docx?)$/i.test(u) && !/login|admin|wp-json/i.test(u))
+      .slice(0, limit)
+  } catch (err) {
+    console.error(`Sitemap discovery failed: ${err.message}`)
+    return []
   }
 }
 
@@ -102,48 +112,55 @@ async function getAdminToken() {
   }
   return data.access_token
 }
-// Discovers real page URLs automatically instead of a hand-picked list —
-// this is what actually gets toward "everything," not the fixed array.
-async function discoverUrls(sitemapUrl, limit = 60) {
-  try {
-    const res = await fetch(sitemapUrl, { dispatcher: insecureDekutDispatcher })
-    if (!res.ok) return []
-    const xml = await res.text()
-    const urls = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map((m) => m[1].trim())
-    const filtered = urls.filter((u) => !/\.(pdf|jpg|jpeg|png|zip|docx?)$/i.test(u) && !/login|admin|wp-json/i.test(u))
-    return filtered.slice(0, limit)
-  } catch (err) {
-    console.error(`Sitemap discovery failed for ${sitemapUrl}: ${err.message}`)
-    return []
-  }
+
+// The admin's "writable by admins" policy is an ALL policy, which also
+// covers SELECT — so an admin token can read every row regardless of
+// status, not just active ones. Used purely to avoid re-ingesting the
+// same URL twice across runs.
+async function getExistingSources(accessToken) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/dekut_knowledge?select=source`, {
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) { console.error('Could not fetch existing sources — proceeding without dedupe.'); return new Set() }
+  const rows = await res.json()
+  return new Set(rows.map((r) => r.source).filter(Boolean))
 }
+
 async function main() {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !ADMIN_EMAIL || !ADMIN_PASSWORD) {
     console.error('Missing SUPABASE_URL, SUPABASE_ANON_KEY, ADMIN_EMAIL, or ADMIN_PASSWORD env vars.')
     process.exit(1)
   }
 
-console.log('Discovering pages…')
-const discovered = await discoverUrls('https://www.dkut.ac.ke/sitemap.xml')
-const allPages = [
-  ...SEED_PAGES,
-  ...discovered.map((url) => ({ url, category: 'general' })),
-]
-console.log(`Scraping ${allPages.length} pages…`)
-const items = []
-for (const page of allPages) {
-  console.log(`  → ${page.url}`)
-  const item = await scrapePage(page)
-  if (item) items.push(item)
-  await new Promise((r) => setTimeout(r, 500))
-}
+  console.log('Signing in as admin…')
+  const accessToken = await getAdminToken()
 
-  if (items.length === 0) {
-    console.error('Nothing scraped successfully — nothing to ingest.')
-    process.exit(1)
+  console.log('Checking for already-ingested pages…')
+  const existingSources = await getExistingSources(accessToken)
+  console.log(`  ${existingSources.size} pages already in the knowledge base.`)
+
+  console.log('Discovering pages…')
+  const discovered = await discoverUrls('https://www.dkut.ac.ke/sitemap.xml')
+  console.log(`  Found ${discovered.length} pages via sitemap.`)
+
+  const allPages = [...SEED_PAGES, ...discovered.map((url) => ({ url, category: 'general' }))]
+  const newPages = allPages.filter((p) => !existingSources.has(p.url))
+  console.log(`Scraping ${newPages.length} new pages (skipping ${allPages.length - newPages.length} already ingested)…`)
+
+  const items = []
+  for (const page of newPages) {
+    console.log(`  → ${page.url}`)
+    const item = await scrapePage(page)
+    if (item) items.push(item)
+    await new Promise((r) => setTimeout(r, 500))
   }
 
-  console.log(`Ingesting ${items.length} draft items…`)
+  if (items.length === 0) {
+    console.log('Nothing new to ingest.')
+    return
+  }
+
+  console.log(`Ingesting ${items.length} items…`)
   const res = await fetch(`${SUPABASE_URL}/functions/v1/dekut-knowledge-ingest`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
@@ -151,7 +168,10 @@ for (const page of allPages) {
   })
   const result = await res.json()
   console.log(JSON.stringify(result, null, 2))
-  console.log(`\nDone. Everything landed as status: 'draft' — review it in DekutKnowledgeAdmin before activating.`)
+
+  const succeeded = result.results?.filter((r) => r.ok).length ?? 0
+  const failed = result.results?.filter((r) => !r.ok).length ?? 0
+  console.log(`\nDone. ${succeeded} pages are now live in Curry's knowledge base. ${failed} failed.`)
 }
 
 main().catch((err) => {
