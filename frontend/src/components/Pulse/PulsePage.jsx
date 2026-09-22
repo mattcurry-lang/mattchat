@@ -27,6 +27,7 @@ import MattchatToolsCard from './MattchatToolsCard'
 import ScientificCalculator, { CalculatorGlyph } from './ScientificCalculator'
 import PulseMusicCard from './Music/PulseMusicCard'
 import DekutCateringAdmin from './DekutCateringAdmin'
+import CurryOrb from './CurryOrb'
 
 
 const LOCKED_PLATFORMS = Object.entries(PLATFORM_META).filter(([, meta]) => meta.supportLevel === 'native_only')
@@ -356,6 +357,8 @@ export default function PulsePage({
       {birthday.shouldShowExperience && (
         <BirthdayExperience profile={profile} onClose={birthday.dismiss} />
       )}
+  
+      <CurryOrb onNavigate={(route) => setDekutView(route)} hidden={dekutView !== null} />
     </div>
   )
 }
