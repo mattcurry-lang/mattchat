@@ -45,23 +45,42 @@ function extractTitle(html, fallback) {
 }
 
 async function scrapePage({ url, category }) {
-  const res = await fetch(url, { headers: { 'User-Agent': 'DeKUT-Hub-Curry-Ingest/1.0' } })
-  if (!res.ok) {
-    console.error(`  ✗ ${url} → HTTP ${res.status}`)
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 15000)
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml',
+      },
+      signal: controller.signal,
+      redirect: 'follow',
+    })
+    clearTimeout(timer)
+
+    if (!res.ok) {
+      console.error(`  ✗ ${url} → HTTP ${res.status}`)
+      return null
+    }
+    const html = await res.text()
+    const title = extractTitle(html, url)
+    let content = stripHtml(html)
+    if (content.length > 2000) content = content.slice(0, 2000) + '…'
+    if (content.length < 40) {
+      console.error(`  ✗ ${url} → too little extractable text, skipping`)
+      return null
+    }
+    return {
+      title, content, category, source: url,
+      authority: 'DeKUT website (auto-collected — verify before publishing)',
+      status: 'draft',
+    }
+  } catch (err) {
+    // err.cause is where Node actually hides the real reason for a bare
+    // "fetch failed" — DNS failure, TLS cert error, connection refused,
+    // timeout, etc. Log it, don't crash the whole run over one page.
+    console.error(`  ✗ ${url} → ${err.message}${err.cause ? ` (cause: ${err.cause.code || err.cause.message})` : ''}`)
     return null
-  }
-  const html = await res.text()
-  const title = extractTitle(html, url)
-  let content = stripHtml(html)
-  if (content.length > 2000) content = content.slice(0, 2000) + '…'
-  if (content.length < 40) {
-    console.error(`  ✗ ${url} → too little extractable text, skipping`)
-    return null
-  }
-  return {
-    title, content, category, source: url,
-    authority: 'DeKUT website (auto-collected — verify before publishing)',
-    status: 'draft',
   }
 }
 
