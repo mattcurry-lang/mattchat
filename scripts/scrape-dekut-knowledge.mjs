@@ -1,22 +1,18 @@
-// scripts/scrape-dekut-knowledge.mjs
-//
-// Crawls a fixed list of real DeKUT pages, extracts readable text, and
-// sends it to dekut-knowledge-ingest as DRAFT items — never 'active'.
-// Someone with admin access must review each draft in DekutKnowledgeAdmin
-// and flip it to active before Curry will ever serve it to a student.
-//
-// Uses plain fetch throughout — no @supabase/supabase-js — since all
-// this needs is one Auth token exchange, and the JS client pulls in a
-// realtime/WebSocket dependency that breaks on Node 20 for a script
-// that never touches realtime.
-//
-// Run: node scripts/scrape-dekut-knowledge.mjs
-// Requires env vars: SUPABASE_URL, SUPABASE_ANON_KEY, ADMIN_EMAIL, ADMIN_PASSWORD
+import { Agent } from 'node:undici'
 
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD
+
+// DeKUT's TLS cert chain is missing its intermediate certificate — a
+// real server misconfiguration, not a spoofing risk we're choosing to
+// ignore. Scoped ONLY to requests to dkut.ac.ke domains; the Supabase
+// calls below (which carry admin credentials) keep full verification.
+// Worst case if this domain were ever actually compromised in transit:
+// bad content lands as a 'draft' row nobody has activated yet — it
+// never reaches a student without a human reviewing and approving it.
+const insecureDekutDispatcher = new Agent({ connect: { rejectUnauthorized: false } })
 
 const SEED_PAGES = [
   { url: 'https://www.dkut.ac.ke/index.php/admissions-and-records', category: 'services' },
@@ -39,9 +35,21 @@ function stripHtml(html) {
     .trim()
 }
 
+// Strips characters Postgres text columns reject outright — control
+// characters and lone UTF-16 surrogates (half of a broken multi-byte
+// character, usually from a page served in a different encoding than
+// we assumed). Scraped web text is the one place this kind of garbage
+// reliably shows up; hand-typed knowledge-admin entries won't need this.
+function sanitizeText(str) {
+  return str
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, '')
+    .replace(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
+}
+
 function extractTitle(html, fallback) {
   const match = html.match(/<title>([\s\S]*?)<\/title>/i)
-  return match ? match[1].trim().split('|')[0].trim() : fallback
+  return match ? sanitizeText(match[1].trim().split('|')[0].trim()) : fallback
 }
 
 async function scrapePage({ url, category }) {
@@ -55,6 +63,7 @@ async function scrapePage({ url, category }) {
       },
       signal: controller.signal,
       redirect: 'follow',
+      dispatcher: insecureDekutDispatcher,
     })
     clearTimeout(timer)
 
@@ -64,7 +73,7 @@ async function scrapePage({ url, category }) {
     }
     const html = await res.text()
     const title = extractTitle(html, url)
-    let content = stripHtml(html)
+    let content = sanitizeText(stripHtml(html))
     if (content.length > 2000) content = content.slice(0, 2000) + '…'
     if (content.length < 40) {
       console.error(`  ✗ ${url} → too little extractable text, skipping`)
@@ -76,9 +85,6 @@ async function scrapePage({ url, category }) {
       status: 'draft',
     }
   } catch (err) {
-    // err.cause is where Node actually hides the real reason for a bare
-    // "fetch failed" — DNS failure, TLS cert error, connection refused,
-    // timeout, etc. Log it, don't crash the whole run over one page.
     console.error(`  ✗ ${url} → ${err.message}${err.cause ? ` (cause: ${err.cause.code || err.cause.message})` : ''}`)
     return null
   }
