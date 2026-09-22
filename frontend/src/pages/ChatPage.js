@@ -870,6 +870,7 @@ const [curryPrefill, setCurryPrefill] = useState(null)
   const [showDrawing, setShowDrawing] = useState(false)
   const [dekutFullscreen, setDekutFullscreen] = useState(false)
   const [showDekutCurry, setShowDekutCurry] = useState(false)
+  const [dekutHasNudge, setDekutHasNudge] = useState(false)
   const [mediaViewerTarget, setMediaViewerTarget] = useState(null) // messageId | null
   const [momentViewerTarget, setMomentViewerTarget] = useState(null) // messageId | null
   
@@ -2307,6 +2308,7 @@ const handleShareContact = async (profile) => {
   hidden={!!activeConvo || showShorts || showDekutCurry}
   onOpenCurryAI={() => setActiveConvo(CURRY_AI_CONTACT)}
   onOpenDekutCurry={() => setShowDekutCurry(true)}
+dekutBadge={dekutHasNudge}
 />
 {showDekutCurry && (
   <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
