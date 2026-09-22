@@ -5,12 +5,12 @@ import { DEKUT_CATEGORIES, DEFAULT_FEATURED_IDS, getServiceById } from '../../da
 import { useDekutUsage } from '../../hooks/useDekutUsage'
 import DekutServicesModal from './DekutServicesModal'
 import { openDekutService } from '../../utils/dekutOpenService'
-import CurryOrb from './CurryOrb'
+ 
 
 // onNavigate: (route, service) => void — forwarded from PulsePage so
 // internal services (Room Finder, Fresher Guide, Ask Curry, etc.) can
 // route to their in-app page.
-// userId + orbHidden: forwarded straight through to CurryOrb. orbHidden
+ 
 // should be true whenever PulsePage already has some other fullscreen
 // view open (RoomFinder, FresherMode, the calculator, etc.) so the
 // floating orb never visually stacks on top of another fullscreen layer.
@@ -138,10 +138,7 @@ export default function DeKUTHubCard({ onNavigate, userId, orbHidden }) {
         />
       )}
 
-      {/* Floating "Ask Curry" launcher — portals to document.body, so it
-          renders fixed above the whole viewport regardless of where this
-          card sits in Pulse's scroll container. */}
-      <CurryOrb userId={userId} onNavigate={onNavigate} hidden={orbHidden} />
+       
     </div>
   )
 }
