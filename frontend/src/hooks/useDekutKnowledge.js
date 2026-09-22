@@ -51,17 +51,24 @@ export function useDekutKnowledge() {
     }
   }, [load])
 
-  const archiveItem = useCallback(async (id) => {
-    const { error } = await supabase.from('dekut_knowledge').update({ status: 'archived' }).eq('id', id)
-    if (error) throw error
-    await load()
-  }, [load])
+ const archiveItem = useCallback(async (id) => {
+  const { error } = await supabase.from('dekut_knowledge').update({ status: 'archived' }).eq('id', id)
+  if (error) {
+    console.error('archive dekut_knowledge failed:', error)
+    return { ok: false, error: "Couldn't archive that item — try again." }
+  }
+  await load()
+  return { ok: true }
+}, [load])
 
-  const deleteItem = useCallback(async (id) => {
-    const { error } = await supabase.from('dekut_knowledge').delete().eq('id', id)
-    if (error) throw error
-    await load()
-  }, [load])
-
+const deleteItem = useCallback(async (id) => {
+  const { error } = await supabase.from('dekut_knowledge').delete().eq('id', id)
+  if (error) {
+    console.error('delete dekut_knowledge failed:', error)
+    return { ok: false, error: "Couldn't delete that item — try again." }
+  }
+  await load()
+  return { ok: true }
+}, [load])
   return { items, loading, error, saving, saveItem, archiveItem, deleteItem, reload: load }
 }
