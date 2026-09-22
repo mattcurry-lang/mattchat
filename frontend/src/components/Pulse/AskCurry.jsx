@@ -28,13 +28,14 @@ const TEXT_SECONDARY = 'rgba(245,245,250,0.6)'
 const BORDER = 'rgba(245,245,250,0.16)'
 const SURFACE = 'rgba(245,245,250,0.06)'
 
-// Empty-state quick actions — icon + color per action, not plain text
-// pills, so the hero reads as designed rather than a generic FAQ list.
+// Empty-state quick actions — one per spec domain (services, academic,
+// navigation, complaints/feedback) rather than catering-heavy defaults.
 const QUICK_ACTIONS = [
   { text: "What's on the menu today?", icon: 'utensils', color: '#fb923c' },
   { text: "Where is RC18?", icon: 'file', color: '#38bdf8' },
   { text: "How do I register my units?", icon: 'cap', color: '#a78bfa' },
-  { text: "Where is the library?", icon: 'book', color: '#34d399' },
+  { text: "When does registration close?", icon: 'calendar', color: '#34d399' },
+  { text: "I want to submit a complaint", icon: 'file', color: '#f87171' },
   { text: "I'm a first-year student", icon: 'star', color: '#f59e0b' },
 ]
 
@@ -524,17 +525,16 @@ function CurryHero({ onQuickAction }) {
 
       <div style={{ position: 'relative', fontSize: 17, fontWeight: 800, color: TEXT_PRIMARY, marginBottom: 6 }}>Hey! I'm Curry.</div>
       <div style={{ position: 'relative', fontSize: 12.5, color: TEXT_SECONDARY, marginBottom: 20, maxWidth: 320, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
-        I can help you navigate DeKUT, understand procedures, and get to campus services.
-      </div>
+  Ask me about registration, exams and academics, campus locations, catering, or file a complaint or feedback — I'll point you the right way.
+</div>
 
       <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, textAlign: 'left' }}>
-        {QUICK_ACTIONS.map((qa, i) => (
-          <button
-            key={qa.text}
-            onClick={() => onQuickAction(qa.text)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              gridColumn: i === QUICK_ACTIONS.length - 1 ? '1 / -1' : 'auto',
+        {QUICK_ACTIONS.map((qa) => (
+  <button
+    key={qa.text}
+    onClick={() => onQuickAction(qa.text)}
+    style={{
+      display: 'flex', alignItems: 'center', gap: 10,
               background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '10px 12px',
               cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
               transition: 'transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease',
