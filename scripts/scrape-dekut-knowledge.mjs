@@ -79,11 +79,11 @@ async function scrapePage({ url, category }) {
       console.error(`  ✗ ${url} → too little extractable text, skipping`)
       return null
     }
-    return {
-      title, content, category, source: url,
-      authority: 'DeKUT website (auto-collected — verify before publishing)',
-      status: 'draft',
-    }
+   return {
+  title, content, category, source: url,
+  authority: 'DeKUT website (auto-collected)',
+  status: 'active',  
+}
   } catch (err) {
     console.error(`  ✗ ${url} → ${err.message}${err.cause ? ` (cause: ${err.cause.code || err.cause.message})` : ''}`)
     return null
@@ -102,24 +102,41 @@ async function getAdminToken() {
   }
   return data.access_token
 }
-
+// Discovers real page URLs automatically instead of a hand-picked list —
+// this is what actually gets toward "everything," not the fixed array.
+async function discoverUrls(sitemapUrl, limit = 60) {
+  try {
+    const res = await fetch(sitemapUrl, { dispatcher: insecureDekutDispatcher })
+    if (!res.ok) return []
+    const xml = await res.text()
+    const urls = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map((m) => m[1].trim())
+    const filtered = urls.filter((u) => !/\.(pdf|jpg|jpeg|png|zip|docx?)$/i.test(u) && !/login|admin|wp-json/i.test(u))
+    return filtered.slice(0, limit)
+  } catch (err) {
+    console.error(`Sitemap discovery failed for ${sitemapUrl}: ${err.message}`)
+    return []
+  }
+}
 async function main() {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !ADMIN_EMAIL || !ADMIN_PASSWORD) {
     console.error('Missing SUPABASE_URL, SUPABASE_ANON_KEY, ADMIN_EMAIL, or ADMIN_PASSWORD env vars.')
     process.exit(1)
   }
 
-  console.log('Signing in as admin…')
-  const accessToken = await getAdminToken()
-
-  console.log(`Scraping ${SEED_PAGES.length} pages…`)
-  const items = []
-  for (const page of SEED_PAGES) {
-    console.log(`  → ${page.url}`)
-    const item = await scrapePage(page)
-    if (item) items.push(item)
-    await new Promise((r) => setTimeout(r, 500))
-  }
+console.log('Discovering pages…')
+const discovered = await discoverUrls('https://www.dkut.ac.ke/sitemap.xml')
+const allPages = [
+  ...SEED_PAGES,
+  ...discovered.map((url) => ({ url, category: 'general' })),
+]
+console.log(`Scraping ${allPages.length} pages…`)
+const items = []
+for (const page of allPages) {
+  console.log(`  → ${page.url}`)
+  const item = await scrapePage(page)
+  if (item) items.push(item)
+  await new Promise((r) => setTimeout(r, 500))
+}
 
   if (items.length === 0) {
     console.error('Nothing scraped successfully — nothing to ingest.')
