@@ -121,7 +121,7 @@ export function useCurryChat({ userId } = {}) {
     }
   }, [sending, userId, invoke])
 
-  const confirmAction = useCallback(async (messageId, action) => {
+   const confirmAction = useCallback(async (messageId, action) => {
     setSending(true)
     try {
       const data = await invoke({
@@ -135,12 +135,14 @@ export function useCurryChat({ userId } = {}) {
         ...prev.map((m) => (m.id === messageId ? { ...m, confirmed: true } : m)),
         { id: crypto.randomUUID(), role: 'assistant', text: data.response, sources: data.sources || [], action: data.action || null },
       ])
+      return data.response
     } catch (err) {
       console.error('Curry confirmAction failed:', err)
       setMessages((prev) => [
         ...prev,
         { id: crypto.randomUUID(), role: 'assistant', text: "That didn't go through — please try again.", error: true },
       ])
+      return null
     } finally {
       setSending(false)
     }
