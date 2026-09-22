@@ -397,7 +397,21 @@ function ActionCard({ action, message, onOpenService, onConfirm, onCateringInten
   if (action.type === 'CATERING_DETAILS_REQUIRED') {
     return <CateringDetailsForm action={action} message={message} onSubmit={onCateringIntent} />
   }
-
+  if (action.type === 'CATERING_USE_SAVED_REQUIRED') {
+    if (message.confirmed) return <div style={{ marginTop: 8, fontSize: 11.5, color: TEXT_SECONDARY }}>Confirmed</div>
+    return (
+      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        <button onClick={() => onCateringIntent({ intent: 'catering_use_saved', draft: action.draft, use_saved: true }, 'Yes, the usual', message.id)} style={{
+          fontSize: 11.5, fontWeight: 700, color: '#fff', fontFamily: 'inherit', border: 'none', borderRadius: 9,
+          padding: '7px 14px', cursor: 'pointer', background: ACCENT,
+        }}>Yes, use my details</button>
+        <button onClick={() => onCateringIntent({ intent: 'catering_use_saved', draft: action.draft, use_saved: false }, 'Different details', message.id)} style={{
+          fontSize: 11.5, fontWeight: 700, color: TEXT_SECONDARY, fontFamily: 'inherit',
+          border: `1px solid ${BORDER}`, borderRadius: 9, padding: '7px 14px', cursor: 'pointer', background: 'none',
+        }}>Use different details</button>
+      </div>
+    )
+  }
   if (action.type === 'CATERING_CONFIRM_REQUIRED') {
     return <CateringOrderCard action={action} message={message} onConfirm={onConfirm} onChange={onCateringIntent} />
   }
@@ -634,6 +648,14 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
   // calls whatever handleVoiceTurn currently is, not a stale closure.
   const callLatestVoiceTurn = useCallback((text) => handleVoiceTurnRef.current(text), [])
 
+
+  useEffect(() => {
+  const last = messages[messages.length - 1]
+  const navTypes = ['SHOW_MENU', 'CATERING_DETAILS_REQUIRED', 'CATERING_CONFIRM_REQUIRED', 'CATERING_USE_SAVED_REQUIRED']
+  if (mode === 'voice' && last?.role === 'assistant' && navTypes.includes(last.action?.type)) {
+    setMode('chat')
+  }
+}, [messages, mode])
   // Starts/stops the whole listen -> transcribe -> reply -> speak loop
   // as the student switches tabs — the loop itself is fully owned by
   // useCurryVoice now, this just turns it on/off.
