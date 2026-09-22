@@ -42,7 +42,8 @@ import CallsList from '../components/CallsList'
 import { useCallHistory } from '../hooks/useCallHistory'
 import NewCallModal from '../components/NewCallModal'
 import AICommandBar from '../components/AICommandBar'
-import FloatingCurryOrb from '../components/FloatingCurryOrb'
+import CurryLauncher from '../components/CurryLauncher'
+import AskCurry from '../components/Pulse/AskCurry'
 import MessageActionsMenu, { useMessageLongPress } from '../components/MessageActionsMenu'
 import AIInsightsPanel from '../components/AIInsightsPanel'
 import SmartCollections, { useConvoTags, filterByCollection } from '../components/SmartCollections'
@@ -868,6 +869,7 @@ const [curryPrefill, setCurryPrefill] = useState(null)
   const [showChangePicture, setShowChangePicture] = useState(false)
   const [showDrawing, setShowDrawing] = useState(false)
   const [dekutFullscreen, setDekutFullscreen] = useState(false)
+  const [showDekutCurry, setShowDekutCurry] = useState(false)
   const [mediaViewerTarget, setMediaViewerTarget] = useState(null) // messageId | null
   const [momentViewerTarget, setMomentViewerTarget] = useState(null) // messageId | null
   
@@ -2301,10 +2303,20 @@ const handleShareContact = async (profile) => {
 />
     )}
           
-   <FloatingCurryOrb
-  hidden={!!activeConvo || showShorts}
-  onActivate={() => setActiveConvo(CURRY_AI_CONTACT)}
+    <CurryLauncher
+  hidden={!!activeConvo || showShorts || showDekutCurry}
+  onOpenCurryAI={() => setActiveConvo(CURRY_AI_CONTACT)}
+  onOpenDekutCurry={() => setShowDekutCurry(true)}
 />
+{showDekutCurry && (
+  <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
+    <AskCurry
+      userId={userId}
+      onNavigate={() => { setShowDekutCurry(false); setActiveTab('pulse') }}
+      onClose={() => setShowDekutCurry(false)}
+    />
+  </div>
+)}
 {globalWatchInvite.invite && activeConvo?.id !== globalWatchInvite.invite.conversationId && (
   <GlobalWatchInviteBanner
     invite={globalWatchInvite.invite}
