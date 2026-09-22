@@ -8,7 +8,7 @@
 // Run: node scripts/scrape-dekut-knowledge.mjs
 // Requires env vars: SUPABASE_URL, SUPABASE_ANON_KEY, ADMIN_EMAIL, ADMIN_PASSWORD
  
-
+import { Agent } from 'undici'
 
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY
@@ -18,7 +18,7 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD
 // DeKUT's TLS cert chain is missing its intermediate certificate — a real
 // server misconfiguration. Scoped ONLY to dkut.ac.ke domains below; the
 // Supabase calls (which carry admin credentials) keep full verification.
-import { Agent } from 'node:undici'
+ 
 const insecureDekutDispatcher = new Agent({ connect: { rejectUnauthorized: false } })
 
 const SEED_PAGES = [
