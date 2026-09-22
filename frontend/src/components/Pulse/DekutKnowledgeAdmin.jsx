@@ -152,10 +152,18 @@ export default function DekutKnowledgeAdmin() {
     )
   }, [items, query, categoryFilter])
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this knowledge item permanently?')) return
-    await deleteItem(id)
-  }
+  const [rowFeedback, setRowFeedback] = useState(null) // { ok, message }
+
+const handleDelete = async (id) => {
+  if (!window.confirm('Delete this knowledge item permanently?')) return
+  const result = await deleteItem(id)
+  if (!result?.ok) setRowFeedback({ ok: false, message: result?.error })
+}
+
+const handleArchive = async (id) => {
+  const result = await archiveItem(id)
+  if (!result?.ok) setRowFeedback({ ok: false, message: result?.error })
+}
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto' }}>
@@ -188,7 +196,9 @@ export default function DekutKnowledgeAdmin() {
           {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
-
+{rowFeedback && !rowFeedback.ok && (
+  <div style={{ fontSize: 11.5, color: '#fca5a5', marginBottom: 8 }}>{rowFeedback.message}</div>
+)}
       {loading ? (
         <div style={{ fontSize: 12.5, color: TEXT_SECONDARY }}>Loading…</div>
       ) : filtered.length === 0 ? (
@@ -200,7 +210,7 @@ export default function DekutKnowledgeAdmin() {
               key={item.id}
               item={item}
               onEdit={setEditing}
-              onArchive={archiveItem}
+             onArchive={handleArchive}
               onDelete={handleDelete}
             />
           ))}
