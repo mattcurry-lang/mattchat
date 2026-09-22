@@ -7,7 +7,7 @@
 //
 // Run: node scripts/scrape-dekut-knowledge.mjs
 // Requires env vars: SUPABASE_URL, SUPABASE_ANON_KEY, ADMIN_EMAIL, ADMIN_PASSWORD
-import { Agent } from 'undici'
+ 
 
 
 const SUPABASE_URL = process.env.SUPABASE_URL
