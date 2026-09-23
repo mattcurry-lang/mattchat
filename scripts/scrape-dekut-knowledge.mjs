@@ -170,10 +170,28 @@ async function discoverUrls(sitemapUrl, limit = 60) {
   }
 }
 
+// Built from DeKUT's actual confirmed schools/institutes/departments
+// (an international university directory, cross-checked against the
+// pattern that already worked: mechanical.dkut.ac.ke). Department-level
+// names, not school-level ones — "engineering.dkut.ac.ke" never
+// resolved, but "mechanical.dkut.ac.ke" did, so DeKUT names sites after
+// departments, not schools.
 const CANDIDATE_SCHOOL_SUBDOMAINS = [
-  'eng', 'engineering', 'business', 'sbe', 'science', 'sci',
-  'nursing', 'son', 'agriculture', 'agric', 'built-environment',
-  'environment', 'education', 'mechanical', 'civil', 'electrical',
+  // School of Engineering — departments
+  'civil', 'electrical', 'mechanical', 'electronics',
+  // School of Computer Science and IT — already confirmed live (csit, cs)
+  'csit', 'cs',
+  // School of Business, Management and Economics
+  'business', 'economics', 'commerce', 'sbme',
+  // School of Science
+  'science', 'mathematics', 'physics', 'chemistry', 'biology',
+  // School of Nursing — already confirmed live
+  'nursing',
+  // Institutes
+  'icfoss', 'criminology', 'ifbt', 'food', 'iggres', 'geomatics',
+  'getri', 'geothermal', 'tourism', 'hospitality',
+  // Other known undergraduate programmes suggesting their own department
+  'architecture', 'agriculture',
 ]
 
 async function probeSubdomain(host) {
