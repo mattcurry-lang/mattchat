@@ -228,43 +228,45 @@ async function main() {
   console.log('Checking for already-ingested pages…')
   const existingSources = await getExistingSources(accessToken)
   console.log(`  ${existingSources.size} pages already in the knowledge base.`)
- 
-console.log('Discovering DeKUT subdomains…')
-const ctSubdomains = await discoverSubdomains('dkut.ac.ke')
-console.log(`  ${ctSubdomains.length} found via certificate logs.`)
 
-console.log('Probing likely school subdomain names…')
-const candidateHosts = CANDIDATE_SCHOOL_SUBDOMAINS.map((s) => `${s}.dkut.ac.ke`)
-const probeResults = await Promise.all(candidateHosts.map(async (h) => ({ host: h, live: await probeSubdomain(h) })))
-const guessedLive = probeResults.filter((r) => r.live).map((r) => r.host)
-if (guessedLive.length > 0) console.log(`  Live: ${guessedLive.join(', ')}`)
-console.log('Following links from homepages with no sitemap…')
-const sitemappedHosts = new Set(discovered.map((u) => new URL(u).host))
-const noSitemapHosts = allHosts.filter((h) => !sitemappedHosts.has(h))
-for (const host of noSitemapHosts) {
-  const links = await crawlFromHomepage(`https://${host}/`, 'academic')
-  if (links.length > 0) {
-    console.log(`  https://${host}/ → followed ${links.length} likely pages: ${links.join(', ')}`)
-    discovered = discovered.concat(links)
-  }
-}
- 
-const allHosts = [...new Set([...ctSubdomains, ...guessedLive])]
-console.log(`Discovering pages across ${allHosts.length} hosts…`)
-let discovered = []
-for (const host of allHosts) {
-  for (const sitemapUrl of [`https://${host}/sitemap.xml`, `https://${host}/wp-sitemap.xml`]) {
-    const found = await discoverUrls(sitemapUrl)
-    if (found.length > 0) {
-      console.log(`  ${sitemapUrl} → ${found.length} pages`)
-      discovered = discovered.concat(found)
-      break
+  console.log('Discovering DeKUT subdomains…')
+  const ctSubdomains = await discoverSubdomains('dkut.ac.ke')
+  console.log(`  ${ctSubdomains.length} found via certificate logs.`)
+
+  console.log('Probing likely school subdomain names…')
+  const candidateHosts = CANDIDATE_SCHOOL_SUBDOMAINS.map((s) => `${s}.dkut.ac.ke`)
+  const probeResults = await Promise.all(candidateHosts.map(async (h) => ({ host: h, live: await probeSubdomain(h) })))
+  const guessedLive = probeResults.filter((r) => r.live).map((r) => r.host)
+  if (guessedLive.length > 0) console.log(`  Live: ${guessedLive.join(', ')}`)
+
+  const allHosts = [...new Set([...ctSubdomains, ...guessedLive])]
+
+  console.log(`Discovering pages across ${allHosts.length} hosts…`)
+  let discovered = []
+  for (const host of allHosts) {
+    for (const sitemapUrl of [`https://${host}/sitemap.xml`, `https://${host}/wp-sitemap.xml`]) {
+      const found = await discoverUrls(sitemapUrl)
+      if (found.length > 0) {
+        console.log(`  ${sitemapUrl} → ${found.length} pages`)
+        discovered = discovered.concat(found)
+        break
+      }
     }
   }
-}
-console.log(`  ${discovered.length} pages found via sitemaps in total.`)
+  console.log(`  ${discovered.length} pages found via sitemaps in total.`)
 
-const allPages = [...SEED_PAGES, ...discovered.map((url) => ({ url, category: 'general' }))]
+  console.log('Following links from homepages with no sitemap…')
+  const sitemappedHosts = new Set(discovered.map((u) => { try { return new URL(u).host } catch { return '' } }))
+  const noSitemapHosts = allHosts.filter((h) => !sitemappedHosts.has(h))
+  for (const host of noSitemapHosts) {
+    const links = await crawlFromHomepage(`https://${host}/`, 'academic')
+    if (links.length > 0) {
+      console.log(`  https://${host}/ → followed ${links.length} likely pages: ${links.join(', ')}`)
+      discovered = discovered.concat(links)
+    }
+  }
+
+  const allPages = [...SEED_PAGES, ...discovered.map((url) => ({ url, category: 'general' }))]
   const newPages = allPages.filter((p) => !existingSources.has(p.url))
   console.log(`Scraping ${newPages.length} new pages (skipping ${allPages.length - newPages.length} already ingested)…`)
 
