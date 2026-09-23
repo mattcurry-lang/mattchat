@@ -30,13 +30,24 @@ const SEED_PAGES = [
   { url: 'https://www.dkut.ac.ke/library/', category: 'academic' },
   { url: 'https://csit.dkut.ac.ke/staff-profiles/', category: 'academic' },
   { url: 'https://csit.dkut.ac.ke/about-us/', category: 'academic' },
-  { url: 'https://cs.dkut.ac.ke/staff-profiles/', category: 'academic' },
-  { url: 'https://cs.dkut.ac.ke/contact-us/', category: 'academic' },
   { url: 'https://nursing.dkut.ac.ke/staff-profiles.html', category: 'academic' },  // was /staff-profiles/
   { url: 'https://nursing.dkut.ac.ke/about.html', category: 'academic' },           // was /about-us/
   { url: 'https://nursing.dkut.ac.ke/', category: 'academic' },
   { url: 'https://sbme.dkut.ac.ke/staff-profiles/', category: 'academic' },         // add this, seen in crawl log
 ]
+
+// Hosts whose content can't be trusted. Compromised sites are blocked
+// entirely rather than filtered by keyword, since injected content
+// won't always contain obvious spam words.
+const BLOCKED_HOSTS = new Set(['cs.dkut.ac.ke'])
+const isBlocked = (u) => { try { return BLOCKED_HOSTS.has(new URL(u).host) } catch { return true } }
+
+function decodeEntities(s) {
+  return s
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&quot;/g, '"').replace(/&#039;|&apos;/g, "'").replace(/&amp;/g, '&')
+}
 
 function stripHtml(html) {
   return html
@@ -60,7 +71,7 @@ function sanitizeText(str) {
 
 function extractTitle(html, fallback) {
   const match = html.match(/<title>([\s\S]*?)<\/title>/i)
-  return match ? sanitizeText(match[1].trim().split('|')[0].trim()) : fallback
+  return match ? sanitizeText(decodeEntities(match[1].trim().split('|')[0].trim())) : fallback
 }
 
 // Certificate Transparency logs record every HTTPS cert ever issued for
@@ -104,10 +115,11 @@ async function scrapePage({ url, category }) {
     const html = await res.text()
     const title = extractTitle(html, url)
 
-    if (looksLikeStaffPage(url)) {
-      const blockText = htmlToBlockText(html)
-      const staffEntries = splitStaffEntries(blockText, url)
-      if (staffEntries) return staffEntries // array — caller must flatten
+       if (looksLikeStaffPage(url)) {
+      const staffEntries = splitStaffEntries(htmlToBlockText(html), url)
+      if (staffEntries) return staffEntries
+      console.error(`  ✗ ${url} → directory page with no per-person details, skipping`)
+      return null
     }
 
     // Fallback: normal whole-page behavior for non-directory pages
@@ -375,7 +387,12 @@ async function main() {
   }
 
   const allPages = [...SEED_PAGES, ...discovered.map((url) => ({ url, category: 'general' }))]
-  const newPages = allPages.filter((p) => !existingSources.has(p.url))
+  const seen = new Set()
+  const newPages = allPages.filter((p) => {
+    if (isBlocked(p.url) || existingSources.has(p.url) || seen.has(p.url)) return false
+    seen.add(p.url)
+    return true
+  })
   console.log(`Scraping ${newPages.length} new pages (skipping ${allPages.length - newPages.length} already ingested)…`)
 
   const items = []
