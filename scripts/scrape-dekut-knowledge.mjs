@@ -149,7 +149,15 @@ async function crawlFromHomepage(homepageUrl, category, maxPages = 8) {
   }
 }
 
-async function discoverUrls(sitemapUrl, limit = 60) {
+// WordPress sitemaps are two layers: the top sitemap.xml/wp-sitemap.xml
+// lists OTHER sitemaps (one per content type — posts, pages, a custom
+// "person" type for staff directories, etc.), not actual pages. This
+// follows one extra layer down whenever a discovered URL is itself a
+// sitemap file, so real content (like individual lecturer profile URLs
+// under a "person" post type) actually gets reached — and, critically,
+// never returns a sitemap URL itself as something to scrape as content.
+async function discoverUrls(sitemapUrl, limit = 200, depth = 0) {
+  if (depth > 2) return [] // safety cap against any circular/malformed sitemap
   try {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 10000)
@@ -157,14 +165,22 @@ async function discoverUrls(sitemapUrl, limit = 60) {
     clearTimeout(timer)
     if (!res.ok) return []
     const xml = await res.text()
-    const urls = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map((m) => m[1].trim())
-    return urls
+    const rawUrls = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map((m) => m[1].trim())
+
+    const looksLikeSitemap = (u) => /sitemap.*\.xml$/i.test(u)
+    const nestedSitemaps = rawUrls.filter(looksLikeSitemap)
+    const realPages = rawUrls.filter((u) => !looksLikeSitemap(u))
+
+    let all = realPages
+    for (const nested of nestedSitemaps) {
+      const deeper = await discoverUrls(nested, limit, depth + 1)
+      all = all.concat(deeper)
+    }
+
+    return all
       .filter((u) => !/\.(pdf|jpg|jpeg|png|zip|docx?)$/i.test(u) && !/login|admin|wp-json/i.test(u))
       .slice(0, limit)
   } catch (err) {
-    // Now shows the real reason instead of a bare "fetch failed" — DNS
-    // failure (ENOTFOUND, meaning nothing is actually running there),
-    // a timeout, or a refused connection are very different situations.
     console.error(`  ✗ ${sitemapUrl} → ${err.message}${err.cause ? ` (${err.cause.code || err.cause.message})` : ''}`)
     return []
   }
