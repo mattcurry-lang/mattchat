@@ -112,6 +112,7 @@ async function scrapePage({ url, category }) {
 
     // Fallback: normal whole-page behavior for non-directory pages
     let content = sanitizeText(stripHtml(html))
+   if (SPAM_RE.test(content)) { console.error(`  ✗ ${url} → spam-injected content, skipping`); return null }
     if (content.length > 2000) content = content.slice(0, 2000) + '…'
     if (content.length < 40) { console.error(`  ✗ ${url} → too little extractable text, skipping`); return null }
     return { title, content, category, source: url, authority: 'DeKUT Official Website', status: 'active' }
@@ -123,7 +124,19 @@ async function scrapePage({ url, category }) {
 // Detects a page that's actually a staff/faculty directory rather than
 // prose, and splits it into one record per person instead of one
 // truncated blob for the whole page.
-const STAFF_TITLE_RE = /\b(Prof\.?|Dr\.?|Eng\.?|Mr\.?|Mrs\.?|Ms\.?)\s+[A-Z][\w.'-]+(?:\s+[A-Z][\w.'-]+){0,3}/g
+// Injected SEO spam seen on cs.dkut.ac.ke. Any line matching is dropped.
+const SPAM_RE = /\b(slot\d*|betspin\d*|gacor|togel|judi|casino|poker|terpercaya|sbobet|maxwin)\b/i
+
+// A name line is ONE line: honorific + 2-4 capitalised words, nothing else.
+// Matching per-line means a name can never swallow the next person's title.
+const NAME_LINE_RE = /^(?:Prof\.?|Dr\.?|Eng\.?|Mr\.?|Mrs\.?|Ms\.?)\s+[A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,3}$/
+
+// Site navigation and page furniture, never part of a person's details.
+const NAV_LINE_RE = /^(pages|home|about us|programmes|staff profiles|departments|students|resources|contacts|university website|search for:?.*|comments are closed.*|message from the dean)$/i
+
+// A line only counts as detail if it says something about the person.
+const DETAIL_RE = /(lecturer|professor|dean|chair|head of|school of|department of|@|tel|phone|phd|msc|research|specializ)/i
+
 
 function looksLikeStaffPage(url) {
   return /staff-profiles|staff|faculty|team|people/i.test(url)
@@ -134,44 +147,57 @@ function looksLikeStaffPage(url) {
 // into one run-on sentence with nothing to split on.
 function htmlToBlockText(html) {
   return html
+    .replace(/<!--[\s\S]*?-->/g, ' ')
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
     .replace(/<nav[\s\S]*?<\/nav>/gi, ' ')
     .replace(/<footer[\s\S]*?<\/footer>/gi, ' ')
-    .replace(/<\/(p|div|li|h[1-6]|tr|br)>/gi, '\n')
+    .replace(/<\/(p|div|li|h[1-6]|tr|td|th)>/gi, '\n')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/[ \t]+/g, ' ')
-    .replace(/\n{2,}/g, '\n')
+    .replace(/\n\s*\n+/g, '\n')
     .trim()
 }
+
 
 // Splits directory text into one chunk per person: everything from one
 // "Dr./Prof./Mr. Name" match up to the next one becomes that person's
 // record. Falls back to null (caller keeps old whole-page behavior) if
 // fewer than 2 name-like matches are found — not actually a directory.
 function splitStaffEntries(blockText, sourceUrl) {
-  const matches = [...blockText.matchAll(STAFF_TITLE_RE)]
-  if (matches.length < 2) return null
+  const lines = blockText
+    .split('\n')
+    .map((l) => sanitizeText(l.replace(/\s+/g, ' ').trim()))
+    .filter((l) => l && !SPAM_RE.test(l) && !NAV_LINE_RE.test(l))
+
+  const nameIdx = []
+  lines.forEach((l, i) => { if (NAME_LINE_RE.test(l)) nameIdx.push(i) })
+  if (nameIdx.length < 2) return null // not a directory
 
   const entries = []
-  for (let i = 0; i < matches.length; i++) {
-    const start = matches[i].index
-    const end = i + 1 < matches.length ? matches[i + 1].index : blockText.length
-    const chunk = sanitizeText(blockText.slice(start, end).replace(/\s+/g, ' ').trim())
-    const name = sanitizeText(matches[i][0].trim())
-    if (chunk.length < 15) continue // just a bare name with nothing else, skip
+  let skipped = 0
+  for (let k = 0; k < nameIdx.length; k++) {
+    const start = nameIdx[k]
+    const end = nameIdx[k + 1] ?? lines.length
+    const name = lines[start]
+    const details = lines
+      .slice(start + 1, Math.min(end, start + 6))
+      .filter((l) => l.length >= 8 && l.length <= 160 && DETAIL_RE.test(l))
+    // A bare name says nothing verifiable. Better no record than a junk one.
+    if (details.length === 0) { skipped++; continue }
     entries.push({
       title: name,
-      content: chunk.slice(0, 1200),
+      content: `${name}. ${details.join('. ')}`.slice(0, 600),
       category: 'academic',
-      source: `${sourceUrl}#${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      source: `${sourceUrl}#${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`,
       authority: 'DeKUT Official Website',
       status: 'active',
     })
   }
+  console.log(`  staff page: ${entries.length} records kept, ${skipped} bare names skipped`)
   return entries.length > 0 ? entries : null
 }
 // When a homepage is reachable but we don't know its real page structure
