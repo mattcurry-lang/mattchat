@@ -1,19 +1,31 @@
 // src/components/Pulse/CurryCateringCards.jsx
 //
 // Every card Curry can put inside a chat bubble, including the catering
-// flow. AskCurry.jsx imports ActionCard from here instead of defining
-// its own — see the integration notes.
+// flow. AskCurry.jsx imports the default-exported ActionCard from here
+// instead of defining its own — this is the ONLY place these cards live.
 //
-// The catering cards are the ordering flow. They are deliberately the
-// only place an order is assembled: the student taps real menu rows,
-// the card sends real item ids, and the edge function does the pricing.
-// Nothing here ever computes or displays a price the backend didn't
-// send, and nothing here can submit twice (message.confirmed locks it).
+// Phase 1 consolidation note: this file previously had a slimmer, visually
+// nicer menu/order card that had drifted out of sync with a second,
+// feature-complete copy that lived inline in AskCurry.jsx. That inline
+// copy carried real functionality this file was missing — per-item stock
+// counts, sold-out state, images, a live/last-updated badge, search for
+// long menus, and a "change items" path distinct from "change contact
+// info". All of that has been merged in here so nothing regresses.
+// CATERING_USE_SAVED_REQUIRED (the "use your saved details?" quick-confirm
+// for returning customers) was also missing from this file's router and
+// has been added back.
 //
-//   SHOW_MENU                  → CurryMenuCard      (browse + build order)
-//   CATERING_DETAILS_REQUIRED  → CurryContactCard   (first order: name + phone)
-//   CATERING_CONFIRM_REQUIRED  → CurryOrderCard     (review + place)
-//   CATERING_ORDER_PLACED      → CurryReceiptCard   (what happens next)
+// Calling convention for every card here: onIntent(payload, options)
+// where options is an optional { userText?, replaceMessageId? } — never
+// positional args. The chat surface (AskCurry.jsx) owns exactly one small
+// adapter that turns this into useCurryChat's sendIntent(payload, summary,
+// messageId) shape, so this file stays decoupled from that hook.
+//
+//   SHOW_MENU                    → CurryMenuCard        (browse + build order)
+//   CATERING_DETAILS_REQUIRED    → CurryContactCard     (first order: name + phone)
+//   CATERING_USE_SAVED_REQUIRED  → CurryUseSavedCard     (returning customer shortcut)
+//   CATERING_CONFIRM_REQUIRED    → CurryOrderCard        (review + place)
+//   CATERING_ORDER_PLACED        → CurryReceiptCard      (what happens next)
 
 import React, { useMemo, useState } from 'react'
 import { DekutIcon } from './dekutIcons'
@@ -59,12 +71,27 @@ export function maskPhone(phone) {
   return `${local.slice(0, 4)} ••• ${local.slice(-3)}`
 }
 
+function formatTime(iso) {
+  if (!iso) return null
+  try {
+    return new Date(iso).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })
+  } catch {
+    return null
+  }
+}
+
 const shell = {
   marginTop: 10,
   border: `1px solid ${BORDER}`,
   borderRadius: 16,
   overflow: 'hidden',
   background: 'rgba(15,15,26,0.62)',
+}
+
+const inputStyle = {
+  border: `1px solid ${BORDER}`, borderRadius: 10, padding: '9px 11px',
+  fontSize: 12.5, background: 'rgba(15,15,26,0.9)', color: TEXT_PRIMARY,
+  fontFamily: 'inherit', boxSizing: 'border-box', width: '100%', outline: 'none',
 }
 
 function CardHeader({ eyebrow, title, right }) {
@@ -100,7 +127,7 @@ function quietButton(extra = {}) {
 
 // ── Menu ─────────────────────────────────────────────────────────────────
 
-function Stepper({ quantity, onChange }) {
+function Stepper({ quantity, onChange, max = 20 }) {
   if (!quantity) {
     return (
       <button
@@ -123,7 +150,7 @@ function Stepper({ quantity, onChange }) {
     }}>
       <button onClick={() => onChange(quantity - 1)} aria-label="Remove one" style={stepBtn}>−</button>
       <span style={{ fontSize: 12.5, fontWeight: 700, color: TEXT_PRIMARY, minWidth: 14, textAlign: 'center' }}>{quantity}</span>
-      <button onClick={() => onChange(quantity + 1)} aria-label="Add one" style={stepBtn}>+</button>
+      <button onClick={() => onChange(Math.min(max, quantity + 1))} disabled={quantity >= max} aria-label="Add one" style={{ ...stepBtn, opacity: quantity >= max ? 0.4 : 1 }}>+</button>
     </div>
   )
 }
@@ -134,157 +161,149 @@ const stepBtn = {
   display: 'flex', alignItems: 'center', justifyContent: 'center',
 }
 
-function CurryMenuCard({ action, sending, onIntent }) {
+// message is optional — when present, the card locks itself (renders
+// nothing) once that message has been marked confirmed, and passes its id
+// back as replaceMessageId so ordering from it locks the card in place
+// rather than staying live and re-submittable underneath the reply that
+// follows.
+function CurryMenuCard({ action, message, sending, onIntent }) {
   const messes = action.messes || []
-  const [activeMessId, setActiveMessId] = useState(messes[0]?.id)
-  const [picked, setPicked] = useState({}) // item_id -> quantity
+  const [messId, setMessId] = useState((messes.find((m) => m.open) || messes[0])?.id ?? null)
+  const [cart, setCart] = useState({}) // item_id -> quantity
+  const [query, setQuery] = useState('')
 
-  const mess = messes.find((m) => m.id === activeMessId) || messes[0]
+  if (message?.confirmed) return null
+
+  const mess = messes.find((m) => m.id === messId) || messes[0]
   if (!mess) return null
 
-  // Switching mess clears the basket: you can't order across two
-  // kitchens in one order, and silently dropping items would be worse.
-  const switchMess = (id) => { setActiveMessId(id); setPicked({}) }
+  const switchMess = (id) => { setMessId(id); setQuery('') }
 
-  const setQty = (itemId, qty) => {
-    setPicked((prev) => {
-      const next = { ...prev }
-      if (qty <= 0) delete next[itemId]
-      else next[itemId] = Math.min(20, qty)
-      return next
-    })
-  }
+  const setQty = (itemId, qty) => setCart((prev) => {
+    const next = { ...prev }
+    if (qty <= 0) delete next[itemId]
+    else next[itemId] = Math.min(20, qty)
+    return next
+  })
 
-  const chosen = useMemo(
-    () => mess.items.filter((i) => picked[i.id]).map((i) => ({ ...i, quantity: picked[i.id] })),
-    [mess, picked]
-  )
-  const count = chosen.reduce((n, i) => n + i.quantity, 0)
-  const total = chosen.reduce((sum, i) => sum + i.unit_price * i.quantity, 0)
+  const q = query.trim().toLowerCase()
+  const visible = mess.items.filter((i) => !q || i.name.toLowerCase().includes(q))
+  const cartItems = mess.items.filter((i) => cart[i.id] > 0).map((i) => ({ ...i, quantity: cart[i.id] }))
+  const count = cartItems.reduce((s, i) => s + i.quantity, 0)
+  const total = cartItems.reduce((s, i) => s + i.unit_price * i.quantity, 0)
+  const countIn = (m) => m.items.reduce((s, i) => s + (cart[i.id] || 0), 0)
+  const asOf = formatTime(action.as_of)
 
-  const grouped = useMemo(() => {
-    const groups = new Map()
-    for (const item of mess.items) {
-      const key = item.category || 'On the menu'
-      if (!groups.has(key)) groups.set(key, [])
-      groups.get(key).push(item)
-    }
-    return [...groups.entries()]
-  }, [mess])
-
-  const placeOrder = () => {
-    if (chosen.length === 0 || sending) return
+  const handleOrder = () => {
+    if (cartItems.length === 0 || sending) return
     onIntent(
+      { intent: 'catering_draft', draft: { mess_id: mess.id, items: cartItems.map((i) => ({ item_id: i.id, quantity: i.quantity })) } },
       {
-        intent: 'catering_draft',
-        draft: { mess_id: mess.id, items: chosen.map((i) => ({ item_id: i.id, quantity: i.quantity })) },
-      },
-      { userText: `${chosen.map((i) => `${i.quantity} × ${i.name}`).join(', ')} from ${mess.name}` }
+        userText: `${cartItems.map((i) => `${i.quantity} × ${i.name}`).join(', ')} from ${mess.name}`,
+        replaceMessageId: message?.id,
+      }
     )
-    setPicked({})
+    setCart({})
   }
 
   return (
     <div style={shell}>
-      <CardHeader
-        eyebrow="Serving now"
-        title={mess.name}
-        right={mess.notes ? <span style={{ fontSize: 11, color: TEXT_SECONDARY, textAlign: 'right' }}>{mess.notes}</span> : null}
-      />
+      <div style={{ padding: '12px 16px 4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: TEXT_PRIMARY }}>Today's menu</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: TEXT_SECONDARY }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: action.live ? '#34d399' : '#f59e0b' }} />
+          {action.live ? (asOf ? `Live · ${asOf}` : 'Live') : (asOf ? `Last updated ${asOf}` : 'May be out of date')}
+        </div>
+      </div>
 
       {messes.length > 1 && (
-        <div style={{ display: 'flex', gap: 6, padding: '9px 14px 3px', flexWrap: 'wrap' }}>
-          {messes.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => switchMess(m.id)}
-              style={{
-                fontSize: 11.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
-                borderRadius: 999, padding: '5px 11px',
-                border: `1px solid ${m.id === mess.id ? 'rgba(167,139,250,0.5)' : BORDER}`,
-                background: m.id === mess.id ? 'rgba(167,139,250,0.14)' : 'transparent',
-                color: m.id === mess.id ? '#c4b5fd' : TEXT_SECONDARY,
-              }}
-            >
-              {m.name}
-            </button>
-          ))}
+        <div style={{ display: 'flex', gap: 8, padding: '10px 16px 12px', overflowX: 'auto' }}>
+          {messes.map((m) => {
+            const active = m.id === mess.id
+            const inCart = countIn(m)
+            return (
+              <button key={m.id} onClick={() => switchMess(m.id)} style={{
+                flexShrink: 0, textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer',
+                padding: '8px 12px', borderRadius: 12, minWidth: 96,
+                border: `1px solid ${active ? VIOLET : BORDER}`,
+                background: active ? 'rgba(167,139,250,0.14)' : SURFACE,
+                opacity: m.open || active ? 1 : 0.65,
+              }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: TEXT_PRIMARY, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {m.name}
+                  {inCart > 0 && <span style={{ fontSize: 10, background: VIOLET, color: '#fff', borderRadius: 999, padding: '1px 6px' }}>{inCart}</span>}
+                </div>
+                <div style={{ fontSize: 10.5, marginTop: 2, color: m.open ? MINT : TEXT_SECONDARY }}>
+                  {m.open ? `${m.available_count} available` : 'Nothing on now'}
+                </div>
+              </button>
+            )
+          })}
         </div>
       )}
 
-      <div style={{ maxHeight: 268, overflowY: 'auto', padding: '4px 14px 10px' }}>
-        {grouped.map(([category, items]) => (
-          <div key={category} style={{ marginTop: 10 }}>
-            {grouped.length > 1 && (
-              <div style={{ fontSize: 11, fontWeight: 600, color: TEXT_MUTED, marginBottom: 4 }}>{category}</div>
-            )}
-            {items.map((item) => {
-              const qty = picked[item.id] || 0
-              return (
-                <div
-                  key={item.id}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0',
-                    borderBottom: `1px solid rgba(245,245,250,0.07)`,
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12.8, fontWeight: 600, color: TEXT_PRIMARY }}>{item.name}</div>
-                    {qty > 0 && (
-                      <div style={{ fontSize: 10.5, color: '#c4b5fd', marginTop: 1 }}>
-                        KSh {item.unit_price * qty}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ fontSize: 12.5, color: qty ? TEXT_SECONDARY : TEXT_PRIMARY, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                    KSh {item.unit_price}
-                  </div>
-                  <Stepper quantity={qty} onChange={(q) => setQty(item.id, q)} />
-                </div>
-              )
-            })}
+      {mess.items.length > 8 && (
+        <div style={{ padding: '0 16px 10px' }}>
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${mess.name}`} style={inputStyle} />
+        </div>
+      )}
+
+      <div style={{ maxHeight: 340, overflowY: 'auto', borderTop: `1px solid ${BORDER}` }}>
+        {visible.length === 0 && (
+          <div style={{ padding: '28px 16px', textAlign: 'center', fontSize: 12.5, color: TEXT_SECONDARY, lineHeight: 1.5 }}>
+            {mess.items.length === 0
+              ? `Nothing is being served at ${mess.name} right now. Check back a little later.`
+              : `No items match "${query}".`}
           </div>
-        ))}
+        )}
+        {visible.map((item) => {
+          const qty = cart[item.id] || 0
+          const left = item.available_quantity
+          const soldOut = !item.is_available || left <= 0
+          return (
+            <div key={item.id} style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
+              borderBottom: `1px solid ${BORDER}`, opacity: soldOut ? 0.5 : 1,
+            }}>
+              <div style={{ width: 52, height: 52, borderRadius: 12, flexShrink: 0, overflow: 'hidden', background: SURFACE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: TEXT_SECONDARY }}>
+                {item.image_url
+                  ? <img src={item.image_url} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none' }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : item.name.charAt(0)}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: TEXT_PRIMARY, lineHeight: 1.3 }}>{item.name}</div>
+                <div style={{ fontSize: 12, marginTop: 3, color: TEXT_SECONDARY }}>
+                  <span style={{ color: TEXT_PRIMARY, fontWeight: 700 }}>KSh {item.unit_price}</span>
+                  {!soldOut && <span style={{ color: left <= 5 ? '#fbbf24' : TEXT_SECONDARY }}> · {left} left</span>}
+                </div>
+              </div>
+              {soldOut
+                ? <span style={{ fontSize: 11.5, fontWeight: 700, color: TEXT_SECONDARY }}>Sold out</span>
+                : <Stepper quantity={qty} max={Math.min(20, left)} onChange={(q) => setQty(item.id, q)} />}
+            </div>
+          )
+        })}
       </div>
 
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
-        borderTop: `1px solid ${BORDER}`,
-        background: count ? 'rgba(167,139,250,0.08)' : 'transparent',
-        transition: 'background 180ms ease',
-      }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {count ? (
-            <>
-              <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_PRIMARY }}>KSh {total}</div>
-              <div style={{ fontSize: 11, color: TEXT_SECONDARY }}>{count} item{count === 1 ? '' : 's'} from {mess.name}</div>
-            </>
-          ) : (
-            <div style={{ fontSize: 11.5, color: TEXT_SECONDARY }}>Tap what you want and I'll total it up.</div>
-          )}
+      <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, borderTop: `1px solid ${BORDER}` }}>
+        <div style={{ flex: 1, fontSize: 13, color: TEXT_PRIMARY }}>
+          {count > 0
+            ? <><span style={{ fontWeight: 800 }}>{count} item{count > 1 ? 's' : ''}</span><span style={{ color: TEXT_SECONDARY }}> · KSh {total}</span></>
+            : <span style={{ color: TEXT_SECONDARY }}>Tap + to start your order</span>}
         </div>
-        <button
-          onClick={placeOrder}
-          disabled={!count || sending}
-          style={primaryButton({
-            opacity: !count || sending ? 0.45 : 1,
-            cursor: !count || sending ? 'default' : 'pointer',
-          })}
-        >
-          Order
+        <button onClick={handleOrder} disabled={count === 0 || sending} style={primaryButton({
+          padding: '10px 18px',
+          opacity: count === 0 || sending ? 0.4 : 1,
+          cursor: count === 0 || sending ? 'default' : 'pointer',
+        })}>
+          Review order
         </button>
       </div>
     </div>
   )
 }
 
-// ── First order: name + phone ────────────────────────────────────────────
-
-const inputStyle = {
-  border: `1px solid ${BORDER}`, borderRadius: 10, padding: '9px 11px',
-  fontSize: 12.5, background: 'rgba(15,15,26,0.9)', color: TEXT_PRIMARY,
-  fontFamily: 'inherit', boxSizing: 'border-box', width: '100%', outline: 'none',
-}
+// ── First order / edit contact: name + phone ────────────────────────────
 
 function CurryContactCard({ message, action, sending, onIntent, initial, onCancel }) {
   const [name, setName] = useState(initial?.customer_name || '')
@@ -343,11 +362,43 @@ function CurryContactCard({ message, action, sending, onIntent, initial, onCance
   )
 }
 
+// ── Returning customer: use saved details? ──────────────────────────────
+
+function CurryUseSavedCard({ action, message, sending, onIntent }) {
+  if (message.confirmed) {
+    return <div style={{ marginTop: 8, fontSize: 11.5, color: TEXT_SECONDARY }}>Confirmed</div>
+  }
+  return (
+    <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+      <button
+        onClick={() => onIntent(
+          { intent: 'catering_use_saved', draft: action.draft, use_saved: true },
+          { userText: 'Yes, the usual', replaceMessageId: message.id }
+        )}
+        disabled={sending}
+        style={primaryButton({ fontSize: 11.5, padding: '7px 14px', opacity: sending ? 0.6 : 1, cursor: sending ? 'default' : 'pointer' })}
+      >
+        Yes, use my details
+      </button>
+      <button
+        onClick={() => onIntent(
+          { intent: 'catering_use_saved', draft: action.draft, use_saved: false },
+          { userText: 'Different details', replaceMessageId: message.id }
+        )}
+        disabled={sending}
+        style={quietButton({ fontSize: 11.5, padding: '7px 14px' })}
+      >
+        Use different details
+      </button>
+    </div>
+  )
+}
+
 // ── Review and place ─────────────────────────────────────────────────────
 
 function CurryOrderCard({ action, message, sending, onConfirm, onIntent }) {
   const [editingNumber, setEditingNumber] = useState(false)
-  const { mess_name, items, total, customer_name, customer_phone } = action.args || {}
+  const { mess_name, mess_id, items, total, customer_name, customer_phone } = action.args || {}
 
   if (message.confirmed) {
     return <div style={{ marginTop: 8, fontSize: 11.5, color: TEXT_SECONDARY }}>{message.declined ? 'Not ordered' : 'Sent to the kitchen'}</div>
@@ -357,7 +408,7 @@ function CurryOrderCard({ action, message, sending, onConfirm, onIntent }) {
     return (
       <CurryContactCard
         message={message}
-        action={{ draft: { mess_id: action.args.mess_id, items: items.map((i) => ({ item_id: i.item_id, quantity: i.quantity })) } }}
+        action={{ draft: { mess_id: mess_id ?? action.args.mess_id, items: (items || []).map((i) => ({ item_id: i.item_id, quantity: i.quantity })) } }}
         sending={sending}
         onIntent={onIntent}
         initial={{ customer_name, customer_phone }}
@@ -396,15 +447,26 @@ function CurryOrderCard({ action, message, sending, onConfirm, onIntent }) {
           </button>
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 8, padding: '10px 14px', borderTop: `1px solid ${BORDER}` }}>
+
+      <div style={{ padding: '10px 14px 0', borderTop: `1px solid ${BORDER}` }}>
         <button
           onClick={() => onConfirm(message.id, action)}
           disabled={sending}
-          style={primaryButton({ flex: 1, opacity: sending ? 0.5 : 1, cursor: sending ? 'default' : 'pointer' })}
+          style={primaryButton({ width: '100%', opacity: sending ? 0.5 : 1, cursor: sending ? 'default' : 'pointer' })}
         >
-          {sending ? 'Placing…' : 'Place order'}
+          {sending ? 'Placing…' : `Place order · KSh ${total}`}
         </button>
-        <button onClick={() => onConfirm(message.id, null)} style={quietButton()}>Not now</button>
+      </div>
+      <div style={{ display: 'flex', gap: 8, padding: '8px 14px 12px' }}>
+        <button
+          onClick={() => onIntent({ intent: 'catering_menu', mess: mess_name }, { userText: 'Change my order', replaceMessageId: message.id })}
+          style={quietButton({ flex: 1, fontSize: 11.5, padding: '8px 0' })}
+        >
+          Change items
+        </button>
+        <button onClick={() => onConfirm(message.id, null)} style={quietButton({ flex: 1, fontSize: 11.5, padding: '8px 0' })}>
+          Cancel
+        </button>
       </div>
     </div>
   )
@@ -444,9 +506,11 @@ export default function ActionCard({ action, message, sending, onOpenService, on
 
   switch (action.type) {
     case 'SHOW_MENU':
-      return <CurryMenuCard action={action} sending={sending} onIntent={onIntent} />
+      return <CurryMenuCard action={action} message={message} sending={sending} onIntent={onIntent} />
     case 'CATERING_DETAILS_REQUIRED':
       return <CurryContactCard action={action} message={message} sending={sending} onIntent={onIntent} />
+    case 'CATERING_USE_SAVED_REQUIRED':
+      return <CurryUseSavedCard action={action} message={message} sending={sending} onIntent={onIntent} />
     case 'CATERING_CONFIRM_REQUIRED':
       return <CurryOrderCard action={action} message={message} sending={sending} onConfirm={onConfirm} onIntent={onIntent} />
     case 'CATERING_ORDER_PLACED':
