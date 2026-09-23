@@ -33,6 +33,8 @@ const SEED_PAGES = [
   { url: 'https://csit.dkut.ac.ke/departments/', category: 'academic' },
   { url: 'https://cs.dkut.ac.ke/staff-profiles/', category: 'academic' },
   { url: 'https://cs.dkut.ac.ke/contact-us/', category: 'academic' },
+ { url: 'https://electrical.electronics.dkut.ac.ke/staff-profiles/', category: 'academic' },
+{ url: 'https://electrical.electronics.dkut.ac.ke/about-us/', category: 'academic' },
 ]
 
 function stripHtml(html) {
@@ -125,7 +127,10 @@ async function scrapePage({ url, category }) {
 
 async function discoverUrls(sitemapUrl, limit = 60) {
   try {
-    const res = await fetch(sitemapUrl, { dispatcher: insecureDekutDispatcher })
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 10000)
+    const res = await fetch(sitemapUrl, { dispatcher: insecureDekutDispatcher, signal: controller.signal })
+    clearTimeout(timer)
     if (!res.ok) return []
     const xml = await res.text()
     const urls = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map((m) => m[1].trim())
@@ -133,8 +138,31 @@ async function discoverUrls(sitemapUrl, limit = 60) {
       .filter((u) => !/\.(pdf|jpg|jpeg|png|zip|docx?)$/i.test(u) && !/login|admin|wp-json/i.test(u))
       .slice(0, limit)
   } catch (err) {
-    console.error(`Sitemap discovery failed: ${err.message}`)
+    // Now shows the real reason instead of a bare "fetch failed" — DNS
+    // failure (ENOTFOUND, meaning nothing is actually running there),
+    // a timeout, or a refused connection are very different situations.
+    console.error(`  ✗ ${sitemapUrl} → ${err.message}${err.cause ? ` (${err.cause.code || err.cause.message})` : ''}`)
     return []
+  }
+}
+
+const CANDIDATE_SCHOOL_SUBDOMAINS = [
+  'eng', 'engineering', 'business', 'sbe', 'science', 'sci',
+  'nursing', 'son', 'agriculture', 'agric', 'built-environment',
+  'environment', 'education', 'mechanical', 'civil', 'electrical',
+]
+
+async function probeSubdomain(host) {
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 6000)
+    const res = await fetch(`https://${host}/`, {
+      method: 'HEAD', dispatcher: insecureDekutDispatcher, signal: controller.signal,
+    })
+    clearTimeout(timer)
+    return res.status < 500 // any real response, even a 404, means something is there
+  } catch {
+    return false
   }
 }
 
@@ -176,20 +204,27 @@ async function main() {
   console.log('Checking for already-ingested pages…')
   const existingSources = await getExistingSources(accessToken)
   console.log(`  ${existingSources.size} pages already in the knowledge base.`)
+ 
 console.log('Discovering DeKUT subdomains…')
-const subdomains = await discoverSubdomains('dkut.ac.ke')
-console.log(`  Found ${subdomains.length} subdomains: ${subdomains.join(', ')}`)
+const ctSubdomains = await discoverSubdomains('dkut.ac.ke')
+console.log(`  ${ctSubdomains.length} found via certificate logs.`)
 
-console.log('Discovering pages…')
+console.log('Probing likely school subdomain names…')
+const candidateHosts = CANDIDATE_SCHOOL_SUBDOMAINS.map((s) => `${s}.dkut.ac.ke`)
+const probeResults = await Promise.all(candidateHosts.map(async (h) => ({ host: h, live: await probeSubdomain(h) })))
+const guessedLive = probeResults.filter((r) => r.live).map((r) => r.host)
+if (guessedLive.length > 0) console.log(`  Live: ${guessedLive.join(', ')}`)
+
+const allHosts = [...new Set([...ctSubdomains, ...guessedLive])]
+console.log(`Discovering pages across ${allHosts.length} hosts…`)
 let discovered = []
-for (const host of subdomains) {
-  const sitemapPaths = [`https://${host}/sitemap.xml`, `https://${host}/wp-sitemap.xml`]
-  for (const sitemapUrl of sitemapPaths) {
+for (const host of allHosts) {
+  for (const sitemapUrl of [`https://${host}/sitemap.xml`, `https://${host}/wp-sitemap.xml`]) {
     const found = await discoverUrls(sitemapUrl)
     if (found.length > 0) {
       console.log(`  ${sitemapUrl} → ${found.length} pages`)
       discovered = discovered.concat(found)
-      break // don't try the second sitemap path if the first one worked
+      break
     }
   }
 }
