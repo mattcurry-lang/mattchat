@@ -25,10 +25,14 @@ const SEED_PAGES = [
   { url: 'https://www.dkut.ac.ke/index.php/admissions-and-records', category: 'services' },
   { url: 'https://registration.dkut.ac.ke/index.php/admission/joining', category: 'academic' },
   { url: 'https://registration.dkut.ac.ke/index.php/international/admission/rules', category: 'academic' },
-  { url: 'https://registration.dkut.ac.ke/admission/acceptance', category: 'academic' },
   { url: 'https://www.dkut.ac.ke/index.php/about-dekut/administrative-units/directorate-of-ict', category: 'services' },
   { url: 'https://library.dkut.ac.ke/', category: 'academic' },
   { url: 'https://www.dkut.ac.ke/library/', category: 'academic' },
+  { url: 'https://csit.dkut.ac.ke/staff-profiles/', category: 'academic' },
+  { url: 'https://csit.dkut.ac.ke/about-us/', category: 'academic' },
+  { url: 'https://csit.dkut.ac.ke/departments/', category: 'academic' },
+  { url: 'https://cs.dkut.ac.ke/staff-profiles/', category: 'academic' },
+  { url: 'https://cs.dkut.ac.ke/contact-us/', category: 'academic' },
 ]
 
 function stripHtml(html) {
@@ -144,17 +148,23 @@ async function main() {
   console.log(`  ${existingSources.size} pages already in the knowledge base.`)
 
 console.log('Discovering pages…')
-const [mainSite, registrationSite] = await Promise.all([
-  discoverUrls('https://www.dkut.ac.ke/sitemap.xml'),
-  discoverUrls('https://registration.dkut.ac.ke/sitemap.xml'),
-])
-console.log(`  Found ${mainSite.length} pages on the main site, ${registrationSite.length} on the registration site.`)
-
-const allPages = [
-  ...SEED_PAGES,
-  ...mainSite.map((url) => ({ url, category: 'general' })),
-  ...registrationSite.map((url) => ({ url, category: 'academic' })),
+const sitemapSources = [
+  'https://www.dkut.ac.ke/sitemap.xml',
+  'https://registration.dkut.ac.ke/sitemap.xml',
+  'https://csit.dkut.ac.ke/sitemap.xml',
+  'https://csit.dkut.ac.ke/wp-sitemap.xml',   // WordPress' own default path
+  'https://cs.dkut.ac.ke/sitemap.xml',
+  'https://cs.dkut.ac.ke/wp-sitemap.xml',
 ]
+let discovered = []
+for (const src of sitemapSources) {
+  const found = await discoverUrls(src)
+  if (found.length > 0) console.log(`  ${src} → ${found.length} pages`)
+  discovered = discovered.concat(found)
+}
+console.log(`  ${discovered.length} pages found via sitemaps in total.`)
+
+const allPages = [...SEED_PAGES, ...discovered.map((url) => ({ url, category: 'general' }))]
   const newPages = allPages.filter((p) => !existingSources.has(p.url))
   console.log(`Scraping ${newPages.length} new pages (skipping ${allPages.length - newPages.length} already ingested)…`)
 
