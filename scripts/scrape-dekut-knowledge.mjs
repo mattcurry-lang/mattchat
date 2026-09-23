@@ -78,7 +78,7 @@ async function scrapePage({ url, category }) {
 
     return {
       title, content, category, source: url,
-      authority: 'DeKUT website (auto-collected)',
+     authority: 'DeKUT Official Website',
       status: 'active',
     }
   } catch (err) {
