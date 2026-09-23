@@ -30,11 +30,12 @@ const SEED_PAGES = [
   { url: 'https://www.dkut.ac.ke/library/', category: 'academic' },
   { url: 'https://csit.dkut.ac.ke/staff-profiles/', category: 'academic' },
   { url: 'https://csit.dkut.ac.ke/about-us/', category: 'academic' },
-  { url: 'https://csit.dkut.ac.ke/departments/', category: 'academic' },
   { url: 'https://cs.dkut.ac.ke/staff-profiles/', category: 'academic' },
   { url: 'https://cs.dkut.ac.ke/contact-us/', category: 'academic' },
- { url: 'https://electrical.electronics.dkut.ac.ke/staff-profiles/', category: 'academic' },
-{ url: 'https://electrical.electronics.dkut.ac.ke/about-us/', category: 'academic' },
+  { url: 'https://nursing.dkut.ac.ke/staff-profiles/', category: 'academic' },
+  { url: 'https://nursing.dkut.ac.ke/about-us/', category: 'academic' },
+  { url: 'https://nursing.dkut.ac.ke/', category: 'academic' },
+  
 ]
 
 function stripHtml(html) {
