@@ -32,10 +32,10 @@ const SEED_PAGES = [
   { url: 'https://csit.dkut.ac.ke/about-us/', category: 'academic' },
   { url: 'https://cs.dkut.ac.ke/staff-profiles/', category: 'academic' },
   { url: 'https://cs.dkut.ac.ke/contact-us/', category: 'academic' },
-  { url: 'https://nursing.dkut.ac.ke/staff-profiles/', category: 'academic' },
-  { url: 'https://nursing.dkut.ac.ke/about-us/', category: 'academic' },
+  { url: 'https://nursing.dkut.ac.ke/staff-profiles.html', category: 'academic' },  // was /staff-profiles/
+  { url: 'https://nursing.dkut.ac.ke/about.html', category: 'academic' },           // was /about-us/
   { url: 'https://nursing.dkut.ac.ke/', category: 'academic' },
-  
+  { url: 'https://sbme.dkut.ac.ke/staff-profiles/', category: 'academic' },         // add this, seen in crawl log
 ]
 
 function stripHtml(html) {
@@ -96,7 +96,7 @@ async function discoverSubdomains(rootDomain) {
 async function scrapePage({ url, category }) {
   try {
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 15000)
+    const timer = setTimeout(() => controller.abort(), 25000)
     const res = await fetch(url, { /* ...unchanged... */ signal: controller.signal, redirect: 'follow', dispatcher: insecureDekutDispatcher })
     clearTimeout(timer)
 
