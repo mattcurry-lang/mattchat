@@ -60,6 +60,36 @@ function extractTitle(html, fallback) {
   return match ? sanitizeText(match[1].trim().split('|')[0].trim()) : fallback
 }
 
+// Certificate Transparency logs record every HTTPS cert ever issued for
+// a domain, including subdomains — so this finds sites like
+// csit.dkut.ac.ke or cs.dkut.ac.ke that nothing on the main site links
+// to, without hand-listing them. Free, no API key, no special tooling.
+async function discoverSubdomains(rootDomain) {
+  try {
+    const res = await fetch(`https://crt.sh/?q=%25.${rootDomain}&output=json`, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    })
+    if (!res.ok) return []
+    const rows = await res.json()
+    const hosts = new Set()
+    for (const row of rows) {
+      // name_value can contain multiple names separated by newlines,
+      // and wildcard entries like "*.dkut.ac.ke" — skip wildcards, keep
+      // real hostnames only.
+      for (const name of String(row.name_value || '').split('\n')) {
+        const clean = name.trim().toLowerCase()
+        if (clean.endsWith(rootDomain) && !clean.startsWith('*')) hosts.add(clean)
+      }
+    }
+    // Skip infrastructure subdomains that are never content pages —
+    // scraping these wastes time and never yields real knowledge.
+    const skip = /^(mail|smtp|imap|pop|ns1?|ns2?|autodiscover|webmail|mx|vpn|cpanel|ftp|api|cdn)\./
+    return [...hosts].filter((h) => !skip.test(h))
+  } catch (err) {
+    console.error(`Subdomain discovery failed: ${err.message}`)
+    return []
+  }
+}
 async function scrapePage({ url, category }) {
   try {
     const controller = new AbortController()
@@ -146,21 +176,22 @@ async function main() {
   console.log('Checking for already-ingested pages…')
   const existingSources = await getExistingSources(accessToken)
   console.log(`  ${existingSources.size} pages already in the knowledge base.`)
+console.log('Discovering DeKUT subdomains…')
+const subdomains = await discoverSubdomains('dkut.ac.ke')
+console.log(`  Found ${subdomains.length} subdomains: ${subdomains.join(', ')}`)
 
 console.log('Discovering pages…')
-const sitemapSources = [
-  'https://www.dkut.ac.ke/sitemap.xml',
-  'https://registration.dkut.ac.ke/sitemap.xml',
-  'https://csit.dkut.ac.ke/sitemap.xml',
-  'https://csit.dkut.ac.ke/wp-sitemap.xml',   // WordPress' own default path
-  'https://cs.dkut.ac.ke/sitemap.xml',
-  'https://cs.dkut.ac.ke/wp-sitemap.xml',
-]
 let discovered = []
-for (const src of sitemapSources) {
-  const found = await discoverUrls(src)
-  if (found.length > 0) console.log(`  ${src} → ${found.length} pages`)
-  discovered = discovered.concat(found)
+for (const host of subdomains) {
+  const sitemapPaths = [`https://${host}/sitemap.xml`, `https://${host}/wp-sitemap.xml`]
+  for (const sitemapUrl of sitemapPaths) {
+    const found = await discoverUrls(sitemapUrl)
+    if (found.length > 0) {
+      console.log(`  ${sitemapUrl} → ${found.length} pages`)
+      discovered = discovered.concat(found)
+      break // don't try the second sitemap path if the first one worked
+    }
+  }
 }
 console.log(`  ${discovered.length} pages found via sitemaps in total.`)
 
