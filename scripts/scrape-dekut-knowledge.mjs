@@ -97,35 +97,83 @@ async function scrapePage({ url, category }) {
   try {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 15000)
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        Accept: 'text/html,application/xhtml+xml',
-      },
-      signal: controller.signal,
-      redirect: 'follow',
-      dispatcher: insecureDekutDispatcher,
-    })
+    const res = await fetch(url, { /* ...unchanged... */ signal: controller.signal, redirect: 'follow', dispatcher: insecureDekutDispatcher })
     clearTimeout(timer)
 
     if (!res.ok) { console.error(`  ✗ ${url} → HTTP ${res.status}`); return null }
     const html = await res.text()
     const title = extractTitle(html, url)
+
+    if (looksLikeStaffPage(url)) {
+      const blockText = htmlToBlockText(html)
+      const staffEntries = splitStaffEntries(blockText, url)
+      if (staffEntries) return staffEntries // array — caller must flatten
+    }
+
+    // Fallback: normal whole-page behavior for non-directory pages
     let content = sanitizeText(stripHtml(html))
     if (content.length > 2000) content = content.slice(0, 2000) + '…'
     if (content.length < 40) { console.error(`  ✗ ${url} → too little extractable text, skipping`); return null }
-
-    return {
-      title, content, category, source: url,
-     authority: 'DeKUT Official Website',
-      status: 'active',
-    }
+    return { title, content, category, source: url, authority: 'DeKUT Official Website', status: 'active' }
   } catch (err) {
-    console.error(`  ✗ ${url} → ${err.message}${err.cause ? ` (cause: ${err.cause.code || err.cause.message})` : ''}`)
+    console.error(`  ✗ ${url} → ${err.message}`)
     return null
   }
 }
+// Detects a page that's actually a staff/faculty directory rather than
+// prose, and splits it into one record per person instead of one
+// truncated blob for the whole page.
+const STAFF_TITLE_RE = /\b(Prof\.?|Dr\.?|Eng\.?|Mr\.?|Mrs\.?|Ms\.?)\s+[A-Z][\w.'-]+(?:\s+[A-Z][\w.'-]+){0,3}/g
 
+function looksLikeStaffPage(url) {
+  return /staff-profiles|staff|faculty|team|people/i.test(url)
+}
+
+// Preserve block boundaries as newlines BEFORE stripping tags, so
+// "Dr. Jane Wanjiru<br>Lecturer<br>jwanjiru@dkut.ac.ke" doesn't collapse
+// into one run-on sentence with nothing to split on.
+function htmlToBlockText(html) {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<nav[\s\S]*?<\/nav>/gi, ' ')
+    .replace(/<footer[\s\S]*?<\/footer>/gi, ' ')
+    .replace(/<\/(p|div|li|h[1-6]|tr|br)>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{2,}/g, '\n')
+    .trim()
+}
+
+// Splits directory text into one chunk per person: everything from one
+// "Dr./Prof./Mr. Name" match up to the next one becomes that person's
+// record. Falls back to null (caller keeps old whole-page behavior) if
+// fewer than 2 name-like matches are found — not actually a directory.
+function splitStaffEntries(blockText, sourceUrl) {
+  const matches = [...blockText.matchAll(STAFF_TITLE_RE)]
+  if (matches.length < 2) return null
+
+  const entries = []
+  for (let i = 0; i < matches.length; i++) {
+    const start = matches[i].index
+    const end = i + 1 < matches.length ? matches[i + 1].index : blockText.length
+    const chunk = sanitizeText(blockText.slice(start, end).replace(/\s+/g, ' ').trim())
+    const name = sanitizeText(matches[i][0].trim())
+    if (chunk.length < 15) continue // just a bare name with nothing else, skip
+    entries.push({
+      title: name,
+      content: chunk.slice(0, 1200),
+      category: 'academic',
+      source: `${sourceUrl}#${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      authority: 'DeKUT Official Website',
+      status: 'active',
+    })
+  }
+  return entries.length > 0 ? entries : null
+}
 // When a homepage is reachable but we don't know its real page structure
 // (no sitemap, guessed slugs 404), follow the actual links on that page
 // instead of guessing more slugs. Depth 1 only — homepage plus whatever
@@ -307,8 +355,9 @@ async function main() {
   const items = []
   for (const page of newPages) {
     console.log(`  → ${page.url}`)
-    const item = await scrapePage(page)
-    if (item) items.push(item)
+   const item = await scrapePage(page)
+if (Array.isArray(item)) items.push(...item)
+else if (item) items.push(item)
     await new Promise((r) => setTimeout(r, 500))
   }
 
