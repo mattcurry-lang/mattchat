@@ -83,20 +83,22 @@ function StreamingText({ text }) {
 
 function SourceChips({ sources }) {
   if (!sources || sources.length === 0) return null
+  // Abstracted: never surface a raw scraped URL to the student — a clean
+  // human-readable label only, deduplicated across multiple matches.
+  const labels = [...new Set(sources.map((s) => s.authority || 'DeKUT Official Website'))]
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-      {sources.map((s, i) => (
-        <span key={i} title={s.authority || undefined} style={{
+      {labels.map((label, i) => (
+        <span key={i} style={{
           fontSize: 10.5, fontWeight: 600, color: TEXT_SECONDARY,
           border: `1px solid ${BORDER}`, borderRadius: 999, padding: '3px 9px',
         }}>
-          {s.source || s.title}
+          {label}
         </span>
       ))}
     </div>
   )
 }
-
 const ACCENT = 'linear-gradient(135deg,#a78bfa,#6c63ff)'
 const CARD_STYLE = {
   marginTop: 12, width: '100%', border: `1px solid ${BORDER}`, borderRadius: 16,
