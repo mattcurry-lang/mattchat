@@ -24,6 +24,8 @@ const insecureDekutDispatcher = new Agent({ connect: { rejectUnauthorized: false
 const SEED_PAGES = [
   { url: 'https://www.dkut.ac.ke/index.php/admissions-and-records', category: 'services' },
   { url: 'https://registration.dkut.ac.ke/index.php/admission/joining', category: 'academic' },
+  { url: 'https://registration.dkut.ac.ke/index.php/international/admission/rules', category: 'academic' },
+  { url: 'https://registration.dkut.ac.ke/admission/acceptance', category: 'academic' },
   { url: 'https://www.dkut.ac.ke/index.php/about-dekut/administrative-units/directorate-of-ict', category: 'services' },
   { url: 'https://library.dkut.ac.ke/', category: 'academic' },
   { url: 'https://www.dkut.ac.ke/library/', category: 'academic' },
@@ -141,11 +143,18 @@ async function main() {
   const existingSources = await getExistingSources(accessToken)
   console.log(`  ${existingSources.size} pages already in the knowledge base.`)
 
-  console.log('Discovering pages…')
-  const discovered = await discoverUrls('https://www.dkut.ac.ke/sitemap.xml')
-  console.log(`  Found ${discovered.length} pages via sitemap.`)
+console.log('Discovering pages…')
+const [mainSite, registrationSite] = await Promise.all([
+  discoverUrls('https://www.dkut.ac.ke/sitemap.xml'),
+  discoverUrls('https://registration.dkut.ac.ke/sitemap.xml'),
+])
+console.log(`  Found ${mainSite.length} pages on the main site, ${registrationSite.length} on the registration site.`)
 
-  const allPages = [...SEED_PAGES, ...discovered.map((url) => ({ url, category: 'general' }))]
+const allPages = [
+  ...SEED_PAGES,
+  ...mainSite.map((url) => ({ url, category: 'general' })),
+  ...registrationSite.map((url) => ({ url, category: 'academic' })),
+]
   const newPages = allPages.filter((p) => !existingSources.has(p.url))
   console.log(`Scraping ${newPages.length} new pages (skipping ${allPages.length - newPages.length} already ingested)…`)
 
