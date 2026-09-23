@@ -126,6 +126,29 @@ async function scrapePage({ url, category }) {
   }
 }
 
+// When a homepage is reachable but we don't know its real page structure
+// (no sitemap, guessed slugs 404), follow the actual links on that page
+// instead of guessing more slugs. Depth 1 only — homepage plus whatever
+// it directly links to on the same host — so this stays fast and never
+// wanders into unrelated parts of a site.
+async function crawlFromHomepage(homepageUrl, category, maxPages = 8) {
+  try {
+    const res = await fetch(homepageUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, dispatcher: insecureDekutDispatcher })
+    if (!res.ok) return []
+    const html = await res.text()
+    const host = new URL(homepageUrl).host
+    const links = [...html.matchAll(/href=["']([^"']+)["']/gi)]
+      .map((m) => { try { return new URL(m[1], homepageUrl).href } catch { return null } })
+      .filter((u) => u && new URL(u).host === host)
+      .filter((u) => !/\.(pdf|jpg|jpeg|png|zip|docx?|css|js)$/i.test(u))
+      .filter((u) => /staff|faculty|about|department|contact|team|people/i.test(u)) // only pages likely to matter
+    return [...new Set(links)].slice(0, maxPages)
+  } catch (err) {
+    console.error(`  ✗ crawlFromHomepage(${homepageUrl}) → ${err.message}`)
+    return []
+  }
+}
+
 async function discoverUrls(sitemapUrl, limit = 60) {
   try {
     const controller = new AbortController()
@@ -215,7 +238,17 @@ const candidateHosts = CANDIDATE_SCHOOL_SUBDOMAINS.map((s) => `${s}.dkut.ac.ke`)
 const probeResults = await Promise.all(candidateHosts.map(async (h) => ({ host: h, live: await probeSubdomain(h) })))
 const guessedLive = probeResults.filter((r) => r.live).map((r) => r.host)
 if (guessedLive.length > 0) console.log(`  Live: ${guessedLive.join(', ')}`)
-
+console.log('Following links from homepages with no sitemap…')
+const sitemappedHosts = new Set(discovered.map((u) => new URL(u).host))
+const noSitemapHosts = allHosts.filter((h) => !sitemappedHosts.has(h))
+for (const host of noSitemapHosts) {
+  const links = await crawlFromHomepage(`https://${host}/`, 'academic')
+  if (links.length > 0) {
+    console.log(`  https://${host}/ → followed ${links.length} likely pages: ${links.join(', ')}`)
+    discovered = discovered.concat(links)
+  }
+}
+ 
 const allHosts = [...new Set([...ctSubdomains, ...guessedLive])]
 console.log(`Discovering pages across ${allHosts.length} hosts…`)
 let discovered = []
