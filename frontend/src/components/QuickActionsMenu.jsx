@@ -4,7 +4,7 @@
 // expands upward into a small menu. Replaces the separate CurryLauncher
 // orb(s) + BottomNav's "new chat" FAB with one consolidated control.
 import React, { useEffect, useRef, useState } from 'react'
-import { IconSparkle, IconMessageSquare, IconChevronDown } from './Icons'
+import { IconSparkle, IconMessageSquare, IconChevronDown, IconChart } from './Icons'
 
 const VIOLET = '#6C63FF'
 const VIOLET_LIGHT = '#A78BFA'
@@ -32,7 +32,7 @@ function MenuItem({ icon, label, badge, onClick }) {
   )
 }
 
-export default function QuickActionsMenu({ hidden, onNewChat, onOpenCurryAI, onOpenDekutCurry, dekutBadge }) {
+export default function QuickActionsMenu({ hidden, onNewChat, onOpenCurryAI, onOpenDekutCurry, dekutBadge, onOpenInsights, insightsBadge }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
 
@@ -60,6 +60,7 @@ export default function QuickActionsMenu({ hidden, onNewChat, onOpenCurryAI, onO
           <MenuItem icon={<IconMessageSquare size={15} />} label="New chat" onClick={() => pick(onNewChat)} />
           <MenuItem icon={<IconSparkle size={15} />} label="Curry AI" onClick={() => pick(onOpenCurryAI)} />
           <MenuItem icon={<span style={{ fontSize: 14 }}>🎓</span>} label="Ask Curry (DeKUT)" badge={dekutBadge} onClick={() => pick(onOpenDekutCurry)} />
+          <MenuItem icon={<IconChart size={15} />} label="Insights" badge={insightsBadge} onClick={() => pick(onOpenInsights)} />
         </div>
       )}
 
