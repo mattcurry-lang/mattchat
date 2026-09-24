@@ -557,7 +557,7 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
       voice.stop()
     }
     return () => voice.stop()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [mode])
 
   const handleSend = (text) => {
