@@ -79,21 +79,14 @@ export function useDekutLocations({ userId, isAdmin } = {}) {
   // Attaches a video (upload or external link) to an EXISTING verified
   // location. Always lands unverified — same moderation model as new
   // location suggestions. Nothing shows publicly until approveVideo.
-  const attachVideo = useCallback(async (locationId, { videoType, videoUrl }) => {
+    const attachVideo = useCallback(async (locationId, { videoType, videoUrl }) => {
     if (!userId) throw new Error('You need to be signed in to add a video.')
-    const { error } = await supabase
-      .from('dekut_locations')
-      .update({
-        video_type: videoType,
-        video_url: videoUrl,
-        video_uploaded_by: userId,
-        is_video_verified: false,
-      })
-      .eq('id', locationId)
+    const { error } = await supabase.rpc('submit_location_video', {
+      p_location_id: locationId, p_type: videoType, p_url: videoUrl,
+    })
     if (error) throw error
     await Promise.all([loadVerified(), loadPending()])
   }, [userId, loadVerified, loadPending])
-
   const approveVideo = useCallback(async (locationId) => {
     const { error } = await supabase
       .from('dekut_locations')
@@ -176,11 +169,12 @@ export function useDekutLocations({ userId, isAdmin } = {}) {
     await loadEdges()
   }, [loadEdges])
 
-   return {
+     return {
     locations, pending, pendingVideos, edges, loading, error,
     submitLocation, approveLocation, rejectLocation, setMapPosition,
     uploadLocationVideo, attachVideo, approveVideo, rejectVideo,
     deleteLocation, connectLocations, disconnectLocations,
     reload: loadVerified,
+    reloadPending: loadPending,
   }
 }
