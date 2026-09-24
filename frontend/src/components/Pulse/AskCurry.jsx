@@ -770,8 +770,8 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
       ) : (
         <>
           {/* No boxed container — messages sit directly on the app background */}
-          <div ref={scrollRef} className="curry-scroll" style={{
-            flex: 1, minHeight: 260, maxHeight: 'calc(100vh - 300px)', overflowY: 'auto',
+        <div ref={scrollRef} className="curry-scroll" style={{
+            flex: 1, minHeight: 0, overflowY: 'auto',
             display: 'flex', flexDirection: 'column', gap: 16,
             padding: '18px 2px 6px', margin: '4px 0 10px',
           }}>
