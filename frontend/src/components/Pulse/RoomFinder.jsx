@@ -172,12 +172,11 @@ function LocationCard({ loc, onAddVideo, onDelete, onGenerate, generating, route
 }
 
 // onClose: renders a close button when present (mounted full-screen).
-export default function RoomFinder({ onClose, userId, isAdmin }) {
   const {
     locations, pending, pendingVideos, loading,
     submitLocation, approveLocation, rejectLocation, setMapPosition,
     uploadLocationVideo, attachVideo, approveVideo, rejectVideo,
-    deleteLocation, 
+    deleteLocation, reloadPending,
   } = useDekutLocations({ userId, isAdmin })
   const routes = useDekutRoutes({ isAdmin })
   const [query, setQuery] = useState('')
@@ -225,7 +224,7 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
           return (
             <button
               key={t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => { setTab(t.id); if (t.id === 'pending') reloadPending() }}
               style={{
                 fontSize: 11.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
                 borderRadius: 999, padding: '6px 14px',
