@@ -94,7 +94,7 @@ function LocationVideo({ videoType, videoUrl }) {
   )
 }
 
-function LocationCard({ loc, onAddVideo, onDelete, onGenerate, generating, route }) {
+function LocationCard({ loc, onAddVideo, onDelete, onGenerate, generating, route, needsFile, onGenerateFile }) {
   const hasApprovedVideo = loc.is_video_verified && loc.video_type !== 'none' && loc.video_url
   const [showRoute, setShowRoute] = useState(false)
 
@@ -126,7 +126,7 @@ function LocationCard({ loc, onAddVideo, onDelete, onGenerate, generating, route
       )}
 
    {hasApprovedVideo && <LocationVideo videoType={loc.video_type} videoUrl={loc.video_url} />}
-{onGenerate && hasApprovedVideo && (  <button onClick={() => onGenerate(loc.id)} disabled={generating} style={{    alignSelf: 'flex-start', background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.4)',    borderRadius: 999, padding: '5px 11px', cursor: generating ? 'default' : 'pointer', fontFamily: 'inherit',    fontSize: 11, fontWeight: 700, color: '#c4b5fd', opacity: generating ? 0.6 : 1,  }}>
+{onGenerate && hasApprovedVideo && (  <button onClick={() => onClick={() => onGenerate(loc)} disabled={generating} style={{    alignSelf: 'flex-start', background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.4)',    borderRadius: 999, padding: '5px 11px', cursor: generating ? 'default' : 'pointer', fontFamily: 'inherit',    fontSize: 11, fontWeight: 700, color: '#c4b5fd', opacity: generating ? 0.6 : 1,  }}>
     {generating ? 'Analysing video…' : '✨ Generate route steps'}
   </button>
 )}
@@ -428,9 +428,9 @@ function RouteDrafts({ routes }) {
   const textFor = (d) => edits[d.id] ?? d.steps.map((s) => s.instruction).join('\n')
     const rTextFor = (d) => redits[d.id] ?? (d.reverse_steps || []).map((s) => s.instruction).join('\n')
   const toReverse = (d) => rTextFor(d).split('\n').map((l) => l.trim()).filter(Boolean).map((instruction) => ({ instruction, landmark: null }))
-  const toSteps = (d) => {
+   const toSteps = (d) => {
     const lines = textFor(d).split('\n').map((l) => l.trim()).filter(Boolean)
-    return lines.map((instruction, i) => ({ instruction, landmark: d.steps[i]?.landmark ?? null }))
+    return lines.map((instruction, i) => ({ instruction, landmark: d.steps[i]?.landmark ?? null, turn: d.steps[i]?.turn ?? 'straight' }))
   }
   return (
     <div>
@@ -450,7 +450,7 @@ function RouteDrafts({ routes }) {
             style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(15,15,26,0.9)', color: TEXT_PRIMARY, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 10, fontSize: 12.5, fontFamily: 'inherit' }} />
           <div style={{ fontSize: 10.5, color: TEXT_SECONDARY, margin: '4px 0 8px' }}>One step per line.</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => routes.approve(d.id, toSteps(d))} style={{ flex: 1, background: 'linear-gradient(135deg,#4ade80,#22c55e)', border: 'none', borderRadius: 10, color: '#fff', fontWeight: 700, fontSize: 12, padding: '8px 0', cursor: 'pointer', fontFamily: 'inherit' }}>Approve</button>
+            <button onClick={() => routes.approve(d.id, toSteps(d), toReverse(d))} style={{ flex: 1, background: 'linear-gradient(135deg,#4ade80,#22c55e)', border: 'none', borderRadius: 10, color: '#fff', fontWeight: 700, fontSize: 12, padding: '8px 0', cursor: 'pointer', fontFamily: 'inherit' }}>Approve</button>
             <button onClick={() => routes.reject(d.id)} style={{ flex: 1, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 10, color: '#f87171', fontWeight: 700, fontSize: 12, padding: '8px 0', cursor: 'pointer', fontFamily: 'inherit' }}>Reject</button>
           </div>
         </div>
