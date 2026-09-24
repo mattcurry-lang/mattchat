@@ -368,27 +368,28 @@ function CurryUseSavedCard({ action, message, sending, onIntent }) {
   if (message.confirmed) {
     return <div style={{ marginTop: 8, fontSize: 11.5, color: TEXT_SECONDARY }}>Confirmed</div>
   }
+  const number = maskPhone(action.customer_phone)
   return (
-    <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+    <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
       <button
         onClick={() => onIntent(
           { intent: 'catering_use_saved', draft: action.draft, use_saved: true },
-          { userText: 'Yes, the usual', replaceMessageId: message.id }
+          { userText: `Send it to ${number}`, replaceMessageId: message.id }
         )}
         disabled={sending}
-        style={primaryButton({ fontSize: 11.5, padding: '7px 14px', opacity: sending ? 0.6 : 1, cursor: sending ? 'default' : 'pointer' })}
+        style={primaryButton({ fontSize: 11.5, padding: '8px 14px', opacity: sending ? 0.6 : 1, cursor: sending ? 'default' : 'pointer' })}
       >
-        Yes, use my details
+        Send to {number}
       </button>
       <button
         onClick={() => onIntent(
           { intent: 'catering_use_saved', draft: action.draft, use_saved: false },
-          { userText: 'Different details', replaceMessageId: message.id }
+          { userText: 'A different number', replaceMessageId: message.id }
         )}
         disabled={sending}
-        style={quietButton({ fontSize: 11.5, padding: '7px 14px' })}
+        style={quietButton({ fontSize: 11.5, padding: '8px 14px' })}
       >
-        Use different details
+        Different number
       </button>
     </div>
   )
