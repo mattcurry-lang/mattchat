@@ -42,7 +42,7 @@ import CallsList from '../components/CallsList'
 import { useCallHistory } from '../hooks/useCallHistory'
 import NewCallModal from '../components/NewCallModal'
 import AICommandBar from '../components/AICommandBar'
-import CurryLauncher from '../components/CurryLauncher'
+import QuickActionsMenu from '../components/QuickActionsMenu'
 import AskCurry from '../components/Pulse/AskCurry'
 import MessageActionsMenu, { useMessageLongPress } from '../components/MessageActionsMenu'
 import AIInsightsPanel from '../components/AIInsightsPanel'
@@ -2304,12 +2304,13 @@ const handleShareContact = async (profile) => {
 />
     )}
           
-    <CurryLauncher
-  hidden={!!activeConvo || showShorts || showDekutCurry}
-  onOpenCurryAI={() => setActiveConvo(CURRY_AI_CONTACT)}
-  onOpenDekutCurry={() => setShowDekutCurry(true)}
-dekutBadge={dekutHasNudge}
-/>
+  <QuickActionsMenu
+      hidden={!!activeConvo || showShorts || showDekutCurry}
+      onNewChat={() => (activeTab === 'calls' ? setShowNewCall(true) : setShowNewChat(true))}
+      onOpenCurryAI={() => setActiveConvo(CURRY_AI_CONTACT)}
+      onOpenDekutCurry={() => setShowDekutCurry(true)}
+      dekutBadge={dekutHasNudge}
+    />
 {showDekutCurry && (
   <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
     <AskCurry
