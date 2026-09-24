@@ -84,6 +84,13 @@ function LocationVideo({ videoType, videoUrl }) {
 function LocationCard({ loc, onAddVideo, onDelete, onGenerate, generating, route, needsFile, onGenerateFile }) {
   const hasApprovedVideo = loc.is_video_verified && loc.video_type !== 'none' && loc.video_url
   const [showRoute, setShowRoute] = useState(false)
+  const [justGenerated, setJustGenerated] = useState(false)
+
+  const handleGenerate = async () => {
+    setJustGenerated(false)
+    const ok = await onGenerate(loc)
+    if (ok) setJustGenerated(true)
+  }
 
   return (
     <div style={{
@@ -114,18 +121,19 @@ function LocationCard({ loc, onAddVideo, onDelete, onGenerate, generating, route
 
       {hasApprovedVideo && <LocationVideo videoType={loc.video_type} videoUrl={loc.video_url} />}
       {onGenerate && hasApprovedVideo && (
-        <button
-          onClick={() => onGenerate(loc)}
-          disabled={generating}
-          style={{
-            alignSelf: 'flex-start', background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.4)',
-            borderRadius: 999, padding: '5px 11px', cursor: generating ? 'default' : 'pointer', fontFamily: 'inherit',
-            fontSize: 11, fontWeight: 700, color: '#c4b5fd', opacity: generating ? 0.6 : 1,
-          }}
-        >
-          {generating ? 'Analysing video…' : '✨ Generate route steps'}
-        </button>
-      )}
+      <button onClick={handleGenerate} disabled={generating} style={{
+        alignSelf: 'flex-start', background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.4)',
+        borderRadius: 999, padding: '5px 11px', cursor: generating ? 'default' : 'pointer', fontFamily: 'inherit',
+        fontSize: 11, fontWeight: 700, color: '#c4b5fd', opacity: generating ? 0.6 : 1,
+      }}>
+        {generating ? 'Analysing video…' : '✨ Generate route steps'}
+      </button>
+    )}
+    {justGenerated && (
+      <div style={{ fontSize: 11, color: '#4ade80', fontWeight: 700 }}>
+        ✅ Draft ready — check the Pending tab to review and approve it.
+      </div>
+    )}
       {onGenerate && needsFile && (
         <label style={{
           alignSelf: 'flex-start', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.45)',
