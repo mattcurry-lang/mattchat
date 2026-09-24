@@ -29,10 +29,10 @@ export function useDekutRoutes({ isAdmin }) {
     } catch (e) { setError(e.message); return false } finally { setBusyId(null) }
   }, [load])
 
-  const approve = useCallback(async (id, steps) => {
+  const approve = useCallback(async (id, steps, reverseSteps) => {
     const { data: { user } } = await supabase.auth.getUser()
     await supabase.from('dekut_location_routes')
-      .update({ status: 'approved', steps, approved_by: user?.id, approved_at: new Date().toISOString() }).eq('id', id)
+      .update({ status: 'approved', steps, reverse_steps: reverseSteps, approved_by: user?.id, approved_at: new Date().toISOString() }).eq('id', id)
     load()
   }, [load])
 
