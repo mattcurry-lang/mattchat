@@ -448,9 +448,10 @@ else if (item) items.push(item)
     await new Promise((r) => setTimeout(r, 1000)) // breathing room between batches
   }
 
-  console.log(`\nDone. ${saved} new/updated, ${unchanged} unchanged, ${failed} failed.`)
+   console.log(`\nDone. ${saved} new/updated, ${unchanged} unchanged, ${failed} failed.`)
   if (failures.length) console.log('Failures:\n  ' + failures.slice(0, 20).join('\n  '))
   if (failed > 0) process.exitCode = 1 // makes the GitHub Action show red, not a silent green
+}
 
 main().catch((err) => {
   console.error('Fatal:', err.message)
