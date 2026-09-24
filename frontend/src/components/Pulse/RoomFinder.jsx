@@ -20,6 +20,7 @@ import { useDekutLocations } from '../../hooks/useDekutLocations'
 import SuggestLocationForm from './SuggestLocationForm'
 import AddVideoModal from './AddVideoModal'
 import DekutCampusMap from './DekutCampusMap'
+import { useDekutRoutes } from '../../hooks/useDekutRoutes'
 
 const TEXT_PRIMARY = '#f5f5fa'
 const TEXT_SECONDARY = 'rgba(245,245,250,0.6)'
@@ -92,7 +93,7 @@ function LocationVideo({ videoType, videoUrl }) {
   )
 }
 
-function LocationCard({ loc, onAddVideo, onDelete }) {
+function LocationCard({ loc, onAddVideo, onDelete, onGenerate, generating }) {
   const hasApprovedVideo = loc.is_video_verified && loc.video_type !== 'none' && loc.video_url
 
   return (
@@ -123,7 +124,15 @@ function LocationCard({ loc, onAddVideo, onDelete }) {
       )}
 
   {hasApprovedVideo && <LocationVideo videoType={loc.video_type} videoUrl={loc.video_url} />}
-
+{onGenerate && hasApprovedVideo && (
+  <button onClick={() => onGenerate(loc.id)} disabled={generating} style={{
+    alignSelf: 'flex-start', background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.4)',
+    borderRadius: 999, padding: '5px 11px', cursor: generating ? 'default' : 'pointer', fontFamily: 'inherit',
+    fontSize: 11, fontWeight: 700, color: '#c4b5fd', opacity: generating ? 0.6 : 1,
+  }}>
+    {generating ? 'Analysing video…' : '✨ Generate route steps'}
+  </button>
+)}
       <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
         {onAddVideo && (
           <button
@@ -162,6 +171,7 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
     uploadLocationVideo, attachVideo, approveVideo, rejectVideo,
     deleteLocation, 
   } = useDekutLocations({ userId, isAdmin })
+  const routes = useDekutRoutes({ isAdmin })
   const [query, setQuery] = useState('')
   const [tab, setTab] = useState('search') // 'search' | 'map' | 'pending'
   const [showSuggest, setShowSuggest] = useState(false)
@@ -251,7 +261,7 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
           )}
 
                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {results.map((loc) => (
+                       {results.map((loc) => (
               <LocationCard
                 key={loc.id}
                 loc={loc}
@@ -259,6 +269,8 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
                 onDelete={isAdmin ? (l) => {
                   if (window.confirm(`Delete "${l.name}"? This can't be undone.`)) deleteLocation(l.id)
                 } : null}
+                onGenerate={isAdmin ? routes.generate : null}
+                generating={routes.busyId === loc.id}
               />
             ))}
           </div>
@@ -333,6 +345,7 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
               Videos awaiting review
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <RouteDrafts routes={routes} />
               {pendingVideos.length === 0 && (
                 <div style={{ fontSize: 12.5, color: TEXT_SECONDARY, padding: '4px 2px' }}>Nothing to review.</div>
               )}
@@ -384,6 +397,36 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
           onClose={() => setVideoTarget(null)}
         />
       )}
+    </div>
+  )
+}
+function RouteDrafts({ routes }) {
+  const [edits, setEdits] = useState({}) // id -> textarea text
+  const textFor = (d) => edits[d.id] ?? d.steps.map((s) => s.instruction).join('\n')
+  const toSteps = (d) => {
+    const lines = textFor(d).split('\n').map((l) => l.trim()).filter(Boolean)
+    return lines.map((instruction, i) => ({ instruction, landmark: d.steps[i]?.landmark ?? null }))
+  }
+  return (
+    <div>
+      <div style={{ fontSize: 12, fontWeight: 800, color: TEXT_PRIMARY, marginBottom: 8 }}>Route steps awaiting review</div>
+      {routes.error && <div style={{ fontSize: 12, color: '#f87171', marginBottom: 8 }}>{routes.error}</div>}
+      {routes.drafts.length === 0 && <div style={{ fontSize: 12.5, color: TEXT_SECONDARY }}>Nothing to review.</div>}
+      {routes.drafts.map((d) => (
+        <div key={d.id} style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '12px 14px', marginBottom: 8 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: TEXT_PRIMARY }}>{d.dekut_locations?.name}</div>
+          <div style={{ fontSize: 11.5, color: TEXT_SECONDARY, margin: '2px 0 8px' }}>
+            AI confidence: {d.confidence}{d.start_point ? ` · starts at ${d.start_point}` : ''}. Watch the video and fix any wrong step before approving.
+          </div>
+          <textarea value={textFor(d)} onChange={(e) => setEdits((p) => ({ ...p, [d.id]: e.target.value }))} rows={Math.min(10, d.steps.length + 1)}
+            style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(15,15,26,0.9)', color: TEXT_PRIMARY, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 10, fontSize: 12.5, fontFamily: 'inherit' }} />
+          <div style={{ fontSize: 10.5, color: TEXT_SECONDARY, margin: '4px 0 8px' }}>One step per line.</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => routes.approve(d.id, toSteps(d))} style={{ flex: 1, background: 'linear-gradient(135deg,#4ade80,#22c55e)', border: 'none', borderRadius: 10, color: '#fff', fontWeight: 700, fontSize: 12, padding: '8px 0', cursor: 'pointer', fontFamily: 'inherit' }}>Approve</button>
+            <button onClick={() => routes.reject(d.id)} style={{ flex: 1, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 10, color: '#f87171', fontWeight: 700, fontSize: 12, padding: '8px 0', cursor: 'pointer', fontFamily: 'inherit' }}>Reject</button>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
