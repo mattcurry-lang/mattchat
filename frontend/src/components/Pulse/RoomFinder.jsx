@@ -403,6 +403,8 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
 function RouteDrafts({ routes }) {
   const [edits, setEdits] = useState({}) // id -> textarea text
   const textFor = (d) => edits[d.id] ?? d.steps.map((s) => s.instruction).join('\n')
+    const rTextFor = (d) => redits[d.id] ?? (d.reverse_steps || []).map((s) => s.instruction).join('\n')
+  const toReverse = (d) => rTextFor(d).split('\n').map((l) => l.trim()).filter(Boolean).map((instruction) => ({ instruction, landmark: null }))
   const toSteps = (d) => {
     const lines = textFor(d).split('\n').map((l) => l.trim()).filter(Boolean)
     return lines.map((instruction, i) => ({ instruction, landmark: d.steps[i]?.landmark ?? null }))
@@ -419,6 +421,9 @@ function RouteDrafts({ routes }) {
             AI confidence: {d.confidence}{d.start_point ? ` · starts at ${d.start_point}` : ''}. Watch the video and fix any wrong step before approving.
           </div>
           <textarea value={textFor(d)} onChange={(e) => setEdits((p) => ({ ...p, [d.id]: e.target.value }))} rows={Math.min(10, d.steps.length + 1)}
+            style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(15,15,26,0.9)', color: TEXT_PRIMARY, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 10, fontSize: 12.5, fontFamily: 'inherit' }} />
+                    <div style={{ fontSize: 11.5, color: TEXT_SECONDARY, margin: '8px 0 4px' }}>Coming back (check the left/right turns):</div>
+          <textarea value={rTextFor(d)} onChange={(e) => setRedits((p) => ({ ...p, [d.id]: e.target.value }))} rows={6}
             style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(15,15,26,0.9)', color: TEXT_PRIMARY, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 10, fontSize: 12.5, fontFamily: 'inherit' }} />
           <div style={{ fontSize: 10.5, color: TEXT_SECONDARY, margin: '4px 0 8px' }}>One step per line.</div>
           <div style={{ display: 'flex', gap: 8 }}>
