@@ -3,7 +3,7 @@
 // "Where are you going?" (spec §4). Backed by the dekut_locations Supabase
 // table — verified rows are searchable by everyone; students can suggest
 // new ones and attach walkthrough videos; admins moderate both queues and
-// place pins on the schematic map.
+// place pins on the schematic map
 //
 // FIX: this component is always mounted inside a hardcoded-dark fullscreen
 // overlay (see PulsePage.jsx — background: var(--bg-surface-1, #0f0f1a)),
