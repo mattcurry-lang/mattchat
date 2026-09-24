@@ -172,6 +172,8 @@ function LocationCard({ loc, onAddVideo, onDelete, onGenerate, generating, route
 }
 
 // onClose: renders a close button when present (mounted full-screen).
+
+export default function RoomFinder({ onClose, userId, isAdmin }) {
   const {
     locations, pending, pendingVideos, loading,
     submitLocation, approveLocation, rejectLocation, setMapPosition,
