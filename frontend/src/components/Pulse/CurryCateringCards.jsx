@@ -640,36 +640,19 @@ function RouteVideo({ type, url }) {
 }
 
 function CurryRouteOptionsCard({ action, onOpenService }) {
-  const [view, setView] = useState(null) // 'video' | 'steps' | null
-  const [dir, setDir] = useState('to')   // 'to' | 'back'
+  const [view, setView] = useState(null)
   const toggle = (v) => setView((cur) => (cur === v ? null : v))
-  const steps = dir === 'to' ? action.steps : action.reverse_steps
   return (
     <div style={shell}>
       <CardHeader eyebrow="How do you want to get there?" title={action.name} />
       <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {action.video && <button onClick={() => toggle('video')} style={primaryButton({ flex: 1 })}>{view === 'video' ? 'Hide video' : 'Watch video'}</button>}
-          {action.steps && <button onClick={() => toggle('steps')} style={quietButton({ flex: 1 })}>{view === 'steps' ? 'Hide steps' : 'Step by step'}</button>}
-          {action.has_map && <button onClick={() => onOpenService('room-finder', action.map)} style={quietButton({ flex: 1 })}>Show map</button>}
+          {action.steps && <button onClick={() => toggle('route')} style={quietButton({ flex: 1 })}>{view === 'route' ? 'Hide route' : 'Route map'}</button>}
+          {action.has_map && <button onClick={() => onOpenService('room-finder', action.map)} style={quietButton({ flex: 1 })}>Campus map</button>}
         </div>
         {view === 'video' && action.video && <RouteVideo type={action.video.type} url={action.video.url} />}
-        {view === 'steps' && steps && (
-          <>
-            {action.reverse_steps && (
-              <div style={{ display: 'flex', gap: 6 }}>
-                {[['to', `To ${action.name}`], ['back', 'Coming back']].map(([id, label]) => (
-                  <button key={id} onClick={() => setDir(id)} style={quietButton({ flex: 1, fontSize: 11.5, padding: '6px 0', ...(dir === id ? { color: '#fff', background: 'rgba(167,139,250,0.25)' } : {}) })}>{label}</button>
-                ))}
-              </div>
-            )}
-            <ol style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12.5, color: TEXT_PRIMARY, lineHeight: 1.45 }}>
-              {steps.map((s, i) => (
-                <li key={i}>{s.instruction}{s.landmark ? <span style={{ color: TEXT_SECONDARY }}> ({s.landmark})</span> : null}</li>
-              ))}
-            </ol>
-          </>
-        )}
+        {view === 'route' && action.steps && <RouteMapPanel steps={action.steps} reverseSteps={action.reverse_steps} name={action.name} />}
       </div>
     </div>
   )
