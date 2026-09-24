@@ -114,7 +114,7 @@ function StreamingText({ text }) {
       })
     }, stepMs)
     return () => clearInterval(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [])
 
   const done = count >= (text?.length ?? 0)
@@ -306,7 +306,7 @@ function UserMessage({ message, onEdit, sending }) {
 
   useEffect(() => {
     if (editing) { taRef.current?.focus(); taRef.current?.setSelectionRange(draft.length, draft.length) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [editing])
 
   const save = () => {
