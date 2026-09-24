@@ -413,6 +413,7 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
 }
 function RouteDrafts({ routes }) {
   const [edits, setEdits] = useState({}) // id -> textarea text
+  const [redits, setRedits] = useState({}) // id -> reverse-direction textarea text
   const textFor = (d) => edits[d.id] ?? d.steps.map((s) => s.instruction).join('\n')
     const rTextFor = (d) => redits[d.id] ?? (d.reverse_steps || []).map((s) => s.instruction).join('\n')
   const toReverse = (d) => rTextFor(d).split('\n').map((l) => l.trim()).filter(Boolean).map((instruction) => ({ instruction, landmark: null }))
