@@ -409,19 +409,48 @@ else if (item) items.push(item)
     return
   }
 
-  console.log(`Ingesting ${items.length} items…`)
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/dekut-knowledge-ingest`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify({ items }),
-  })
-  const result = await res.json()
-  console.log(JSON.stringify(result, null, 2))
+  // One record per source, last one wins.
+  const unique = [...new Map(items.map((i) => [i.source, i])).values()]
 
-  const succeeded = result.results?.filter((r) => r.ok).length ?? 0
-  const failed = result.results?.filter((r) => !r.ok).length ?? 0
-  console.log(`\nDone. ${succeeded} pages are now live in Curry's knowledge base. ${failed} failed.`)
-}
+  const BATCH_SIZE = 15
+  let saved = 0, unchanged = 0, failed = 0
+  const failures = []
+
+  console.log(`Ingesting ${unique.length} items in batches of ${BATCH_SIZE}…`)
+  for (let i = 0; i < unique.length; i += BATCH_SIZE) {
+    const batch = unique.slice(i, i + BATCH_SIZE)
+    const label = `batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(unique.length / BATCH_SIZE)}`
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/dekut-knowledge-ingest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ items: batch }),
+        signal: AbortSignal.timeout(140000),
+      })
+      const result = await res.json().catch(() => null)
+      if (!res.ok || !Array.isArray(result?.results)) {
+        failed += batch.length
+        failures.push(`${label}: HTTP ${res.status} ${JSON.stringify(result)?.slice(0, 120)}`)
+        console.error(`  ✗ ${label} failed (HTTP ${res.status})`)
+        continue
+      }
+      for (const r of result.results) {
+        if (r.ok && r.skipped) unchanged++
+        else if (r.ok) saved++
+        else { failed++; failures.push(`${r.title}: ${r.error}`) }
+      }
+      console.log(`  ✓ ${label} done`)
+    } catch (err) {
+      failed += batch.length
+      failures.push(`${label}: ${err.message}`)
+      console.error(`  ✗ ${label} → ${err.message}`)
+    }
+    await new Promise((r) => setTimeout(r, 1000)) // breathing room between batches
+  }
+
+  console.log(`\nDone. ${saved} new/updated, ${unchanged} unchanged, ${failed} failed.`)
+  if (failures.length) console.log('Failures:\n  ' + failures.slice(0, 20).join('\n  '))
+  if (failed > 0) process.exitCode = 1 // makes the GitHub Action show red, not a silent green
 
 main().catch((err) => {
   console.error('Fatal:', err.message)
