@@ -846,7 +846,7 @@ export default function ChatPage({ session }) {
   const [showNewCall, setShowNewCall] = useState(false)
   const [messageMenu, setMessageMenu] = useState(null) // { message, x, y } | null
   const [collection, setCollection] = useState('all')
-  const [showInsights, setShowInsights] = useState(false)
+  const [insightsOpenSignal, setInsightsOpenSignal] = useState(0)
   const [showPersonalAnalytics, setShowPersonalAnalytics] = useState(false)
   const [showTasksPage, setShowTasksPage] = useState(false)
   const [showConnectedApps, setShowConnectedApps] = useState(false)
@@ -2300,15 +2300,17 @@ const handleShareContact = async (profile) => {
   onOpenTasks={() => setShowTasksPage(true)}
   onOpenConversation={openConversationById}
   onAskCurry={(text) => { setCurryPrefill(text); setActiveConvo(CURRY_AI_CONTACT) }}
+     openSignal={insightsOpenSignal}
 />
     )}
           
-  <QuickActionsMenu
+ <QuickActionsMenu
       hidden={!!activeConvo || showShorts || showDekutCurry}
       onNewChat={() => (activeTab === 'calls' ? setShowNewCall(true) : setShowNewChat(true))}
       onOpenCurryAI={() => setActiveConvo(CURRY_AI_CONTACT)}
       onOpenDekutCurry={() => setShowDekutCurry(true)}
       dekutBadge={dekutHasNudge}
+      onOpenInsights={() => setInsightsOpenSignal((v) => v + 1)}
     />
 {showDekutCurry && (
   <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
