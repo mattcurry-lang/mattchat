@@ -141,7 +141,7 @@ function InsightCard({ item, onDismiss, onAct, onRemindLater }) {
   )
 }
 
-export default function AIInsightsPanel({ session, onOpenCurry, onOpenTasks, onOpenConversation, onAskCurry }) {
+export default function AIInsightsPanel({ session, onOpenCurry, onOpenTasks, onOpenConversation, onAskCurry, openSignal }) {
   const [brief, setBrief] = useState(null)
   const [weather, setWeather] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -181,7 +181,15 @@ export default function AIInsightsPanel({ session, onOpenCurry, onOpenTasks, onO
     return () => { cancelled = true }
   }, [session])
 
-  const allItems = useMemo(() => deriveInsightItems(brief), [brief])
+  // openSignal is bumped by an external trigger (the QuickActionsMenu
+  // "Insights" item) — this panel otherwise owns its own open state, so
+  // this is the one hook that lets something outside expand it on demand.
+  useEffect(() => {
+    if (openSignal) { setExpanded(true); setShowCriticalToast(false) }
+     
+  }, [openSignal])
+
+   const allItems = useMemo(() => deriveInsightItems(brief), [brief])
   const visibleItems = useMemo(
     () => allItems.filter((i) => !dismissed.has(i.id) && !snoozed.has(i.id)),
     [allItems, dismissed, snoozed]
