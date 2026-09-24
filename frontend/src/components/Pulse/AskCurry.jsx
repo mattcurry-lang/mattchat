@@ -1,36 +1,48 @@
 // src/components/Pulse/AskCurry.jsx
 //
-// Curry's chat surface — v2.
+// Curry's chat surface — v3.
 //
-// DESIGN NOTES
+// WHAT CHANGED FROM v2
 // ─────────────────────────────────────────────
-// Matched back to Mattchat's actual brand (dark navy base, violet
-// accent #6C63FF / #A78BFA — the same colors CurryOrb.jsx already
-// uses), not a departure from it. Two structural changes from v1:
+// 1. BUG FIX: the hero's decorative rings were tall enough (280px) to
+//    cross directly through the "Hey! I'm Curry." heading text below
+//    them, garbling it. Rings now live in a fixed 140×140 box wrapped
+//    tightly around just the orb — heading sits in normal flow after,
+//    so it's structurally impossible for them to overlap again.
 //
-// 1. No boxed chat container. The old bordered/backgrounded scroll
-//    panel made this read as an embedded widget floating on top of the
-//    app rather than part of it. Messages now sit directly on the
-//    page background — the surrounding Pulse chrome shows through.
-//    Only actual UI controls (input bar, action cards) still get a
-//    surface, because those are interactive, not just "reading" content.
+// 2. BUG FIX: `handleVoiceTurnRef.current = handleVoiceTurn` had been
+//    dropped somewhere along the way. `callLatestVoiceTurn` calls
+//    `.current(text)` on that ref — with the assignment missing, voice
+//    mode would throw the instant someone spoke. Restored.
 //
-// 2. ChatGPT-pattern message layout: assistant replies are plain text
-//    (no bubble), user messages keep a bubble (right-aligned, violet
-//    gradient). Every message gets a hover-revealed action row —
-//    Edit + Copy on user turns, Copy + Regenerate + feedback + Share on
-//    assistant turns — and the latest assistant reply offers 2–3
-//    tappable follow-up questions, the way modern assistants surface
-//    "people also ask" style suggestions instead of leaving you staring
-//    at a blank input.
+// 3. Chat/Voice segmented toggle removed. The input bar now mirrors
+//    ChatGPT's own affordance-swap: an empty field shows a circular
+//    waveform button (same role as ChatGPT's blue voice-mode launcher)
+//    that becomes a send arrow the moment you start typing. Voice mode
+//    gets a keyboard-icon button to return to chat — same pattern.
 //
-// Two modes, unchanged:
-//   - Chat: as above, plus client-side streaming reveal on assistant
-//     replies (backend returns one full response — this reveals it
-//     progressively for a more alive feel).
+// 4. "Email ICT" moved out of a standing bottom banner into a "⋯"
+//    dropdown next to the close button.
+//
+// 5. Follow-up chips are now picked in priority order: the specific
+//    action that just resolved → keyword matches against the actual
+//    reply text → general campus-FAQ pool as a last resort. Still a
+//    client-side heuristic (no extra model call), but tied to what was
+//    actually said instead of only the action type.
+//
+// 6. Typing indicator: orb (thinking state) + shimmering gradient-sweep
+//    text, replacing the three bouncing dots.
+//
+// Two modes, same underlying behavior as before:
+//   - Chat: plain-text assistant replies (no bubble), user bubble,
+//     client-side streaming reveal, hover action rows (edit/copy on
+//     user turns; copy/regenerate/feedback/share on assistant turns).
 //   - Voice: push-to-talk loop; orb reflects live mic amplitude while
-//     listening and speaks the reply aloud. Falls back to chat-only if
-//     the browser doesn't support mic access (useCurryVoice.supported).
+//     listening and speaks the reply aloud. Includes phone-number
+//     collection by voice for catering orders (digit-by-digit, with
+//     word-to-digit parsing) when the student declines their saved
+//     number. Falls back to chat-only if the browser doesn't support
+//     mic access (useCurryVoice.supported).
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { DekutIcon, ICON_GRADIENTS } from './dekutIcons'
@@ -58,12 +70,12 @@ const CORAL = '#FB7185'
 const USER_GRADIENT = `linear-gradient(135deg, ${VIOLET_LIGHT}, ${VIOLET})`
 const GLASS_BLUR = 'blur(16px) saturate(140%)'
 
-// ── Minimal inline icon set for the new message-action row ─────────────
-// Self-contained (not routed through DekutIcon) so this doesn't depend
-// on icon keys that may not exist in your icon registry yet.
-function MiniIcon({ children, size = 14 }) {
+// ── Minimal inline icon set — self-contained, not routed through
+// DekutIcon, so it doesn't depend on icon keys that may not exist in
+// your icon registry yet.
+function MiniIcon({ children, size = 14, style }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={style}>
       {children}
     </svg>
   )
@@ -75,6 +87,10 @@ const IconRefresh = (p) => <MiniIcon {...p}><path d="M21 12a9 9 0 0 1-15.3 6.4L3
 const IconThumbUp = (p) => <MiniIcon {...p}><path d="M7 10v11" /><path d="M15 5.88 14 10h6.3a1.7 1.7 0 0 1 1.62 2.2l-2.13 7A2 2 0 0 1 17.86 21H7a2 2 0 0 1-2-2v-7a2 2 0 0 1 .58-1.41L11 5a1.7 1.7 0 0 1 2.83.05L15 5.88Z" /></MiniIcon>
 const IconThumbDown = (p) => <MiniIcon {...p}><path d="M17 14V3" /><path d="M9 18.12 10 14H3.7a1.7 1.7 0 0 1-1.62-2.2l2.13-7A2 2 0 0 1 6.14 3H17a2 2 0 0 1 2 2v7a2 2 0 0 1-.58 1.41L13 19a1.7 1.7 0 0 1-2.83-.05L9 18.12Z" /></MiniIcon>
 const IconShare = (p) => <MiniIcon {...p}><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.6 13.5 15.4 17.5" /><path d="M15.4 6.5 8.6 10.5" /></MiniIcon>
+const IconWaveform = (p) => <MiniIcon {...p}><line x1="4" y1="10" x2="4" y2="14" /><line x1="8" y1="6" x2="8" y2="18" /><line x1="12" y1="3" x2="12" y2="21" /><line x1="16" y1="6" x2="16" y2="18" /><line x1="20" y1="10" x2="20" y2="14" /></MiniIcon>
+const IconKeyboard = (p) => <MiniIcon {...p}><rect x="2" y="6" width="20" height="12" rx="2" /><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h12" /></MiniIcon>
+const IconKebab = (p) => <MiniIcon {...p} style={{ ...p.style }}><circle cx="12" cy="5" r="1.6" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" /><circle cx="12" cy="19" r="1.6" fill="currentColor" stroke="none" /></MiniIcon>
+const IconMail = (p) => <MiniIcon {...p}><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 6-10 7L2 6" /></MiniIcon>
 
 function ActionBtn({ onClick, active, activeColor, label, children, disabled }) {
   return (
@@ -96,6 +112,56 @@ function ActionBtn({ onClick, active, activeColor, label, children, disabled }) 
   )
 }
 
+// ── Header "⋯" menu — houses Email ICT (was a standing bottom banner) ──
+function HeaderMenu() {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-label="More options"
+        aria-expanded={open}
+        className="curry-icon-btn"
+        style={{
+          background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, width: 34, height: 34,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
+          transition: 'border-color 160ms ease, background 160ms ease', color: TEXT_PRIMARY,
+        }}
+      >
+        <IconKebab size={16} />
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 50, minWidth: 210,
+            background: SURFACE_RAISED, backdropFilter: GLASS_BLUR, WebkitBackdropFilter: GLASS_BLUR,
+            border: `1px solid ${BORDER}`, borderRadius: 13, padding: 6,
+            boxShadow: '0 16px 36px -10px rgba(0,0,0,0.6)',
+            animation: 'curryMenuIn 140ms cubic-bezier(0.16,1,0.3,1)',
+          }}>
+            <a
+              href="mailto:studentadmin@dkut.ac.ke"
+              onClick={() => setOpen(false)}
+              className="curry-menu-item"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 9, padding: '9px 10px', borderRadius: 9,
+                fontSize: 12.5, fontWeight: 600, color: TEXT_PRIMARY, textDecoration: 'none',
+              }}
+            >
+              <IconMail size={15} style={{ color: VIOLET_LIGHT, flexShrink: 0 }} />
+              Email ICT support
+            </a>
+            <div style={{ fontSize: 10.5, color: TEXT_TERTIARY, padding: '7px 10px 4px', lineHeight: 1.4 }}>
+              Curry can make mistakes — check anything important.
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // Reveals text progressively on mount, with a blinking cursor while
 // revealing, rather than all at once. Caps total duration so long
 // replies don't feel sluggish.
@@ -114,7 +180,7 @@ function StreamingText({ text }) {
       })
     }, stepMs)
     return () => clearInterval(id)
-    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const done = count >= (text?.length ?? 0)
@@ -151,10 +217,13 @@ function SourceChips({ sources }) {
 }
 
 // ── Follow-up suggestions ──────────────────────────────────────────────
-// Contextual "people also ask" style chips under the latest reply.
-// Picks from a domain-specific pool when the reply carries a known
-// action type, otherwise falls back to a general FAQ pool — and never
-// repeats the question that was just asked.
+// Priority order: (1) the specific action that just resolved — most
+// reliable signal of what actually happened; (2) keyword matches
+// against the reply's own text, so chips track content rather than only
+// broad category; (3) a general campus-FAQ pool as a last resort. Never
+// repeats the question that was just asked. This is a client-side
+// heuristic, not a semantic/model-scored match — good enough to feel
+// relevant without an extra backend round trip.
 const GENERAL_FOLLOWUPS = [
   "How do I register my units?",
   "Where is the library?",
@@ -170,15 +239,38 @@ const FOLLOWUPS_BY_ACTION = {
   SHOW_ROUTE: ["Is there a faster way?", "What's nearby the destination?"],
   OPEN_SUPPORT: ["Check my ticket status", "How long do tickets usually take?"],
 }
+const KEYWORD_FOLLOWUPS = [
+  { re: /regist(er|ration|ering)/i, qs: ["When does registration close?", "What if I miss the deadline?"] },
+  { re: /\bexam/i, qs: ["When do exams start?", "Where do I check my exam timetable?"] },
+  { re: /librar/i, qs: ["What are the library hours?", "How do I borrow a book?"] },
+  { re: /complaint|ticket|feedback/i, qs: ["Check my ticket status", "How long do complaints take?"] },
+  { re: /portal/i, qs: ["I can't log into the portal", "How do I reset my password?"] },
+  { re: /\bfee|fresher|first[- ]year/i, qs: ["How do I pay fees?", "I'm a first-year student"] },
+  { re: /mess|chapati|ugali|menu|food|catering/i, qs: ["What's in Mess B?", "Order me the usual"] },
+]
 const PENDING_ACTION_TYPES = new Set([
   'CATERING_DETAILS_REQUIRED', 'CATERING_CONFIRM_REQUIRED', 'CATERING_USE_SAVED_REQUIRED', 'CONFIRM_REQUIRED',
 ])
 
 function getFollowups(message, lastAskedText) {
   if (!message || message.error || PENDING_ACTION_TYPES.has(message.action?.type)) return []
-  const pool = FOLLOWUPS_BY_ACTION[message.action?.type] || GENERAL_FOLLOWUPS
   const asked = (lastAskedText || '').trim().toLowerCase()
-  return pool.filter((q) => q.toLowerCase() !== asked).slice(0, 3)
+  const seen = new Set([asked])
+  const picks = []
+  const add = (q) => {
+    const k = q.toLowerCase()
+    if (!seen.has(k)) { picks.push(q); seen.add(k) }
+  }
+
+  for (const q of (FOLLOWUPS_BY_ACTION[message.action?.type] || [])) add(q)
+  if (picks.length < 3) {
+    for (const { re, qs } of KEYWORD_FOLLOWUPS) {
+      if (picks.length >= 3) break
+      if (re.test(message.text || '')) qs.forEach(add)
+    }
+  }
+  if (picks.length < 2) GENERAL_FOLLOWUPS.forEach(add)
+  return picks.slice(0, 3)
 }
 
 function FollowupChips({ questions, onPick }) {
@@ -306,7 +398,7 @@ function UserMessage({ message, onEdit, sending }) {
 
   useEffect(() => {
     if (editing) { taRef.current?.focus(); taRef.current?.setSelectionRange(draft.length, draft.length) }
-    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing])
 
   const save = () => {
@@ -368,9 +460,9 @@ function UserMessage({ message, onEdit, sending }) {
   )
 }
 
-// The empty-state hero. Ambient rings behind the orb extend its own
-// visual language; quick actions vary in emphasis rather than a uniform
-// identical grid.
+// The empty-state hero. Rings live in a fixed box wrapped tightly around
+// just the orb (see header note — this is the overlap-bug fix), heading
+// gets a soft gradient fill, and quick actions stagger in on mount.
 const QUICK_ACTIONS = [
   { text: "What's on the menu today?", icon: 'utensils', color: VIOLET_LIGHT, big: true },
   { text: "Where is RC18?", icon: 'file', color: CYAN },
@@ -382,30 +474,41 @@ const QUICK_ACTIONS = [
 
 function CurryHero({ onQuickAction }) {
   return (
-    <div style={{ position: 'relative', textAlign: 'center', padding: '34px 4px 6px' }}>
+    <div style={{ position: 'relative', textAlign: 'center', padding: '30px 4px 6px' }}>
       <div aria-hidden="true" style={{
-        position: 'absolute', top: -6, left: '50%', transform: 'translateX(-50%)',
-        width: 280, height: 280, pointerEvents: 'none',
+        position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)',
+        width: 320, height: 200, pointerEvents: 'none',
+        background: `radial-gradient(ellipse, rgba(167,139,250,0.12) 0%, transparent 70%)`,
+      }} />
+
+      {/* fixed box around just the orb — rings can never reach the heading below */}
+      <div style={{ position: 'relative', width: 140, height: 140, margin: '0 auto 16px' }}>
+        <div aria-hidden="true" style={{ position: 'absolute', inset: 0 }}>
+          {[0, 1, 2].map((i) => (
+            <div key={i} style={{
+              position: 'absolute', inset: 18 + i * 24, borderRadius: '50%',
+              border: `1px dashed rgba(167,139,250,${0.22 - i * 0.06})`,
+            }} />
+          ))}
+        </div>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <CurryOrbGraphic size={84} state="idle" animate />
+        </div>
+      </div>
+
+      <div style={{
+        position: 'relative', fontSize: 19, fontWeight: 800, marginBottom: 7, letterSpacing: '-0.01em',
+        backgroundImage: `linear-gradient(135deg, #fff 20%, ${VIOLET_LIGHT})`,
+        WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent',
       }}>
-        {[0, 1, 2].map((i) => (
-          <div key={i} style={{
-            position: 'absolute', inset: i * 44, borderRadius: '50%',
-            border: `1px dashed rgba(167,139,250,${0.16 - i * 0.04})`,
-          }} />
-        ))}
+        Hey! I'm Curry.
       </div>
-
-      <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-        <CurryOrbGraphic size={84} state="idle" animate />
-      </div>
-
-      <div style={{ position: 'relative', fontSize: 17, fontWeight: 800, color: TEXT_PRIMARY, marginBottom: 6 }}>Hey! I'm Curry.</div>
       <div style={{ position: 'relative', fontSize: 12.5, color: TEXT_SECONDARY, marginBottom: 22, maxWidth: 320, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.55 }}>
         Ask me about registration, exams and academics, campus locations, catering, or file a complaint or feedback — I'll point you the right way.
       </div>
 
       <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 9, textAlign: 'left' }}>
-        {QUICK_ACTIONS.map((qa) => (
+        {QUICK_ACTIONS.map((qa, i) => (
           <button
             key={qa.text}
             onClick={() => onQuickAction(qa.text)}
@@ -418,7 +521,7 @@ function CurryHero({ onQuickAction }) {
               border: `1px solid ${qa.big ? 'rgba(167,139,250,0.32)' : BORDER}`,
               borderRadius: 14, padding: qa.big ? '13px 14px' : '10px 12px',
               cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-              transition: 'transform 180ms cubic-bezier(0.16,1,0.3,1), border-color 180ms ease, box-shadow 180ms ease',
+              opacity: 0, animation: `curryQaIn 420ms cubic-bezier(0.16,1,0.3,1) ${80 + i * 55}ms forwards`,
             }}
           >
             <div style={{
@@ -435,25 +538,22 @@ function CurryHero({ onQuickAction }) {
   )
 }
 
+// Orb (thinking state) + shimmering gradient-sweep text, replacing the
+// old three-dot bounce.
 function TypingIndicator() {
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, animation: 'curryMsgIn 200ms ease' }}>
-      <div style={{ width: 24, height: 24, flexShrink: 0, marginTop: 2 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, animation: 'curryMsgIn 200ms ease' }}>
+      <div style={{ width: 24, height: 24, flexShrink: 0 }}>
         <CurryOrbGraphic size={24} state="thinking" animate />
       </div>
-      <div style={{ display: 'flex', gap: 5, alignItems: 'center', paddingTop: 6 }}>
-        {[0, 1, 2].map((i) => (
-          <span key={i} style={{
-            width: 5.5, height: 5.5, borderRadius: '50%', background: VIOLET_LIGHT,
-            animation: `curryBounce 1.1s ${i * 0.15}s infinite ease-in-out`,
-          }} />
-        ))}
-      </div>
+      <span className="curry-shimmer-text" style={{ fontSize: 13, fontWeight: 600 }}>
+        Curry is thinking
+      </span>
     </div>
   )
 }
 
-function VoiceMode({ voice }) {
+function VoiceMode({ voice, onExit }) {
   const { supported, listening, thinking, speaking, volume, transcript, error, cancelSpeech } = voice
   const handleOrbTap = () => { if (speaking) cancelSpeech() }
 
@@ -479,7 +579,19 @@ function VoiceMode({ voice }) {
         : error || 'Starting up…'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: 320, gap: 26 }}>
+    <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: 320, gap: 26 }}>
+      <button
+        onClick={onExit}
+        aria-label="Back to chat"
+        className="curry-icon-btn"
+        style={{
+          position: 'absolute', top: 0, right: 0,
+          background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, width: 34, height: 34,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: TEXT_PRIMARY,
+        }}
+      >
+        <IconKeyboard size={16} />
+      </button>
       <button
         onClick={handleOrbTap}
         aria-label={speaking ? 'Stop Curry speaking' : 'Curry voice'}
@@ -517,7 +629,9 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, sending])
 
-  const awaitingNumberRef = useRef(null) // { draft, messageId } while we're waiting to hear a number
+  // { draft, messageId } while we're waiting to hear a phone number
+  // spoken digit-by-digit (student declined their saved number).
+  const awaitingNumberRef = useRef(null)
 
   const WORD_DIGITS = { zero: 0, oh: 0, o: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9 }
   const spokenToDigits = (s) => {
@@ -567,11 +681,17 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
     return sendMessage(text)
   }, [messages, sendMessage, sendIntent, confirmAction, declineAction])
 
+  // Stable indirection so the voice loop (started once per mode change)
+  // always calls whatever handleVoiceTurn currently is, not a stale
+  // closure. This assignment was previously missing — without it,
+  // callLatestVoiceTurn calls .current(text) on a ref stuck at null and
+  // voice mode throws on the first spoken turn.
+  handleVoiceTurnRef.current = handleVoiceTurn
   const callLatestVoiceTurn = useCallback((text) => handleVoiceTurnRef.current(text), [])
 
   useEffect(() => {
     const last = messages[messages.length - 1]
-   const navTypes = ['SHOW_MENU', 'CATERING_DETAILS_REQUIRED']
+    const navTypes = ['SHOW_MENU', 'CATERING_DETAILS_REQUIRED']
     if (mode === 'voice' && last?.role === 'assistant' && navTypes.includes(last.action?.type)) {
       setMode('chat')
     }
@@ -585,7 +705,7 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
       awaitingNumberRef.current = null
     }
     return () => voice.stop()
-   
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
 
   const handleSend = (text) => {
@@ -615,9 +735,9 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
     sendIntent(payload, options.userText ?? null, options.replaceMessageId ?? null)
   }
 
-  // Last user text, for excluding it from follow-up suggestions.
   const lastUserText = [...messages].reverse().find((m) => m.role === 'user')?.text ?? ''
   const lastAssistantId = [...messages].reverse().find((m) => m.role === 'assistant')?.id ?? null
+  const showSend = sending || input.trim().length > 0
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -631,49 +751,22 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
             <div style={{ fontSize: 11.5, color: TEXT_SECONDARY }}>Your DeKUT campus assistant</div>
           </div>
         </div>
-        {typeof onClose === 'function' && (
-          <button onClick={onClose} aria-label="Close Ask Curry" className="curry-icon-btn" style={{
-            background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, width: 34, height: 34,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
-            transition: 'border-color 160ms ease, background 160ms ease',
-          }}>
-            <DekutIcon type="x" size={16} color={TEXT_PRIMARY} strokeWidth={2.2} />
-          </button>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <HeaderMenu />
+          {typeof onClose === 'function' && (
+            <button onClick={onClose} aria-label="Close Ask Curry" className="curry-icon-btn" style={{
+              background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, width: 34, height: 34,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
+              transition: 'border-color 160ms ease, background 160ms ease',
+            }}>
+              <DekutIcon type="x" size={16} color={TEXT_PRIMARY} strokeWidth={2.2} />
+            </button>
+          )}
+        </div>
       </div>
 
-      {voice.supported && (
-        <div style={{
-          position: 'relative', display: 'flex', background: SURFACE, backdropFilter: GLASS_BLUR, WebkitBackdropFilter: GLASS_BLUR,
-          border: `1px solid ${BORDER}`, borderRadius: 999, padding: 3, marginTop: 14, width: 200,
-        }}>
-          <div aria-hidden="true" style={{
-            position: 'absolute', top: 3, bottom: 3, left: mode === 'chat' ? 3 : 'calc(50% + 0px)',
-            width: 'calc(50% - 6px)', borderRadius: 999,
-            background: USER_GRADIENT, boxShadow: '0 2px 10px -4px rgba(108,99,255,0.55)',
-            transition: 'left 220ms cubic-bezier(0.34,1.56,0.64,1)',
-          }} />
-          {[{ id: 'chat', label: 'Chat' }, { id: 'voice', label: 'Voice' }].map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setMode(t.id)}
-              aria-pressed={mode === t.id}
-              style={{
-                position: 'relative', zIndex: 1, flex: 1,
-                fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
-                border: 'none', borderRadius: 999, padding: '6px 0',
-                background: 'transparent', color: mode === t.id ? '#fff' : TEXT_SECONDARY,
-                transition: 'color 160ms ease',
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      )}
-
       {mode === 'voice' ? (
-        <VoiceMode voice={voice} />
+        <VoiceMode voice={voice} onExit={() => setMode('chat')} />
       ) : (
         <>
           {/* No boxed container — messages sit directly on the app background */}
@@ -722,56 +815,81 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
               aria-label="Message Curry"
               style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 13.5, color: TEXT_PRIMARY, width: '100%', fontFamily: 'inherit' }}
             />
-            <button
-              onClick={() => handleSend()}
-              disabled={sending || !input.trim()}
-              aria-label="Send message"
-              className="curry-send-btn"
-              style={{
-                background: ICON_GRADIENTS?.cpu || USER_GRADIENT, border: 'none', borderRadius: 9, width: 30, height: 30,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: sending || !input.trim() ? 'default' : 'pointer',
-                opacity: sending || !input.trim() ? 0.5 : 1, flexShrink: 0,
-                transition: 'opacity 160ms ease, transform 120ms ease',
-              }}
-            >
-              <DekutIcon type="chevronRight" size={15} color="#fff" strokeWidth={2.4} />
-            </button>
-          </div>
-
-          <div style={{ marginTop: 10, borderRadius: 14, border: `1px dashed ${BORDER}`, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 11.5, color: TEXT_SECONDARY }}>Curry not finding what you need?</div>
-            </div>
-            <a href="mailto:studentadmin@dkut.ac.ke" style={{ fontSize: 11.5, fontWeight: 700, color: VIOLET_LIGHT, textDecoration: 'none', flexShrink: 0 }}>
-              Email ICT
-            </a>
+            {/* Affordance swap, ChatGPT-style: empty field shows the voice
+                launcher; typing (or a pending send) swaps it for the send
+                arrow — same button slot, one or the other. */}
+            {showSend ? (
+              <button
+                onClick={() => handleSend()}
+                disabled={sending || !input.trim()}
+                aria-label="Send message"
+                className="curry-send-btn"
+                style={{
+                  background: ICON_GRADIENTS?.cpu || USER_GRADIENT, border: 'none', borderRadius: 9, width: 30, height: 30,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: sending || !input.trim() ? 'default' : 'pointer',
+                  opacity: sending || !input.trim() ? 0.5 : 1, flexShrink: 0,
+                  transition: 'opacity 160ms ease, transform 120ms ease',
+                }}
+              >
+                <DekutIcon type="chevronRight" size={15} color="#fff" strokeWidth={2.4} />
+              </button>
+            ) : voice.supported ? (
+              <button
+                onClick={() => setMode('voice')}
+                aria-label="Start voice mode"
+                className="curry-voice-btn"
+                style={{
+                  background: USER_GRADIENT, border: 'none', borderRadius: '50%', width: 30, height: 30,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
+                  boxShadow: '0 3px 12px -4px rgba(108,99,255,0.55)', transition: 'transform 120ms ease',
+                }}
+              >
+                <IconWaveform size={15} style={{ color: '#fff' }} />
+              </button>
+            ) : null}
           </div>
         </>
       )}
 
       <style>{`
         @keyframes curryMsgIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes curryBounce { 0%, 80%, 100% { opacity: 0.35; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
         @keyframes curryCursor { 0%, 45% { opacity: 1; } 50%, 100% { opacity: 0; } }
+        @keyframes curryQaIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes curryMenuIn { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+        @keyframes curryShimmerKf { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .curry-shimmer-text {
+          background-image: linear-gradient(90deg, rgba(245,245,250,0.35) 0%, rgba(245,245,250,0.35) 38%, #fff 50%, rgba(245,245,250,0.35) 62%, rgba(245,245,250,0.35) 100%);
+          background-size: 200% 100%;
+          -webkit-background-clip: text; background-clip: text; color: transparent;
+          animation: curryShimmerKf 1.8s linear infinite;
+        }
 
         .curry-msg-row .curry-action-row { opacity: 0.001; transition: opacity 140ms ease; }
         .curry-msg-row:hover .curry-action-row,
         .curry-msg-row:focus-within .curry-action-row { opacity: 1; }
         .curry-action-btn:hover { background: rgba(245,245,250,0.08); color: ${TEXT_PRIMARY}; }
 
+        .curry-menu-item:hover { background: rgba(245,245,250,0.08); }
+
         .curry-followup-chip:hover { border-color: rgba(167,139,250,0.5); background: rgba(245,245,250,0.09); transform: translateY(-1px); }
 
         .curry-quick-action:hover {
-          transform: translateY(-2px);
+          transform: translateY(-2px) !important;
           border-color: rgba(167,139,250,0.55);
           box-shadow: 0 10px 24px -12px rgba(108,99,255,0.4);
         }
+        .curry-voice-btn:hover { transform: scale(1.06); }
+        .curry-voice-btn:active { transform: scale(0.94); }
+
         .curry-quick-action:focus-visible,
         .curry-icon-btn:focus-visible,
         .curry-send-btn:focus-visible,
+        .curry-voice-btn:focus-visible,
         .curry-action-btn:focus-visible,
         .curry-followup-chip:focus-visible,
+        .curry-menu-item:focus-visible,
         button:focus-visible,
         input:focus-visible,
         textarea:focus-visible {
@@ -790,7 +908,7 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
           .curry-msg-row .curry-action-row { opacity: 0.7; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .curry-msg-row, .curry-quick-action { animation: none !important; transition: none !important; }
+          .curry-msg-row, .curry-quick-action, .curry-shimmer-text { animation: none !important; transition: none !important; opacity: 1 !important; }
         }
       `}</style>
     </div>
