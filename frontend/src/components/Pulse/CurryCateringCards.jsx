@@ -38,6 +38,8 @@ const SURFACE = 'rgba(245,245,250,0.06)'
 const VIOLET = '#a78bfa'
 const VIOLET_GRADIENT = 'linear-gradient(135deg,#a78bfa,#6c63ff)'
 const MINT = '#6ee7b7'
+const SUPABASE_URL = 'https://bqerkvywgxoioocbkxif.supabase.co'
+const MENU_IMAGE_BUCKET = 'catering'
 
 const ACTION_SERVICE_ID = {
   OPEN_STUDENT_PORTAL: 'student-portal',
@@ -306,8 +308,7 @@ function CurryMenuCard({ action, message, sending, onIntent }) {
   const total = cartItems.reduce((s, i) => s + i.unit_price * i.quantity, 0)
   const countIn = (m) => m.items.reduce((s, i) => s + (cart[i.id] || 0), 0)
   const asOf = formatTime(action.as_of)
-  const SUPABASE_URL = 'https://bqerkvywgxoioocbkxif.supabase.co'
-const MENU_IMAGE_BUCKET = 'catering' 
+  
 
   const handleOrder = () => {
     if (cartItems.length === 0 || sending) return
@@ -523,7 +524,7 @@ function CurryUseSavedCard({ action, message, sending, onIntent, onOpenService }
 
 // ── Review and place ─────────────────────────────────────────────────────
 
-function CurryOrderCard({ action, message, sending, onConfirm, onIntent }) {
+function CurryOrderCard({ action, message, sending, onConfirm, onIntent, onOpenService }) {
   const [editingNumber, setEditingNumber] = useState(false)
   const { mess_name, mess_id, items, total, customer_name, customer_phone } = action.args || {}
 
