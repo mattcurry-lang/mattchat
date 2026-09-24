@@ -209,6 +209,7 @@ function StepperOverlay({ quantity, onChange, max = 20, disabled }) {
 // of the image rather than buried in a text row.
 function MenuItemTile({ item, quantity, onChange }) {
   const [imgError, setImgError] = useState(false)
+  const imageSrc = resolveItemImage(item)
   const left = item.available_quantity
   const soldOut = !item.is_available || left <= 0
   const lowStock = !soldOut && left <= 5
@@ -221,11 +222,12 @@ function MenuItemTile({ item, quantity, onChange }) {
       transition: 'border-color 140ms ease',
     }}>
       <div style={{ position: 'relative', width: '100%', aspectRatio: '1 / 1', background: 'rgba(255,255,255,0.04)' }}>
-        {item.image_url && !imgError ? (
-          <img
-            src={item.image_url} alt="" loading="lazy" onError={() => setImgError(true)}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
+        {imageSrc && !imgError ? (
+   <img
+    src={imageSrc} alt={item.name} loading="lazy" referrerPolicy="no-referrer"
+    onError={() => { console.warn('[menu] image failed to load:', imageSrc); setImgError(true) }}
+    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+  />
         ) : (
           <div style={{
             width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -304,6 +306,8 @@ function CurryMenuCard({ action, message, sending, onIntent }) {
   const total = cartItems.reduce((s, i) => s + i.unit_price * i.quantity, 0)
   const countIn = (m) => m.items.reduce((s, i) => s + (cart[i.id] || 0), 0)
   const asOf = formatTime(action.as_of)
+  const SUPABASE_URL = 'https://bqerkvywgxoioocbkxif.supabase.co'
+const MENU_IMAGE_BUCKET = 'catering' 
 
   const handleOrder = () => {
     if (cartItems.length === 0 || sending) return
@@ -408,7 +412,13 @@ function CurryMenuCard({ action, message, sending, onIntent }) {
     </div>
   )
 }
-
+function resolveItemImage(item) {
+  const raw = item.image_url || item.imageUrl || item.image || item.photo_url || item.picture_url
+  if (!raw || typeof raw !== 'string') return null
+  if (/^(https?:|data:|blob:)/i.test(raw)) return raw
+  if (raw.startsWith('//')) return `https:${raw}`
+  return `${SUPABASE_URL}/storage/v1/object/public/${MENU_IMAGE_BUCKET}/${raw.replace(/^\/+/, '')}`
+}
 // ── First order / edit contact: name + phone ────────────────────────────
 
 function CurryContactCard({ message, action, sending, onIntent, initial, onCancel }) {
