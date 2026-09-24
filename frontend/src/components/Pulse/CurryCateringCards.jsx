@@ -166,65 +166,183 @@ const stepBtn = {
 // back as replaceMessageId so ordering from it locks the card in place
 // rather than staying live and re-submittable underneath the reply that
 // follows.
-function CurryMenuCard({ action, message, sending, onIntent }) {
-  const messes = action.messes || []
-  const [messId, setMessId] = useState((messes.find((m) => m.open) || messes[0])?.id ?? null)
-  const [cart, setCart] = useState({}) // item_id -> quantity
-  const [query, setQuery] = useState('')
-
-  if (message?.confirmed) return null
-
-  const mess = messes.find((m) => m.id === messId) || messes[0]
-  if (!mess) return null
-
-  const switchMess = (id) => { setMessId(id); setQuery('') }
-
-  const setQty = (itemId, qty) => setCart((prev) => {
-    const next = { ...prev }
-    if (qty <= 0) delete next[itemId]
-    else next[itemId] = Math.min(20, qty)
-    return next
-  })
-
-  const q = query.trim().toLowerCase()
-  const visible = mess.items.filter((i) => !q || i.name.toLowerCase().includes(q))
-  const cartItems = mess.items.filter((i) => cart[i.id] > 0).map((i) => ({ ...i, quantity: cart[i.id] }))
-  const count = cartItems.reduce((s, i) => s + i.quantity, 0)
-  const total = cartItems.reduce((s, i) => s + i.unit_price * i.quantity, 0)
-  const countIn = (m) => m.items.reduce((s, i) => s + (cart[i.id] || 0), 0)
-  const asOf = formatTime(action.as_of)
-
-  const handleOrder = () => {
-    if (cartItems.length === 0 || sending) return
-    onIntent(
-      { intent: 'catering_draft', draft: { mess_id: mess.id, items: cartItems.map((i) => ({ item_id: i.id, quantity: i.quantity })) } },
-      {
-        userText: `${cartItems.map((i) => `${i.quantity} × ${i.name}`).join(', ')} from ${mess.name}`,
-        replaceMessageId: message?.id,
-      }
+// Overlaid variant of the stepper — sits on top of the food photo,
+// white circular chip with shadow (the DoorDash/Uber Eats "+" pattern),
+// rather than the flat inline version used elsewhere.
+function StepperOverlay({ quantity, onChange, max = 20, disabled }) {
+  if (disabled) return null
+  if (!quantity) {
+    return (
+      <button
+        onClick={(e) => { e.stopPropagation(); onChange(1) }}
+        aria-label="Add one"
+        style={{
+          position: 'absolute', right: 8, bottom: 8, width: 30, height: 30, borderRadius: '50%',
+          border: 'none', cursor: 'pointer', background: '#fff', color: VIOLET,
+          fontSize: 18, fontWeight: 800, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 3px 10px rgba(0,0,0,0.35)',
+        }}
+      >
+        +
+      </button>
     )
-    setCart({})
   }
+  return (
+    <div style={{
+      position: 'absolute', right: 8, bottom: 8, display: 'flex', alignItems: 'center', gap: 0,
+      borderRadius: 999, background: '#fff', boxShadow: '0 3px 10px rgba(0,0,0,0.35)', overflow: 'hidden',
+    }}>
+      <button onClick={(e) => { e.stopPropagation(); onChange(quantity - 1) }} aria-label="Remove one" style={{
+        width: 26, height: 30, border: 'none', background: 'none', cursor: 'pointer', color: VIOLET, fontSize: 15, fontWeight: 800, fontFamily: 'inherit',
+      }}>−</button>
+      <span style={{ fontSize: 12.5, fontWeight: 800, color: '#1a1a2e', minWidth: 16, textAlign: 'center' }}>{quantity}</span>
+      <button onClick={(e) => { e.stopPropagation(); onChange(Math.min(max, quantity + 1)) }} disabled={quantity >= max} aria-label="Add one" style={{
+        width: 26, height: 30, border: 'none', background: 'none', cursor: 'pointer', color: VIOLET, fontSize: 15, fontWeight: 800, fontFamily: 'inherit', opacity: quantity >= max ? 0.35 : 1,
+      }}>+</button>
+    </div>
+  )
+}
+
+// A single food card — photo-forward, grid tile. This is the pattern
+// Uber Eats/DoorDash/Domino's all converge on for chat-embedded menus:
+// big image, price + name below it, quantity control overlaid bottom-right
+// of the image rather than buried in a text row.
+function MenuItemTile({ item, quantity, onChange }) {
+  const [imgError, setImgError] = useState(false)
+  const left = item.available_quantity
+  const soldOut = !item.is_available || left <= 0
+  const lowStock = !soldOut && left <= 5
 
   return (
-    <div style={shell}>
-      <div style={{ padding: '12px 16px 4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: TEXT_PRIMARY }}>Today's menu</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: TEXT_SECONDARY }}>
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: action.live ? '#34d399' : '#f59e0b' }} />
-          {action.live ? (asOf ? `Live · ${asOf}` : 'Live') : (asOf ? `Last updated ${asOf}` : 'May be out of date')}
+    <div style={{
+      borderRadius: 14, overflow: 'hidden', background: SURFACE,
+      border: `1px solid ${quantity > 0 ? 'rgba(167,139,250,0.55)' : BORDER}`,
+      display: 'flex', flexDirection: 'column', opacity: soldOut ? 0.55 : 1,
+      transition: 'border-color 140ms ease',
+    }}>
+      <div style={{ position: 'relative', width: '100%', aspectRatio: '1 / 1', background: 'rgba(255,255,255,0.04)' }}>
+        {item.image_url && !imgError ? (
+          <img
+            src={item.image_url} alt="" loading="lazy" onError={() => setImgError(true)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        ) : (
+          <div style={{
+            width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 26, fontWeight: 800, color: TEXT_MUTED, background: 'linear-gradient(135deg, rgba(167,139,250,0.14), rgba(108,99,255,0.06))',
+          }}>
+            {item.name.charAt(0)}
+          </div>
+        )}
+        {/* price chip — bottom-left over the photo, Domino's/UberEats style */}
+        <div style={{
+          position: 'absolute', left: 7, bottom: 7, fontSize: 11, fontWeight: 800, color: '#fff',
+          background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', borderRadius: 999, padding: '3px 8px',
+        }}>
+          KSh {item.unit_price}
+        </div>
+        {soldOut && (
+          <div style={{
+            position: 'absolute', inset: 0, background: 'rgba(10,10,16,0.55)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <span style={{ fontSize: 10.5, fontWeight: 800, color: '#fff', background: 'rgba(0,0,0,0.5)', borderRadius: 999, padding: '4px 10px' }}>
+              Sold out
+            </span>
+          </div>
+        )}
+        {lowStock && (
+          <div style={{
+            position: 'absolute', top: 7, left: 7, fontSize: 9.5, fontWeight: 800, color: '#1a1a2e',
+            background: '#fbbf24', borderRadius: 999, padding: '2px 7px',
+          }}>
+            {left} left
+          </div>
+        )}
+        <StepperOverlay quantity={quantity} disabled={soldOut} onChange={(q) => onChange(item.id, q)} max={Math.min(20, left)} />
+      </div>
+      <div style={{ padding: '8px 9px 9px' }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: TEXT_PRIMARY, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {item.name}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+ // message is optional — when present, the card locks itself (renders
+ // nothing) once that message has been marked confirmed, and passes its id
+ // back as replaceMessageId so ordering from it locks the card in place
+ // rather than staying live and re-submittable underneath the reply that
+ // follows.
+ function CurryMenuCard({ action, message, sending, onIntent }) {
+   const messes = action.messes || []
+   const [messId, setMessId] = useState((messes.find((m) => m.open) || messes[0])?.id ?? null)
+   const [cart, setCart] = useState({}) // item_id -> quantity
+   const [query, setQuery] = useState('')
+
+   if (message?.confirmed) return null
+
+   const mess = messes.find((m) => m.id === messId) || messes[0]
+   if (!mess) return null
+
+   const switchMess = (id) => { setMessId(id); setQuery('') }
+
+   const setQty = (itemId, qty) => setCart((prev) => {
+     const next = { ...prev }
+     if (qty <= 0) delete next[itemId]
+     else next[itemId] = Math.min(20, qty)
+     return next
+   })
+
+   const q = query.trim().toLowerCase()
+   const visible = mess.items.filter((i) => !q || i.name.toLowerCase().includes(q))
+   const cartItems = mess.items.filter((i) => cart[i.id] > 0).map((i) => ({ ...i, quantity: cart[i.id] }))
+   const count = cartItems.reduce((s, i) => s + i.quantity, 0)
+   const total = cartItems.reduce((s, i) => s + i.unit_price * i.quantity, 0)
+   const countIn = (m) => m.items.reduce((s, i) => s + (cart[i.id] || 0), 0)
+   const asOf = formatTime(action.as_of)
+
+   const handleOrder = () => {
+     if (cartItems.length === 0 || sending) return
+     onIntent(
+       { intent: 'catering_draft', draft: { mess_id: mess.id, items: cartItems.map((i) => ({ item_id: i.id, quantity: i.quantity })) } },
+       {
+         userText: `${cartItems.map((i) => `${i.quantity} × ${i.name}`).join(', ')} from ${mess.name}`,
+         replaceMessageId: message?.id,
+       }
+     )
+     setCart({})
+   }
+
+<div style={{ ...shell, maxWidth: 380, borderColor: 'rgba(167,139,250,0.28)', boxShadow: '0 12px 32px -14px rgba(108,99,255,0.35)' }}>
+      
+      <div style={{
+        padding: '13px 16px 12px', position: 'relative', overflow: 'hidden',
+        background: 'linear-gradient(120deg, rgba(167,139,250,0.22), rgba(108,99,255,0.08))',
+        borderBottom: `1px solid ${BORDER}`,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: TEXT_PRIMARY }}>🍽️ Today's menu</div>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, color: TEXT_SECONDARY,
+            background: 'rgba(0,0,0,0.25)', borderRadius: 999, padding: '3px 9px', flexShrink: 0,
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: action.live ? '#34d399' : '#f59e0b', flexShrink: 0 }} />
+            {action.live ? (asOf ? `Live · ${asOf}` : 'Live') : (asOf ? `Updated ${asOf}` : 'May be out of date')}
+          </div>
         </div>
       </div>
 
       {messes.length > 1 && (
-        <div style={{ display: 'flex', gap: 8, padding: '10px 16px 12px', overflowX: 'auto' }}>
+        <div style={{ display: 'flex', gap: 8, padding: '12px 16px 10px', overflowX: 'auto' }}>
           {messes.map((m) => {
             const active = m.id === mess.id
             const inCart = countIn(m)
             return (
               <button key={m.id} onClick={() => switchMess(m.id)} style={{
                 flexShrink: 0, textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer',
-                padding: '8px 12px', borderRadius: 12, minWidth: 96,
+               padding: '8px 13px', borderRadius: 999, minWidth: 0,
                 border: `1px solid ${active ? VIOLET : BORDER}`,
                 background: active ? 'rgba(167,139,250,0.14)' : SURFACE,
                 opacity: m.open || active ? 1 : 0.65,
@@ -233,9 +351,7 @@ function CurryMenuCard({ action, message, sending, onIntent }) {
                   {m.name}
                   {inCart > 0 && <span style={{ fontSize: 10, background: VIOLET, color: '#fff', borderRadius: 999, padding: '1px 6px' }}>{inCart}</span>}
                 </div>
-                <div style={{ fontSize: 10.5, marginTop: 2, color: m.open ? MINT : TEXT_SECONDARY }}>
-                  {m.open ? `${m.available_count} available` : 'Nothing on now'}
-                </div>
+                 
               </button>
             )
           })}
@@ -244,60 +360,55 @@ function CurryMenuCard({ action, message, sending, onIntent }) {
 
       {mess.items.length > 8 && (
         <div style={{ padding: '0 16px 10px' }}>
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${mess.name}`} style={inputStyle} />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${mess.name}`} style={{ ...inputStyle, borderRadius: 999 }} />
         </div>
       )}
 
-      <div style={{ maxHeight: 340, overflowY: 'auto', borderTop: `1px solid ${BORDER}` }}>
+       {/* Photo-first grid — 2 columns, responsive up to 3 on wider
+          viewports via auto-fill. This is the pattern real delivery
+          apps (Uber Eats, DoorDash) and Domino's own chat carousel
+          converge on: the picture does the selling, not a text row. */}
+      <div style={{
+        maxHeight: 420, overflowY: 'auto', borderTop: `1px solid ${BORDER}`, padding: '12px 12px 4px',
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(128px, 1fr))', gap: 10,
+      }}>
         {visible.length === 0 && (
-          <div style={{ padding: '28px 16px', textAlign: 'center', fontSize: 12.5, color: TEXT_SECONDARY, lineHeight: 1.5 }}>
+          <div style={{ gridColumn: '1 / -1', padding: '28px 16px', textAlign: 'center', fontSize: 12.5, color: TEXT_SECONDARY, lineHeight: 1.5 }}>
             {mess.items.length === 0
               ? `Nothing is being served at ${mess.name} right now. Check back a little later.`
               : `No items match "${query}".`}
           </div>
         )}
-        {visible.map((item) => {
-          const qty = cart[item.id] || 0
-          const left = item.available_quantity
-          const soldOut = !item.is_available || left <= 0
-          return (
-            <div key={item.id} style={{
-              display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
-              borderBottom: `1px solid ${BORDER}`, opacity: soldOut ? 0.5 : 1,
-            }}>
-              <div style={{ width: 52, height: 52, borderRadius: 12, flexShrink: 0, overflow: 'hidden', background: SURFACE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: TEXT_SECONDARY }}>
-                {item.image_url
-                  ? <img src={item.image_url} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none' }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : item.name.charAt(0)}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: TEXT_PRIMARY, lineHeight: 1.3 }}>{item.name}</div>
-                <div style={{ fontSize: 12, marginTop: 3, color: TEXT_SECONDARY }}>
-                  <span style={{ color: TEXT_PRIMARY, fontWeight: 700 }}>KSh {item.unit_price}</span>
-                  {!soldOut && <span style={{ color: left <= 5 ? '#fbbf24' : TEXT_SECONDARY }}> · {left} left</span>}
-                </div>
-              </div>
-              {soldOut
-                ? <span style={{ fontSize: 11.5, fontWeight: 700, color: TEXT_SECONDARY }}>Sold out</span>
-                : <Stepper quantity={qty} max={Math.min(20, left)} onChange={(q) => setQty(item.id, q)} />}
-            </div>
-          )
-        })}
+ {visible.map((item) => (
+          <MenuItemTile key={item.id} item={item} quantity={cart[item.id] || 0} onChange={setQty} />
+       ))}
       </div>
 
-      <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, borderTop: `1px solid ${BORDER}` }}>
-        <div style={{ flex: 1, fontSize: 13, color: TEXT_PRIMARY }}>
-          {count > 0
-            ? <><span style={{ fontWeight: 800 }}>{count} item{count > 1 ? 's' : ''}</span><span style={{ color: TEXT_SECONDARY }}> · KSh {total}</span></>
-            : <span style={{ color: TEXT_SECONDARY }}>Tap + to start your order</span>}
-        </div>
-        <button onClick={handleOrder} disabled={count === 0 || sending} style={primaryButton({
-          padding: '10px 18px',
-          opacity: count === 0 || sending ? 0.4 : 1,
-          cursor: count === 0 || sending ? 'default' : 'pointer',
-        })}>
-          Review order
-        </button>
+     {/* Sticky cart bar — only appears once something's in the cart,
+          so an empty-cart bar isn't taking up space by default. */}
+      <div style={{
+        padding: count > 0 ? '11px 14px' : '10px 16px', borderTop: `1px solid ${BORDER}`,
+        display: 'flex', alignItems: 'center', gap: 10,
+        background: count > 0 ? 'rgba(167,139,250,0.1)' : 'transparent',
+        transition: 'background 160ms ease',
+      }}>
+        {count > 0 ? (
+          <>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 800, color: TEXT_PRIMARY }}>{count} item{count > 1 ? 's' : ''} · KSh {total}</div>
+              <div style={{ fontSize: 10.5, color: TEXT_SECONDARY, marginTop: 1 }}>{mess.name}</div>
+            </div>
+            <button onClick={handleOrder} disabled={sending} style={primaryButton({
+              padding: '10px 18px', borderRadius: 999,
+              opacity: sending ? 0.5 : 1, cursor: sending ? 'default' : 'pointer',
+              boxShadow: '0 6px 16px -6px rgba(108,99,255,0.6)',
+            })}>
+              Review order →
+            </button>
+          </>
+        ) : (
+          <span style={{ fontSize: 11.5, color: TEXT_SECONDARY }}>Tap a photo's + to start your order</span>
+        )}
       </div>
     </div>
   )
