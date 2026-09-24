@@ -517,19 +517,47 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, sending])
 
+  const awaitingNumberRef = useRef(null) // { draft, messageId } while we're waiting to hear a number
+
+  const WORD_DIGITS = { zero: 0, oh: 0, o: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9 }
+  const spokenToDigits = (s) => {
+    const fromWords = s.toLowerCase().split(/[\s,.-]+/).map((w) => (w in WORD_DIGITS ? WORD_DIGITS[w] : /^\d+$/.test(w) ? w : '')).join('')
+    return fromWords.replace(/\D/g, '')
+  }
+
   const handleVoiceTurn = useCallback(async (text) => {
-    const last = messages[messages.length - 1]
-    const action = last?.role === 'assistant' && !last?.confirmed ? last?.action : null
     const said = text.trim().toLowerCase()
     const isYes = /^(yes|yeah|yep|sure|go ahead|okay|ok|confirm|place it|do it)\b/.test(said)
     const isNo = /^(no|nope|not now|cancel|stop)\b/.test(said)
 
-    if (action?.type === 'CATERING_USE_SAVED_REQUIRED' && (isYes || isNo)) {
+    // Waiting for a number: this turn IS the number.
+    if (awaitingNumberRef.current) {
+      const { draft, messageId } = awaitingNumberRef.current
+      if (/\b(cancel|never mind|forget it)\b/.test(said)) {
+        awaitingNumberRef.current = null
+        declineAction(messageId)
+        return 'Okay, cancelled.'
+      }
+      const digits = spokenToDigits(text)
+      const ok = /^(0[17]\d{8}|254[17]\d{8}|[17]\d{8})$/.test(digits)
+      if (!ok) return "I didn't catch a full number. Say it again, digit by digit."
+      awaitingNumberRef.current = null
       return sendIntent(
-        { intent: 'catering_use_saved', draft: action.draft, use_saved: isYes },
-        isYes ? 'Yes, the usual' : 'Different details',
-        last.id
+        { intent: 'catering_order_with_number', draft, customer_phone: digits },
+        `Send it to ${digits}`,
+        messageId
       )
+    }
+
+    const last = messages[messages.length - 1]
+    const action = last?.role === 'assistant' && !last?.confirmed ? last?.action : null
+
+    if (action?.type === 'CATERING_USE_SAVED_REQUIRED' && (isYes || isNo)) {
+      if (isYes) {
+        return sendIntent({ intent: 'catering_use_saved', draft: action.draft, use_saved: true }, 'Yes, use my number', last.id)
+      }
+      awaitingNumberRef.current = { draft: action.draft, messageId: last.id }
+      return 'Sure. Which number should I send it to? Say it digit by digit.'
     }
     if ((action?.type === 'CATERING_CONFIRM_REQUIRED' || action?.type === 'CONFIRM_REQUIRED') && (isYes || isNo)) {
       if (isYes) return confirmAction(last.id, action)
@@ -538,13 +566,12 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
     }
     return sendMessage(text)
   }, [messages, sendMessage, sendIntent, confirmAction, declineAction])
-  handleVoiceTurnRef.current = handleVoiceTurn
 
   const callLatestVoiceTurn = useCallback((text) => handleVoiceTurnRef.current(text), [])
 
   useEffect(() => {
     const last = messages[messages.length - 1]
-    const navTypes = ['SHOW_MENU', 'CATERING_DETAILS_REQUIRED', 'CATERING_CONFIRM_REQUIRED', 'CATERING_USE_SAVED_REQUIRED']
+   const navTypes = ['SHOW_MENU', 'CATERING_DETAILS_REQUIRED']
     if (mode === 'voice' && last?.role === 'assistant' && navTypes.includes(last.action?.type)) {
       setMode('chat')
     }
@@ -555,6 +582,7 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
       voice.start(callLatestVoiceTurn)
     } else {
       voice.stop()
+      awaitingNumberRef.current = null
     }
     return () => voice.stop()
    
