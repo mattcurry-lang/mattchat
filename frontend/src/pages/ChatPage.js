@@ -836,6 +836,7 @@ export default function ChatPage({ session }) {
   const [showSearch, setShowSearch]                 = useState(false)
   const [showCurryAssistant, setShowCurryAssistant] = useState(false)
   const [showThreeDot, setShowThreeDot]             = useState(false)
+  const [showInsights, setShowInsights]             = useState(false) 
   const [hasScheduled, setHasScheduled]             = useState(false)
   const [showEmojiPicker, setShowEmojiPicker]       = useState(false)
   const [activeTab, setActiveTab]                   = useState('chats')
