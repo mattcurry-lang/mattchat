@@ -21,6 +21,7 @@ import SuggestLocationForm from './SuggestLocationForm'
 import AddVideoModal from './AddVideoModal'
 import DekutCampusMap from './DekutCampusMap'
 import { useDekutRoutes } from '../../hooks/useDekutRoutes'
+import RouteMapPanel from './RouteMapPanel'
 
 const TEXT_PRIMARY = '#f5f5fa'
 const TEXT_SECONDARY = 'rgba(245,245,250,0.6)'
@@ -93,8 +94,9 @@ function LocationVideo({ videoType, videoUrl }) {
   )
 }
 
-function LocationCard({ loc, onAddVideo, onDelete, onGenerate, generating }) {
+function LocationCard({ loc, onAddVideo, onDelete, onGenerate, generating, route }) {
   const hasApprovedVideo = loc.is_video_verified && loc.video_type !== 'none' && loc.video_url
+  const [showRoute, setShowRoute] = useState(false)
 
   return (
     <div style={{
@@ -123,16 +125,23 @@ function LocationCard({ loc, onAddVideo, onDelete, onGenerate, generating }) {
         <div style={{ fontSize: 11.5, color: TEXT_SECONDARY }}>🚶 ~{loc.walking_distance_min} min walk</div>
       )}
 
-  {hasApprovedVideo && <LocationVideo videoType={loc.video_type} videoUrl={loc.video_url} />}
+   {hasApprovedVideo && <LocationVideo videoType={loc.video_type} videoUrl={loc.video_url} />}
 {onGenerate && hasApprovedVideo && (
-  <button onClick={() => onGenerate(loc)} disabled={generating} style={{
-    alignSelf: 'flex-start', background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.4)',
-    borderRadius: 999, padding: '5px 11px', cursor: generating ? 'default' : 'pointer', fontFamily: 'inherit',
-    fontSize: 11, fontWeight: 700, color: '#c4b5fd', opacity: generating ? 0.6 : 1,
-  }}>
+  <button onClick={() => onGenerate(loc)} disabled={generating} style={{...}}>
     {generating ? 'Analysing video…' : '✨ Generate route steps'}
   </button>
 )}
+
+{route && (
+  <>
+    <button onClick={() => setShowRoute((v) => !v)} style={{
+      alignSelf: 'flex-start', background: 'rgba(34,211,238,0.12)', border: '1px solid rgba(34,211,238,0.4)',
+      borderRadius: 999, padding: '5px 11px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 700, color: '#67e8f9',
+    }}>{showRoute ? 'Hide route map' : '🗺 Route map'}</button>
+    {showRoute && <RouteMapPanel steps={route.steps} reverseSteps={route.reverse_steps} name={loc.name} startPoint={route.start_point} />}
+  </>
+)}
+ 
       <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
         {onAddVideo && (
           <button
@@ -261,7 +270,7 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
           )}
 
                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                       {results.map((loc) => (
+                                   {results.map((loc) => (
               <LocationCard
                 key={loc.id}
                 loc={loc}
@@ -271,6 +280,7 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
                 } : null}
                 onGenerate={isAdmin ? routes.generate : null}
                 generating={routes.busyId === loc.id}
+                route={routes.approved[loc.id]}
               />
             ))}
           </div>
