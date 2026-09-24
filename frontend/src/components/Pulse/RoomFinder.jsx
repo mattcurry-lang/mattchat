@@ -251,7 +251,7 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
               }}
             />
           </div>
-
+{routes.error && <div style={{ fontSize: 12, color: '#f87171', marginBottom: 10 }}>{routes.error}</div>}
           {loading && <div style={{ fontSize: 12.5, color: TEXT_SECONDARY, padding: '10px 2px' }}>Loading locations…</div>}
 
           {!loading && results.length === 0 && (
