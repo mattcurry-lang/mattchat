@@ -584,7 +584,7 @@ function CurryOrderCard({ action, message, sending, onConfirm, onIntent, onOpenS
       </button>
     )}
   </div>
-      </div>
+      
 
       <div style={{ padding: '10px 14px 0', borderTop: `1px solid ${BORDER}` }}>
         <button
