@@ -2288,7 +2288,6 @@ const handleShareContact = async (profile) => {
   <BottomNav
     activeTab={activeTab}
     onTabChange={setActiveTab}
-    onNewChat={() => (activeTab === 'calls' ? setShowNewCall(true) : setShowNewChat(true))}
     onProfileClick={() => setShowProfileMenu(v => !v)}
     badges={{ chats: totalUnread, calls: callActive, status: unreadStatusCount > 0 }}
   />
