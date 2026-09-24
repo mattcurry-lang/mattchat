@@ -1,5 +1,5 @@
 import React from 'react'
-import { IconHome, IconPhone, IconStatus, IconUser, IconSparkle, IconPlus } from './Icons'
+import { IconHome, IconPhone, IconStatus, IconUser, IconSparkle } from './Icons'
 
 function NavBadge({ count }) {
   if (!count) return null
@@ -17,7 +17,6 @@ function NavDot() {
 export default function BottomNav({
   activeTab,
   onTabChange,
-  onNewChat,
   onProfileClick,
   variant = 'default',
   badges = {}, // { chats?: number, calls?: boolean, status?: boolean }
@@ -28,11 +27,7 @@ export default function BottomNav({
 
   return (
     <>
-      {activeTab === 'chats' && !isFloating && (
-        <button className="fab-new-chat" onClick={onNewChat} title="New chat">
-          <IconPlus size={22} />
-        </button>
-      )}
+      
       <div className={isFloating ? 'bottom-nav bottom-nav-floating' : 'bottom-nav'}>
         <button
           className={`bnav-btn ${activeTab === 'chats' ? 'active' : ''}`}
