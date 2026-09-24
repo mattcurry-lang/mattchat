@@ -5,7 +5,9 @@ async function extractFrames(url, count = 8) {
   try {
     const res = await fetch(url)
     if (!res.ok) throw new Error(`Video download failed (${res.status}).`)
-    blobUrl = URL.createObjectURL(await res.blob())
+       const raw = await res.blob()
+    const type = raw.type && raw.type.startsWith('video/') ? raw.type : 'video/mp4'
+    blobUrl = URL.createObjectURL(new Blob([raw], { type }))
   } catch (e) {
     throw new Error(e.message?.startsWith('Video download') ? e.message : "Couldn't download the video from storage (network or CORS).")
   }
@@ -16,7 +18,7 @@ async function extractFrames(url, count = 8) {
   video.src = blobUrl
   await new Promise((resolve, reject) => {
     video.onloadedmetadata = resolve
-    video.onerror = () => reject(new Error("The browser couldn't decode this video format. Try re-uploading it as MP4 (H.264)."))
+       video.onerror = () => reject(new Error(`Video decode failed (code ${video.error?.code}, ${video.error?.message || 'no detail'}, type ${video.canPlayType('video/mp4') ? 'mp4 ok' : 'mp4 unsupported'}).`))
   })
   const dur = video.duration
   if (!isFinite(dur) || dur <= 0) throw new Error("Couldn't read the video length.")
