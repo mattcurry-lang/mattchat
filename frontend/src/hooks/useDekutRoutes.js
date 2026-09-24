@@ -1,17 +1,22 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-
-// Grabs evenly spaced frames from an uploaded clip, entirely in the browser.
 async function extractFrames(url, count = 8) {
+  let blobUrl = null
+  try {
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`Video download failed (${res.status}).`)
+    blobUrl = URL.createObjectURL(await res.blob())
+  } catch (e) {
+    throw new Error(e.message?.startsWith('Video download') ? e.message : "Couldn't download the video from storage (network or CORS).")
+  }
   const video = document.createElement('video')
-  video.crossOrigin = 'anonymous'
   video.muted = true
   video.playsInline = true
   video.preload = 'auto'
-  video.src = url
+  video.src = blobUrl
   await new Promise((resolve, reject) => {
     video.onloadedmetadata = resolve
-    video.onerror = () => reject(new Error("Couldn't load the video. Frame analysis needs an uploaded clip, not a YouTube/TikTok link."))
+    video.onerror = () => reject(new Error("The browser couldn't decode this video format. Try re-uploading it as MP4 (H.264)."))
   })
   const dur = video.duration
   if (!isFinite(dur) || dur <= 0) throw new Error("Couldn't read the video length.")
@@ -27,6 +32,7 @@ async function extractFrames(url, count = 8) {
     try { frames.push(canvas.toDataURL('image/jpeg', 0.6)) }
     catch { throw new Error("The browser blocked reading this video's frames (storage CORS).") }
   }
+  URL.revokeObjectURL(blobUrl)
   return frames
 }
 
