@@ -677,7 +677,8 @@ export default function ActionCard({ action, message, sending, onOpenService, on
       return <CurryOrderCard action={action} message={message} sending={sending} onConfirm={onConfirm} onIntent={onIntent} />
     case 'CATERING_ORDER_PLACED':
       return <CurryReceiptCard action={action} />
-      
+          case 'ROUTE_OPTIONS':
+      return <CurryRouteOptionsCard action={action} onOpenService={onOpenService} />
     default:
       break
   }
