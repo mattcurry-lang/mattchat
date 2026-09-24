@@ -275,48 +275,50 @@ function MenuItemTile({ item, quantity, onChange }) {
  // back as replaceMessageId so ordering from it locks the card in place
  // rather than staying live and re-submittable underneath the reply that
  // follows.
- function CurryMenuCard({ action, message, sending, onIntent }) {
-   const messes = action.messes || []
-   const [messId, setMessId] = useState((messes.find((m) => m.open) || messes[0])?.id ?? null)
-   const [cart, setCart] = useState({}) // item_id -> quantity
-   const [query, setQuery] = useState('')
+// ── Menu ─────────────────────────────────────────────────────────────────
 
-   if (message?.confirmed) return null
+function CurryMenuCard({ action, message, sending, onIntent }) {
+  const messes = action.messes || []
+  const [messId, setMessId] = useState((messes.find((m) => m.open) || messes[0])?.id ?? null)
+  const [cart, setCart] = useState({}) // item_id -> quantity
+  const [query, setQuery] = useState('')
 
-   const mess = messes.find((m) => m.id === messId) || messes[0]
-   if (!mess) return null
+  if (message?.confirmed) return null
 
-   const switchMess = (id) => { setMessId(id); setQuery('') }
+  const mess = messes.find((m) => m.id === messId) || messes[0]
+  if (!mess) return null
 
-   const setQty = (itemId, qty) => setCart((prev) => {
-     const next = { ...prev }
-     if (qty <= 0) delete next[itemId]
-     else next[itemId] = Math.min(20, qty)
-     return next
-   })
+  const switchMess = (id) => { setMessId(id); setQuery('') }
 
-   const q = query.trim().toLowerCase()
-   const visible = mess.items.filter((i) => !q || i.name.toLowerCase().includes(q))
-   const cartItems = mess.items.filter((i) => cart[i.id] > 0).map((i) => ({ ...i, quantity: cart[i.id] }))
-   const count = cartItems.reduce((s, i) => s + i.quantity, 0)
-   const total = cartItems.reduce((s, i) => s + i.unit_price * i.quantity, 0)
-   const countIn = (m) => m.items.reduce((s, i) => s + (cart[i.id] || 0), 0)
-   const asOf = formatTime(action.as_of)
+  const setQty = (itemId, qty) => setCart((prev) => {
+    const next = { ...prev }
+    if (qty <= 0) delete next[itemId]
+    else next[itemId] = Math.min(20, qty)
+    return next
+  })
 
-   const handleOrder = () => {
-     if (cartItems.length === 0 || sending) return
-     onIntent(
-       { intent: 'catering_draft', draft: { mess_id: mess.id, items: cartItems.map((i) => ({ item_id: i.id, quantity: i.quantity })) } },
-       {
-         userText: `${cartItems.map((i) => `${i.quantity} × ${i.name}`).join(', ')} from ${mess.name}`,
-         replaceMessageId: message?.id,
-       }
-     )
-     setCart({})
-   }
+  const q = query.trim().toLowerCase()
+  const visible = mess.items.filter((i) => !q || i.name.toLowerCase().includes(q))
+  const cartItems = mess.items.filter((i) => cart[i.id] > 0).map((i) => ({ ...i, quantity: cart[i.id] }))
+  const count = cartItems.reduce((s, i) => s + i.quantity, 0)
+  const total = cartItems.reduce((s, i) => s + i.unit_price * i.quantity, 0)
+  const countIn = (m) => m.items.reduce((s, i) => s + (cart[i.id] || 0), 0)
+  const asOf = formatTime(action.as_of)
 
-<div style={{ ...shell, maxWidth: 380, borderColor: 'rgba(167,139,250,0.28)', boxShadow: '0 12px 32px -14px rgba(108,99,255,0.35)' }}>
-      
+  const handleOrder = () => {
+    if (cartItems.length === 0 || sending) return
+    onIntent(
+      { intent: 'catering_draft', draft: { mess_id: mess.id, items: cartItems.map((i) => ({ item_id: i.id, quantity: i.quantity })) } },
+      {
+        userText: `${cartItems.map((i) => `${i.quantity} ×${i.name}`).join(', ')} from ${mess.name}`,
+        replaceMessageId: message?.id,
+      }
+    )
+    setCart({})
+  }
+
+  return (
+    <div style={{ ...shell, maxWidth: 380, borderColor: 'rgba(167,139,250,0.28)', boxShadow: '0 12px 32px -14px rgba(108,99,255,0.35)' }}>
       <div style={{
         padding: '13px 16px 12px', position: 'relative', overflow: 'hidden',
         background: 'linear-gradient(120deg, rgba(167,139,250,0.22), rgba(108,99,255,0.08))',
@@ -342,7 +344,7 @@ function MenuItemTile({ item, quantity, onChange }) {
             return (
               <button key={m.id} onClick={() => switchMess(m.id)} style={{
                 flexShrink: 0, textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer',
-               padding: '8px 13px', borderRadius: 999, minWidth: 0,
+                padding: '8px 13px', borderRadius: 999, minWidth: 0,
                 border: `1px solid ${active ? VIOLET : BORDER}`,
                 background: active ? 'rgba(167,139,250,0.14)' : SURFACE,
                 opacity: m.open || active ? 1 : 0.65,
@@ -351,7 +353,6 @@ function MenuItemTile({ item, quantity, onChange }) {
                   {m.name}
                   {inCart > 0 && <span style={{ fontSize: 10, background: VIOLET, color: '#fff', borderRadius: 999, padding: '1px 6px' }}>{inCart}</span>}
                 </div>
-                 
               </button>
             )
           })}
@@ -364,7 +365,6 @@ function MenuItemTile({ item, quantity, onChange }) {
         </div>
       )}
 
-      
       <div style={{
         maxHeight: 420, overflowY: 'auto', borderTop: `1px solid ${BORDER}`, padding: '12px 12px 4px',
         display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(128px, 1fr))', gap: 10,
@@ -376,12 +376,11 @@ function MenuItemTile({ item, quantity, onChange }) {
               : `No items match "${query}".`}
           </div>
         )}
- {visible.map((item) => (
+        {visible.map((item) => (
           <MenuItemTile key={item.id} item={item} quantity={cart[item.id] || 0} onChange={setQty} />
-       ))}
+        ))}
       </div>
 
-      
       <div style={{
         padding: count > 0 ? '11px 14px' : '10px 16px', borderTop: `1px solid ${BORDER}`,
         display: 'flex', alignItems: 'center', gap: 10,
