@@ -125,7 +125,7 @@ function LocationCard({ loc, onAddVideo, onDelete, onGenerate, generating }) {
 
   {hasApprovedVideo && <LocationVideo videoType={loc.video_type} videoUrl={loc.video_url} />}
 {onGenerate && hasApprovedVideo && (
-  <button onClick={() => onGenerate(loc.id)} disabled={generating} style={{
+  <button onClick={() => onGenerate(loc)} disabled={generating} style={{
     alignSelf: 'flex-start', background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.4)',
     borderRadius: 999, padding: '5px 11px', cursor: generating ? 'default' : 'pointer', fontFamily: 'inherit',
     fontSize: 11, fontWeight: 700, color: '#c4b5fd', opacity: generating ? 0.6 : 1,
@@ -345,7 +345,7 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
               Videos awaiting review
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <RouteDrafts routes={routes} />
+              
               {pendingVideos.length === 0 && (
                 <div style={{ fontSize: 12.5, color: TEXT_SECONDARY, padding: '4px 2px' }}>Nothing to review.</div>
               )}
@@ -382,6 +382,7 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
               ))}
             </div>
           </div>
+          <RouteDrafts routes={routes} />
         </div>
       )}
 
