@@ -616,6 +616,51 @@ function CurryReceiptCard({ action }) {
   )
 }
 
+// ── Directions: watch a video or open the map ────────────────────────────
+
+function RouteVideo({ type, url }) {
+  if (type === 'upload') {
+    return <video src={url} controls playsInline style={{ width: '100%', borderRadius: 10, background: '#000', maxHeight: 240 }} />
+  }
+  const yt = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{6,})/)
+  if (yt) {
+    return (
+      <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', borderRadius: 10, overflow: 'hidden' }}>
+        <iframe src={`https://www.youtube.com/embed/${yt[1]}`} title="Walkthrough video"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
+          allow="encrypted-media; picture-in-picture" allowFullScreen />
+      </div>
+    )
+  }
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, fontWeight: 700, color: '#c4b5fd' }}>
+      Open the walkthrough video
+    </a>
+  )
+}
+
+function CurryRouteOptionsCard({ action, onOpenService }) {
+  const [showVideo, setShowVideo] = useState(false)
+  const serviceId = 'room-finder'
+  return (
+    <div style={shell}>
+      <CardHeader eyebrow="How do you want to get there?" title={action.name} />
+      <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => setShowVideo((v) => !v)} style={primaryButton({ flex: 1 })}>
+            {showVideo ? 'Hide video' : 'Watch video'}
+          </button>
+          {action.has_map && (
+            <button onClick={() => onOpenService(serviceId, action.map)} style={quietButton({ flex: 1 })}>
+              Show map
+            </button>
+          )}
+        </div>
+        {showVideo && <RouteVideo type={action.video.type} url={action.video.url} />}
+      </div>
+    </div>
+  )
+}
 // ── Router ───────────────────────────────────────────────────────────────
 
 export default function ActionCard({ action, message, sending, onOpenService, onConfirm, onIntent }) {
@@ -632,6 +677,7 @@ export default function ActionCard({ action, message, sending, onOpenService, on
       return <CurryOrderCard action={action} message={message} sending={sending} onConfirm={onConfirm} onIntent={onIntent} />
     case 'CATERING_ORDER_PLACED':
       return <CurryReceiptCard action={action} />
+      
     default:
       break
   }
