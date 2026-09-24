@@ -29,6 +29,7 @@
 
 import React, { useMemo, useState } from 'react'
 import { DekutIcon } from './dekutIcons'
+import RouteMapPanel from './RouteMapPanel'
 
 const TEXT_PRIMARY = '#f5f5fa'
 const TEXT_SECONDARY = 'rgba(245,245,250,0.6)'
