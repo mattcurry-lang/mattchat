@@ -480,13 +480,14 @@ function CurryContactCard({ message, action, sending, onIntent, initial, onCance
 
 // ── Returning customer: use saved details? ──────────────────────────────
 
-function CurryUseSavedCard({ action, message, sending, onIntent }) {
+function CurryUseSavedCard({ action, message, sending, onIntent, onOpenService }) {
   if (message.confirmed) {
     return <div style={{ marginTop: 8, fontSize: 11.5, color: TEXT_SECONDARY }}>Confirmed</div>
   }
   const number = maskPhone(action.customer_phone)
   return (
-    <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+    <div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
       <button
         onClick={() => onIntent(
           { intent: 'catering_use_saved', draft: action.draft, use_saved: true },
@@ -508,6 +509,15 @@ function CurryUseSavedCard({ action, message, sending, onIntent }) {
         Different number
       </button>
     </div>
+     {action.mess_location && onOpenService && (
+        <button
+          onClick={() => onOpenService('room-finder', { type: 'SHOW_LOCATION', location: action.mess_location })}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 11, fontWeight: 700, color: '#67e8f9', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
+        >
+          📍 Where's {action.mess_location.name}?
+        </button>
+      )}
+    </div> 
   )
 }
 
@@ -563,6 +573,15 @@ function CurryOrderCard({ action, message, sending, onConfirm, onIntent }) {
             Change
           </button>
         </div>
+        {action.mess_location && onOpenService && (
+      <button
+        onClick={() => onOpenService('room-finder', { type: 'SHOW_LOCATION', location: action.mess_location })}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 11, fontWeight: 700, color: '#67e8f9', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
+      >
+        📍 Where's {mess_name}?
+      </button>
+    )}
+  </div>
       </div>
 
       <div style={{ padding: '10px 14px 0', borderTop: `1px solid ${BORDER}` }}>
@@ -586,6 +605,7 @@ function CurryOrderCard({ action, message, sending, onConfirm, onIntent }) {
         </button>
       </div>
     </div>
+    
   )
 }
 
@@ -667,10 +687,10 @@ export default function ActionCard({ action, message, sending, onOpenService, on
       return <CurryMenuCard action={action} message={message} sending={sending} onIntent={onIntent} />
     case 'CATERING_DETAILS_REQUIRED':
       return <CurryContactCard action={action} message={message} sending={sending} onIntent={onIntent} />
-    case 'CATERING_USE_SAVED_REQUIRED':
-      return <CurryUseSavedCard action={action} message={message} sending={sending} onIntent={onIntent} />
-    case 'CATERING_CONFIRM_REQUIRED':
-      return <CurryOrderCard action={action} message={message} sending={sending} onConfirm={onConfirm} onIntent={onIntent} />
+   case 'CATERING_USE_SAVED_REQUIRED':
+  return <CurryUseSavedCard action={action} message={message} sending={sending} onIntent={onIntent} onOpenService={onOpenService} />
+case 'CATERING_CONFIRM_REQUIRED':
+  return <CurryOrderCard action={action} message={message} sending={sending} onConfirm={onConfirm} onIntent={onIntent} onOpenService={onOpenService} />
     case 'CATERING_ORDER_PLACED':
       return <CurryReceiptCard action={action} />
           case 'ROUTE_OPTIONS':
