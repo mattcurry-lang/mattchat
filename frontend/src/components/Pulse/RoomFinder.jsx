@@ -130,7 +130,16 @@ function LocationCard({ loc, onAddVideo, onDelete, onGenerate, generating, route
     {generating ? 'Analysing video…' : '✨ Generate route steps'}
   </button>
 )}
-
+{onGenerate && needsFile && (
+  <label style={{
+    alignSelf: 'flex-start', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.45)',
+    borderRadius: 999, padding: '5px 11px', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#fbbf24',
+  }}>
+    📁 Choose the video file
+    <input type="file" accept="video/*" style={{ display: 'none' }}
+      onChange={(e) => { const f = e.target.files?.[0]; if (f) onGenerateFile(loc, f); e.target.value = '' }} />
+  </label>
+)}
 {route && (
   <>
     <button onClick={() => setShowRoute((v) => !v)} style={{
@@ -280,6 +289,8 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
                 } : null}
                 onGenerate={isAdmin ? routes.generate : null}
                 generating={routes.busyId === loc.id}
+                needsFile={routes.needsFileId === loc.id}
+                 onGenerateFile={routes.generate}
                 route={routes.approved[loc.id]}
               />
             ))}
