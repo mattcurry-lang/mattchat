@@ -364,10 +364,7 @@ function MenuItemTile({ item, quantity, onChange }) {
         </div>
       )}
 
-       {/* Photo-first grid — 2 columns, responsive up to 3 on wider
-          viewports via auto-fill. This is the pattern real delivery
-          apps (Uber Eats, DoorDash) and Domino's own chat carousel
-          converge on: the picture does the selling, not a text row. */}
+      
       <div style={{
         maxHeight: 420, overflowY: 'auto', borderTop: `1px solid ${BORDER}`, padding: '12px 12px 4px',
         display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(128px, 1fr))', gap: 10,
@@ -384,8 +381,7 @@ function MenuItemTile({ item, quantity, onChange }) {
        ))}
       </div>
 
-     {/* Sticky cart bar — only appears once something's in the cart,
-          so an empty-cart bar isn't taking up space by default. */}
+      
       <div style={{
         padding: count > 0 ? '11px 14px' : '10px 16px', borderTop: `1px solid ${BORDER}`,
         display: 'flex', alignItems: 'center', gap: 10,
