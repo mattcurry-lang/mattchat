@@ -4,15 +4,6 @@
 // table — verified rows are searchable by everyone; students can suggest
 // new ones and attach walkthrough videos; admins moderate both queues and
 // place pins on the schematic map
-//
-// FIX: this component is always mounted inside a hardcoded-dark fullscreen
-// overlay (see PulsePage.jsx — background: var(--bg-surface-1, #0f0f1a)),
-// but it was using var(--text-primary)/var(--text-secondary) for its own
-// text. Those variables flip to dark colors in light mode, so on a
-// permanently-dark background you got dark text on a dark box — invisible.
-// Same root cause as the DekutServicesModal search-box bug. Fixed here by
-// hardcoding light, guaranteed-contrast colors for every piece of text and
-// icon in this file instead of trusting theme variables.
 
 import React, { useState, useMemo } from 'react'
 import { DekutIcon, ICON_GRADIENTS } from './dekutIcons'
@@ -46,10 +37,6 @@ function matchesQuery(loc, q) {
   )
 }
 
-// Renders an approved video — an <iframe> for known embeddable link hosts,
-// a native <video> tag for uploads, or a plain "watch" link as a fallback
-// for link hosts we don't specifically handle (never guesses at embed
-// syntax for a site that doesn't support it).
 function LocationVideo({ videoType, videoUrl }) {
   if (!videoUrl) return null
 
@@ -125,31 +112,40 @@ function LocationCard({ loc, onAddVideo, onDelete, onGenerate, generating, route
         <div style={{ fontSize: 11.5, color: TEXT_SECONDARY }}>🚶 ~{loc.walking_distance_min} min walk</div>
       )}
 
-   {hasApprovedVideo && <LocationVideo videoType={loc.video_type} videoUrl={loc.video_url} />}
-{onGenerate && hasApprovedVideo && (  <button onClick={() => onClick={() => onGenerate(loc)} disabled={generating} style={{    alignSelf: 'flex-start', background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.4)',    borderRadius: 999, padding: '5px 11px', cursor: generating ? 'default' : 'pointer', fontFamily: 'inherit',    fontSize: 11, fontWeight: 700, color: '#c4b5fd', opacity: generating ? 0.6 : 1,  }}>
-    {generating ? 'Analysing video…' : '✨ Generate route steps'}
-  </button>
-)}
-{onGenerate && needsFile && (
-  <label style={{
-    alignSelf: 'flex-start', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.45)',
-    borderRadius: 999, padding: '5px 11px', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#fbbf24',
-  }}>
-    📁 Choose the video file
-    <input type="file" accept="video/*" style={{ display: 'none' }}
-      onChange={(e) => { const f = e.target.files?.[0]; if (f) onGenerateFile(loc, f); e.target.value = '' }} />
-  </label>
-)}
-{route && (
-  <>
-    <button onClick={() => setShowRoute((v) => !v)} style={{
-      alignSelf: 'flex-start', background: 'rgba(34,211,238,0.12)', border: '1px solid rgba(34,211,238,0.4)',
-      borderRadius: 999, padding: '5px 11px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 700, color: '#67e8f9',
-    }}>{showRoute ? 'Hide route map' : '🗺 Route map'}</button>
-    {showRoute && <RouteMapPanel steps={route.steps} reverseSteps={route.reverse_steps} name={loc.name} startPoint={route.start_point} />}
-  </>
-)}
- 
+      {hasApprovedVideo && <LocationVideo videoType={loc.video_type} videoUrl={loc.video_url} />}
+      {onGenerate && hasApprovedVideo && (
+        <button
+          onClick={() => onGenerate(loc)}
+          disabled={generating}
+          style={{
+            alignSelf: 'flex-start', background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.4)',
+            borderRadius: 999, padding: '5px 11px', cursor: generating ? 'default' : 'pointer', fontFamily: 'inherit',
+            fontSize: 11, fontWeight: 700, color: '#c4b5fd', opacity: generating ? 0.6 : 1,
+          }}
+        >
+          {generating ? 'Analysing video…' : '✨ Generate route steps'}
+        </button>
+      )}
+      {onGenerate && needsFile && (
+        <label style={{
+          alignSelf: 'flex-start', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.45)',
+          borderRadius: 999, padding: '5px 11px', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#fbbf24',
+        }}>
+          📁 Choose the video file
+          <input type="file" accept="video/*" style={{ display: 'none' }}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) onGenerateFile(loc, f); e.target.value = '' }} />
+        </label>
+      )}
+      {route && (
+        <>
+          <button onClick={() => setShowRoute((v) => !v)} style={{
+            alignSelf: 'flex-start', background: 'rgba(34,211,238,0.12)', border: '1px solid rgba(34,211,238,0.4)',
+            borderRadius: 999, padding: '5px 11px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 700, color: '#67e8f9',
+          }}>{showRoute ? 'Hide route map' : '🗺 Route map'}</button>
+          {showRoute && <RouteMapPanel steps={route.steps} reverseSteps={route.reverse_steps} name={loc.name} startPoint={route.start_point} />}
+        </>
+      )}
+
       <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
         {onAddVideo && (
           <button
@@ -179,8 +175,6 @@ function LocationCard({ loc, onAddVideo, onDelete, onGenerate, generating, route
     </div>
   )
 }
-
-// onClose: renders a close button when present (mounted full-screen).
 
 export default function RoomFinder({ onClose, userId, isAdmin }) {
   const {
@@ -269,7 +263,7 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
               }}
             />
           </div>
-{routes.error && <div style={{ fontSize: 12, color: '#f87171', marginBottom: 10 }}>{routes.error}</div>}
+          {routes.error && <div style={{ fontSize: 12, color: '#f87171', marginBottom: 10 }}>{routes.error}</div>}
           {loading && <div style={{ fontSize: 12.5, color: TEXT_SECONDARY, padding: '10px 2px' }}>Loading locations…</div>}
 
           {!loading && results.length === 0 && (
@@ -278,8 +272,8 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
             </div>
           )}
 
-                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                   {results.map((loc) => (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {results.map((loc) => (
               <LocationCard
                 key={loc.id}
                 loc={loc}
@@ -290,7 +284,7 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
                 onGenerate={isAdmin ? routes.generate : null}
                 generating={routes.busyId === loc.id}
                 needsFile={routes.needsFileId === loc.id}
-                 onGenerateFile={routes.generate}
+                onGenerateFile={routes.generate}
                 route={routes.approved[loc.id]}
               />
             ))}
@@ -366,7 +360,6 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
               Videos awaiting review
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              
               {pendingVideos.length === 0 && (
                 <div style={{ fontSize: 12.5, color: TEXT_SECONDARY, padding: '4px 2px' }}>Nothing to review.</div>
               )}
@@ -422,13 +415,14 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
     </div>
   )
 }
+
 function RouteDrafts({ routes }) {
   const [edits, setEdits] = useState({}) // id -> textarea text
   const [redits, setRedits] = useState({}) // id -> reverse-direction textarea text
   const textFor = (d) => edits[d.id] ?? d.steps.map((s) => s.instruction).join('\n')
-    const rTextFor = (d) => redits[d.id] ?? (d.reverse_steps || []).map((s) => s.instruction).join('\n')
+  const rTextFor = (d) => redits[d.id] ?? (d.reverse_steps || []).map((s) => s.instruction).join('\n')
   const toReverse = (d) => rTextFor(d).split('\n').map((l) => l.trim()).filter(Boolean).map((instruction) => ({ instruction, landmark: null }))
-   const toSteps = (d) => {
+  const toSteps = (d) => {
     const lines = textFor(d).split('\n').map((l) => l.trim()).filter(Boolean)
     return lines.map((instruction, i) => ({ instruction, landmark: d.steps[i]?.landmark ?? null, turn: d.steps[i]?.turn ?? 'straight' }))
   }
@@ -445,7 +439,7 @@ function RouteDrafts({ routes }) {
           </div>
           <textarea value={textFor(d)} onChange={(e) => setEdits((p) => ({ ...p, [d.id]: e.target.value }))} rows={Math.min(10, d.steps.length + 1)}
             style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(15,15,26,0.9)', color: TEXT_PRIMARY, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 10, fontSize: 12.5, fontFamily: 'inherit' }} />
-                    <div style={{ fontSize: 11.5, color: TEXT_SECONDARY, margin: '8px 0 4px' }}>Coming back (check the left/right turns):</div>
+          <div style={{ fontSize: 11.5, color: TEXT_SECONDARY, margin: '8px 0 4px' }}>Coming back (check the left/right turns):</div>
           <textarea value={rTextFor(d)} onChange={(e) => setRedits((p) => ({ ...p, [d.id]: e.target.value }))} rows={6}
             style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(15,15,26,0.9)', color: TEXT_PRIMARY, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 10, fontSize: 12.5, fontFamily: 'inherit' }} />
           <div style={{ fontSize: 10.5, color: TEXT_SECONDARY, margin: '4px 0 8px' }}>One step per line.</div>
