@@ -27,7 +27,6 @@ import MattchatToolsCard from './MattchatToolsCard'
 import ScientificCalculator, { CalculatorGlyph } from './ScientificCalculator'
 import PulseMusicCard from './Music/PulseMusicCard'
 import DekutCateringAdmin from './DekutCateringAdmin'
-import CurryOrb from './CurryOrb'
 import DekutKnowledgeAdmin from './DekutKnowledgeAdmin'
 
 
@@ -377,7 +376,7 @@ export default function PulsePage({
         <BirthdayExperience profile={profile} onClose={birthday.dismiss} />
       )}
   
-      <CurryOrb onNavigate={(route) => setDekutView(route)} hidden={dekutView !== null} />
+       
     </div>
   )
 }
