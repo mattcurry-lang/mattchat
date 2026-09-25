@@ -30,7 +30,7 @@ const SURFACE = 'rgba(245,245,250,0.06)'
 // given, this is how Curry's SHOW_ROUTE action (dekut-curry's
 // calculate_route tool) hands a route off to this map.
 export default function DekutCampusMap({ locations, edges = [], isAdmin, onSetPosition, onConnect, onDisconnect, originLocationId, destinationLocationId }) {
-  const [selected, setSelected] = useState(null) // location id being viewed
+  
   const [placingId, setPlacingId] = useState('') // location id chosen from the "place" dropdown
   const [connectMode, setConnectMode] = useState(false)
   const [connectFirstId, setConnectFirstId] = useState(null)
