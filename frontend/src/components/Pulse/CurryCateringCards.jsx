@@ -637,7 +637,55 @@ function CurryReceiptCard({ action }) {
     </div>
   )
 }
+// ── Open a resource link ─────────────────────────────────────────────────
+function CurryLinkCard({ action }) {
+  const r = action.resource
+  if (!r?.url) return null
+  return (
+    
+      href={r.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 10,
+        fontSize: 12.5, fontWeight: 700, color: '#fff', fontFamily: 'inherit',
+        border: 'none', borderRadius: 10, padding: '9px 15px', cursor: 'pointer',
+        background: VIOLET_GRADIENT, textDecoration: 'none',
+        boxShadow: '0 6px 16px -6px rgba(108,99,255,0.5)',
+      }}
+    >
+      Open {r.name} <DekutIcon type="chevronRight" size={13} color="#fff" strokeWidth={2.4} />
+    </a>
+  )
+}
 
+// ── Call / email a DeKUT office ──────────────────────────────────────────
+function CurryContactActionCard({ action }) {
+  const c = action.contact
+  if (!c) return null
+  return (
+    <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+      {c.phone && (
+        <a href={`tel:${c.phone.replace(/\s+/g, '')}`} style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700,
+          color: TEXT_PRIMARY, fontFamily: 'inherit', border: `1px solid ${BORDER}`, borderRadius: 999,
+          padding: '8px 14px', cursor: 'pointer', background: SURFACE, textDecoration: 'none',
+        }}>
+          📞 Call {c.name}
+        </a>
+      )}
+      {c.email && (
+        <a href={`mailto:${c.email}`} style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700,
+          color: TEXT_PRIMARY, fontFamily: 'inherit', border: `1px solid ${BORDER}`, borderRadius: 999,
+          padding: '8px 14px', cursor: 'pointer', background: SURFACE, textDecoration: 'none',
+        }}>
+          ✉️ Email {c.name}
+        </a>
+      )}
+    </div>
+  )
+}
 // ── Directions: watch a video or open the map ────────────────────────────
 
 function RouteVideo({ type, url }) {
@@ -695,6 +743,10 @@ case 'CATERING_CONFIRM_REQUIRED':
   return <CurryOrderCard action={action} message={message} sending={sending} onConfirm={onConfirm} onIntent={onIntent} onOpenService={onOpenService} />
     case 'CATERING_ORDER_PLACED':
       return <CurryReceiptCard action={action} />
+          case 'OPEN_LINK':
+      return <CurryLinkCard action={action} />
+    case 'SHOW_CONTACT':
+      return action.contact ? <CurryContactActionCard action={action} /> : null   // falls through to the existing generic-button path below if no contact
           case 'ROUTE_OPTIONS':
       return <CurryRouteOptionsCard action={action} onOpenService={onOpenService} />
     default:
