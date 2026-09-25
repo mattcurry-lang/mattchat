@@ -184,7 +184,10 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
       )}
 
       <BibleCard />
-      <DeKUTHubCard onNavigate={(route) => setDekutView(route)} />
+     <DeKUTHubCard onNavigate={(route, service) => {
+  setDekutRouteContext(service?.id === 'campus-map' ? { initialTab: 'map' } : null)
+  setDekutView(route)
+}} />
 
       {/* ── MATTCHAT TOOLS ── */}
 <MattchatToolsCard onOpenTool={handleOpenTool} />
@@ -345,12 +348,15 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
 )}
    {dekutView === 'room-finder' && (
   <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
+    {dekutView === 'room-finder' && (
+  <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
     <RoomFinder
-      onClose={() => { setDekutView(null); setDekutRouteContext(null) }}   // ← clear it so a later plain open of Room Finder doesn't inherit a stale target
+      onClose={() => { setDekutView(null); setDekutRouteContext(null) }}
       userId={userId}
       isAdmin={profile?.is_admin}
       originLocationId={dekutRouteContext?.originLocationId}
       destinationLocationId={dekutRouteContext?.destinationLocationId}
+      initialTab={dekutRouteContext?.initialTab}
     />
   </div>
 )}
