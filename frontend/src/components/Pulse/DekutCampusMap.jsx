@@ -17,7 +17,7 @@
 // Edge "weight" is a relative admin-set value, not a real distance, so
 // this deliberately never prints an invented walking-time estimate.
 
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState,useEffect } from 'react'
 import { DekutIcon, ICON_GRADIENTS } from './dekutIcons'
 import { findShortestPath } from '../../utils/routeGraph'
 
@@ -34,7 +34,11 @@ export default function DekutCampusMap({ locations, edges = [], isAdmin, onSetPo
   const [placingId, setPlacingId] = useState('') // location id chosen from the "place" dropdown
   const [connectMode, setConnectMode] = useState(false)
   const [connectFirstId, setConnectFirstId] = useState(null)
+  const [selected, setSelected] = useState(destinationLocationId ?? null)
 
+  useEffect(() => {
+  if (destinationLocationId) setSelected(destinationLocationId)
+}, [destinationLocationId])
   const placed = locations.filter((l) => l.map_x != null && l.map_y != null)
   const unplaced = locations.filter((l) => l.map_x == null || l.map_y == null)
   const byId = useMemo(() => new Map(locations.map((l) => [l.id, l])), [locations])
