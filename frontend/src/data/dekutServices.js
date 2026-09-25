@@ -38,6 +38,17 @@ export const DEKUT_CATEGORIES = [
         route: 'room-finder',
       },
       {
+  id: 'campus-map',
+  name: 'Campus Map',
+  description: 'Browse the interactive schematic map of campus.',
+  url: null,
+  icon: 'file',
+  keywords: ['campus map', 'map', 'schematic map', 'explore campus'],
+  status: 'active',
+  type: 'internal',
+  route: 'room-finder',
+},
+      {
         id: 'fresher-mode',
         name: 'Fresher Guide',
         description: 'New to DeKUT? Start here for the essentials.',
