@@ -211,12 +211,12 @@ function StepperOverlay({ quantity, onChange, max = 20, disabled }) {
 // big image, price + name below it, quantity control overlaid bottom-right
 // of the image rather than buried in a text row.
 function MenuItemTile({ item, quantity, onChange }) {
-  const [imgError, setImgError] = useState(false)
-  const imageSrc = resolveItemImage(item)
+  const candidates = useMemo(() => resolveItemImageCandidates(item), [item])
+  const [candidateIdx, setCandidateIdx] = useState(0)
+  const imageSrc = candidates[candidateIdx] || null
   const left = item.available_quantity
   const soldOut = !item.is_available || left <= 0
   const lowStock = !soldOut && left <= 5
-
   return (
     <div style={{
       borderRadius: 14, overflow: 'hidden', background: SURFACE,
@@ -225,12 +225,17 @@ function MenuItemTile({ item, quantity, onChange }) {
       transition: 'border-color 140ms ease',
     }}>
       <div style={{ position: 'relative', width: '100%', aspectRatio: '1 / 1', background: 'rgba(255,255,255,0.04)' }}>
-        {imageSrc && !imgError ? (
-   <img
-    src={imageSrc} alt={item.name} loading="lazy" referrerPolicy="no-referrer"
-    onError={() => { console.warn('[menu] image failed to load:', imageSrc); setImgError(true) }}
-    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-  />
+        {imageSrc ? (
+          <img
+            src={imageSrc}
+            alt={item.name}
+            loading="lazy"
+    onError={() => {
+              console.warn('[menu] image failed to load:', imageSrc)
+              setCandidateIdx((i) => i + 1)
+            }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
         ) : (
           <div style={{
             width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -414,12 +419,24 @@ function CurryMenuCard({ action, message, sending, onIntent }) {
     </div>
   )
 }
-function resolveItemImage(item) {
+// Replace resolveItemImage with a version that returns an ordered list
+// of URLs to try, so a bad first guess doesn't kill the photo entirely.
+function resolveItemImageCandidates(item) {
   const raw = item.image_url || item.imageUrl || item.image || item.photo_url || item.picture_url
-  if (!raw || typeof raw !== 'string') return null
-  if (/^(https?:|data:|blob:)/i.test(raw)) return raw
-  if (raw.startsWith('//')) return `https:${raw}`
-  return `${SUPABASE_URL}/storage/v1/object/public/${MENU_IMAGE_BUCKET}/${raw.replace(/^\/+/, '')}`
+  if (!raw || typeof raw !== 'string') return []
+  const s = raw.trim()
+  if (!s) return []
+  if (/^(https?:|data:|blob:)/i.test(s)) {
+    const candidates = [s]
+    // If the backend built a /storage/meals/... URL, also try the same
+    // path without the /storage/ segment — some Laravel setups serve
+    // uploads directly rather than through the storage symlink.
+    const noStorage = s.replace('/storage/meals/', '/meals/')
+    if (noStorage !== s) candidates.push(noStorage)
+    return candidates
+  }
+  if (s.startsWith('//')) return [`https:${s}`]
+  return [`${SUPABASE_URL}/storage/v1/object/public/${MENU_IMAGE_BUCKET}/${s.replace(/^\/+/, '')}`]
 }
 // ── First order / edit contact: name + phone ────────────────────────────
 
