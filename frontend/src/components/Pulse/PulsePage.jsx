@@ -96,7 +96,30 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 16, maxWidth: 640, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Pulse</h2>
+       <h2 style={{
+  fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.02em',
+  display: 'flex', alignItems: 'center', gap: 8,
+  backgroundImage: 'linear-gradient(135deg, #fff 10%, #a78bfa 55%, #22d3ee 100%)',
+  WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent',
+}}>
+  Pulse
+  <span aria-hidden="true" style={{ position: 'relative', width: 9, height: 9, flexShrink: 0 }}>
+    <span style={{
+      position: 'absolute', inset: 0, borderRadius: '50%',
+      background: '#a78bfa', animation: 'pulseDotPing 2s cubic-bezier(0,0,0.2,1) infinite',
+    }} />
+    <span style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: '#a78bfa' }} />
+  </span>
+</h2>
+<style>{`
+  @keyframes pulseDotPing {
+    0% { transform: scale(1); opacity: 0.7; }
+    70%, 100% { transform: scale(2.4); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    h2 span[aria-hidden="true"] span:first-child { animation: none !important; }
+  }
+`}</style>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {birthday.hasBirthday && birthday.isBirthdayToday && (
             <button
