@@ -200,6 +200,10 @@ export default function RoomFinder({ onClose, userId, isAdmin, originLocationId,
   useEffect(() => {
     if (destinationLocationId) setTab('map')
   }, [destinationLocationId])
+
+  const results = useMemo(() => locations.filter((l) => matchesQuery(l, query)), [locations, query])   // ← restore
+  const pendingCount = pending.length + pendingVideos.length                                            // ← restore
+
   return (
     <div style={{ maxWidth: 640, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
