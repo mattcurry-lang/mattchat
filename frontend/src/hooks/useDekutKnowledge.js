@@ -40,8 +40,8 @@ export function useDekutKnowledge() {
     setSaving(true)
     try {
       const { data, error } = await supabase.functions.invoke('dekut-knowledge-ingest', {
-        body: { items: [payload] },
-      })
+  body: { items: [{ title, content, category, source, authority, status }] }
+})
       if (error) throw error
       const result = data?.results?.[0]
       if (result?.ok) await load()
