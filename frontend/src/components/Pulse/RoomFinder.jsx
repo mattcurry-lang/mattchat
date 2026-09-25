@@ -184,7 +184,7 @@ function LocationCard({ loc, onAddVideo, onDelete, onGenerate, generating, route
   )
 }
 
-export default function RoomFinder({ onClose, userId, isAdmin, originLocationId, destinationLocationId }) {
+export default function RoomFinder({ onClose, userId, isAdmin, originLocationId, destinationLocationId, initialTab }) {
   const {
     locations, pending, pendingVideos, edges, loading,
     submitLocation, approveLocation, rejectLocation, setMapPosition,
@@ -197,9 +197,10 @@ export default function RoomFinder({ onClose, userId, isAdmin, originLocationId,
   const [showSuggest, setShowSuggest] = useState(false)
   const [videoTarget, setVideoTarget] = useState(null)
 
-  useEffect(() => {
+ useEffect(() => {
     if (destinationLocationId) setTab('map')
-  }, [destinationLocationId])
+    else if (initialTab) setTab(initialTab)
+  }, [destinationLocationId, initialTab])
 
   const results = useMemo(() => locations.filter((l) => matchesQuery(l, query)), [locations, query])   // ← restore
   const pendingCount = pending.length + pendingVideos.length                                            // ← restore
