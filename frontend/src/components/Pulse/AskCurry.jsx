@@ -206,7 +206,7 @@ function MarkdownMessage({ text }) {
       )}
     </span>
   )
-
+}
 function SourceChips({ sources }) {
   if (!sources || sources.length === 0) return null
   const labels = [...new Set(sources.map((s) => s.authority || 'DeKUT Official Website'))]
