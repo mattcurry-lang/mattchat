@@ -643,7 +643,7 @@ function CurryLinkCard({ action }) {
   if (!r?.url) return null
   return (
     
-      href={r.url}
+     <a href={r.url}
       target="_blank"
       rel="noopener noreferrer"
       style={{
