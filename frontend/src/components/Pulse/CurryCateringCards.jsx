@@ -330,19 +330,39 @@ function CurryMenuCard({ action, message, sending, onIntent }) {
 
   return (
     <div style={{ ...shell, maxWidth: 380, borderColor: 'rgba(167,139,250,0.28)', boxShadow: '0 12px 32px -14px rgba(108,99,255,0.35)' }}>
-      <div style={{
+           <div style={{
         padding: '13px 16px 12px', position: 'relative', overflow: 'hidden',
         background: 'linear-gradient(120deg, rgba(167,139,250,0.22), rgba(108,99,255,0.08))',
         borderBottom: `1px solid ${BORDER}`,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: TEXT_PRIMARY }}>🍽️ Today's menu</div>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, color: TEXT_SECONDARY,
-            background: 'rgba(0,0,0,0.25)', borderRadius: 999, padding: '3px 9px', flexShrink: 0,
-          }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: action.live ? '#34d399' : '#f59e0b', flexShrink: 0 }} />
-            {action.live ? (asOf ? `Live · ${asOf}` : 'Live') : (asOf ? `Updated ${asOf}` : 'May be out of date')}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, color: TEXT_SECONDARY,
+              background: 'rgba(0,0,0,0.25)', borderRadius: 999, padding: '3px 9px',
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: action.live ? '#34d399' : '#f59e0b', flexShrink: 0 }} />
+              {action.live ? (asOf ? `Live · ${asOf}` : 'Live') : (asOf ? `Updated ${asOf}` : 'May be out of date')}
+            </div>
+            <button
+              onClick={() => onIntent(
+                { intent: 'catering_menu', mess: mess.name, force_refresh: true },
+                { replaceMessageId: message?.id }
+              )}
+              disabled={sending}
+              aria-label="Refresh menu"
+              title="Refresh menu"
+              style={{
+                width: 24, height: 24, borderRadius: '50%', border: 'none', cursor: sending ? 'default' : 'pointer',
+                background: 'rgba(0,0,0,0.25)', color: TEXT_PRIMARY, fontSize: 12, lineHeight: 1,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                opacity: sending ? 0.5 : 1,
+                animation: sending ? 'curry-spin 0.8s linear infinite' : 'none',
+              }}
+            >
+              ⟳
+            </button>
           </div>
         </div>
       </div>
