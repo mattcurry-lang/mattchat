@@ -42,7 +42,8 @@ export default function PulsePage({
   const [showYouTubePulse, setShowYouTubePulse] = useState(false)
   const [showCycle, setShowCycle] = useState(false)
   const [showCalculator, setShowCalculator] = useState(false)
-  const [dekutView, setDekutView] = useState(null)  
+ const [dekutView, setDekutView] = useState(null)
+const [dekutRouteContext, setDekutRouteContext] = useState(null)    
   const { privacyMode, setPrivacyMode } = usePulseSettings(userId)
   const { items, loading, error, reload } = usePulseData(session, { conversations, unreadCounts, getConvoName })
   const birthday = useBirthday(userId, profile)
@@ -342,21 +343,33 @@ export default function PulsePage({
     <DekutKnowledgeAdmin onClose={() => setDekutView(null)} />
   </div>
 )}
-    {dekutView === 'room-finder' && (
+   {dekutView === 'room-finder' && (
   <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
-    <RoomFinder onClose={() => setDekutView(null)} userId={userId} isAdmin={profile?.is_admin} />
+    <RoomFinder
+      onClose={() => { setDekutView(null); setDekutRouteContext(null) }}   // ← clear it so a later plain open of Room Finder doesn't inherit a stale target
+      userId={userId}
+      isAdmin={profile?.is_admin}
+      originLocationId={dekutRouteContext?.originLocationId}
+      destinationLocationId={dekutRouteContext?.destinationLocationId}
+    />
   </div>
 )}
-
       {dekutView === 'fresher-mode' && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
           <FresherMode onNavigate={(route) => setDekutView(route)} onClose={() => setDekutView(null)} />
         </div>
       )}
 
-      {dekutView === 'faq' && (
+    {dekutView === 'faq' && (
   <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
-    <AskCurry userId={userId} onNavigate={(route) => setDekutView(route)} onClose={() => setDekutView(null)} />
+    <AskCurry
+      userId={userId}
+      onNavigate={(route, svc, routeContext) => {           // ← accept all three now
+        setDekutRouteContext(routeContext || null)
+        setDekutView(route)
+      }}
+      onClose={() => setDekutView(null)}
+    />
   </div>
 )}
 
