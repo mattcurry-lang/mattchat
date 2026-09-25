@@ -5,7 +5,7 @@
 // new ones and attach walkthrough videos; admins moderate both queues and
 // place pins on the schematic map
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo,useEffect } from 'react'
 import { DekutIcon, ICON_GRADIENTS } from './dekutIcons'
 import { useDekutLocations } from '../../hooks/useDekutLocations'
 import SuggestLocationForm from './SuggestLocationForm'
@@ -184,21 +184,23 @@ function LocationCard({ loc, onAddVideo, onDelete, onGenerate, generating, route
   )
 }
 
-export default function RoomFinder({ onClose, userId, isAdmin }) {
+export default function RoomFinder({ onClose, userId, isAdmin, originLocationId, destinationLocationId, initialTab }) {
   const {
-    locations, pending, pendingVideos, loading,
+    locations, pending, pendingVideos, edges, loading,
     submitLocation, approveLocation, rejectLocation, setMapPosition,
     uploadLocationVideo, attachVideo, approveVideo, rejectVideo,
-    deleteLocation, reloadPending,
+    deleteLocation, reloadPending, connectLocations, disconnectLocations,
   } = useDekutLocations({ userId, isAdmin })
   const routes = useDekutRoutes({ isAdmin })
   const [query, setQuery] = useState('')
-  const [tab, setTab] = useState('search') // 'search' | 'map' | 'pending'
+  const [tab, setTab] = useState(initialTab || (destinationLocationId ? 'map' : 'search'))
   const [showSuggest, setShowSuggest] = useState(false)
-  const [videoTarget, setVideoTarget] = useState(null) // location object | null
-
+  const [videoTarget, setVideoTarget] = useState(null)
   const results = useMemo(() => locations.filter((l) => matchesQuery(l, query)), [locations, query])
   const pendingCount = pending.length + pendingVideos.length
+    useEffect(() => {
+    if (destinationLocationId) setTab('map')
+  }, [destinationLocationId])
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto' }}>
@@ -312,13 +314,18 @@ export default function RoomFinder({ onClose, userId, isAdmin }) {
         </>
       )}
 
-      {tab === 'map' && (
-        <DekutCampusMap
-          locations={locations}
-          isAdmin={!!isAdmin}
-          onSetPosition={setMapPosition}
-        />
-      )}
+    {tab === 'map' && (
+  <DekutCampusMap
+    locations={locations}
+    edges={edges}
+    isAdmin={!!isAdmin}
+    onSetPosition={setMapPosition}
+    onConnect={connectLocations}
+    onDisconnect={disconnectLocations}
+    originLocationId={originLocationId}
+    destinationLocationId={destinationLocationId}
+  />
+)}
 
       {tab === 'pending' && isAdmin && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
