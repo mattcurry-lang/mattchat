@@ -348,8 +348,6 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
 )}
    {dekutView === 'room-finder' && (
   <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
-    {dekutView === 'room-finder' && (
-  <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
     <RoomFinder
       onClose={() => { setDekutView(null); setDekutRouteContext(null) }}
       userId={userId}
