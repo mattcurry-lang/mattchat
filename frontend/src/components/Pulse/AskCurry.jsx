@@ -45,6 +45,8 @@
 //     mic access (useCurryVoice.supported).
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { DekutIcon, ICON_GRADIENTS } from './dekutIcons'
 import CurryOrbGraphic from './CurryOrbGraphic'
 import { useCurryChat } from '../../hooks/useCurryChat'
@@ -162,10 +164,10 @@ function HeaderMenu() {
   )
 }
 
-// Reveals text progressively on mount, with a blinking cursor while
-// revealing, rather than all at once. Caps total duration so long
-// replies don't feel sluggish.
-function StreamingText({ text }) {
+// Returns the revealed slice + whether it's done, instead of rendering
+// raw text itself — the caller pipes the slice through ReactMarkdown so
+// lists/bold render properly instead of showing literal ** and 1. 2. 3.
+function useStreamingReveal(text) {
   const [count, setCount] = useState(0)
   const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
@@ -184,18 +186,26 @@ function StreamingText({ text }) {
   }, [])
 
   const done = count >= (text?.length ?? 0)
+  return { revealed: text.slice(0, count), done }
+}
+
+// Markdown-rendered message body. Streams the reveal, then hands the
+// revealed slice to ReactMarkdown so **bold**, numbered/bulleted lists,
+// and paragraph breaks actually render instead of showing as literal
+// asterisks and inline numbers in one run-on paragraph.
+function MarkdownMessage({ text }) {
+  const { revealed, done } = useStreamingReveal(text)
   return (
-    <>
-      {text.slice(0, count)}
+    <span className="curry-markdown">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{revealed}</ReactMarkdown>
       {!done && (
         <span aria-hidden="true" style={{
           display: 'inline-block', width: 2, height: '1em', marginLeft: 1, verticalAlign: 'text-bottom',
           background: VIOLET_LIGHT, animation: 'curryCursor 0.9s steps(1) infinite',
         }} />
       )}
-    </>
+    </span>
   )
-}
 
 function SourceChips({ sources }) {
   if (!sources || sources.length === 0) return null
@@ -344,9 +354,9 @@ function AssistantMessage({ message, isLast, sending, onOpenService, onConfirm, 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
           fontSize: 13.5, lineHeight: 1.6, color: message.error ? CORAL : TEXT_PRIMARY,
-          whiteSpace: 'pre-line',
+          
         }}>
-          {message.error ? message.text : <StreamingText text={message.text} />}
+          {message.error ? message.text : <MarkdownMessage text={message.text} />}
         </div>
 
         <SourceChips sources={message.sources} />
@@ -872,6 +882,14 @@ export default function AskCurry({ userId, onNavigate, onClose }) {
         .curry-action-btn:hover { background: rgba(245,245,250,0.08); color: ${TEXT_PRIMARY}; }
 
         .curry-menu-item:hover { background: rgba(245,245,250,0.08); }
+        .curry-markdown p { margin: 0 0 8px; }
+        .curry-markdown p:last-child { margin-bottom: 0; }
+        .curry-markdown ol, .curry-markdown ul { margin: 4px 0 8px; padding-left: 1.3em; }
+        .curry-markdown li { margin-bottom: 4px; }
+        .curry-markdown li:last-child { margin-bottom: 0; }
+        .curry-markdown strong { color: ${TEXT_PRIMARY}; font-weight: 700; }
+        .curry-markdown a { color: ${VIOLET_LIGHT}; }
+        .curry-markdown code { background: rgba(245,245,250,0.1); padding: 1px 5px; border-radius: 5px; font-size: 0.92em; }
 
         .curry-followup-chip:hover { border-color: rgba(167,139,250,0.5); background: rgba(245,245,250,0.09); transform: translateY(-1px); }
 
