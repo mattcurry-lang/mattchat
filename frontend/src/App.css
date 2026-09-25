@@ -1594,3 +1594,5 @@ button.email-badge { cursor: pointer; display: inline-flex; align-items: center;
   font-weight: 700;
   font-size: 13px;
 }
+
+@keyframes curry-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
