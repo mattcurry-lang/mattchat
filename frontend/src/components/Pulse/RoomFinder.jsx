@@ -184,7 +184,7 @@ function LocationCard({ loc, onAddVideo, onDelete, onGenerate, generating, route
   )
 }
 
-export default function RoomFinder({ onClose, userId, isAdmin, originLocationId, destinationLocationId, initialTab }) {
+export default function RoomFinder({ onClose, userId, isAdmin, originLocationId, destinationLocationId }) {
   const {
     locations, pending, pendingVideos, edges, loading,
     submitLocation, approveLocation, rejectLocation, setMapPosition,
@@ -193,15 +193,13 @@ export default function RoomFinder({ onClose, userId, isAdmin, originLocationId,
   } = useDekutLocations({ userId, isAdmin })
   const routes = useDekutRoutes({ isAdmin })
   const [query, setQuery] = useState('')
-  const [tab, setTab] = useState(initialTab || (destinationLocationId ? 'map' : 'search'))
+  const [tab, setTab] = useState(destinationLocationId ? 'map' : 'search')
   const [showSuggest, setShowSuggest] = useState(false)
   const [videoTarget, setVideoTarget] = useState(null)
-  const results = useMemo(() => locations.filter((l) => matchesQuery(l, query)), [locations, query])
-  const pendingCount = pending.length + pendingVideos.length
-    useEffect(() => {
+
+  useEffect(() => {
     if (destinationLocationId) setTab('map')
   }, [destinationLocationId])
-
   return (
     <div style={{ maxWidth: 640, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
