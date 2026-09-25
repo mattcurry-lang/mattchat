@@ -36,20 +36,24 @@ export function useDekutKnowledge() {
   // Creates a new item, or updates an existing one when `payload.id` is
   // set. Returns the ingest result so the caller can show per-item
   // errors (e.g. embedding failed and nothing was saved).
-  const saveItem = useCallback(async (payload) => {
-    setSaving(true)
-    try {
-      const { data, error } = await supabase.functions.invoke('dekut-knowledge-ingest', {
-  body: { items: [{ title, content, category, source, authority, status }] }
-})
-      if (error) throw error
-      const result = data?.results?.[0]
-      if (result?.ok) await load()
-      return result
-    } finally {
-      setSaving(false)
-    }
-  }, [load])
+ const saveItem = useCallback(async (payload) => {
+  setSaving(true)
+  try {
+    const { id, title, content, category, source, authority, status } = payload
+    const { data, error } = await supabase.functions.invoke('dekut-knowledge-ingest', {
+      body: { items: [{ id, title, content, category, source, authority, status }] }
+    })
+    if (error) throw error
+    const result = data?.results?.[0]
+    if (result?.ok) await load()
+    return result
+  } catch (err) {
+    console.error('saveItem failed:', err)
+    return { ok: false, error: err?.message || 'Save failed.' }
+  } finally {
+    setSaving(false)
+  }
+}, [load])
 
  const archiveItem = useCallback(async (id) => {
   const { error } = await supabase.from('dekut_knowledge').update({ status: 'archived' }).eq('id', id)
