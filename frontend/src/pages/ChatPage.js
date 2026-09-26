@@ -31,7 +31,7 @@ import {
   IconPhone, IconVideo, IconPhoneOff, IconSparkle, IconMoreVertical, IconSmile, IconMic, IconPlus, IconStatus,
   IconChart, IconCheckSquare, IconClock, IconSearch, IconMail, IconShield, IconLogOut, IconInbox, IconPin,
   IconMessageSquare, IconHistory, IconX, IconFolder, IconSettings, IconBell, IconCamera, IconFilm, IconTrash,
-  IconBrush,IconMusic
+  IconBrush, IconMusic, IconVerified
 } from '../components/Icons'
 import { ReactableMessage } from '../components/MessageReactions'
 import { useStatuses } from '../hooks/useStatuses'
@@ -232,7 +232,7 @@ function ContactBubble({ content, onOpenProfile, onMessageContact, currentUserId
       >
         <Avatar name={username} photoUrl={avatarUrl} size={38} />
         <div style={{ minWidth: 0 }}>
-           <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary, #f2f0f8)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center' }}>             {username || 'Contact'}             {isAdmin && <VerifiedTick size={12} />}           </div>
+           <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary, #f2f0f8)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center' }}>             {username || 'Contact'}             {isAdmin && <IconVerified size={12} />}           </div>
           <div style={{ fontSize: 11, color: 'var(--text-secondary, #c9c4dd)' }}>Contact card · tap to view</div>
         </div>
       </button>
@@ -409,7 +409,7 @@ function MessageBubble({ msg, isMe, isRead, isDelivered, session }) {
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
         {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
         <div>
-          {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <VerifiedTick size={11} />} </div>}
+          {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
           <div className="msg-bubble deleted-msg">🚫 This message was deleted</div>
           <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
         </div>
@@ -458,7 +458,7 @@ if (msg.content?.startsWith('call_log:') || msg.content?.startsWith('missed_call
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
         {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
         <div>
-          {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <VerifiedTick size={11} />} </div>}
+          {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
           <StickerBubble content={msg.content} isMe={isMe} />
           <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
           <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
@@ -471,7 +471,7 @@ if (msg.content?.startsWith('call_log:') || msg.content?.startsWith('missed_call
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
         {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
         <div>
-          {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <VerifiedTick size={11} />} </div>}
+          {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
           <GifBubble content={msg.content} isMe={isMe} />
           <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
           <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
@@ -484,7 +484,7 @@ if (msg.content?.startsWith('pinterest:')) {
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
         {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
         <div>
-          {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <VerifiedTick size={11} />} </div>}
+          {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
           <PinterestBubble content={msg.content} />
           <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
           <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
@@ -497,7 +497,7 @@ if (msg.content?.startsWith('drawing:')) {
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
         {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
         <div>
-          {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <VerifiedTick size={11} />} </div>}
+          {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
           <DrawingBubble content={msg.content} />
           <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
           <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
@@ -510,7 +510,7 @@ if (msg.content?.startsWith('status_reply:')) {
     <div className={`msg-row ${isMe ? 'mine' : ''}`}>
       {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
       <div>
-        {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <VerifiedTick size={11} />} </div>}
+        {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
         <StatusReplyBubble content={msg.content} isMe={isMe} />
         <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
         <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
@@ -523,7 +523,7 @@ if (msg.content?.startsWith('partner_nudge:')) {
     <div className={`msg-row ${isMe ? 'mine' : ''}`}>
       {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
       <div>
-        {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <VerifiedTick size={11} />} </div>}
+        {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
         <PartnerNudgeBubble content={msg.content} isMe={isMe} />
         <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
         <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
@@ -559,7 +559,7 @@ if (msg.message_type === 'short' || msg.content?.startsWith('short:')) {
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
         {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
         <div>
-          {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <VerifiedTick size={11} />} </div>}
+          {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
           <div className="msg-bubble deleted-msg">🚫 Couldn't load this Short</div>
           <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
         </div>
@@ -571,7 +571,7 @@ if (msg.message_type === 'short' || msg.content?.startsWith('short:')) {
     <div className={`msg-row ${isMe ? 'mine' : ''}`}>
       {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
       <div>
-        {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <VerifiedTick size={11} />} </div>}
+        {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
         <button
           onClick={() => msg._onOpenShort?.({ videoId: vid, title: t, thumbnailUrl: thumb, channelTitle: channel })}
           style={{ display: 'block', position: 'relative', width: 160, borderRadius: 14, overflow: 'hidden', border: 'none', padding: 0, cursor: 'pointer' }}
@@ -592,7 +592,7 @@ if (msg.message_type === 'short' || msg.content?.startsWith('short:')) {
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
         {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
         <div>
-          {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <VerifiedTick size={11} />} </div>}
+          {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
           <TaskMessage message={msg} currentUserId={msg._currentUserId} />
           <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
           <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
@@ -605,7 +605,7 @@ if (msg.message_type === 'short' || msg.content?.startsWith('short:')) {
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
         {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
         <div>
-          {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <VerifiedTick size={11} />} </div>}
+          {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
           <PollMessage message={msg} currentUserId={msg._currentUserId} />
           <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
           <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
@@ -618,7 +618,7 @@ if (msg.message_type === 'short' || msg.content?.startsWith('short:')) {
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
         {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
         <div>
-          {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <VerifiedTick size={11} />} </div>}
+          {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
           <VoiceMessage message={msg} isMe={isMe} />
           <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
           <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
@@ -631,7 +631,7 @@ if (msg.message_type === 'moment') {
     <div className={`msg-row ${isMe ? 'mine' : ''}`}>
       {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
       <div>
-        {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <VerifiedTick size={11} />} </div>}
+        {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
         <MomentMessage message={msg} isMe={isMe} onOpen={msg._onOpenMoment} />
         <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
         <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
@@ -644,7 +644,7 @@ if (msg.message_type === 'location') {
     <div className={`msg-row ${isMe ? 'mine' : ''}`}>
       {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
       <div>
-        {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <VerifiedTick size={11} />} </div>}
+        {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
         <LocationBubble content={msg.content} />
         <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
         <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
@@ -657,7 +657,7 @@ if (msg.message_type === 'contact') {
     <div className={`msg-row ${isMe ? 'mine' : ''}`}>
       {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
       <div>
-        {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <VerifiedTick size={11} />} </div>}
+        {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
         <ContactBubble
           content={msg.content}
           onOpenProfile={msg._onOpenSharedContact}
@@ -675,7 +675,7 @@ if (msg.message_type === 'media') {
     <div className={`msg-row ${isMe ? 'mine' : ''}`}>
       {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
       <div>
-        {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <VerifiedTick size={11} />} </div>}
+        {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
       <MediaMessage
   message={msg}
   isMe={isMe}
@@ -697,7 +697,7 @@ if (msg.message_type === 'media') {
      <div className={`msg-row ${isMe ? 'mine' : ''}`}>
        {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
        <div>
-         {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <VerifiedTick size={11} />} </div>}
+         {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
          <MusicMessageBubble music={music} />
          <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
          <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
@@ -712,7 +712,7 @@ const youtubeId = extractYouTubeId(msg.content)
     <div className={`msg-row ${isMe ? 'mine' : ''}`}>
       {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
       <div>
-        {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <VerifiedTick size={11} />} </div>}
+        {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
         {youtubeId ? (
           <YouTubeCard videoId={youtubeId} onPlay={msg._onPlayYouTube} onWatchTogether={msg._onWatchTogether} session={session} />
         ) : (
@@ -743,23 +743,7 @@ function PencilIcon({ size = 15 }) {
   )
 }
 
-function VerifiedTick({ size = 13 }) {
-  return (
-    <span
-      title="Mattchat Team"
-      style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: size, height: size, borderRadius: '50%', flexShrink: 0,
-        background: 'linear-gradient(135deg, #667eea, #764ba2)',
-        marginLeft: 4, verticalAlign: 'middle',
-      }}
-    >
-      <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="20 6 9 17 4 12" />
-      </svg>
-    </span>
-  )
-}
+ 
 
 function VerifiedBadge({ size = 18 }) {
   return (
@@ -2051,7 +2035,7 @@ const handleShareContact = async (profile) => {
     <div className="contact-info">
         <div className={`contact-name ${unread > 0 ? 'unread' : ''}`} style={{ display: 'flex', alignItems: 'center' }}>
           {getConvoName(c)}
-          {getOtherUserIsAdmin(c, userId) && <VerifiedTick size={12} />}
+          {getOtherUserIsAdmin(c, userId) && <IconVerified size={12} />}
         </div>
         <div className="contact-preview-swap" key={state?.previewKind}>
           {state?.isTyping ? (
@@ -2717,7 +2701,7 @@ onMessageContact={handleMessageContact}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="chat-header-name" style={{ display: 'flex', alignItems: 'center' }}>
                   {getConvoName(activeConvo)}
-                  {getOtherUserIsAdmin(activeConvo, userId) && <VerifiedTick size={14} />}
+                  {getOtherUserIsAdmin(activeConvo, userId) && <IconVerified size={14} />}
                 </div>
                 <div className="chat-header-sub" style={{ minHeight: 16 }}>{headerStatus()}</div>
               </div>
