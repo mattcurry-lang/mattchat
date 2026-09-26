@@ -2883,6 +2883,7 @@ _onOpenSharedContact: (contact) => setProfileCardTarget({
   id: contact.id,
   username: contact.username,
   avatar_url: contact.avatarUrl,
+  is_admin: contact.isAdmin,
 }),
 _onMessageContact: (contactEmail) => handleMessageContact(contactEmail), 
   }}
