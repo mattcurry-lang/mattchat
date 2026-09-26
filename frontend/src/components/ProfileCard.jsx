@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react'
 import Avatar from './Avatar'
 import { computeReplyTimeLabel } from '../lib/supabase'
-import { IconX, IconClock, IconSparkle, IconMessageSquare } from './Icons'
+import { IconX, IconClock, IconSparkle, IconMessageSquare, IconVerified } from './Icons'
 
 // AVATAR_CATEGORIES lives here too so ProfileCard and setup flows agree
 // on the same label/emoji set.
@@ -74,8 +74,9 @@ export default function ProfileCard({
         </button>
         <Avatar name={targetProfile.username} photoUrl={targetProfile.avatar_url} size={96} />
 
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', marginTop: 8 }}>
+       <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {targetProfile.username}
+          {targetProfile.is_admin && <IconVerified size={16} />}
         </div>
 
         {targetProfile.bio && (
