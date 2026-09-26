@@ -792,6 +792,72 @@ function ThreeDotMenu({ anchorRef, onDraw, onPoll, onTask, onSchedule, onSearch,
     document.body
   )
 }
+
+function HeaderMoreMenu({ anchorRef, theme, onToggleTheme, heyCurryListening, onToggleHeyCurry, onClose }) {
+  const [pos, setPos] = useState(null)
+  const menuRef = useRef(null)
+
+  useEffect(() => {
+    const rect = anchorRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const MENU_WIDTH = 230
+    const left = Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8)
+    setPos({ top: rect.bottom + 6, left: Math.max(8, left) })
+  }, [anchorRef])
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (menuRef.current?.contains(e.target)) return
+      if (anchorRef.current?.contains(e.target)) return
+      onClose()
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [onClose, anchorRef])
+
+  if (!pos) return null
+
+  return createPortal(
+    <div
+      ref={menuRef}
+      style={{
+        position: 'fixed', top: pos.top, left: pos.left, zIndex: 2000,
+        background: 'rgba(24,22,34,0.98)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+        border: '1px solid rgba(167,139,250,0.18)', borderRadius: 14,
+        boxShadow: '0 12px 32px rgba(0,0,0,0.4)', overflow: 'hidden', minWidth: 230,
+      }}
+    >
+      <button
+        onClick={() => { onToggleTheme(); onClose() }}
+        style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, color: '#f2f0f8', textAlign: 'left' }}
+      >
+        <span style={{ width: 20, textAlign: 'center' }}>{theme === 'dark' ? '☀️' : '🌙'}</span>
+        {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      </button>
+      <button
+        onClick={() => { onToggleHeyCurry(); onClose() }}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
+          padding: '11px 16px', background: 'none', border: 'none', borderTop: '1px solid rgba(167,139,250,0.1)',
+          cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, color: '#f2f0f8', textAlign: 'left',
+        }}
+      >
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ width: 20, textAlign: 'center' }}>🎙️</span>
+          "Hey Curry" listening
+        </span>
+        <span style={{
+          fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
+          color: heyCurryListening ? '#a78bfa' : '#6b6580',
+          background: heyCurryListening ? 'rgba(167,139,250,0.15)' : 'rgba(255,255,255,0.05)',
+        }}>
+          {heyCurryListening ? 'On' : 'Off'}
+        </span>
+      </button>
+    </div>,
+    document.body
+  )
+}
 function CallButtons({ onVoiceCall, onVideoCall, disabled }) {
   return (
     <>
@@ -835,7 +901,8 @@ export default function ChatPage({ session }) {
   const [showScheduledList, setShowScheduledList]   = useState(false)
   const [showSearch, setShowSearch]                 = useState(false)
   const [showCurryAssistant, setShowCurryAssistant] = useState(false)
-  const [showThreeDot, setShowThreeDot]             = useState(false)
+   const [showThreeDot, setShowThreeDot]             = useState(false)
+  const [showHeaderMenu, setShowHeaderMenu]         = useState(false)
   const [showInsights, setShowInsights]             = useState(false) 
   const [hasScheduled, setHasScheduled]             = useState(false)
   const [showEmojiPicker, setShowEmojiPicker]       = useState(false)
@@ -905,6 +972,7 @@ const msgRefs        = useRef({})
   const typingTimer    = useRef(null)
   const textareaRef    = useRef(null)
   const threeDotBtnRef = useRef(null)
+  const headerMenuBtnRef = useRef(null)
   const mediaFlowRef = useRef(null)
 
   const { isOnline, getLastSeenLabel } = usePresence(userId)
@@ -1719,38 +1787,28 @@ const handleShareContact = async (profile) => {
   <span className="top-header-name">Mattchat</span>
 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
   <QuickMusicAccess />
-  <button
-    className="theme-toggle-btn"
-    onClick={toggleTheme}
-    title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-  >
-    {theme === 'dark' ? (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="4"/>
-        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
-      </svg>
-    ) : (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-      </svg>
+  <div style={{ position: 'relative' }}>
+    <button
+      ref={headerMenuBtnRef}
+      className="top-header-search-btn"
+      onClick={() => setShowHeaderMenu(v => !v)}
+      title="More"
+      style={{ color: heyCurryListening ? '#a78bfa' : undefined, background: heyCurryListening ? 'rgba(167,139,250,0.15)' : undefined }}
+    >
+      <IconMoreVertical size={16} />
+    </button>
+    {showHeaderMenu && (
+      <HeaderMoreMenu
+        anchorRef={headerMenuBtnRef}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        heyCurryListening={heyCurryListening}
+        onToggleHeyCurry={() => (heyCurryListening ? stopHeyCurry() : startHeyCurry())}
+        onClose={() => setShowHeaderMenu(false)}
+      />
     )}
-  </button>
+  </div>
 </div>
- 
-  <button
-    className="top-header-search-btn"
-    onClick={() => (heyCurryListening ? stopHeyCurry() : startHeyCurry())}
-    title={heyCurryListening ? '"Hey Curry" listening is on — tap to turn off' : 'Turn on "Hey Curry" listening'}
-    style={{ color: heyCurryListening ? '#a78bfa' : undefined, background: heyCurryListening ? 'rgba(167,139,250,0.15)' : undefined }}
-  >
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
-      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-      <line x1="12" y1="19" x2="12" y2="22"/>
-    </svg>
-  </button>
-</div>
-
 {showWhatsApp && (
   <WhatsAppPage session={session} userId={userId} onClose={() => setShowWhatsApp(false)} />
 )}
@@ -2447,28 +2505,10 @@ onMessageContact={handleMessageContact}
               </button>
 
               <div style={{ display: 'flex', justifyContent: 'center', gap: 44, marginTop: 40 }}>
-                {[
-                  {
-                    icon: <IconSparkle size={22} />,
-                    title: 'Ask Curry',
-                    gradient: 'linear-gradient(135deg, #667eea, #764ba2)',
-                    glow: 'rgba(118,75,162,0.45)',
-                    onClick: () => setActiveConvo(CURRY_AI_CONTACT),
-                  },
-                  {
-                    icon: <IconCamera size={22} />,
-                    title: 'Connected Apps',
-                    gradient: 'linear-gradient(135deg, #f59e0b, #ec4899)',
-                    glow: 'rgba(236,72,153,0.4)',
-                    onClick: () => setShowConnectedApps(true),
-                  },
-                  {
-                    icon: <WhatsAppIcon size={22} />,
-                    title: 'WhatsApp',
-                    gradient: 'linear-gradient(135deg, #25D366, #128C7E)',
-                    glow: 'rgba(37,211,102,0.4)',
-                    onClick: () => setShowWhatsApp(true),
-                  },
+                 {[
+                  { icon: <IconSparkle size={22} color="#a78bfa" />, title: 'Ask Curry', onClick: () => setActiveConvo(CURRY_AI_CONTACT) },
+                  { icon: <IconCamera size={22} color="#d4d0e0" />, title: 'Connected Apps', onClick: () => setShowConnectedApps(true) },
+                  { icon: <WhatsAppIcon size={22} />, title: 'WhatsApp', onClick: () => setShowWhatsApp(true) },
                 ].map((item) => (
                   <button
                     key={item.title}
@@ -2483,17 +2523,16 @@ onMessageContact={handleMessageContact}
                       style={{
                         width: 60, height: 60, borderRadius: '50%',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: item.gradient, color: '#fff',
-                        boxShadow: `0 6px 18px ${item.glow}`,
-                        transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+                        background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(167,139,250,0.16)',
+                        transition: 'transform 0.18s ease, background 0.18s ease',
                       }}
                       onMouseEnter={e => {
-                        e.currentTarget.style.transform = 'translateY(-3px) scale(1.05)'
-                        e.currentTarget.style.boxShadow = `0 10px 26px ${item.glow}`
+                        e.currentTarget.style.transform = 'translateY(-3px)'
+                        e.currentTarget.style.background = 'rgba(167,139,250,0.1)'
                       }}
                       onMouseLeave={e => {
-                        e.currentTarget.style.transform = 'translateY(0) scale(1)'
-                        e.currentTarget.style.boxShadow = `0 6px 18px ${item.glow}`
+                        e.currentTarget.style.transform = 'translateY(0)'
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
                       }}
                     >
                       {item.icon}
