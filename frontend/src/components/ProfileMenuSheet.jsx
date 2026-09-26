@@ -140,9 +140,15 @@ export default function ProfileMenuSheet({
               </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={heroNameRowStyle}>
+               <div style={heroNameRowStyle}>
                   <span style={heroNameStyle}>{profile?.username || 'You'}</span>
-                  {profile?.is_admin && <span style={adminBadgeStyle}>Admin</span>}
+                  {profile?.is_admin && (
+                    <span style={adminBadgeStyle} title="Mattchat Team">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </span>
+                  )}
                 </div>
                 <div style={heroEmailStyle}>{email}</div>
               </div>
@@ -269,7 +275,7 @@ const avatarCameraBadgeStyle = {
 }
 const heroNameRowStyle = { display: 'flex', alignItems: 'center', gap: 6 }
 const heroNameStyle = { fontSize: 18, fontWeight: 800, color: 'var(--dark-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
-const adminBadgeStyle = { fontSize: 9.5, fontWeight: 800, color: '#fff', background: 'var(--brand-grad)', borderRadius: 6, padding: '2px 6px', flexShrink: 0, letterSpacing: 0.3 }
+const adminBadgeStyle = { width: 16, height: 16, borderRadius: '50%', background: 'var(--brand-grad)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 0 0 2px var(--dark-card-2)' }
 const heroEmailStyle = { fontSize: 12.5, color: 'var(--dark-text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }
 
 const statRowStyle = { display: 'flex', gap: 8, padding: '0 16px 14px', flexShrink: 0 }
