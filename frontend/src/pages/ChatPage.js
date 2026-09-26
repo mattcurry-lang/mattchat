@@ -1797,7 +1797,7 @@ const handleShareContact = async (profile) => {
     >
       <IconMoreVertical size={16} />
     </button>
-    {showHeaderMenu && (
+   {showHeaderMenu && (
       <HeaderMoreMenu
         anchorRef={headerMenuBtnRef}
         theme={theme}
@@ -1808,6 +1808,7 @@ const handleShareContact = async (profile) => {
       />
     )}
   </div>
+</div>
 </div>
 {showWhatsApp && (
   <WhatsAppPage session={session} userId={userId} onClose={() => setShowWhatsApp(false)} />
