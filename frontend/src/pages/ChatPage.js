@@ -211,6 +211,7 @@ function SwipeableMessage({ msg, onReply, children }) {
         flexShrink: 0,
         maxWidth: '100%',
         touchAction: 'pan-y',
+        minWidth: 0,
       }}
       {...swipe.handlers}
     >
