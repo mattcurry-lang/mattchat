@@ -2419,25 +2419,54 @@ onMessageContact={handleMessageContact}
             <CallsLandingPanel onStartCall={() => setShowNewCall(true)} />
           ) : (
             <>
-              <img src="/logo.png" alt="" className="welcome-pane-logo" />
+             <img src="/logo.png" alt="" className="welcome-pane-logo" />
               <p>Select a conversation, or jump into one of these.</p>
-              <button className="btn-primary" onClick={() => setShowNewChat(true)}>Start a conversation →</button>
 
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 44, marginTop: 36 }}>
+              <button
+                onClick={() => setShowNewChat(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 9,
+                  marginTop: 22, padding: '14px 30px', border: 'none', borderRadius: 999,
+                  background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                  color: '#fff', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 10px 28px rgba(118,75,162,0.4), 0 2px 6px rgba(0,0,0,0.25)',
+                  transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                  e.currentTarget.style.boxShadow = '0 14px 36px rgba(118,75,162,0.5), 0 4px 10px rgba(0,0,0,0.3)'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.boxShadow = '0 10px 28px rgba(118,75,162,0.4), 0 2px 6px rgba(0,0,0,0.25)'
+                }}
+              >
+                <IconMessageSquare size={17} />
+                Start a conversation
+              </button>
+
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 44, marginTop: 40 }}>
                 {[
                   {
                     icon: <IconSparkle size={22} />,
                     title: 'Ask Curry',
+                    gradient: 'linear-gradient(135deg, #667eea, #764ba2)',
+                    glow: 'rgba(118,75,162,0.45)',
                     onClick: () => setActiveConvo(CURRY_AI_CONTACT),
                   },
                   {
                     icon: <IconCamera size={22} />,
                     title: 'Connected Apps',
+                    gradient: 'linear-gradient(135deg, #f59e0b, #ec4899)',
+                    glow: 'rgba(236,72,153,0.4)',
                     onClick: () => setShowConnectedApps(true),
                   },
                   {
                     icon: <WhatsAppIcon size={22} />,
                     title: 'WhatsApp',
+                    gradient: 'linear-gradient(135deg, #25D366, #128C7E)',
+                    glow: 'rgba(37,211,102,0.4)',
                     onClick: () => setShowWhatsApp(true),
                   },
                 ].map((item) => (
@@ -2454,11 +2483,18 @@ onMessageContact={handleMessageContact}
                       style={{
                         width: 60, height: 60, borderRadius: '50%',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: 'rgba(255,255,255,0.06)', color: '#c4b5fd',
-                        transition: 'background 0.15s, transform 0.15s',
+                        background: item.gradient, color: '#fff',
+                        boxShadow: `0 6px 18px ${item.glow}`,
+                        transition: 'transform 0.18s ease, box-shadow 0.18s ease',
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(167,139,250,0.18)'; e.currentTarget.style.transform = 'scale(1.06)' }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.transform = 'scale(1)' }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.transform = 'translateY(-3px) scale(1.05)'
+                        e.currentTarget.style.boxShadow = `0 10px 26px ${item.glow}`
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.transform = 'translateY(0) scale(1)'
+                        e.currentTarget.style.boxShadow = `0 6px 18px ${item.glow}`
+                      }}
                     >
                       {item.icon}
                     </span>
