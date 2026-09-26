@@ -180,6 +180,7 @@
 html, body, #root {
   height: 100%;
   height: var(--app-height);
+  width: 100%;
   overflow: hidden;
   font-family: var(--font-body);
   background: var(--bg-app);
@@ -278,7 +279,7 @@ html, body, #root {
 }
 
 /* Tablet: still a single-pane "app card" floating with margin */
-@media (min-width: 640px) and (max-width: 899px) {
+@media (min-width: 640px) and (max-width: 767px) {
   html, body { background: #d8dae6; }
   .app { margin: 18px auto; height: calc(var(--app-height) - 36px); border-radius: 28px; }
 }
@@ -286,7 +287,7 @@ html, body, #root {
 /* Desktop: full-bleed, classic split — narrow list on the left that
    NEVER hides, and a right-hand pane that shows the welcome screen
    until a chat is opened, then shows that chat. Just like WhatsApp. */
-@media (min-width: 900px) {
+@media (min-width: 768px) {
   html, body { background: var(--dark-bg); }
   .app { max-width: none; width: 100%; height: 100vh; height: var(--app-height); margin: 0; border-radius: 0; box-shadow: none; }
   .app .sidebar {
@@ -1398,7 +1399,7 @@ button.email-badge { cursor: pointer; display: inline-flex; align-items: center;
    that rule (not just be "inside a media query") or it silently
    loses and the chat takes over the full screen on desktop too.
    ═══════════════════════════════════════════════════════════ */
-@media (min-width: 900px) {
+@media (min-width: 768px) {
   .app.chat-open .sidebar {
     display: flex;
     width: 420px;
