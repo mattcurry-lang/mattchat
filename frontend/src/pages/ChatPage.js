@@ -204,7 +204,16 @@ function useSwipeToReply(onReply, msg) {
 function SwipeableMessage({ msg, onReply, children }) {
   const swipe = useSwipeToReply(onReply, msg)
   return (
-    <div style={swipe.style} {...swipe.handlers}>
+    <div
+      style={{
+        ...swipe.style,
+        display: 'inline-flex',
+        flexShrink: 0,
+        maxWidth: '100%',
+        touchAction: 'pan-y',
+      }}
+      {...swipe.handlers}
+    >
       {children}
     </div>
   )
@@ -1548,7 +1557,8 @@ useEffect(() => {
     setShowScheduler(false); setShowScheduledList(false); setShowSearch(false)
     setShowCurryAssistant(false); setShowThreeDot(false)
     setHasScheduled(false); setShowEmojiPicker(false); setShowInsights(false)
-    setCoachSuggestion(null)
+    setCoachSuggestion(null)setReplyingTo(null)
+   setForwardingMessage(null)
     return () => { if (activeConvo?.id) removeReactionChannel(activeConvo.id) }
   }, [activeConvo])
 
