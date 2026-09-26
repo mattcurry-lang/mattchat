@@ -202,7 +202,7 @@ export const getMessages = async (conversationId) => {
       forwarded,
       deleted_for_everyone,
       created_at,
-      profiles!messages_sender_id_fkey(username, avatar_url),
+     profiles!messages_sender_id_fkey(username, avatar_url, is_admin),
       media_assets(*)
     `)
     .eq('conversation_id', conversationId)
