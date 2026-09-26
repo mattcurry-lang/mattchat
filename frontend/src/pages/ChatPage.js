@@ -734,6 +734,32 @@ const youtubeId = extractYouTubeId(msg.content)
     </div>
   )
 }
+function PencilIcon({ size = 15 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  )
+}
+
+function VerifiedBadge({ size = 18 }) {
+  return (
+    <div
+      title="Mattchat Team"
+      style={{
+        width: size, height: size, borderRadius: '50%',
+        background: 'linear-gradient(135deg, #667eea, #764ba2)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        border: '2px solid #0f0f1a', boxShadow: '0 0 0 1px rgba(167,139,250,0.4)',
+      }}
+    >
+      <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+    </div>
+  )
+}
 function ThreeDotMenu({ anchorRef, onDraw, onPoll, onTask, onSchedule, onSearch, onSearchYouTube, onShare, onClose }) {
   const [pos, setPos] = useState(null)
   const menuRef = useRef(null)
@@ -792,7 +818,62 @@ function ThreeDotMenu({ anchorRef, onDraw, onPoll, onTask, onSchedule, onSearch,
     document.body
   )
 }
+function ChangeUsernameModal({ userId, currentUsername, onSaved, onClose }) {
+  const [value, setValue] = useState(currentUsername || '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
+  const handleSave = async () => {
+    const trimmed = value.trim()
+    if (trimmed.length < 3) { setError('Username must be at least 3 characters.'); return }
+    if (!/^[a-zA-Z0-9_.]+$/.test(trimmed)) { setError('Only letters, numbers, underscores, and periods.'); return }
+    setSaving(true)
+    setError('')
+    const { error: err } = await supabase.from('profiles').update({ username: trimmed }).eq('id', userId)
+    setSaving(false)
+    if (err) {
+      setError(err.code === '23505' ? 'That username is already taken.' : 'Could not update username. Try again.')
+      return
+    }
+    onSaved(trimmed)
+  }
+
+  return (
+    <div className="profile-menu-overlay" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-surface-1, #14141f)', borderRadius: 20, padding: 20, width: 'min(360px, 92vw)', border: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary, #f2f0f8)', margin: 0 }}>Change username</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted, #9d97b5)', cursor: 'pointer' }}><IconX size={16} /></button>
+        </div>
+        <input
+          type="text"
+          value={value}
+          onChange={e => { setValue(e.target.value); setError('') }}
+          placeholder="Username"
+          autoFocus
+          style={{
+            width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10,
+            border: '1px solid rgba(167,139,250,0.25)', background: 'rgba(255,255,255,0.04)',
+            color: '#f2f0f8', fontFamily: 'inherit', fontSize: 13.5, outline: 'none',
+          }}
+        />
+        {error && <div style={{ color: '#f87171', fontSize: 11.5, marginTop: 6 }}>{error}</div>}
+        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            style={{ flex: 1, background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none', borderRadius: 10, color: '#fff', fontWeight: 700, fontSize: 13, padding: '10px', cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1, fontFamily: 'inherit' }}
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button onClick={onClose} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: '#9d97b5', fontWeight: 700, fontSize: 13, padding: '10px 16px', cursor: 'pointer', fontFamily: 'inherit' }}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 function HeaderMoreMenu({ anchorRef, theme, onToggleTheme, heyCurryListening, onToggleHeyCurry, onClose }) {
   const [pos, setPos] = useState(null)
   const menuRef = useRef(null)
@@ -902,7 +983,9 @@ export default function ChatPage({ session }) {
   const [showSearch, setShowSearch]                 = useState(false)
   const [showCurryAssistant, setShowCurryAssistant] = useState(false)
    const [showThreeDot, setShowThreeDot]             = useState(false)
-  const [showHeaderMenu, setShowHeaderMenu]         = useState(false)
+ const [showHeaderMenu, setShowHeaderMenu]         = useState(false)
+  const [showMusicSettings, setShowMusicSettings]   = useState(false)
+  const [showChangeUsername, setShowChangeUsername] = useState(false)
   const [showInsights, setShowInsights]             = useState(false) 
   const [hasScheduled, setHasScheduled]             = useState(false)
   const [showEmojiPicker, setShowEmojiPicker]       = useState(false)
@@ -1828,16 +1911,21 @@ const handleShareContact = async (profile) => {
             </div>
           )}
 
-          <SpotifyMiniPlayer session={session} />
+          
 
           {/* ── STORY / QUICK-CONTACT RAIL ── */}
           {activeTab === 'chats' && (
             <div className="story-rail">
               <button className="story-item" onClick={() => openViewer('mine')} title="My status">
-                <div className="story-avatar-wrap">
+                <div className="story-avatar-wrap" style={{ position: 'relative' }}>
                   <StatusRing size={58} hasStatus={myStatuses.length > 0} viewed>
                     <Avatar name={profile?.username || 'You'} size={52} photoUrl={profile?.avatar_url} />
                   </StatusRing>
+                  {profileLoaded && profile?.is_admin && (
+                    <div style={{ position: 'absolute', top: -2, right: -2, zIndex: 2 }}>
+                      <VerifiedBadge size={18} />
+                    </div>
+                  )}
                   <button
                     className="status-add-badge"
                     onClick={(e) => { e.stopPropagation(); setShowAddStatus(true) }}
@@ -2107,10 +2195,11 @@ const handleShareContact = async (profile) => {
         </div>
 
   {showProfileMenu && (
-  <ProfileMenuSheet
+ <ProfileMenuSheet
     isOpen={showProfileMenu}
     onClose={() => setShowProfileMenu(false)}
     profile={profile}
+    badge={profileLoaded && profile?.is_admin ? <VerifiedBadge size={18} /> : null}
     email={session.user.email}
     stats={{
       chatsCount: conversations.length,
@@ -2120,10 +2209,11 @@ const handleShareContact = async (profile) => {
     onAvatarClick={() => { setShowChangePicture(true); setShowProfileMenu(false) }}
     onSignOut={signOut}
     sections={[
-      {
+     {
         id: 'account', label: 'Account',
         items: [
           { id: 'picture', icon: <IconCamera size={15} />, label: 'Change profile picture', onClick: () => { setShowChangePicture(true); setShowProfileMenu(false) } },
+          { id: 'username', icon: <PencilIcon size={15} />, label: 'Change username', subtitle: `@${profile?.username || ''}`, onClick: () => { setShowChangeUsername(true); setShowProfileMenu(false) } },
           {
             id: 'gmail', icon: <IconMail size={15} />, label: connectingGmail ? 'Connecting…' : emailAccounts.length > 0 ? 'Gmail connected' : 'Connect Gmail',
             subtitle: emailAccounts.length > 0 ? emailAccounts.map(a => a.email_address).join(', ') : 'Let Curry send real emails for you',
@@ -2157,9 +2247,10 @@ const handleShareContact = async (profile) => {
           ...(profileLoaded && profile?.is_admin ? [{ id: 'announcements', icon: <IconMail size={15} />, label: 'Announcements', onClick: () => { setShowAnnouncements(true); setShowProfileMenu(false) } }] : []),
         ],
       },
-     {
+   {
   id: 'preferences', label: 'Preferences',
   items: [
+    { id: 'music', icon: <IconMusic size={15} />, label: 'Music', subtitle: 'Connect Spotify to play music in Mattchat', onClick: () => { setShowMusicSettings(true); setShowProfileMenu(false) } },
     { id: 'notifications', icon: <IconBell size={15} />, label: 'Notifications', onClick: () => { setShowNotificationSettings(true); setShowProfileMenu(false) } },
     {
       id: 'ringtone', icon: <IconMusic size={15} />, label: 'Ringtone',
@@ -2180,7 +2271,16 @@ const handleShareContact = async (profile) => {
     ]}
   />
 )}
-                    
+
+{showChangeUsername && (
+  <ChangeUsernameModal
+    userId={userId}
+    currentUsername={profile?.username}
+    onSaved={(newUsername) => { setProfile(p => ({ ...p, username: newUsername })); setShowChangeUsername(false) }}
+    onClose={() => setShowChangeUsername(false)}
+  />
+)}
+
 {showChangePicture && (
   <ChangeProfilePictureModal
     session={session}
@@ -2242,7 +2342,19 @@ const handleShareContact = async (profile) => {
     </div>
   </div>
 )}
-
+{showMusicSettings && (
+  <div className="profile-menu-overlay" onClick={() => setShowMusicSettings(false)}>
+    <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-surface-1, #14141f)', borderRadius: 20, padding: 0, width: 'min(420px, 92vw)', maxHeight: '80vh', overflowY: 'auto', border: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 0' }}>
+        <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Music</h3>
+        <button onClick={() => setShowMusicSettings(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16 }}><IconX size={16} /></button>
+      </div>
+      <div style={{ padding: 20 }}>
+        <SpotifyMiniPlayer session={session} />
+      </div>
+    </div>
+  </div>
+)}
 {showWeeklyReport && <WeeklyReportModal session={session} onClose={() => setShowWeeklyReport(false)} />}
 {showPersonalAnalytics && (
           <PersonalAnalytics userId={userId} conversations={conversations} onClose={() => setShowPersonalAnalytics(false)} />
