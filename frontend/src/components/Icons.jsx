@@ -1032,3 +1032,21 @@ export function IconLyrics({ size = 18, ...props }) {
     </svg>
   )
 }
+
+export function IconVerified({ size = 13 }) {
+  return (
+    <span
+      title="Mattchat Team"
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: size, height: size, borderRadius: '50%', flexShrink: 0,
+        background: 'linear-gradient(135deg, #667eea, #764ba2)',
+        marginLeft: 4, verticalAlign: 'middle',
+      }}
+    >
+      <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+    </span>
+  )
+}
