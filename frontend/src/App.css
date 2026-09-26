@@ -266,14 +266,10 @@ html, body, #root {
   height: 100vh;
   height: var(--app-height);
   width: 100%;
-  max-width: var(--sidebar-w);
-  margin: 0 auto;
+  margin: 0;
   background: var(--dark-bg);
   overflow: hidden;
-  box-shadow: var(--shadow-lg);
-  /* Respect notches/status-bar cutouts on phones that have them
-     (safe-area-inset is 0 on phones without a notch, so this is a
-     no-op there). */
+  box-shadow: none;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -296,19 +292,7 @@ html, body, #root {
    The sidebar column flexes between a minimum and maximum instead of
    staying a fixed 420px, so it just narrows on smaller windows
    instead of leaving empty space beside a boxed-in app. */
-@media (min-width: 640px) {
-  html, body { background: var(--dark-bg); }
-  .app { max-width: none; width: 100%; height: 100vh; height: var(--app-height); margin: 0; border-radius: 0; box-shadow: none; }
-  .app .sidebar {
-    display: flex;
-    width: clamp(280px, 35vw, 420px);
-    max-width: clamp(280px, 35vw, 420px);
-    flex-shrink: 0;
-    border-right: 1px solid var(--dark-border);
-  }
-  .app .welcome-pane { display: flex; }
-  .app.chat-open .welcome-pane { display: none; }
-}
+ 
 .welcome-quick-actions {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -351,17 +335,20 @@ html, body, #root {
 }
 /* ── List / browse screen ── */
 .sidebar {
-  width: 100%;
+  width: clamp(280px, 35vw, 420px);
+  max-width: clamp(280px, 35vw, 420px);
   height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
   background: var(--dark-bg);
+  flex-shrink: 0;
+  border-right: 1px solid var(--dark-border);
 }
 /* Mobile/tablet only: opening a chat fully replaces the list.
    (Desktop overrides this back to visible — see 900px block above.) */
-.app.chat-open .sidebar { display: none; }
+@media (max-width: 639px) {   .app.chat-open .sidebar { display: none; } }
 
 /* ── Top header: brand + story rail ── */
 .top-header {
@@ -751,7 +738,7 @@ color: var(--dark-text);
 }
 /* ── Welcome pane — desktop-only right half, shown when no chat is open ── */
 .welcome-pane {
-  display: none;  
+  display: flex;  
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
@@ -764,6 +751,7 @@ color: var(--dark-text);
     radial-gradient(circle at 85% 90%, rgba(167,139,250,0.12) 0%, transparent 50%),
     var(--dark-header);
 }
+.app.chat-open .welcome-pane { display: none; }
 .welcome-pane-content {
   position: relative;
   z-index: 1;
@@ -1158,6 +1146,10 @@ button.email-badge { cursor: pointer; display: inline-flex; align-items: center;
   html, body { width: 100%; overflow: hidden; }
   .app { border-radius: 0; box-shadow: none; margin: 0; height: 100vh; height: var(--app-height); }
 }
+@media (max-width: 639px) {
+  .sidebar { width: 100%; max-width: none; border-right: none; }
+  .welcome-pane { display: none !important; }
+}
 
 /* ═══════════════════════════════════════════════════════════
    AUTH PAGE — MOBILE: single centered glowing card
@@ -1408,15 +1400,7 @@ button.email-badge { cursor: pointer; display: inline-flex; align-items: center;
    that rule (not just be "inside a media query") or it silently
    loses and the chat takes over the full screen on desktop too.
    ═══════════════════════════════════════════════════════════ */
-@media (min-width: 640px) {
-  .app.chat-open .sidebar {
-    display: flex;
-    width: clamp(280px, 35vw, 420px);
-    max-width: clamp(280px, 35vw, 420px);
-    flex-shrink: 0;
-    border-right: 1px solid var(--dark-border);
-  }
-}
+ 
 .auth-forgot-link {
   background: none; border: none; cursor: pointer;
   font-size: 12.5px; font-weight: 600; color: var(--brand);
