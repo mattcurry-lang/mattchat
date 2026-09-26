@@ -278,16 +278,20 @@ html, body, #root {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* Tablet: still a single-pane "app card" floating with margin */
-@media (min-width: 640px) and (max-width: 767px) {
+/* Floating single-column "app card" — covers phones-in-landscape,
+   tablets, and any desktop window too narrow for a comfortable
+   sidebar+chat split (half-screen snaps, small windows, etc).
+   This guarantees .app is NEVER narrower than the viewport without
+   also being centered — so there's never a blank gap on the sides. */
+@media (min-width: 640px) and (max-width: 1023px) {
   html, body { background: #d8dae6; }
   .app { margin: 18px auto; height: calc(var(--app-height) - 36px); border-radius: 28px; }
 }
 
-/* Desktop: full-bleed, classic split — narrow list on the left that
-   NEVER hides, and a right-hand pane that shows the welcome screen
-   until a chat is opened, then shows that chat. Just like WhatsApp. */
-@media (min-width: 768px) {
+/* Desktop: full-bleed, classic split — only once there's enough room
+   for a real sidebar+chat layout to feel comfortable rather than
+   cramped. Below this width, the floating card above takes over. */
+@media (min-width: 1024px) {
   html, body { background: var(--dark-bg); }
   .app { max-width: none; width: 100%; height: 100vh; height: var(--app-height); margin: 0; border-radius: 0; box-shadow: none; }
   .app .sidebar {
@@ -1399,7 +1403,7 @@ button.email-badge { cursor: pointer; display: inline-flex; align-items: center;
    that rule (not just be "inside a media query") or it silently
    loses and the chat takes over the full screen on desktop too.
    ═══════════════════════════════════════════════════════════ */
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .app.chat-open .sidebar {
     display: flex;
     width: 420px;
