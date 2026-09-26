@@ -1964,9 +1964,7 @@ const handleShareContact = async (profile) => {
               </div>
             </>
           )}
-<button className="top-header-search-btn" onClick={() => setShowWhatsApp(true)} title="WhatsApp">
-  <WhatsAppIcon size={16} />
-</button>
+ 
           {activeTab === 'status' && (
             <div className="status-tab">
               <div className="status-tab-mine" onClick={() => openViewer('mine')}>
@@ -2090,6 +2088,7 @@ const handleShareContact = async (profile) => {
         items: [
           { id: 'email-workspace', icon: <IconInbox size={15} />, label: 'Email Workspace', onClick: () => { setShowEmailWorkspace(true); setShowProfileMenu(false) } },
           { id: 'documents', icon: <IconFolder size={15} />, label: 'Documents', onClick: () => { setShowDocuments(true); setShowProfileMenu(false) } },
+          { id: 'whatsapp', icon: <WhatsAppIcon size={15} />, label: 'WhatsApp', subtitle: 'Keep your WhatsApp chats in the same place', onClick: () => { setShowWhatsApp(true); setShowProfileMenu(false) } },
         ],
       },
       {
@@ -2421,57 +2420,49 @@ onMessageContact={handleMessageContact}
           ) : (
             <>
               <img src="/logo.png" alt="" className="welcome-pane-logo" />
-              <h2>Welcome to Mattchat</h2>
               <p>Select a conversation, or jump into one of these.</p>
               <button className="btn-primary" onClick={() => setShowNewChat(true)}>Start a conversation →</button>
 
-              <div style={{
-                marginTop: 28, width: '100%', maxWidth: 380, borderRadius: 16,
-                border: '1px solid rgba(167,139,250,0.18)', overflow: 'hidden',
-                background: 'rgba(167,139,250,0.04)',
-              }}>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 44, marginTop: 36 }}>
                 {[
                   {
-                    icon: <IconSparkle size={17} />,
+                    icon: <IconSparkle size={22} />,
                     title: 'Ask Curry',
-                    subtitle: 'Draft messages, summarize chats, find anything',
                     onClick: () => setActiveConvo(CURRY_AI_CONTACT),
                   },
                   {
-                    icon: <IconCamera size={17} />,
+                    icon: <IconCamera size={22} />,
                     title: 'Connected Apps',
-                    subtitle: 'Bring in Instagram, TikTok, Spotify and more',
                     onClick: () => setShowConnectedApps(true),
                   },
                   {
-                    icon: <WhatsAppIcon size={17} />,
+                    icon: <WhatsAppIcon size={22} />,
                     title: 'WhatsApp',
-                    subtitle: 'Keep your WhatsApp chats in the same place',
                     onClick: () => setShowWhatsApp(true),
                   },
-                ].map((item, i, arr) => (
+                ].map((item) => (
                   <button
                     key={item.title}
                     onClick={item.onClick}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 12, width: '100%',
-                      padding: '14px 16px', background: 'none', border: 'none',
-                      borderBottom: i < arr.length - 1 ? '1px solid rgba(167,139,250,0.12)' : 'none',
-                      cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+                      background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                      width: 84,
                     }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(167,139,250,0.08)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'none'}
                   >
-                    <span style={{
-                      width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: 'rgba(167,139,250,0.14)', color: '#c4b5fd',
-                    }}>{item.icon}</span>
-                    <span style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 700, color: '#f2f0f8' }}>{item.title}</div>
-                      <div style={{ fontSize: 11.5, color: '#9d97b5', marginTop: 1 }}>{item.subtitle}</div>
+                    <span
+                      style={{
+                        width: 60, height: 60, borderRadius: '50%',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: 'rgba(255,255,255,0.06)', color: '#c4b5fd',
+                        transition: 'background 0.15s, transform 0.15s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(167,139,250,0.18)'; e.currentTarget.style.transform = 'scale(1.06)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.transform = 'scale(1)' }}
+                    >
+                      {item.icon}
                     </span>
-                    <span style={{ marginLeft: 'auto', color: '#6b6580', flexShrink: 0, fontSize: 16 }}>›</span>
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: '#f2f0f8', textAlign: 'center' }}>{item.title}</span>
                   </button>
                 ))}
               </div>
