@@ -45,7 +45,6 @@ import AICommandBar from '../components/AICommandBar'
 import QuickActionsMenu from '../components/QuickActionsMenu'
 import AskCurry from '../components/Pulse/AskCurry'
 import MessageActionsMenu, { useMessageLongPress } from '../components/MessageActionsMenu'
-import AIInsightsPanel from '../components/AIInsightsPanel'
 import SmartCollections, { useConvoTags, filterByCollection } from '../components/SmartCollections'
 import SmartReplyPreview, { useSmartReplyCache } from '../components/SmartReplyPreview'
 import RelationshipInsights from '../components/RelationshipInsights'
@@ -762,14 +761,18 @@ function VerifiedBadge({ size = 18 }) {
     </div>
   )
 }
-function ThreeDotMenu({ anchorRef, onDraw, onPoll, onTask, onSchedule, onSearch, onSearchYouTube, onShare, onClose }) {
+function ThreeDotMenu({
+  anchorRef, onDraw, onPoll, onTask, onSchedule, onViewScheduled,
+  onSearch, onSearchYouTube, onShare, onCurryAssistant, curryAssistantActive,
+  onInsights, insightsActive, onClose,
+}) {
   const [pos, setPos] = useState(null)
   const menuRef = useRef(null)
 
   useEffect(() => {
     const rect = anchorRef.current?.getBoundingClientRect()
     if (!rect) return
-    const MENU_WIDTH = 200
+    const MENU_WIDTH = 230
     const left = Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8)
     setPos({ top: rect.bottom + 6, left: Math.max(8, left) })
   }, [anchorRef])
@@ -785,6 +788,9 @@ function ThreeDotMenu({ anchorRef, onDraw, onPoll, onTask, onSchedule, onSearch,
   }, [onClose, anchorRef])
 
   const items = [
+     { icon: <IconSparkle size={17} />, label: 'Curry AI Assistant', action: onCurryAssistant, active: curryAssistantActive },
+    { icon: <IconChart size={17} />, label: 'Relationship Insights', action: onInsights, active: insightsActive },
+    ...(onViewScheduled ? [{ icon: <IconClock size={17} />, label: 'View Scheduled Messages', action: onViewScheduled }] : []),
     { icon: <IconBrush size={17} />, label: 'Draw Together', action: onDraw },
     { icon: <IconChart size={17} />, label: 'Create Poll', action: onPoll },
     { icon: <IconCheckSquare size={17} />, label: 'Task List', action: onTask },
@@ -806,11 +812,11 @@ function ThreeDotMenu({ anchorRef, onDraw, onPoll, onTask, onSchedule, onSearch,
         overflow: 'hidden', animation: 'menuPop 0.18s cubic-bezier(0.34,1.56,0.64,1)', minWidth: 200,
       }}
     >
-      {items.map(({ icon, label, action }) => (
+      {items.map(({ icon, label, action, active }) => (
         <button key={label} onClick={() => { action(); onClose() }}
-          style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 500, color: 'var(--text-primary)', textAlign: 'left' }}
+         style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '11px 16px', background: active ? 'rgba(167,139,250,0.12)' : 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 500, color: active ? '#a78bfa' : 'var(--text-primary)', textAlign: 'left' }}
           onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-surface-2)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'none'}
+          onMouseLeave={e => e.currentTarget.style.background = active ? 'rgba(167,139,250,0.12)' : 'none'}
         >
           <span style={{ width: 24, display: 'flex', justifyContent: 'center', color: 'var(--text-secondary)' }}>{icon}</span>
           {label}
@@ -1003,7 +1009,6 @@ export default function ChatPage({ session }) {
   const [showNewCall, setShowNewCall] = useState(false)
   const [messageMenu, setMessageMenu] = useState(null) // { message, x, y } | null
   const [collection, setCollection] = useState('all')
-  const [insightsOpenSignal, setInsightsOpenSignal] = useState(0)
   const [showPersonalAnalytics, setShowPersonalAnalytics] = useState(false)
   const [showTasksPage, setShowTasksPage] = useState(false)
   const [showConnectedApps, setShowConnectedApps] = useState(false)
@@ -2473,16 +2478,7 @@ const handleShareContact = async (profile) => {
   />
 )}
       </div>
-{!showShorts && (
-<AIInsightsPanel
-  session={session}
-  onOpenCurry={() => setActiveConvo(CURRY_AI_CONTACT)}
-  onOpenTasks={() => setShowTasksPage(true)}
-  onOpenConversation={openConversationById}
-  onAskCurry={(text) => { setCurryPrefill(text); setActiveConvo(CURRY_AI_CONTACT) }}
-     openSignal={insightsOpenSignal}
-/>
-    )}
+ 
           
  <QuickActionsMenu
       hidden={!!activeConvo || showShorts || showDekutCurry}
@@ -2490,7 +2486,6 @@ const handleShareContact = async (profile) => {
       onOpenCurryAI={() => setActiveConvo(CURRY_AI_CONTACT)}
       onOpenDekutCurry={() => setShowDekutCurry(true)}
       dekutBadge={dekutHasNudge}
-      onOpenInsights={() => setInsightsOpenSignal((v) => v + 1)}
     />
 {showDekutCurry && (
   <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
@@ -2712,20 +2707,15 @@ onMessageContact={handleMessageContact}
                 {callActive && (
 <button onClick={endCall} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 'var(--r-full)', padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: '#f87171' }}><IconPhoneOff size={13} /> End call</button>
                 )}
-                <button className="icon-btn dark" onClick={() => setShowCurryAssistant(v => !v)} title="Curry AI assistant"><IconSparkle size={16} /></button>
-                <button className="icon-btn dark" onClick={() => setShowInsights(v => !v)} title="Relationship insights"
-                  style={{ color: showInsights ? '#a78bfa' : undefined, background: showInsights ? 'rgba(167,139,250,0.15)' : undefined }}>
-                  <IconChart size={16} />
-                </button>
-                {hasScheduled && (
-                  <button onClick={() => setShowScheduledList(true)} title="View scheduled messages"
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 'var(--r-full)', padding: '5px 10px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: '#c4b5fd', animation: 'scheduledPulse 2s ease infinite' }}>
-                   <IconClock size={13} /> <span style={{ fontSize: 11 }}>Scheduled</span>
-                  </button>
-                )}
+                
          <div className="threedot-wrapper" style={{ position: 'relative' }}>
-                  <button ref={threeDotBtnRef} className="icon-btn dark" onClick={() => setShowThreeDot(v => !v)} title="More options"
-                    style={{ color: showThreeDot ? '#a78bfa' : undefined, background: showThreeDot ? 'rgba(167,139,250,0.15)' : undefined }}><IconMoreVertical size={17} /></button>
+                 <button ref={threeDotBtnRef} className="icon-btn dark" onClick={() => setShowThreeDot(v => !v)} title="More options"
+                    style={{ position: 'relative', color: (showThreeDot || showCurryAssistant || showInsights) ? '#a78bfa' : undefined, background: (showThreeDot || showCurryAssistant || showInsights) ? 'rgba(167,139,250,0.15)' : undefined }}>
+                    <IconMoreVertical size={17} />
+                    {hasScheduled && (
+                      <span style={{ position: 'absolute', top: 1, right: 1, width: 7, height: 7, borderRadius: '50%', background: '#a78bfa', boxShadow: '0 0 0 2px var(--bg-surface-1, #0f0f1a)', animation: 'scheduledPulse 2s ease infinite' }} />
+                    )}
+                  </button>
                   {showThreeDot && (
                    <ThreeDotMenu
   anchorRef={threeDotBtnRef}
@@ -2733,9 +2723,14 @@ onMessageContact={handleMessageContact}
   onPoll={() => { setShowPoll(v => !v); setShowTask(false) }}
   onTask={() => { setShowTask(v => !v); setShowPoll(false) }}
   onSchedule={() => setShowScheduler(true)}
+onViewScheduled={hasScheduled ? () => setShowScheduledList(true) : null}
   onSearch={() => setShowSearch(true)}
   onSearchYouTube={() => setShowYouTubeSearch(true)}
   onShare={handleShare}
+onCurryAssistant={() => setShowCurryAssistant(v => !v)}
+  curryAssistantActive={showCurryAssistant}
+  onInsights={() => setShowInsights(v => !v)}
+  insightsActive={showInsights}
   onClose={() => setShowThreeDot(false)}
 />
                   )}
