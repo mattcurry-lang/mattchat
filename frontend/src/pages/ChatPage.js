@@ -2425,8 +2425,35 @@ onMessageContact={handleMessageContact}
             <>
               <img src="/logo.png" alt="" className="welcome-pane-logo" />
               <h2>Welcome to Mattchat</h2>
-              <p>The best AI communication platform.<br />Select a conversation or start a new one — say <strong>"Hey Curry"</strong> to activate your AI assistant!</p>
+              <p>Select a conversation, or jump straight into something below.</p>
               <button className="btn-primary" onClick={() => setShowNewChat(true)}>Start a conversation →</button>
+
+              <div className="welcome-quick-actions">
+                <button className="welcome-action" onClick={() => setActiveConvo(CURRY_AI_CONTACT)}>
+                  <span className="welcome-action-icon"><IconSparkle size={18} /></span>
+                  <span>Ask Curry</span>
+                </button>
+                <button className="welcome-action" onClick={() => setShowDocuments(true)}>
+                  <span className="welcome-action-icon"><IconFolder size={18} /></span>
+                  <span>Documents</span>
+                </button>
+                <button className="welcome-action" onClick={() => setShowEmailWorkspace(true)}>
+                  <span className="welcome-action-icon"><IconInbox size={18} /></span>
+                  <span>Email</span>
+                </button>
+                <button className="welcome-action" onClick={() => setShowConnectedApps(true)}>
+                  <span className="welcome-action-icon"><IconCamera size={18} /></span>
+                  <span>Connected Apps</span>
+                </button>
+                <button className="welcome-action" onClick={() => setShowWhatsApp(true)}>
+                  <span className="welcome-action-icon"><WhatsAppIcon size={18} /></span>
+                  <span>WhatsApp</span>
+                </button>
+                <button className="welcome-action" onClick={() => setShowTasksPage(true)}>
+                  <span className="welcome-action-icon"><IconCheckSquare size={18} /></span>
+                  <span>AI Tasks</span>
+                </button>
+              </div>
             </>
           )}
             </div>
