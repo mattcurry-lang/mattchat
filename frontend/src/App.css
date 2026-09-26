@@ -886,6 +886,7 @@ color: var(--dark-text);
   display: flex;
   width: 100%;
   touch-action: pan-y;
+   min-width: 0;
 }
 .msg-wrap.mine    { justify-content: flex-end; }
 .msg-wrap.theirs  { justify-content: flex-start; }
@@ -898,6 +899,7 @@ color: var(--dark-text);
   align-self: flex-start;
   max-width: 100%;
   width: fit-content;
+   min-width: 0;
 }
 .msg-row.mine {
   align-self: flex-end;
@@ -925,7 +927,7 @@ color: var(--dark-text);
   color: #1f1d2b;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   position: relative;
-  max-width: 100%;
+  max-width: min(72vw, 420px);
 }
 .msg-bubble::before {
   content: '';
