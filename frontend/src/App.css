@@ -288,7 +288,7 @@ html, body, #root {
    until a chat is opened, then shows that chat. Just like WhatsApp. */
 @media (min-width: 900px) {
   html, body { background: var(--dark-bg); }
-  .app { max-width: none; width: 100vw; height: 100vh; height: var(--app-height); margin: 0; border-radius: 0; box-shadow: none; }
+  .app { max-width: none; width: 100%; height: 100vh; height: var(--app-height); margin: 0; border-radius: 0; box-shadow: none; }
   .app .sidebar {
     display: flex;
     width: 420px;
@@ -741,8 +741,10 @@ color: var(--dark-text);
 }
 /* ── Welcome pane — desktop-only right half, shown when no chat is open ── */
 .welcome-pane {
-  display: none; /* shown via the 900px media query above */
-  flex: 1;
+  display: none;  
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
   align-items: center;
   justify-content: center;
   position: relative;
@@ -786,7 +788,8 @@ color: var(--dark-text);
    (no external file reference, so nothing can 404 or fail to
    resolve at build time) */
 .chat-area {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   width: 100%;
   height: 100%;
   display: none;
