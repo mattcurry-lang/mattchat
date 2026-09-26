@@ -75,7 +75,7 @@ export function useChat(conversationId, currentUserId) {
           if (type === 'insert') {
             const { data: msgWithProfile } = await supabase
               .from('messages')
-              .select('*, profiles!messages_sender_id_fkey(username, avatar_url), media_assets(*)')
+              .select('*, profiles!messages_sender_id_fkey(username, avatar_url, is_admin), media_assets(*)')
               .eq('id', payload.new.id)
               .single()
             if (!msgWithProfile) return
@@ -580,13 +580,13 @@ export function useConversations(userId) {
       return
     }
 
-    const { data } = await supabase
+const { data } = await supabase
       .from('conversations')
       .select(`
         id, updated_at, last_message, is_group, name, email_sender,
         conversation_members(
           user_id,
-          profiles(id, username, email, avatar_url)
+          profiles(id, username, email, avatar_url, is_admin)
         )
       `)
       .in('id', visibleIds)
