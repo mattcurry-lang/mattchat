@@ -1557,7 +1557,7 @@ useEffect(() => {
     setShowScheduler(false); setShowScheduledList(false); setShowSearch(false)
     setShowCurryAssistant(false); setShowThreeDot(false)
     setHasScheduled(false); setShowEmojiPicker(false); setShowInsights(false)
-    setCoachSuggestion(null)setReplyingTo(null)
+    setCoachSuggestion(null);setReplyingTo(null)
    setForwardingMessage(null)
     return () => { if (activeConvo?.id) removeReactionChannel(activeConvo.id) }
   }, [activeConvo])
