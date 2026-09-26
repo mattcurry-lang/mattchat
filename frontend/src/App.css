@@ -283,7 +283,7 @@ html, body, #root {
    sidebar+chat split (half-screen snaps, small windows, etc).
    This guarantees .app is NEVER narrower than the viewport without
    also being centered — so there's never a blank gap on the sides. */
-@media (min-width: 640px) and (max-width: 1023px) {
+@media (min-width: 640px) and (max-width: 767px) {
   html, body { background: #d8dae6; }
   .app { margin: 18px auto; height: calc(var(--app-height) - 36px); border-radius: 28px; }
 }
@@ -291,13 +291,18 @@ html, body, #root {
 /* Desktop: full-bleed, classic split — only once there's enough room
    for a real sidebar+chat layout to feel comfortable rather than
    cramped. Below this width, the floating card above takes over. */
-@media (min-width: 1024px) {
+/* Split layout — WhatsApp-style: fills the ENTIRE window at any width
+   above phone size, no centered floating card, no white space ever.
+   The sidebar column flexes between a minimum and maximum instead of
+   staying a fixed 420px, so it just narrows on smaller windows
+   instead of leaving empty space beside a boxed-in app. */
+@media (min-width: 640px) {
   html, body { background: var(--dark-bg); }
   .app { max-width: none; width: 100%; height: 100vh; height: var(--app-height); margin: 0; border-radius: 0; box-shadow: none; }
   .app .sidebar {
     display: flex;
-    width: 420px;
-    max-width: 420px;
+    width: clamp(280px, 35vw, 420px);
+    max-width: clamp(280px, 35vw, 420px);
     flex-shrink: 0;
     border-right: 1px solid var(--dark-border);
   }
@@ -1403,11 +1408,11 @@ button.email-badge { cursor: pointer; display: inline-flex; align-items: center;
    that rule (not just be "inside a media query") or it silently
    loses and the chat takes over the full screen on desktop too.
    ═══════════════════════════════════════════════════════════ */
-@media (min-width: 1024px) {
+@media (min-width: 640px) {
   .app.chat-open .sidebar {
     display: flex;
-    width: 420px;
-    max-width: 420px;
+    width: clamp(280px, 35vw, 420px);
+    max-width: clamp(280px, 35vw, 420px);
     flex-shrink: 0;
     border-right: 1px solid var(--dark-border);
   }
