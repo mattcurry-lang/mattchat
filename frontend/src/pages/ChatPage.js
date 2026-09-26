@@ -2412,9 +2412,15 @@ onForward={(m) => setForwardingMessage(m)}
   onAskCurry={(question) => { setCurryPrefill(question); setActiveConvo(CURRY_AI_CONTACT) }}
 onMessageContact={handleMessageContact} 
 />
-)} 
-  
-  <img src="/logo.png" alt="" className="welcome-pane-logo" />
+)}
+
+      <div className="welcome-pane">
+        <div className="welcome-pane-content">
+       {activeTab === 'calls' ? (
+            <CallsLandingPanel onStartCall={() => setShowNewCall(true)} />
+          ) : (
+            <>
+              <img src="/logo.png" alt="" className="welcome-pane-logo" />
               <h2>Welcome to Mattchat</h2>
               <p>Select a conversation, or jump into one of these.</p>
               <button className="btn-primary" onClick={() => setShowNewChat(true)}>Start a conversation →</button>
