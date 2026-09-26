@@ -901,6 +901,11 @@ color: var(--dark-text);
   width: fit-content;
    min-width: 0;
 }
+.msg-row > div {
+  flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
+}
 .msg-row.mine {
   align-self: flex-end;
   flex-direction: row-reverse;
