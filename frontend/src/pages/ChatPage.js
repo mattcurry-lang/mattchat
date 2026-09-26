@@ -172,7 +172,43 @@ function MessageStatus({ isMe, isRead, isDelivered }) {
   const cls = isRead ? 'read' : isDelivered ? 'delivered' : 'sent'
   return <div className={`msg-status ${cls}`}>{label}</div>
 }
+function useSwipeToReply(onReply, msg) {
+  const startX = useRef(null)
+  const [dx, setDx] = useState(0)
+  const [swiping, setSwiping] = useState(false)
+  const THRESHOLD = 60
+  const onPointerDown = (e) => {
+    startX.current = e.clientX
+    setSwiping(true)
+  }
+  const onPointerMove = (e) => {
+    if (startX.current === null) return
+    const delta = e.clientX - startX.current
+    // only allow the natural WhatsApp direction: right-swipe on
+    // incoming bubbles, left-swipe on your own
+    const clamped = Math.max(-80, Math.min(80, delta))
+    setDx(clamped)
+  }
+  const onPointerUp = () => {
+    if (Math.abs(dx) > THRESHOLD) onReply(msg)
+    setDx(0)
+    setSwiping(false)
+    startX.current = null
+  }
 
+  return {
+    style: { transform: `translateX(${dx}px)`, transition: swiping ? 'none' : 'transform 0.2s ease' },
+    handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerLeave: onPointerUp },
+  }
+}
+function SwipeableMessage({ msg, onReply, children }) {
+  const swipe = useSwipeToReply(onReply, msg)
+  return (
+    <div style={swipe.style} {...swipe.handlers}>
+      {children}
+    </div>
+  )
+}
 function StickerBubble({ content, isMe }) {
   const parts = content.replace('sticker:', '').split(':')
   const emoji = parts[0] || '😊'
@@ -761,6 +797,19 @@ function VerifiedBadge({ size = 18 }) {
     </div>
   )
 }
+
+function useIsMobile(breakpoint = 640) {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < breakpoint : false
+  )
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < breakpoint)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [breakpoint])
+  return isMobile
+}
+
 function ThreeDotMenu({
   anchorRef, onDraw, onPoll, onTask, onSchedule, onViewScheduled,
   onSearch, onSearchYouTube, onShare, onCurryAssistant, curryAssistantActive,
@@ -768,16 +817,19 @@ function ThreeDotMenu({
 }) {
   const [pos, setPos] = useState(null)
   const menuRef = useRef(null)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
+    if (isMobile) return
     const rect = anchorRef.current?.getBoundingClientRect()
     if (!rect) return
     const MENU_WIDTH = 230
     const left = Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8)
     setPos({ top: rect.bottom + 6, left: Math.max(8, left) })
-  }, [anchorRef])
+  }, [anchorRef, isMobile])
 
   useEffect(() => {
+    if (isMobile) return
     const handler = (e) => {
       if (menuRef.current?.contains(e.target)) return
       if (anchorRef.current?.contains(e.target)) return
@@ -785,8 +837,7 @@ function ThreeDotMenu({
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [onClose, anchorRef])
-
+  }, [onClose, anchorRef, isMobile])
   const items = [
      { icon: <IconSparkle size={17} />, label: 'Curry AI Assistant', action: onCurryAssistant, active: curryAssistantActive },
     { icon: <IconChart size={17} />, label: 'Relationship Insights', action: onInsights, active: insightsActive },
@@ -800,9 +851,61 @@ function ThreeDotMenu({
     { icon: <IconMail size={17} />, label: 'Share Contact Link', action: onShare },
   ]
 
-  if (!pos) return null
+  if (!isMobile && !pos) return null
+  if (isMobile) {
+    return createPortal(
+      <>
+        <div
+          onClick={onClose}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1999,
+            background: 'rgba(10,10,16,0.45)',
+            backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
+            animation: 'backdropFadeIn 0.2s ease',
+          }}
+        />
+        <div
+          ref={menuRef}
+          style={{
+            position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 2000,
+            background: 'rgba(20,18,30,0.98)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+            borderTop: '1px solid rgba(167,139,250,0.18)',
+            borderTopLeftRadius: 20, borderTopRightRadius: 20,
+            padding: '8px 0 max(8px, env(safe-area-inset-bottom, 0px))',
+            animation: 'sheetSlideUp 0.22s cubic-bezier(0.22,1,0.36,1)',
+          }}
+        >
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.2)', margin: '6px auto 10px' }} />
+          {items.map(({ icon, label, action, active }) => (
+            <button key={label} onClick={() => { action(); onClose() }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 14, width: '100%', padding: '13px 20px',
+                background: active ? 'rgba(167,139,250,0.12)' : 'none', border: 'none', cursor: 'pointer',
+                fontFamily: 'inherit', fontSize: 14.5, fontWeight: 500,
+                color: active ? '#a78bfa' : '#f2f0f8', textAlign: 'left',
+              }}
+            >
+              <span style={{ width: 24, display: 'flex', justifyContent: 'center', color: active ? '#a78bfa' : '#c9c4dd' }}>{icon}</span>
+              {label}
+            </button>
+          ))}
+        </div>
+      </>,
+      document.body
+    )
+  }
 
   return createPortal(
+     <>
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1999,
+        background: 'rgba(10,10,16,0.15)',
+        backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)',
+        animation: 'backdropFadeIn 0.18s ease',
+      }}
+    />
     <div
       ref={menuRef}
       style={{
@@ -822,7 +925,8 @@ function ThreeDotMenu({
           {label}
         </button>
       ))}
-    </div>,
+    </div>
+ </>,
     document.body
   )
 }
@@ -1814,7 +1918,9 @@ const handleShareContact = async (profile) => {
     return ''
   }
   const callActive = ['calling', 'ringing', 'connecting', 'in-call'].includes(callStatus)
-
+const headerTint = otherUserId && isOnline(otherUserId)
+             ? 'linear-gradient(180deg, rgba(74,222,128,0.05), transparent)'
+              : undefined
   // Curry AI page nudge → opening a suggested conversation from the
   // Daily Brief's reconnect nudges (Phase 3). Just reuses openConvo so
   // unread badges clear the same way as clicking it from the list.
@@ -2685,7 +2791,17 @@ onMessageContact={handleMessageContact}
  ) : (
   <div className="chat-area">
     {/* Header */}
-            <div className="chat-header">
+
+            <div className="chat-header" style={{
+               background: headerTint,
+               borderBottom: (showThreeDot || showCurryAssistant || showInsights)
+                  ? '1px solid rgba(167,139,250,0.35)'
+                  : '1px solid var(--border, transparent)',
+                boxShadow: (showThreeDot || showCurryAssistant || showInsights)
+                  ? '0 1px 12px rgba(167,139,250,0.18)'
+                  : 'none',
+                transition: 'border-color 0.25s ease, box-shadow 0.25s ease',
+              }}>
               <button className="back-btn" onClick={() => setActiveConvo(null)}>←</button>
             <button
   onClick={() => setProfileCardTarget(activeConvo.conversation_members?.find(m => m.user_id !== userId)?.profiles)}
@@ -2712,8 +2828,13 @@ onMessageContact={handleMessageContact}
                  <button ref={threeDotBtnRef} className="icon-btn dark" onClick={() => setShowThreeDot(v => !v)} title="More options"
                     style={{ position: 'relative', color: (showThreeDot || showCurryAssistant || showInsights) ? '#a78bfa' : undefined, background: (showThreeDot || showCurryAssistant || showInsights) ? 'rgba(167,139,250,0.15)' : undefined }}>
                     <IconMoreVertical size={17} />
-                    {hasScheduled && (
-                      <span style={{ position: 'absolute', top: 1, right: 1, width: 7, height: 7, borderRadius: '50%', background: '#a78bfa', boxShadow: '0 0 0 2px var(--bg-surface-1, #0f0f1a)', animation: 'scheduledPulse 2s ease infinite' }} />
+                    {(hasScheduled || coachSuggestion) && (
+                     <span style={{
+                        position: 'absolute', top: 1, right: 1, width: 7, height: 7, borderRadius: '50%',
+                        background: coachSuggestion ? '#4ade80' : '#a78bfa',
+                        boxShadow: '0 0 0 2px var(--bg-surface-1, #0f0f1a)',
+                        animation: 'scheduledPulse 2s ease infinite',
+                      }} />
                     )}
                   </button>
                   {showThreeDot && (
@@ -2846,6 +2967,8 @@ onCurryAssistant={() => setShowCurryAssistant(v => !v)}
                          <MessageBubble msg={msg} isMe={false} isRead={false} isDelivered={false} session={session} />
  
                       ) : (
+                        
+                         <SwipeableMessage msg={msg} onReply={setReplyingTo}>
                        <ReactableMessage
   messageId={msg.id}
   currentUserId={userId}
@@ -2888,6 +3011,7 @@ _onMessageContact: (contactEmail) => handleMessageContact(contactEmail),
   session={session}
 />
                         </ReactableMessage>
+                          </SwipeableMessage>
                       )}
                     </div>
                </React.Fragment>
