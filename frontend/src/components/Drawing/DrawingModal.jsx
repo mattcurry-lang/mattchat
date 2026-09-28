@@ -5,6 +5,7 @@ import { useDrawingSession } from '../../hooks/useDrawingSession'
 import { useDrawingVoice } from '../../hooks/useDrawingVoice'
 import { IconMic } from '../Icons'
 import ReplayModal from './ReplayModal'
+import { createPortal } from 'react-dom'
 
 export default function DrawingModal({ session, conversationId, userId, profile, sendMessage, onInvite, inviteeName, onClose }) {
   const [tool, setTool] = useState('pen')
@@ -395,8 +396,8 @@ const handleApplyTemplate = useCallback((templateId) => {
 
   const drawingNames = participants.filter(p => drawingUserIds.has(p.userId)).map(p => p.username).filter(Boolean)
 
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 900, background: 'rgba(10,10,16,0.92)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}>
+   return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(10,10,16,0.97)',backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}>
       <div ref={modalRef} style={{ width: '100%', height: '100%', maxWidth: 1100, maxHeight: 800, background: '#0f0f1a', borderRadius: 20, border: '1px solid rgba(167,139,250,0.15)', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', animation: 'drawModalPop 0.22s cubic-bezier(0.34,1.56,0.64,1)' }}>
         <style>{`@keyframes drawModalPop { from { opacity:0; transform: scale(0.97); } to { opacity:1; transform:none; } }`}</style>
 
@@ -641,7 +642,8 @@ const handleApplyTemplate = useCallback((templateId) => {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
