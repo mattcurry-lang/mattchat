@@ -205,13 +205,14 @@ function SwipeableMessage({ msg, onReply, children }) {
   const swipe = useSwipeToReply(onReply, msg)
   return (
     <div
-      style={{
+         style={{
         ...swipe.style,
-        display: 'inline-flex',
+        display: 'flex',
         flexShrink: 0,
+        width: 'fit-content',
         maxWidth: '100%',
+        minWidth: 'min(100%, 4.5rem)',
         touchAction: 'pan-y',
-        minWidth: 0,
       }}
       {...swipe.handlers}
     >
