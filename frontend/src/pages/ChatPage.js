@@ -1585,6 +1585,12 @@ useEffect(() => {
   //   - if either of you texts again, getOrCreateConversation finds
   //     the same conversation and un-hides it for you automatically,
   //     instead of creating a duplicate thread
+
+  const skipProfileSetup = async () => {
+  setShowProfileSetup(false)
+  setProfile(p => ({ ...p, profile_setup_completed: true }))
+  await supabase.from('profiles').update({ profile_setup_completed: true }).eq('id', userId)
+}
   const deleteConversation = async (convoId) => {
     if (!window.confirm('Delete this conversation? It will be removed from your list, but the other person will still see it, and it\'ll come back if either of you messages again.')) return
 
@@ -1735,7 +1741,7 @@ const runCoachCheck = useCallback(async (text) => {
   // CurryChatToggle; otherwise we fall back to sending the text
   // normally so nothing gets silently lost.
 const handleSend = async () => {
-    if (!inputText.trim() || !activeConvo) return
+    if (!inputText.trim() || !activeConvo || isReadOnlyChat) return
     broadcastTyping(false)
     setCoachSuggestion(null)
     const text = inputText.trim()
@@ -2431,15 +2437,29 @@ const headerTint = otherUserId && isOnline(otherUserId)
 {showNotificationSettings && <NotificationSettingsModal userId={userId} onClose={() => setShowNotificationSettings(false)} />}
         {show2FA && <TwoFactorModal onClose={() => setShow2FA(false)} />}
 {showProfileSetup && (
-  <ProfileSetupModal
-    session={session}
-    userId={userId}
-    username={profile?.username}
-    onComplete={(patch) => { setProfile(p => ({ ...p, ...patch })); setShowProfileSetup(false) }}
-    onClose={() => setShowProfileSetup(false)}
-  />
+  <>
+    <ProfileSetupModal
+      session={session}
+      userId={userId}
+      username={profile?.username}
+      onComplete={(patch) => { setProfile(p => ({ ...p, ...patch })); setShowProfileSetup(false) }}
+      onClose={skipProfileSetup}
+      onSkip={skipProfileSetup}
+    />
+    <button
+      onClick={skipProfileSetup}
+      style={{
+        position: 'fixed', top: 16, right: 16, zIndex: 100000,
+        background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.25)',
+        color: '#fff', borderRadius: 999, padding: '8px 16px',
+        fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+        backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+      }}
+    >
+      Skip for now
+    </button>
+  </>
 )}
-
 {showEmailWorkspace && (
   <div className="profile-menu-overlay" onClick={() => setShowEmailWorkspace(false)}>
     <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-surface-1, #14141f)', borderRadius: 20, padding: 0, width: 'min(560px, 94vw)', maxHeight: '85vh', overflowY: 'auto', border: '1px solid var(--border)' }}>
@@ -2972,7 +2992,7 @@ onCurryAssistant={() => setShowCurryAssistant(v => !v)}
  
                       ) : (
                         
-                         <SwipeableMessage msg={msg} onReply={setReplyingTo}>
+                        <SwipeableMessage msg={msg} onReply={isReadOnlyChat ? () => {} : setReplyingTo}>
                        <ReactableMessage
   messageId={msg.id}
   currentUserId={userId}
@@ -3043,7 +3063,7 @@ _onMessageContact: (contactEmail) => handleMessageContact(contactEmail),
                 onPin={() => pinMessage(messageMenu.message.id)}
                 onCopy={() => {}}
                 onInsertReply={(text) => setInputText(text)}
-                onReply={() => setReplyingTo(messageMenu.message)}
+               onReply={() => { if (!isReadOnlyChat) setReplyingTo(messageMenu.message) }}
                onForward={() => setForwardingMessage(messageMenu.message)} 
                 onDeleteForMe={async () => {
                   await deleteMessageForMe(messageMenu.message.id, userId)
@@ -3081,6 +3101,13 @@ _onMessageContact: (contactEmail) => handleMessageContact(contactEmail),
 )}
  
             {/* Input area */}
+                      {isReadOnlyChat ? (
+              <div className="input-area" style={{ justifyContent: 'center', padding: '14px 16px' }}>
+                <div style={{ fontSize: 12.5, color: 'var(--dark-text-2)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  🔒 Only the Mattchat team can send messages here
+                </div>
+              </div>
+            ) : (
             <div className="input-area" style={{ flexDirection: 'column', alignItems: 'stretch', padding: 0 }}>
               {replyingTo && (
                 <div className="reply-preview-bar">
@@ -3192,21 +3219,11 @@ _onMessageContact: (contactEmail) => handleMessageContact(contactEmail),
                     <button className="attach-btn" onClick={() => setShowVoice(true)} title="Voice note"><IconMic size={19} /></button>
                     <textarea ref={textareaRef} value={inputText} onChange={handleTyping} onKeyDown={handleKeyDown} placeholder='Type a message… (try "hey curry ...")' rows={1} />
                     <button className="send-btn" onClick={handleSend} disabled={!inputText.trim() || curryChatBusy}>➤</button>
-                  </>
+                      </>
                 )}
               </div>
             </div>
-{isReadOnlyChat ? (
-  <div className="input-area" style={{ justifyContent: 'center', padding: '14px 16px' }}>
-    <div style={{ fontSize: 12.5, color: 'var(--dark-text-2)', display: 'flex', alignItems: 'center', gap: 6 }}>
-      🔒 Only the Mattchat team can send messages here
-    </div>
-  </div>
-) : (
-  <div className="input-area" style={{ flexDirection: 'column', alignItems: 'stretch', padding: 0 }}>
-    ...existing input area...
-  </div>
-)}
+            )}
       {showScheduler && (
               <ScheduleMessageModal
                 conversationId={activeConvo.id}
