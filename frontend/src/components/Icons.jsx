@@ -1033,20 +1033,32 @@ export function IconLyrics({ size = 18, ...props }) {
   )
 }
 
-export function IconVerified({ size = 13 }) {
+const SEAL_PATH = (() => {
+  const pts = []
+  const N = 120, R = 9.6, A = 1.0, LOBES = 8
+  for (let i = 0; i <= N; i++) {
+    const t = (i / N) * Math.PI * 2
+    const r = R + A * Math.cos(LOBES * t)
+    pts.push(`${(12 + r * Math.cos(t)).toFixed(2)} ${(12 + r * Math.sin(t)).toFixed(2)}`)
+  }
+  return 'M' + pts.join('L') + 'Z'
+})()
+
+export function IconVerified({ size = 14, title = 'Verified', ring = false, style }) {
   return (
-    <span
-      title="Mattchat Team"
-      style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: size, height: size, borderRadius: '50%', flexShrink: 0,
-        background: 'linear-gradient(135deg, #667eea, #764ba2)',
-        marginLeft: 4, verticalAlign: 'middle',
-      }}
+    <svg
+      width={size} height={size} viewBox="0 0 24 24" role="img" aria-label={title}
+      style={{ marginLeft: 4, flexShrink: 0, filter: 'drop-shadow(0 0 3px rgba(139,124,248,0.55))', ...style }}
     >
-      <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="20 6 9 17 4 12" />
-      </svg>
-    </span>
+      <title>{title}</title>
+      <path
+        d={SEAL_PATH} fill="#8b7cf8"
+        stroke={ring ? '#14121f' : 'none'} strokeWidth="1.6" paintOrder="stroke"
+      />
+      <path
+        d="M7.6 12.4l3 3 5.8-6.2"
+        fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+      />
+    </svg>
   )
 }
