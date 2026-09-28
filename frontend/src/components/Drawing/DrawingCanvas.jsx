@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, f
 import { simplifyPoints, renderStroke, renderShape, renderText, replayStrokes, recognizeShape, isGraphiteTool, renderGraphiteStroke, resolvePointPressure, DEFAULT_PENCIL_TYPE, CANVAS_LOGICAL_WIDTH, CANVAS_LOGICAL_HEIGHT } from './drawingEngine'
 import LayersPanel from './LayersPanel'
 
+
 const SHAPE_TOOLS = new Set(['rect', 'circle', 'line', 'arrow', 'triangle'])
 const STROKE_UPDATE_THROTTLE_MS = 40
 const MIN_ZOOM = 0.4
@@ -345,8 +346,8 @@ const hitTestEditable = (p) => {
   const newLocalId = () => `${userId}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
   const handlePointerDown = (e) => {
-    if (armedReaction)  
-    if (pointingRef.current) return
+if (armedReaction) return
+if (pointingRef.current) return
     if (tool === 'select') {
       e.preventDefault()
       const p = getPoint(e)
@@ -917,7 +918,7 @@ const deleteSelectedStrokeLocal = () => {
   setSelectedStrokeId(null)
 }
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%', background: backgroundColor, borderRadius: 16, overflow: 'hidden', touchAction: 'none' }}>
+   <div ref={containerRef} style={{ position: 'relative', isolation: 'isolate', width: '100%', height: '100%', background: backgroundColor, borderRadius: 16, overflow: 'hidden', touchAction: 'none' }}>
       <canvas ref={baseCanvasRef} style={{ position: 'absolute', inset: 0, display: 'block', width: '100%', height: '100%', pointerEvents: 'none' }} />
      <canvas
         ref={liveCanvasRef}
