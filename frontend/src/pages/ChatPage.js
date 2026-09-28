@@ -792,18 +792,8 @@ function PencilIcon({ size = 15 }) {
 
 function VerifiedBadge({ size = 18 }) {
   return (
-    <div
-      title="Mattchat Team"
-      style={{
-        width: size, height: size, borderRadius: '50%',
-        background: 'linear-gradient(135deg, #667eea, #764ba2)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        border: '2px solid #0f0f1a', boxShadow: '0 0 0 1px rgba(167,139,250,0.4)',
-      }}
-    >
-      <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="20 6 9 17 4 12" />
-      </svg>
+    <div title="Mattchat Team" style={{ width: size, height: size, display: 'flex' }}>
+      <IconVerified size={size} ring style={{ marginLeft: 0 }} />
     </div>
   )
 }
