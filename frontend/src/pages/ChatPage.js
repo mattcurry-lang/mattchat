@@ -1932,6 +1932,9 @@ const handleShareContact = async (profile) => {
 const headerTint = otherUserId && isOnline(otherUserId)
              ? 'linear-gradient(180deg, rgba(74,222,128,0.05), transparent)'
               : undefined
+  const isReadOnlyChat =
+  !!activeConvo && !activeConvo.isCurryAI &&
+  getOtherUserIsAdmin(activeConvo, userId) && !profile?.is_admin
   // Curry AI page nudge → opening a suggested conversation from the
   // Daily Brief's reconnect nudges (Phase 3). Just reuses openConvo so
   // unread badges clear the same way as clicking it from the list.
@@ -2164,7 +2167,7 @@ const headerTint = otherUserId && isOnline(otherUserId)
             <span className="typing-preview">typing…</span>
           ) : unread > 1 ? (
   <span className="unread-count-preview" style={{ color: '#a78bfa', fontWeight: 700 }}>{unread} new messages</span>
-          ) : unread === 1 ? (
+         ) : unread === 1 && !getOtherUserIsAdmin(c, userId) ? (
             <SmartReplyPreview
               session={session}
               convo={c}
@@ -2828,14 +2831,14 @@ onMessageContact={handleMessageContact}
                 <div className="chat-header-sub" style={{ minHeight: 16 }}>{headerStatus()}</div>
               </div>
              <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', flexShrink: 0, maxWidth: '100%' }}>
-                {callStatus === 'idle' && (
+                {callStatus === 'idle' && !isReadOnlyChat && (
                   <CallButtons onVoiceCall={() => startCall('audio')} onVideoCall={() => startCall('video')} disabled={false} />
                 )}
                 {callActive && (
 <button onClick={endCall} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 'var(--r-full)', padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: '#f87171' }}><IconPhoneOff size={13} /> End call</button>
                 )}
                 
-         <div className="threedot-wrapper" style={{ position: 'relative' }}>
+        {!isReadOnlyChat && <div className="threedot-wrapper" style={{ position: 'relative' }}>
                  <button ref={threeDotBtnRef} className="icon-btn dark" onClick={() => setShowThreeDot(v => !v)} title="More options"
                     style={{ position: 'relative', color: (showThreeDot || showCurryAssistant || showInsights) ? '#a78bfa' : undefined, background: (showThreeDot || showCurryAssistant || showInsights) ? 'rgba(167,139,250,0.15)' : undefined }}>
                     <IconMoreVertical size={17} />
@@ -2866,7 +2869,7 @@ onCurryAssistant={() => setShowCurryAssistant(v => !v)}
   onClose={() => setShowThreeDot(false)}
 />
                   )}
-                </div>
+                </div>}
               </div>
             </div>
 <MediaAttachmentFlow
@@ -3203,7 +3206,17 @@ _onMessageContact: (contactEmail) => handleMessageContact(contactEmail),
                 )}
               </div>
             </div>
-
+{isReadOnlyChat ? (
+  <div className="input-area" style={{ justifyContent: 'center', padding: '14px 16px' }}>
+    <div style={{ fontSize: 12.5, color: 'var(--dark-text-2)', display: 'flex', alignItems: 'center', gap: 6 }}>
+      🔒 Only the Mattchat team can send messages here
+    </div>
+  </div>
+) : (
+  <div className="input-area" style={{ flexDirection: 'column', alignItems: 'stretch', padding: 0 }}>
+    ...existing input area...
+  </div>
+)}
       {showScheduler && (
               <ScheduleMessageModal
                 conversationId={activeConvo.id}
