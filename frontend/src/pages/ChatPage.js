@@ -1950,7 +1950,12 @@ const headerTint = otherUserId && isOnline(otherUserId)
       avatarUrl: getOtherUserAvatar(c, userId),
       unread: unreadCounts[c.id] || 0,
     }))
-
+const handleSignOut = async () => {
+  try { await signOut() } catch (e) { console.error('signOut failed:', e) }
+  // Hard replace: lands on /auth, removes the chat page from history, and
+  // tears down realtime channels and in-memory state in one go.
+  window.location.replace('/auth')
+}
  return (
     <div className={`app ${activeConvo ? 'chat-open' : ''}`}>
 
@@ -2338,7 +2343,7 @@ const headerTint = otherUserId && isOnline(otherUserId)
       connectedCount: emailAccounts.length,
     }}
     onAvatarClick={() => { setShowChangePicture(true); setShowProfileMenu(false) }}
-    onSignOut={signOut}
+  onSignOut={handleSignOut}
     sections={[
      {
         id: 'account', label: 'Account',
