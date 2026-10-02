@@ -717,6 +717,30 @@ export default function LandingPage() {
         .mc-hero { padding-top: 88px; }
         .mc-hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
         .mc-hero-actions { display: flex; gap: 14px; }
+        .mc-hero-proof { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 0; margin: 26px 0 0; font-size: 12.5px; color: ${COLORS.muted}; }
+.mc-hero-proof li::before { content: '✓'; color: ${COLORS.blue}; margin-right: 6px; font-weight: 700; }
+
+.mc-showcase { position: relative; padding-bottom: 36px; }
+.mc-showcase-glow { position: absolute; inset: 10% 5%; background: radial-gradient(circle, ${COLORS.purple}55, transparent 70%); filter: blur(50px); }
+.mc-frame {
+  position: relative; margin: 0; border-radius: 16px; overflow: hidden;
+  border: 1px solid ${COLORS.glassBorder}; background: #0f0f1a;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.55);
+}
+.mc-frame img { display: block; width: 100%; height: auto; }
+.mc-frame-bar { display: flex; gap: 6px; padding: 10px 12px; background: rgba(255,255,255,0.04); border-bottom: 1px solid ${COLORS.glassBorder}; }
+.mc-frame-bar i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.18); }
+.mc-frame-side {
+  position: absolute; right: -14px; bottom: 0; width: 38%;
+  border-radius: 14px; animation: mcFloat 7s ease-in-out infinite;
+}
+
+@media (max-width: 900px) {
+  .mc-frame-side { right: 4px; width: 34%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mc-frame-side { animation: none; }
+}
 
         .mc-hero-dash { position: relative; height: 420px; }
         .mc-dash-card {
