@@ -47,6 +47,20 @@ export const signIn = async (email, password) => {
   if (error) throw error
   return data
 }
+// Sign in with either an email or a username.
+// Anything containing "@" is treated as an email; otherwise the username
+// is resolved to its email via the get_email_for_login RPC.
+export async function signInWithIdentifier(identifier, password) {
+  const id = (identifier || '').trim()
+  let email = id
+  if (!id.includes('@')) {
+    const { data, error } = await supabase.rpc('get_email_for_login', { p_identifier: id })
+    // Same message as a wrong password, so the form doesn't reveal which usernames exist
+    if (error || !data) throw new Error('Invalid login credentials')
+    email = data
+  }
+  return signIn(email, password)
+}
 export const signOut = async () => {
   const { error } = await supabase.auth.signOut()
   if (error) throw error
