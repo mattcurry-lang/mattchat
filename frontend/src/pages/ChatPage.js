@@ -2883,14 +2883,17 @@ onCurryAssistant={() => setShowCurryAssistant(v => !v)}
                 </div>}
               </div>
             </div>
-<MediaAttachmentFlow
-  ref={mediaFlowRef}
-  sendMediaMessage={sendMediaMessage}
-  sendMomentMessage={sendMomentMessage}
-  onShareLocation={handleShareLocation}
-  onShareContact={handleShareContact}
-  currentUserId={userId}
-/>
+{createPortal(
+  <MediaAttachmentFlow
+    ref={mediaFlowRef}
+    sendMediaMessage={sendMediaMessage}
+    sendMomentMessage={sendMomentMessage}
+    onShareLocation={handleShareLocation}
+    onShareContact={handleShareContact}
+    currentUserId={userId}
+  />,
+  document.body
+)}
            {showDrawing && (
               <DrawingModal
                 session={session}
