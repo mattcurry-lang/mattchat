@@ -480,7 +480,7 @@ function Footer({ onNavigate }) {
 
 function AmbientBackground() {
   const particles = useRef(
-    Array.from({ length: 26 }).map(() => ({
+    Array.from({ length: window.matchMedia('(max-width: 900px)').matches ? 8 : 22 }).map(() => ({
       left: Math.random() * 100,
       delay: Math.random() * 12,
       duration: 14 + Math.random() * 10,
@@ -612,7 +612,12 @@ export default function LandingPage() {
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap');
-
+@media (max-width: 900px) {
+  .mc-aurora { filter: blur(60px); opacity: 0.28; }
+}
+@media (hover: none) {
+  .mc-cursor-glow { display: none; }
+}
         * { box-sizing: border-box; }
         html { scroll-behavior: smooth; }
 
@@ -937,6 +942,23 @@ export default function LandingPage() {
           .mc-footer-grid { grid-template-columns: 1fr; }
           .mc-footer-brand { grid-column: auto; }
         }
+        @media (max-width: 700px) {
+  /* Curry abilities: orb on top, chips wrap underneath */
+  .mc-curry-wrap { height: auto; transform: none; display: flex; flex-direction: column; align-items: center; gap: 48px; padding-top: 22px; }
+  .mc-curry-orb { position: relative; top: auto; left: auto; transform: none; }
+  .mc-curry-abilities { position: static; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+  .mc-ability { position: static; width: auto; height: auto; transform: none; }
+  .mc-ability-chip { transform: scale(0.85); }
+  .in-view .mc-ability-chip { transform: scale(1); }
+
+  /* Integrations: simple grid instead of a ring */
+  .mc-integrations { height: auto; transform: none; }
+  .mc-integrations-core { display: none; }
+  .mc-integrations-ring { position: static; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px 8px; }
+  .mc-integration { position: static; width: auto; height: auto; transform: none; }
+  .mc-integration-badge { position: static; transform: none; margin: 0 auto; }
+  .mc-integration-label { position: static; transform: none; text-align: center; }
+}
       `}</style>
     </div>
   )
