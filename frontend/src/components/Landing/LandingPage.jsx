@@ -114,45 +114,27 @@ function Icon({ name, size = 22 }) {
 }
 
 /* ---------- section: hero ---------- */
-
-function HeroDashboard() {
+function HeroShowcase() {
   return (
-    <div className="mc-hero-dash" aria-hidden="true">
-      <div className="mc-dash-card mc-dash-chat">
-        <div className="mc-dash-head"><Icon name="voice" size={14} /> Messages</div>
-        <div className="mc-dash-bubble mc-dash-bubble-them">Ready for the call?</div>
-        <div className="mc-dash-bubble mc-dash-bubble-me">Two minutes out ✨</div>
-      </div>
-      <div className="mc-dash-card mc-dash-call">
-        <div className="mc-dash-head"><Icon name="meeting" size={14} /> Video</div>
-        <div className="mc-dash-avatars">
-          <span className="mc-dash-avatar" /><span className="mc-dash-avatar" />
-        </div>
-      </div>
-      <div className="mc-dash-card mc-dash-cal">
-        <div className="mc-dash-head"><Icon name="calendar" size={14} /> Calendar</div>
-        <div className="mc-dash-grid">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <span key={i} className={`mc-dash-dot ${i === 5 ? 'active' : ''}`} />
-          ))}
-        </div>
-      </div>
-      <div className="mc-dash-card mc-dash-mail">
-        <div className="mc-dash-head"><Icon name="mail" size={14} /> Inbox</div>
-        <div className="mc-dash-line" style={{ width: '78%' }} />
-        <div className="mc-dash-line" style={{ width: '54%' }} />
-      </div>
-      <div className="mc-dash-core">
-        <div className="mc-dash-core-ring" />
-        <div className="mc-dash-core-glow" />
-        <span className="mc-dash-core-label">Curry</span>
-      </div>
-      <svg className="mc-dash-lines" viewBox="0 0 480 420" fill="none">
-        <path d="M120 90 L235 205" className="mc-dash-path" />
-        <path d="M360 100 L245 205" className="mc-dash-path" />
-        <path d="M110 320 L230 225" className="mc-dash-path" />
-        <path d="M370 320 L250 225" className="mc-dash-path" />
-      </svg>
+    <div className="mc-showcase">
+      <div className="mc-showcase-glow" aria-hidden="true" />
+      <figure className="mc-frame">
+        <div className="mc-frame-bar" aria-hidden="true"><i /><i /><i /></div>
+        <img
+          src="/screens/curry-chat.webp"
+          alt="Curry AI drafting an email inside a Mattchat conversation"
+          width="1100" height="826"
+          fetchpriority="high" decoding="async"
+        />
+      </figure>
+      <figure className="mc-frame mc-frame-side">
+        <img
+          src="/screens/pulse.webp"
+          alt="Mattchat Pulse showing live team fixtures and a daily brief"
+          width="440" height="561"
+          loading="lazy" decoding="async"
+        />
+      </figure>
     </div>
   )
 }
@@ -162,18 +144,23 @@ function HeroSection({ onGetStarted }) {
     <section className="mc-section mc-hero">
       <div className="mc-hero-grid">
         <div>
-          <Eyebrow>MATTCHAT</Eyebrow>
-          <h1 className="mc-h1">The Future of<br />Human Communication.</h1>
+          <Eyebrow>PRIVATE, AD-FREE MESSAGING</Eyebrow>
+          <h1 className="mc-h1">One private place for every conversation.</h1>
           <p className="mc-sub">
-            Mattchat is the intelligent communication platform that unifies conversations, email,
-            meetings, and AI assistance into one seamless experience.
+            Chat, call, and manage Gmail, WhatsApp and your calendar in one app, while
+            Curry AI drafts your replies and catches what you'd forget. No ads, ever.
           </p>
           <div className="mc-hero-actions">
-            <GlowButton primary onClick={onGetStarted}>Get Started</GlowButton>
-            <GlowButton href="#platform">Explore</GlowButton>
+            <GlowButton primary onClick={onGetStarted}>Create your account</GlowButton>
+            <GlowButton href="#platform">See how it works</GlowButton>
           </div>
+          <ul className="mc-hero-proof">
+            <li>Ad-free</li>
+            <li>Phone and desktop</li>
+            <li>Gmail, WhatsApp, Calendar</li>
+          </ul>
         </div>
-        <HeroDashboard />
+        <HeroShowcase />
       </div>
     </section>
   )
