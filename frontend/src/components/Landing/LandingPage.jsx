@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BRAND_ICONS } from '../lib/brandIcons'
+import { BRAND_ICONS } from '../../lib/brandIcons'
 /* ============================================================
    MATTCHAT — "The Future of Human Communication" landing page
    Self-contained: styles live in the <style> block at the bottom
