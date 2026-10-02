@@ -36,6 +36,8 @@ import {
   IconCamera, IconImagePlus, IconFilm, IconFolder, IconMusic,
   IconPin, IconUser, IconSparkle, IconMaximize,
 } from '../Icons'
+import { createPortal } from 'react-dom'
+import { Z } from '../../lib/zLayers'
 
 // ---- small self-contained icons (not in the shared Icons file) ----
 
@@ -153,7 +155,7 @@ export default function MediaStudio({ isOpen, onClose, onSelectOption, recentOpt
     [recentOptionIds]
   )
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
@@ -163,10 +165,10 @@ export default function MediaStudio({ isOpen, onClose, onSelectOption, recentOpt
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            style={{
-              position: 'fixed', inset: 0, zIndex: 60,
-              background: 'rgba(0,0,0,0.55)',
-            }}
+style={{
+  position: 'fixed', inset: 0, zIndex: Z.fullscreenEditor,
+  background: 'rgba(0,0,0,0.55)',
+}}
           />
           <motion.div
             ref={sheetRef}
@@ -268,7 +270,8 @@ export default function MediaStudio({ isOpen, onClose, onSelectOption, recentOpt
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+     </AnimatePresence>,
+    document.body
   )
 }
 
@@ -282,7 +285,7 @@ const sheetStyle = {
   position: 'fixed',
   left: 0, right: 0, bottom: 0,
   top: 'var(--chat-header-height, 60px)',
-  zIndex: 61,
+  zIndex: Z.fullscreenEditor + 1,
   maxWidth: 480,
   margin: '0 auto',
   display: 'flex',
