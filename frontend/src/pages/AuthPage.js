@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { signIn, signUp, resetPasswordForEmail } from '../lib/supabase'
+import { signInWithIdentifier, signUp, resetPasswordForEmail } from '../lib/supabase'
 import { IconEye, IconEyeOff } from '../components/Icons'
 
 const RESET_COOLDOWN_SECONDS = 45
@@ -78,9 +78,11 @@ const FEATURES = [
   { Icon: FeatureIconMail, bg: 'linear-gradient(135deg, rgba(251,191,36,0.22), rgba(244,114,182,0.18))', text: 'Real emails, sent from the chat' },
   { Icon: FeatureIconPulse, bg: 'linear-gradient(135deg, rgba(52,211,153,0.22), rgba(56,189,248,0.18))', text: 'Nudges you before you drift apart' },
 ]
+
 export default function AuthPage() {
   const [mode, setMode]               = useState('login') // 'login' | 'signup' | 'reset'
-  const [email, setEmail]             = useState('')
+  const [identifier, setIdentifier]   = useState('')      // login: email OR username
+  const [email, setEmail]             = useState('')      // signup / reset
   const [password, setPassword]       = useState('')
   const [username, setUsername]       = useState('')
   const [error, setError]             = useState('')
@@ -98,12 +100,18 @@ export default function AuthPage() {
     return () => clearInterval(timerRef.current)
   }, [cooldown > 0])
 
+  const switchMode = (next) => {
+    setMode(next)
+    setError('')
+    setSuccess('')
+  }
+
   const handle = async (e) => {
     e.preventDefault()
     setError(''); setSuccess(''); setLoading(true)
     try {
       if (mode === 'login') {
-        await signIn(email, password)
+        await signInWithIdentifier(identifier, password)
       } else if (mode === 'signup') {
         await signUp(email, password, username)
         setSuccess('Check your email to confirm your account!')
@@ -165,14 +173,16 @@ export default function AuthPage() {
           {mode !== 'reset' && (
             <div className="auth-tabs">
               <button
+                type="button"
                 className={mode === 'login' ? 'active' : ''}
-                onClick={() => { setMode('login'); setError(''); setSuccess('') }}
+                onClick={() => switchMode('login')}
               >
                 Sign in
               </button>
               <button
+                type="button"
                 className={mode === 'signup' ? 'active' : ''}
-                onClick={() => { setMode('signup'); setError(''); setSuccess('') }}
+                onClick={() => switchMode('signup')}
               >
                 Create account
               </button>
@@ -189,21 +199,41 @@ export default function AuthPage() {
                   placeholder="yourname"
                   required
                   autoComplete="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                 />
               </div>
             )}
 
-            <div className="field">
-              <label>Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                autoComplete="email"
-              />
-            </div>
+            {mode === 'login' ? (
+              <div className="field">
+                <label>Email or username</label>
+                <input
+                  type="text"
+                  value={identifier}
+                  onChange={e => setIdentifier(e.target.value)}
+                  placeholder="you@example.com or yourname"
+                  required
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                />
+              </div>
+            ) : (
+              <div className="field">
+                <label>Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                  autoComplete="email"
+                />
+              </div>
+            )}
 
             {mode !== 'reset' && (
               <div className="field">
@@ -242,7 +272,11 @@ export default function AuthPage() {
               <button
                 type="button"
                 className="auth-forgot-link"
-                onClick={() => { setMode('reset'); setError(''); setSuccess('') }}
+                onClick={() => {
+                  // carry over the identifier if it's already an email
+                  if (identifier.includes('@')) setEmail(identifier.trim())
+                  switchMode('reset')
+                }}
               >
                 Forgot password?
               </button>
@@ -270,7 +304,7 @@ export default function AuthPage() {
             <button
               type="button"
               className="auth-back-link"
-              onClick={() => { setMode('login'); setError(''); setSuccess('') }}
+              onClick={() => switchMode('login')}
             >
               ← Back to sign in
             </button>
