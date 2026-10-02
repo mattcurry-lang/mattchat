@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { BRAND_ICONS } from '../lib/brandIcons'
 /* ============================================================
    MATTCHAT — "The Future of Human Communication" landing page
    Self-contained: styles live in the <style> block at the bottom
@@ -349,41 +350,71 @@ function CompareSection() {
 
 /* ---------- section: integrations ---------- */
 
-const INTEGRATIONS = [
-  { name: 'YouTube', color: '#FF3B3B' },
-  { name: 'Spotify', color: '#1DB954' },
-  { name: 'Calendar', color: '#4CC9F0' },
-  { name: 'Drive', color: '#6C63FF' },
-  { name: 'Zoom', color: '#2D8CFF' },
-  { name: 'Teams', color: '#5059C9' },
-  { name: 'Notion', color: '#E8E8E8' },
-  { name: 'GitHub', color: '#E8E8E8' },
-  { name: 'GitLab', color: '#FC6D26' },
-  { name: 'Slack', color: '#ECB22E' },
-  { name: 'Discord', color: '#5865F2' },
-  { name: 'Dropbox', color: '#0061FF' },
+/* ---------- section: how it works ---------- */
+
+const STEPS = [
+  { n: '01', title: 'Create your account', body: 'Sign up and set up your profile. Your chats, calls and status are ready right away.' },
+  { n: '02', title: 'Connect your apps', body: 'Link Gmail, Calendar, WhatsApp and more from Connected Apps. You choose what to connect.' },
+  { n: '03', title: 'Let Curry help', body: 'Smart replies, email drafts and reminders for promises you made, right inside your chats.' },
 ]
+
+function HowItWorksSection() {
+  return (
+    <section className="mc-section">
+      <Eyebrow>HOW IT WORKS</Eyebrow>
+      <h2 className="mc-h2">Up and running in three steps.</h2>
+      <div className="mc-steps">
+        {STEPS.map((s) => (
+          <GlassCard key={s.n} className="mc-step">
+            <div className="mc-step-num">{s.n}</div>
+            <h3 className="mc-h3" style={{ marginTop: 0 }}>{s.title}</h3>
+            <p className="mc-p">{s.body}</p>
+          </GlassCard>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+/* ---------- section: integrations ---------- */
+
+const LIVE_APPS = ['gmail', 'googlecalendar', 'googledrive', 'youtube', 'spotify', 'whatsapp', 'instagram', 'tiktok', 'pinterest']
+const SOON_APPS = ['zoom', 'notion', 'github', 'gitlab', 'discord', 'dropbox']
+
+function BrandLogo({ id, size = 26 }) {
+  const b = BRAND_ICONS[id]
+  if (!b) return null
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill={b.color} role="img" aria-label={b.name}>
+      <path d={b.path} />
+    </svg>
+  )
+}
 
 function IntegrationsSection() {
   return (
     <section className="mc-section">
-      <Eyebrow>FUTURE INTEGRATIONS</Eyebrow>
-      <h2 className="mc-h2 mc-center">Mattchat becomes the hub. Everything else plugs in.</h2>
-      <div className="mc-integrations">
-        <div className="mc-integrations-core" />
-        <div className="mc-integrations-ring">
-          {INTEGRATIONS.map((app, i) => {
-            const angle = (360 / INTEGRATIONS.length) * i
-            return (
-              <div key={app.name} className="mc-integration" style={{ '--angle': `${angle}deg` }}>
-                <div className="mc-integration-badge" style={{ boxShadow: `0 0 22px ${app.color}55`, borderColor: `${app.color}55` }}>
-                  {app.name.slice(0, 2)}
-                </div>
-                <span className="mc-integration-label">{app.name}</span>
-              </div>
-            )
-          })}
-        </div>
+      <Eyebrow>INTEGRATIONS</Eyebrow>
+      <h2 className="mc-h2">Your apps, all in Mattchat.</h2>
+
+      <div className="mc-int-label"><span className="mc-live-dot" /> LIVE NOW</div>
+      <div className="mc-int-grid">
+        {LIVE_APPS.map((id) => (
+          <GlassCard key={id} className="mc-int-tile">
+            <BrandLogo id={id} />
+            <span className="mc-int-name">{BRAND_ICONS[id].name}</span>
+          </GlassCard>
+        ))}
+      </div>
+
+      <div className="mc-int-label">COMING SOON</div>
+      <div className="mc-int-grid">
+        {SOON_APPS.map((id) => (
+          <GlassCard key={id} className="mc-int-tile soon">
+            <BrandLogo id={id} />
+            <span className="mc-int-name">{BRAND_ICONS[id].name}</span>
+          </GlassCard>
+        ))}
       </div>
     </section>
   )
@@ -394,10 +425,10 @@ function IntegrationsSection() {
 const TESTIMONIALS = [
   { quote: 'I stopped switching apps mid-conversation. Everything I need is already there.', name: 'Jerry Wendo', role: 'Product designer' },
   { quote: 'Curry catching my open promises before I forget them has quietly saved me weekly.', name: 'Mathew Mutai', role: 'Founder' },
-  { quote: 'It feels like the messaging app got a decade ahead of everything else overnight.', name: 'Shallom Blessing.', role: 'Student' },
+  { quote: 'It feels like the messaging app got a decade ahead of everything else overnight.', name: 'Shallom Blessing', role: 'Student' },
 ]
 
-function TestimonialsSection() {
+function TestimonialsSection({ onGetStarted }) {
   return (
     <section className="mc-section">
       <Eyebrow>PEOPLE ON MATTCHAT</Eyebrow>
@@ -407,7 +438,7 @@ function TestimonialsSection() {
           <GlassCard key={t.name} className="mc-testimonial">
             <p className="mc-testimonial-quote">"{t.quote}"</p>
             <div className="mc-testimonial-person">
-              <span className="mc-testimonial-avatar" />
+              <span className="mc-testimonial-avatar">{t.name[0]}</span>
               <div>
                 <div className="mc-testimonial-name">{t.name}</div>
                 <div className="mc-testimonial-role">{t.role}</div>
@@ -416,10 +447,12 @@ function TestimonialsSection() {
           </GlassCard>
         ))}
       </div>
+      <div className="mc-center" style={{ marginTop: 44, textAlign: 'center' }}>
+        <GlowButton primary onClick={onGetStarted}>Create your account</GlowButton>
+      </div>
     </section>
   )
 }
-
 /* ---------- section: final CTA ---------- */
 
 function FinalCTASection({ onGetStarted }) {
@@ -860,26 +893,25 @@ export default function LandingPage() {
         .mc-compare-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; font-size: 14.5px; }
         .mc-compare-arrow { font-size: 22px; color: ${COLORS.purple}; text-align: center; }
 
-        /* ---------- integrations ---------- */
-        .mc-integrations { position: relative; height: 480px; max-width: 560px; margin: 0 auto; }
-        .mc-integrations-core {
-          position: absolute; top: 50%; left: 50%; width: 60px; height: 60px; transform: translate(-50%,-50%);
-          border-radius: 16px; background: linear-gradient(135deg, ${COLORS.purple}, ${COLORS.violet});
-          box-shadow: 0 0 40px rgba(108,99,255,0.5);
-        }
-        .mc-integrations-ring { position: absolute; inset: 0; }
-        .mc-integration {
-          position: absolute; top: 50%; left: 50%; width: 0; height: 0;
-          transform: rotate(var(--angle)) translate(220px) rotate(calc(-1 * var(--angle)));
-          display: flex; flex-direction: column; align-items: center; gap: 6px;
-        }
-        .mc-integration-badge {
-          width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-          background: rgba(255,255,255,0.05); border: 1px solid; font-size: 12px; font-weight: 700;
-          transform: translate(-50%,-50%); animation: mcFloat 6s ease-in-out infinite;
-        }
-        .mc-integration-label { font-size: 10.5px; color: ${COLORS.muted}; transform: translate(-50%, 8px); position: absolute; white-space: nowrap; }
+        /* ---------- how it works ---------- */
+.mc-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.mc-step { padding: 28px 26px; }
+.mc-step:hover { transform: translateY(-4px); border-color: rgba(108,99,255,0.4); }
+.mc-step-num { font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 2px; color: ${COLORS.blue}; margin-bottom: 14px; }
 
+/* ---------- integrations ---------- */
+.mc-int-label {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 16px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 1.5px; color: ${COLORS.muted};
+}
+.mc-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ADE80; box-shadow: 0 0 10px #4ADE80; }
+.mc-int-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-bottom: 40px; }
+.mc-int-tile { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 14px; }
+.mc-int-tile:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.18); }
+.mc-int-tile.soon { opacity: 0.55; }
+.mc-int-name { font-size: 13.5px; font-weight: 600; }
+
+.mc-testimonial-avatar { display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; }
         /* ---------- testimonials ---------- */
         .mc-testimonial-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
         .mc-testimonial { padding: 28px; display: flex; flex-direction: column; justify-content: space-between; min-height: 200px; }
@@ -945,6 +977,7 @@ export default function LandingPage() {
           .mc-curry-wrap, .mc-integrations { transform: scale(0.72); }
           .mc-footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
           .mc-footer-brand { max-width: none; grid-column: span 2; }
+          .mc-steps { grid-template-columns: 1fr; }
         }
         @media (max-width: 520px) {
           .mc-section { padding: 88px 18px; }
@@ -952,6 +985,7 @@ export default function LandingPage() {
           .mc-nav-links { gap: 14px; }
           .mc-footer-grid { grid-template-columns: 1fr; }
           .mc-footer-brand { grid-column: auto; }
+          .mc-int-grid { grid-template-columns: repeat(2, 1fr); }
         }
         @media (max-width: 700px) {
   /* Curry abilities: orb on top, chips wrap underneath */
