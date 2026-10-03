@@ -64,7 +64,7 @@ function TrackRow({ track, onPlay, isCurrent, isPlaying, colors }) {
           {isCurrent && isPlaying ? <IconPause size={13} /> : <IconPlay size={13} />}
         </div>
       </button>
-      {canDownload && <DownloadButton track={track} size={16} />}
+      <TrackDownloadAction track={track} size={16} />
     </div>
   )
 }
