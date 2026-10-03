@@ -7,9 +7,7 @@ function openDB() {
     const req = indexedDB.open(DB_NAME, DB_VERSION)
     req.onupgradeneeded = () => {
       const db = req.result
-      if (!db.objectStoreNames.contains(STORE)) {
-        db.createObjectStore(STORE, { keyPath: 'id' })
-      }
+      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: 'id' })
     }
     req.onsuccess = () => resolve(req.result)
     req.onerror = () => reject(req.error)
@@ -24,63 +22,69 @@ async function withStore(mode, fn) {
     const result = fn(store)
     tx.oncomplete = () => resolve(result)
     tx.onerror = () => reject(tx.error)
+    tx.onabort = () => reject(tx.error || new Error('Storage full or blocked'))
   })
 }
 
+const getRecord = (trackId) =>
+  withStore('readonly', (store) => new Promise((resolve) => {
+    const req = store.get(trackId)
+    req.onsuccess = () => resolve(req.result || null)
+    req.onerror = () => resolve(null)
+  }))
+
+const notify = () => window.dispatchEvent(new CustomEvent('mattchat-downloads-changed'))
+
 export const OfflineCache = {
   async isDownloaded(trackId) {
-    const record = await withStore('readonly', (store) => {
-      return new Promise((resolve) => {
-        const req = store.get(trackId)
-        req.onsuccess = () => resolve(req.result || null)
-        req.onerror = () => resolve(null)
-      })
-    })
-    return Boolean(record)
+    return Boolean(await getRecord(trackId))
   },
 
   async listDownloads() {
-    return withStore('readonly', (store) => {
-      return new Promise((resolve) => {
-        const req = store.getAll()
-        req.onsuccess = () => resolve((req.result || []).map(({ blob, ...meta }) => meta))
-        req.onerror = () => resolve([])
-      })
-    })
+    const all = await withStore('readonly', (store) => new Promise((resolve) => {
+      const req = store.getAll()
+      req.onsuccess = () => resolve(req.result || [])
+      req.onerror = () => resolve([])
+    }))
+    return all.map(({ blob, ...meta }) => meta).sort((a, b) => b.downloadedAt - a.downloadedAt)
   },
 
-  // Returns a usable <audio> src, or null if not cached — safe to call speculatively.
+  async getBlob(trackId) {
+    const record = await getRecord(trackId)
+    return record ? record.blob : null
+  },
+
+  // Safe to call speculatively: returns null if the track isn't cached
   async getBlobUrl(trackId) {
-    const record = await withStore('readonly', (store) => {
-      return new Promise((resolve) => {
-        const req = store.get(trackId)
-        req.onsuccess = () => resolve(req.result || null)
-        req.onerror = () => resolve(null)
-      })
-    })
-    if (!record) return null
-    return URL.createObjectURL(record.blob)
+    const blob = await this.getBlob(trackId)
+    return blob ? URL.createObjectURL(blob) : null
   },
 
   async downloadTrack(track, signedUrl, onProgress) {
     const res = await fetch(signedUrl)
-    if (!res.ok || !res.body) throw new Error('Download failed')
+    if (!res.ok) throw new Error(`Download failed (${res.status})`)
 
-    const total = Number(res.headers.get('content-length')) || track.duration ? 0 : 0
+    const contentType = res.headers.get('content-type') || 'audio/mpeg'
     const contentLength = Number(res.headers.get('content-length')) || 0
-    const reader = res.body.getReader()
-    const chunks = []
-    let received = 0
+    let blob
 
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      chunks.push(value)
-      received += value.length
-      if (onProgress && contentLength) onProgress(Math.min(100, Math.round((received / contentLength) * 100)))
+    if (res.body && contentLength) {
+      const reader = res.body.getReader()
+      const chunks = []
+      let received = 0
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        chunks.push(value)
+        received += value.length
+        onProgress?.(Math.min(100, Math.round((received / contentLength) * 100)))
+      }
+      blob = new Blob(chunks, { type: contentType })
+    } else {
+      blob = new Blob([await res.arrayBuffer()], { type: contentType }) // no length header: no % progress
     }
 
-    const blob = new Blob(chunks)
+    const { streamUrl, ...trackMeta } = track
     await withStore('readwrite', (store) => {
       store.put({
         id: track.id,
@@ -88,14 +92,18 @@ export const OfflineCache = {
         artist: track.artist,
         artwork: track.artwork,
         duration: track.duration,
+        track: trackMeta,            // full track object so it can be played from the Downloads list
         blob,
         downloadedAt: Date.now(),
       })
     })
+    onProgress?.(100)
+    notify()
     return true
   },
 
   async deleteDownload(trackId) {
     await withStore('readwrite', (store) => store.delete(trackId))
+    notify()
   },
 }
