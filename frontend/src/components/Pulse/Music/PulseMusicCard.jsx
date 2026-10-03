@@ -22,6 +22,7 @@ import { useIsMobile } from '../../../hooks/useIsMobile'
 import { useListeningHistory } from '../../../hooks/useListeningHistory'
 import MadeForYou from './MadeForYou'
 import { OfflineCache } from '../../../lib/music/OfflineCache'
+import DownloadButton from './DownloadButton'
 
 function greeting() {
   const h = new Date().getHours()
@@ -149,7 +150,9 @@ function NowPlayingPanel({ colors, fallbackTrack }) {
     if (!liked) { setBurst(true); setTimeout(() => setBurst(false), 600) }
     toggleLike(currentTrack)
   }
-
+{currentTrack.provider === 'mattchat' && currentTrack.isDownloadable && (
+  <DownloadButton track={currentTrack} size={16} />
+)}
   const share = () => {
     if (navigator.share) {
       navigator.share({ title: currentTrack.title, text: `${currentTrack.title} — ${currentTrack.artist}` }).catch(() => {})
