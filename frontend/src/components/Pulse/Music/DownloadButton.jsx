@@ -4,10 +4,7 @@ import { MattchatProvider } from '../../../lib/music/providers/MattchatProvider'
 import { IconDownload, IconCheck, IconLoader2 } from '../../Icons'
 
 // Triggers the browser/phone's normal "save file" flow (lands in Downloads)
-export async function saveToDevice(track, url) {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`Download failed (${res.status})`)
-  const blob = await res.blob()
+export function saveBlobToDevice(track, blob) {
   const ext = (blob.type.split('/')[1] || 'mp3').replace('mpeg', 'mp3')
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
@@ -46,18 +43,24 @@ export default function DownloadButton({ track, size = 17 }) {
     }
   }, [status, track])
 
-  const handleDevice = useCallback(async (e) => {
-    e.stopPropagation()
-    setError(null)
-    try {
+ const handleDevice = useCallback(async (e) => {
+  e.stopPropagation()
+  setError(null)
+  try {
+    let blob = await OfflineCache.getBlob(track.id)        // reuse the offline copy if we have it
+    if (!blob) {
       const url = await MattchatProvider.getDownloadUrl(track)
       if (!url) throw new Error('No download link for this track')
-      await saveToDevice(track, url)
-    } catch (err) {
-      console.error('[save to device] failed:', err)
-      setError(err.message || 'Could not save file')
+      const res = await fetch(url)
+      if (!res.ok) throw new Error(`Download failed (${res.status})`)
+      blob = await res.blob()
     }
-  }, [track])
+    saveBlobToDevice(track, blob)
+  } catch (err) {
+    console.error('[save to device] failed:', err)
+    setError(err.message || 'Could not save file')
+  }
+}, [track])
 
   if (status === 'checking') return null
   const btn = { background: 'transparent', border: 'none', cursor: 'pointer', padding: 6, display: 'flex', alignItems: 'center', position: 'relative' }
