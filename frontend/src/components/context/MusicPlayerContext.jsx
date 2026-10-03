@@ -53,6 +53,10 @@ export function MusicPlayerProvider({ children, session = null }) {
 
   const stateRef = useRef({})
   stateRef.current = { queue, queueIndex, shuffle, repeatMode, volume, currentTrack }
+  const blobUrlRef = useRef(null)
+const pendingRestoreRef = useRef(false)
+const resumeAtRef = useRef(0)
+const POS_KEY = 'mattchat:music:position'
   // Bring back the last track (paused) so the player isn't empty after a reload
 useEffect(() => {
   if (!userId) return
@@ -72,10 +76,7 @@ useEffect(() => {
   if (currentTrack && isPlaying) writeJSON(POS_KEY, { id: currentTrack.id, t: currentTime })
 }, [Math.floor(currentTime / 5)]) 
 const sessionPlayedRef = useRef(new Set())
-  const blobUrlRef = useRef(null)
-const pendingRestoreRef = useRef(false)
-const resumeAtRef = useRef(0)
-const POS_KEY = 'mattchat:music:position'
+
 const recordRecentlyPlayed = useCallback((track) => {
   sessionPlayedRef.current.add(track.id)
   setRecentlyPlayed((prev) => {
@@ -144,13 +145,14 @@ try {
   if (resumeAt > 1) audio.addEventListener('loadedmetadata', () => { audio.currentTime = resumeAt }, { once: true })
   await audio.play()
   recordRecentlyPlayed(track)
-} catch {
-  setIsLoading(false)
-  setError('Track unavailable')
-  setIsPlaying(false)
-}
+  } catch {
+    setIsLoading(false)
+    setError('Track unavailable')
+    setIsPlaying(false)
+  }
+}, [recordRecentlyPlayed])
 
- const [isAutoContinuing, setIsAutoContinuing] = useState(false)
+const [isAutoContinuing, setIsAutoContinuing] = useState(false)
 
 const playNext = useCallback(async () => {
   const idx = computeNextIndex()
