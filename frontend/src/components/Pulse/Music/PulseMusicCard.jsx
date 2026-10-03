@@ -19,6 +19,8 @@ import {
   IconQueueList, IconLyrics, IconShare2,
 } from '../../Icons'
 import { useIsMobile } from '../../../hooks/useIsMobile'
+import { useListeningHistory } from '../../../hooks/useListeningHistory'
+import MadeForYou from './MadeForYou'
 
 function greeting() {
   const h = new Date().getHours()
@@ -121,8 +123,9 @@ function LibraryRail({ playlists, colors, onOpenLibrary }) {
 }
 
 // ── Right "Now Playing" panel — Spotify context panel + Boomplay-style Lyrics tab ──
-function NowPlayingPanel({ colors }) {
-  const { currentTrack, isLiked, toggleLike, recentlyPlayed } = useMusicPlayer()
+function NowPlayingPanel({ colors, fallbackTrack }) {
+  const { currentTrack: playing, isLiked, toggleLike, recentlyPlayed } = useMusicPlayer()
+  const currentTrack = playing || fallbackTrack
   const dominant = useDominantColor(currentTrack?.artwork)
   const [tab, setTab] = useState('details') // 'details' | 'lyrics'
   const [burst, setBurst] = useState(false)
@@ -253,21 +256,21 @@ function NowPlayingPanel({ colors }) {
 }
 
 // ── Bottom playback bar — mobile version is now swipeable (drag left/right to skip) ──
-function PlaybackBar({ colors }) {
+function PlaybackBar({ colors, fallbackTrack }) {
   const isMobile = useIsMobile()
   const {
-    currentTrack, isPlaying, currentTime, duration, volume,
+    currentTrack: playing, isPlaying, currentTime, duration, volume,
     togglePlayPause, seekTo, setVolume, playNext, playPrevious,
     shuffle, toggleShuffle, repeatMode, cycleRepeat, isLiked, toggleLike,
+    playTrack, recentlyPlayed,
   } = useMusicPlayer()
 
-  if (!currentTrack) {
-    return (
-      <div style={{ height: isMobile ? 56 : 72, borderTop: `1px solid ${colors.border}`, background: colors.surface1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textMuted, fontSize: 12 }}>
-        Nothing playing
-      </div>
-    )
-  }
+  const currentTrack = playing || fallbackTrack
+  // If nothing is loaded yet, the play button starts the remembered track
+  const togglePlay = () =>
+    playing
+      ? togglePlayPause()
+      : playTrack(currentTrack, recentlyPlayed?.length ? recentlyPlayed : [currentTrack])
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
   const liked = isLiked(currentTrack.id)
@@ -327,7 +330,7 @@ function PlaybackBar({ colors }) {
           <button onClick={playPrevious} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: colors.textPrimary }}><IconSkipBack size={17} /></button>
           <motion.button
             whileTap={{ scale: 0.88 }}
-            onClick={togglePlayPause}
+           onClick={togglePlay}
             style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', cursor: 'pointer', background: '#fff', color: '#0f0f1a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             {isPlaying ? <IconPause size={14} /> : <IconPlay size={14} />}
@@ -472,6 +475,7 @@ const TABS = ['All', 'Songs', 'Playlists']
 
 export function PulseMusicOverlay({ onClose }) {
   const { userId, recentlyPlayed, likedTracks, playTrack } = useMusicPlayer()
+  const { mixes, lastPlayed } = useListeningHistory(userId)
   const colors = useMusicColors()
   const isMobile = useIsMobile()
   const [trending, setTrending] = useState([])
@@ -507,7 +511,7 @@ export function PulseMusicOverlay({ onClose }) {
   }, [userId])
   useEffect(() => { refreshArtistProfile() }, [refreshArtistProfile])
 
-  const heroTrack = mainstream[0] || trending[0] || recentlyPlayed[0] || likedTracks[0] || null
+ const heroTrack = mainstream[0] || trending[0] || lastPlayed || recentlyPlayed[0] || likedTracks[0] || null
   const dominant = useDominantColor(heroTrack?.artwork)
   const quickPicks = [...recentlyPlayed.slice(0, 4), ...likedTracks.slice(0, 4)].slice(0, 6)
   const forYou = [...mainstream, ...trending].slice(0, 8)
@@ -645,7 +649,9 @@ export function PulseMusicOverlay({ onClose }) {
                 </div>
               </Section>
             )}
-
+{(activeTab === 'All' || activeTab === 'Playlists') && mixes.length > 0 && (
+  <Section delay={0.05}><MadeForYou mixes={mixes} colors={colors} /></Section>
+)}
             {(activeTab === 'All' || activeTab === 'Songs') && mainstream.length > 0 && (
               <Section delay={0.06}><TrackRail title="Mainstream Hits" tracks={mainstream} /></Section>
             )}
@@ -666,12 +672,10 @@ export function PulseMusicOverlay({ onClose }) {
             )}
           </div>
         </div>
+{!isMobile && <NowPlayingPanel colors={colors} fallbackTrack={lastPlayed} />}
+</div>
 
-        {!isMobile && <NowPlayingPanel colors={colors} />}
-      </div>
-
-      <PlaybackBar colors={colors} />
-
+<PlaybackBar colors={colors} fallbackTrack={lastPlayed} />
       <AnimatePresence>
         {showLibrary && (
           <LibraryPanel
