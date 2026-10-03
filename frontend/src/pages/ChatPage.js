@@ -108,6 +108,7 @@ import CallsLandingPanel from '../components/CallsLandingPanel'
 import QuickMusicAccess from '../components/Pulse/Music/QuickMusicAccess'
 import RingtonePicker from '../components/Pulse/Music/RingtonePicker'
 import { RingtoneService } from '../lib/music/RingtoneService'
+import { useRecordPlays } from '../hooks/useListeningHistory'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -1154,6 +1155,7 @@ const [curryPrefill, setCurryPrefill] = useState(null)
   const { cache: smartReplyCache, fetchSuggestion, clear: clearSmartReply } = useSmartReplyCache()
   const { theme, toggleTheme } = useTheme()
   const { isFullPlayerVisible, setIsFullPlayerVisible } = useMusicPlayer()
+  useRecordPlays(userId)
   const [myRingtone, setMyRingtone] = useState(null)
 const [showRingtonePicker, setShowRingtonePicker] = useState(false)
 
