@@ -2,6 +2,7 @@ import React, { createContext, useContext, useRef, useState, useCallback, useEff
 import { MusicService } from '../../lib/music/MusicService'
 import { YouTubeEngine } from '../../lib/music/YouTubeEngine'
 import { RecommendationEngine } from '../../lib/music/RecommendationEngine'
+import { OfflineCache } from '../../lib/music/OfflineCache'
 
 const MusicPlayerContext = createContext(null)
 
@@ -52,7 +53,29 @@ export function MusicPlayerProvider({ children, session = null }) {
 
   const stateRef = useRef({})
   stateRef.current = { queue, queueIndex, shuffle, repeatMode, volume, currentTrack }
+  // Bring back the last track (paused) so the player isn't empty after a reload
+useEffect(() => {
+  if (!userId) return
+  const last = readJSON(`mattchat:music:last:${userId}`, null)
+  if (!last || stateRef.current.queue.length) return
+  const rest = recentlyPlayed.filter((t) => t.id !== last.id).slice(0, 20)
+  setQueue([last, ...rest])
+  setQueueIndex(0)
+  pendingRestoreRef.current = true
+  const pos = readJSON(POS_KEY, null)
+  resumeAtRef.current = pos && pos.id === last.id ? pos.t : 0
+  setCurrentTime(resumeAtRef.current)
+}, [userId])  
+
+// Remember playback position every ~5s
+useEffect(() => {
+  if (currentTrack && isPlaying) writeJSON(POS_KEY, { id: currentTrack.id, t: currentTime })
+}, [Math.floor(currentTime / 5)]) 
 const sessionPlayedRef = useRef(new Set())
+  const blobUrlRef = useRef(null)
+const pendingRestoreRef = useRef(false)
+const resumeAtRef = useRef(0)
+const POS_KEY = 'mattchat:music:position'
 const recordRecentlyPlayed = useCallback((track) => {
   sessionPlayedRef.current.add(track.id)
   setRecentlyPlayed((prev) => {
@@ -79,6 +102,7 @@ const recordRecentlyPlayed = useCallback((track) => {
   // knows a YouTube track needs a different engine than <audio> ──
   const loadAndPlay = useCallback(async (track, index) => {
     if (!track) return
+    pendingRestoreRef.current = false
     setError(null)
     setIsLoading(true)
     setQueueIndex(index)
@@ -92,6 +116,7 @@ const recordRecentlyPlayed = useCallback((track) => {
         await YouTubeEngine.load(track.providerTrackId)
         await YouTubeEngine.setVolume(stateRef.current.volume)
         await YouTubeEngine.play()
+        if (resumeAtRef.current > 1) { YouTubeEngine.seekTo(resumeAtRef.current); resumeAtRef.current = 0 }
         recordRecentlyPlayed(track)
       } catch {
         setIsLoading(false)
@@ -103,20 +128,27 @@ const recordRecentlyPlayed = useCallback((track) => {
 
     // non-YouTube: stop the YouTube engine if it was mid-playback,
     // then fall back to the normal <audio> element flow
-    YouTubeEngine.stop()
-    try {
-      const url = await MusicService.resolveStreamUrl(track)
-      if (!url) { setIsLoading(false); setError('Track unavailable'); setIsPlaying(false); return }
-      audio.src = url
-      audio.volume = stateRef.current.volume
-      await audio.play()
-      recordRecentlyPlayed(track)
-    } catch {
-      setIsLoading(false)
-      setError('Track unavailable')
-      setIsPlaying(false)
-    }
-  }, [recordRecentlyPlayed])
+ YouTubeEngine.stop()
+try {
+  if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null }
+  // downloaded copy first, so offline playback works with no network
+  let url = await OfflineCache.getBlobUrl(track.id).catch(() => null)
+  if (url) blobUrlRef.current = url
+  else url = await MusicService.resolveStreamUrl(track)
+
+  if (!url) { setIsLoading(false); setError('Track unavailable'); setIsPlaying(false); return }
+  audio.src = url
+  audio.volume = stateRef.current.volume
+  const resumeAt = resumeAtRef.current
+  resumeAtRef.current = 0
+  if (resumeAt > 1) audio.addEventListener('loadedmetadata', () => { audio.currentTime = resumeAt }, { once: true })
+  await audio.play()
+  recordRecentlyPlayed(track)
+} catch {
+  setIsLoading(false)
+  setError('Track unavailable')
+  setIsPlaying(false)
+}
 
  const [isAutoContinuing, setIsAutoContinuing] = useState(false)
 
@@ -251,6 +283,7 @@ useEffect(() => {
 
   const togglePlayPause = useCallback(() => {
     if (!currentTrack) return
+    if (pendingRestoreRef.current) { loadAndPlay(currentTrack, queueIndex); return }
     if (currentTrack.provider === 'youtube') {
       if (isPlaying) YouTubeEngine.pause()
       else YouTubeEngine.play()
@@ -260,7 +293,7 @@ useEffect(() => {
     if (!audio) return
     if (isPlaying) audio.pause()
     else audio.play().catch(() => setError('Playback failed'))
-  }, [isPlaying, currentTrack])
+  }, [isPlaying, currentTrack, queueIndex, loadAndPlay])
 
   const seekTo = useCallback((seconds) => {
     if (currentTrack?.provider === 'youtube') { YouTubeEngine.seekTo(seconds); setCurrentTime(seconds); return }
