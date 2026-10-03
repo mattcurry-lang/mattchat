@@ -21,6 +21,7 @@ import {
 import { useIsMobile } from '../../../hooks/useIsMobile'
 import { useListeningHistory } from '../../../hooks/useListeningHistory'
 import MadeForYou from './MadeForYou'
+import { OfflineCache } from '../../../lib/music/OfflineCache'
 
 function greeting() {
   const h = new Date().getHours()
@@ -481,6 +482,19 @@ function ForYouCarousel({ tracks, onPress, isMobile }) {
 
 const TABS = ['All', 'Songs', 'Playlists']
 
+function DownloadedSection() {
+  const [tracks, setTracks] = useState([])
+  useEffect(() => {
+    const load = () => OfflineCache.listDownloads()
+      .then((d) => setTracks(d.map((x) => x.track).filter(Boolean)))
+      .catch(() => {})
+    load()
+    window.addEventListener('mattchat-downloads-changed', load)
+    return () => window.removeEventListener('mattchat-downloads-changed', load)
+  }, [])
+  return tracks.length ? <TrackRail title="Downloaded" tracks={tracks} /> : null
+}
+
 export function PulseMusicOverlay({ onClose }) {
   const { userId, recentlyPlayed, likedTracks, playTrack } = useMusicPlayer()
   const { mixes, lastPlayed } = useListeningHistory(userId)
@@ -672,6 +686,9 @@ export function PulseMusicOverlay({ onClose }) {
             {(activeTab === 'All' || activeTab === 'Playlists') && (
               <Section delay={0.12}><PlaylistsSection /></Section>
             )}
+            {(activeTab === 'All' || activeTab === 'Songs') && (
+  <Section delay={0.14}><DownloadedSection /></Section>
+)}
             {(activeTab === 'All' || activeTab === 'Songs') && recentlyPlayed.length > 0 && (
               <Section delay={0.15}><TrackRail title="Recently Played" tracks={recentlyPlayed} /></Section>
             )}
