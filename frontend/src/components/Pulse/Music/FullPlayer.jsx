@@ -9,7 +9,6 @@ import {
 } from '../../Icons'
 import QueueDrawer from './QueueDrawer'
 import ShareTrackSheet from './ShareTrackSheet'
-import DownloadButton from './DownloadButton'
 import TrackDownloadAction from './TrackDownloadAction'
 
 function formatTime(seconds) {
@@ -230,7 +229,7 @@ export default function FullPlayer({ onClose, conversations = [], onShareTrack }
             style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', padding: 6, flexShrink: 0 }}>
             <IconShare2 size={17} />
           </button>
-          {currentTrack.provider === 'mattchat' && currentTrack.isDownloadable && <DownloadButton track={currentTrack} />}
+          <TrackDownloadAction track={currentTrack} size={17} />
         </div>
       </div>
 
