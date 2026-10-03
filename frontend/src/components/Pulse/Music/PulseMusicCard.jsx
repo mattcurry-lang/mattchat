@@ -153,6 +153,7 @@ function NowPlayingPanel({ colors, fallbackTrack }) {
 {currentTrack.provider === 'mattchat' && currentTrack.isDownloadable && (
   <DownloadButton track={currentTrack} size={16} />
 )}
+  <TrackDownloadAction track={currentTrack} size={16} />
   const share = () => {
     if (navigator.share) {
       navigator.share({ title: currentTrack.title, text: `${currentTrack.title} — ${currentTrack.artist}` }).catch(() => {})
@@ -286,6 +287,7 @@ function PlaybackBar({ colors, fallbackTrack }) {
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
   const liked = isLiked(currentTrack.id)
+  
 
   if (isMobile) {
     return (
@@ -334,6 +336,7 @@ function PlaybackBar({ colors, fallbackTrack }) {
         <button onClick={() => toggleLike(currentTrack)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: liked ? '#f87171' : colors.textMuted, flexShrink: 0 }}>
           <IconHeart size={15} filled={liked} />
         </button>
+        <TrackDownloadAction track={currentTrack} size={15} />
       </div>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, maxWidth: 640, margin: '0 auto' }}>
