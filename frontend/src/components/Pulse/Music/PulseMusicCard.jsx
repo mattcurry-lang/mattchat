@@ -272,6 +272,14 @@ function PlaybackBar({ colors, fallbackTrack }) {
       ? togglePlayPause()
       : playTrack(currentTrack, recentlyPlayed?.length ? recentlyPlayed : [currentTrack])
 
+    if (!currentTrack) {
+    return (
+      <div style={{ height: isMobile ? 56 : 72, borderTop: `1px solid ${colors.border}`, background: colors.surface1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textMuted, fontSize: 12 }}>
+        Nothing playing
+      </div>
+    )
+  }
+
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
   const liked = isLiked(currentTrack.id)
 
@@ -300,7 +308,7 @@ function PlaybackBar({ colors, fallbackTrack }) {
           <IconHeart size={16} filled={liked} />
         </button>
         <button
-          onClick={togglePlayPause}
+         onClick={togglePlay}
           style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', cursor: 'pointer', background: '#fff', color: '#0f0f1a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
         >
           {isPlaying ? <IconPause size={13} /> : <IconPlay size={13} />}
@@ -330,7 +338,7 @@ function PlaybackBar({ colors, fallbackTrack }) {
           <button onClick={playPrevious} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: colors.textPrimary }}><IconSkipBack size={17} /></button>
           <motion.button
             whileTap={{ scale: 0.88 }}
-           onClick={togglePlay}
+          onClick={togglePlay}
             style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', cursor: 'pointer', background: '#fff', color: '#0f0f1a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             {isPlaying ? <IconPause size={14} /> : <IconPlay size={14} />}
