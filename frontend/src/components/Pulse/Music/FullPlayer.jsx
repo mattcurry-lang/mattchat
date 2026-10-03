@@ -10,6 +10,7 @@ import {
 import QueueDrawer from './QueueDrawer'
 import ShareTrackSheet from './ShareTrackSheet'
 import DownloadButton from './DownloadButton'
+import TrackDownloadAction from './TrackDownloadAction'
 
 function formatTime(seconds) {
   if (!Number.isFinite(seconds)) return '0:00'
