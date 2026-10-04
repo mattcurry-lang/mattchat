@@ -689,9 +689,7 @@ export function PulseMusicOverlay({ onClose }) {
             {(activeTab === 'All' || activeTab === 'Songs') && trending.length > 0 && (
               <Section delay={0.09}><TrackRail title="Trending on Mattchat" tracks={trending} /></Section>
             )}
-           {(activeTab === 'All' || activeTab === 'Songs') && trending.length > 0 && (
-  <Section delay={0.09}><TrackRail title="Trending on Mattchat" tracks={trending} /></Section>
-)}
+    
 {(activeTab === 'All' || activeTab === 'Songs') && freeMusic.length > 0 && (
   <Section delay={0.1}><TrackRail title="Free to download" tracks={freeMusic} /></Section>
 )}
