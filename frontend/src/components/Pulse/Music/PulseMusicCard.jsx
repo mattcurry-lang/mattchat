@@ -22,7 +22,7 @@ import { useIsMobile } from '../../../hooks/useIsMobile'
 import { useListeningHistory } from '../../../hooks/useListeningHistory'
 import MadeForYou from './MadeForYou'
 import { OfflineCache } from '../../../lib/music/OfflineCache'
-import DownloadButton from './DownloadButton'
+import TrackDownloadAction from './TrackDownloadAction'
 
 function greeting() {
   const h = new Date().getHours()
@@ -150,10 +150,7 @@ function NowPlayingPanel({ colors, fallbackTrack }) {
     if (!liked) { setBurst(true); setTimeout(() => setBurst(false), 600) }
     toggleLike(currentTrack)
   }
-{currentTrack.provider === 'mattchat' && currentTrack.isDownloadable && (
-  <DownloadButton track={currentTrack} size={16} />
-)}
-  <TrackDownloadAction track={currentTrack} size={16} />
+ 
   const share = () => {
     if (navigator.share) {
       navigator.share({ title: currentTrack.title, text: `${currentTrack.title} — ${currentTrack.artist}` }).catch(() => {})
@@ -222,6 +219,7 @@ function NowPlayingPanel({ colors, fallbackTrack }) {
               ))}
             </AnimatePresence>
           </button>
+          <TrackDownloadAction track={currentTrack} size={16} />
           <button onClick={share} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: colors.textMuted }}>
             <IconShare2 size={16} />
           </button>
@@ -310,11 +308,12 @@ function PlaybackBar({ colors, fallbackTrack }) {
           <div style={{ fontSize: 12, fontWeight: 700, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTrack.title}</div>
           <div style={{ fontSize: 10.5, color: colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTrack.artist}</div>
         </div>
-        <button onClick={() => toggleLike(currentTrack)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: liked ? '#f87171' : colors.textMuted, flexShrink: 0 }}>
+               <button onClick={() => toggleLike(currentTrack)} style={{ ... }}>
           <IconHeart size={16} filled={liked} />
         </button>
+        <TrackDownloadAction track={currentTrack} size={15} />
         <button
-         onClick={togglePlay}
+          onClick={togglePlay}
           style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', cursor: 'pointer', background: '#fff', color: '#0f0f1a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
         >
           {isPlaying ? <IconPause size={13} /> : <IconPlay size={13} />}
