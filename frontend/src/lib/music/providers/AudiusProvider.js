@@ -171,5 +171,11 @@ export class AudiusProvider extends MusicProvider {
     }
   }
 }
-
+async getDownloadUrl(track) {
+  if (!track.isDownloadable) return null
+  try {
+    const hosts = await getHosts()
+    return `${hosts[0]}/v1/tracks/${track.providerTrackId}/download?app_name=${APP_NAME}`
+  } catch { return null }
+}
 export const audiusProvider = new AudiusProvider()
