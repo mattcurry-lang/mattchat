@@ -2,11 +2,14 @@ import React from 'react'
 import DownloadButton from './DownloadButton'
 import { IconDownload } from '../../Icons'
 
+// Providers whose tracks can legitimately be downloaded (when the track allows it)
+const DOWNLOADABLE_PROVIDERS = ['mattchat', 'audius', 'jamendo']
+
 export default function TrackDownloadAction({ track, size = 16 }) {
   if (!track) return null
 
-  // Mattchat Artist uploads: real download (offline in Mattchat + save to device)
-  if (track.provider === 'mattchat' && track.isDownloadable) {
+  // Mattchat artist uploads, Audius and Jamendo: real download into Mattchat offline storage
+  if (track.isDownloadable && DOWNLOADABLE_PROVIDERS.includes(track.provider)) {
     return <DownloadButton track={track} size={size} />
   }
 
