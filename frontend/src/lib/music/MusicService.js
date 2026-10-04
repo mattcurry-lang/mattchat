@@ -2,6 +2,7 @@ import { audiusProvider } from './providers/AudiusProvider'
 import { mattchatProviderAdapter } from './providers/MattchatProvider'
 import { YouTubeMusicProvider } from './providers/YouTubeMusicProvider'
 import { OfflineCache } from './OfflineCache'
+import { jamendoProvider } from './providers/JamendoProvider'
 
 /**
  * lib/music/MusicService.js
@@ -39,6 +40,8 @@ function getProvider(key) {
       return mattchatProviderAdapter
     case 'youtube':
       return YouTubeMusicProvider
+    case 'jamendo':
+      return jamendoProvider
     default:
       return null
   }
@@ -67,23 +70,23 @@ export const MusicService = {
     }
 
     const external = getProvider(activeProviderKey)
-    const [externalResults, mattchatResults, youtubeResults] = await Promise.all([
-      external.search(query, opts),
-      activeProviderKey === 'mattchat' ? Promise.resolve(null) : mattchatProviderAdapter.search(query, opts).catch(() => ({ tracks: [] })),
-      YouTubeMusicProvider.search(query, { limit: 8 }).catch(() => ({ tracks: [] })),
-    ])
+  const [externalResults, mattchatResults, youtubeResults, jamendoResults] = await Promise.all([
+  external.search(query, opts),
+  activeProviderKey === 'mattchat' ? Promise.resolve(null) : mattchatProviderAdapter.search(query, opts).catch(() => ({ tracks: [] })),
+  YouTubeMusicProvider.search(query, { limit: 8 }).catch(() => ({ tracks: [] })),
+  jamendoProvider.search(query, { limit: 8 }).catch(() => ({ tracks: [] })),
+])
 
-    const data = {
-      // Mattchat artists first (your own catalog), then mainstream
-      // YouTube results, then whichever external provider is active
-      tracks: [
-        ...(mattchatResults ? mattchatResults.tracks : []),
-        ...youtubeResults.tracks,
-        ...externalResults.tracks,
-      ],
-      artists: externalResults.artists || [],
-      albums: externalResults.albums || [],
-    }
+const data = {
+  tracks: [
+    ...(mattchatResults ? mattchatResults.tracks : []),
+    ...jamendoResults.tracks,     // free + downloadable, shown before mainstream
+    ...youtubeResults.tracks,
+    ...externalResults.tracks,
+  ],
+  artists: externalResults.artists || [],
+  albums: externalResults.albums || [],
+}
     searchCache.set(key, { data, at: Date.now() })
     return data
   },
@@ -108,19 +111,19 @@ export const MusicService = {
    * Mattchat-provider tracks, since isDownloadable gates it) plays
    * straight from IndexedDB with zero network round trip.
    */
-  async resolveStreamUrl(track) {
-    if (track.streamUrl) return track.streamUrl
+async resolveStreamUrl(track) {
+  const offline = await OfflineCache.getBlobUrl(track.id).catch(() => null)
+  if (offline) return offline
 
-    const offline = await OfflineCache.getBlobUrl(track.id).catch(() => null)
-    if (offline) return offline
+  if (track.streamUrl) return track.streamUrl
 
-    try {
-      const provider = getProvider(track.provider)
-      return await provider.streamTrack(track.providerTrackId)
-    } catch {
-      return null
-    }
-  },
+  try {
+    const provider = getProvider(track.provider)
+    return await provider.streamTrack(track.providerTrackId)
+  } catch {
+    return null
+  }
+},
 
   getActiveProviderKey: () => activeProviderKey,
 }
