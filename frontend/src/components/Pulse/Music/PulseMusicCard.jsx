@@ -23,6 +23,7 @@ import { useListeningHistory } from '../../../hooks/useListeningHistory'
 import MadeForYou from './MadeForYou'
 import { OfflineCache } from '../../../lib/music/OfflineCache'
 import TrackDownloadAction from './TrackDownloadAction'
+import { jamendoProvider } from '../../../lib/music/providers/JamendoProvider'
 
 function greeting() {
   const h = new Date().getHours()
@@ -218,10 +219,11 @@ function NowPlayingPanel({ colors, fallbackTrack }) {
                 </motion.span>
               ))}
             </AnimatePresence>
-          </button>
+                  </button>
           <TrackDownloadAction track={currentTrack} size={16} />
           <button onClick={share} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: colors.textMuted }}>
             <IconShare2 size={16} />
+          
           </button>
         </div>
       </div>
@@ -308,7 +310,7 @@ function PlaybackBar({ colors, fallbackTrack }) {
           <div style={{ fontSize: 12, fontWeight: 700, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTrack.title}</div>
           <div style={{ fontSize: 10.5, color: colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTrack.artist}</div>
         </div>
-               <button onClick={() => toggleLike(currentTrack)} style={{ ... }}>
+                      <button onClick={() => toggleLike(currentTrack)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: liked ? '#f87171' : colors.textMuted, flexShrink: 0 }}>
           <IconHeart size={16} filled={liked} />
         </button>
         <TrackDownloadAction track={currentTrack} size={15} />
@@ -507,6 +509,7 @@ export function PulseMusicOverlay({ onClose }) {
   const isMobile = useIsMobile()
   const [trending, setTrending] = useState([])
   const [mainstream, setMainstream] = useState([])
+  const [freeMusic, setFreeMusic] = useState([])
   const [trendingError, setTrendingError] = useState(false)
   const [artistProfile, setArtistProfile] = useState(null)
   const [artistChecked, setArtistChecked] = useState(false)
@@ -521,6 +524,7 @@ export function PulseMusicOverlay({ onClose }) {
     let cancelled = false
     MusicService.getTrending({ limit: 15 }).then((t) => { if (!cancelled) setTrending(t) }).catch(() => { if (!cancelled) setTrendingError(true) })
     YouTubeMusicProvider.getTrending({ limit: 15 }).then((t) => { if (!cancelled) setMainstream(t) }).catch(() => {})
+    jamendoProvider.getTrending({ limit: 15 }).then((t) => { if (!cancelled) setFreeMusic(t) }).catch(() => {})
     return () => { cancelled = true }
   }, [])
 
@@ -685,7 +689,13 @@ export function PulseMusicOverlay({ onClose }) {
             {(activeTab === 'All' || activeTab === 'Songs') && trending.length > 0 && (
               <Section delay={0.09}><TrackRail title="Trending on Mattchat" tracks={trending} /></Section>
             )}
-            {trendingError && trending.length === 0 && (
+           {(activeTab === 'All' || activeTab === 'Songs') && trending.length > 0 && (
+  <Section delay={0.09}><TrackRail title="Trending on Mattchat" tracks={trending} /></Section>
+)}
+{(activeTab === 'All' || activeTab === 'Songs') && freeMusic.length > 0 && (
+  <Section delay={0.1}><TrackRail title="Free to download" tracks={freeMusic} /></Section>
+)}
+{trendingError && trending.length === 0 && (
               <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 18 }}>Trending is temporarily unavailable.</div>
             )}
             {(activeTab === 'All' || activeTab === 'Playlists') && (
