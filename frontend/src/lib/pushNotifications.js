@@ -11,9 +11,14 @@ export function isPushSupported() {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 }
 
+// Production uses the merged Workbox worker (offline + push in one file).
+// `npm start` keeps using the plain push-only worker, because the Workbox
+// file only exists in production builds.
+const SW_URL = process.env.NODE_ENV === 'production' ? '/service-worker.js' : '/sw.js'
+
 export async function registerServiceWorker() {
   if (!isPushSupported()) return null
-  await navigator.serviceWorker.register('/sw.js')
+  await navigator.serviceWorker.register(SW_URL)
   // .ready resolves only once a service worker is actually active and
   // controlling this scope — register() alone doesn't guarantee that,
   // which is what caused "no active Service Worker" on first attempt.
