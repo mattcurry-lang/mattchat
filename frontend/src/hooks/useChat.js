@@ -10,6 +10,13 @@ import {
   uploadThumbnail,
 } from '../services/MediaAssetService'
 import { uploadManager } from '../services/UploadManager'
+import { cacheMessages, getCachedMessages, addToOutbox, getOutbox, flushOutbox, cacheConversations, getCachedConversations } from '../lib/offlineStore'
+
+const toQueuedBubble = (o) => ({
+  id: o.tempId, conversation_id: o.conversationId, sender_id: o.senderId, content: o.content,
+  message_type: 'text', created_at: new Date(o.queuedAt).toISOString(),
+  profiles: null, _optimistic: true, _status: 'queued',
+})
 
 export function useChat(conversationId, currentUserId) {
   const [messages, setMessages] = useState([])
@@ -26,14 +33,31 @@ export function useChat(conversationId, currentUserId) {
 
   const channelKey = conversationId ? `messages:${conversationId}` : null
 
-  const loadMessages = useCallback(() => {
-    if (!conversationId) return
-    setLoading(true)
-    getMessages(conversationId).then(data => {
-      setMessages(data || [])
-      setLoading(false)
-    })
-  }, [conversationId])
+const loadMessages = useCallback(async () => {
+  if (!conversationId) return
+  setLoading(true)
+
+  // 1. show what we saved earlier, plus anything still waiting to send
+  const [cached, outbox] = await Promise.all([
+    getCachedMessages(conversationId).catch(() => null),
+    getOutbox().catch(() => []),
+  ])
+  const queued = outbox.filter((o) => o.conversationId === conversationId).map(toQueuedBubble)
+  if (cached?.length || queued.length) { setMessages([...(cached || []), ...queued]); setLoading(false) }
+
+  // 2. offline: that's all we can show
+  if (!navigator.onLine) { setLoading(false); return }
+
+  // 3. online: fetch fresh and refresh the saved copy
+  try {
+    const data = await getMessages(conversationId)
+    if (Array.isArray(data) && (data.length || !cached?.length)) {
+      setMessages([...data, ...queued])
+      cacheMessages(conversationId, data).catch(() => {})
+    }
+  } catch (e) { console.error('[useChat] loadMessages failed:', e) }
+  setLoading(false)
+}, [conversationId])
 
   useEffect(() => {
     if (!conversationId) return
@@ -47,7 +71,20 @@ export function useChat(conversationId, currentUserId) {
       .single()
       .then(({ data }) => setIsEmailConvo(!!data?.email_sender))
   }, [conversationId, loadMessages])
+// keep the saved copy fresh, including live messages
+useEffect(() => {
+  if (!conversationId || loading || !messages.length) return
+  const t = setTimeout(() => cacheMessages(conversationId, messages).catch(() => {}), 800)
+  return () => clearTimeout(t)
+}, [messages, conversationId, loading])
 
+// when the connection returns: send queued messages, then refresh
+useEffect(() => {
+  if (!conversationId) return
+  const onOnline = async () => { await flushOutbox(sendMsg); loadMessages() }
+  window.addEventListener('online', onOnline)
+  return () => window.removeEventListener('online', onOnline)
+}, [conversationId, loadMessages])
   // Don't carry File blobs across a conversation switch.
   useEffect(() => () => fileStoreRef.current.clear(), [conversationId])
 
@@ -153,13 +190,20 @@ export function useChat(conversationId, currentUserId) {
     }
     setMessages(prev => [...prev, optimisticMsg])
 
+    const queueIt = async () => {
+  await addToOutbox({ tempId, conversationId, senderId: currentUserId, content: trimmed, queuedAt: Date.now() })
+  setMessages(prev => prev.map(m => m.id === tempId ? { ...m, _status: 'queued' } : m))
+}
+if (!navigator.onLine) { await queueIt(); return }
+
     try {
       await sendMsg(conversationId, currentUserId, trimmed)
-    } catch (e) {
-      console.error('sendMessage failed:', e)
-      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, _status: 'failed' } : m))
-      return
-    }
+   } catch (e) {
+  console.error('sendMessage failed:', e)
+  if (!navigator.onLine) { await queueIt(); return }
+  setMessages(prev => prev.map(m => m.id === tempId ? { ...m, _status: 'failed' } : m))
+  return
+}
 
     if (isEmailConvo) {
       try {
@@ -189,6 +233,7 @@ export function useChat(conversationId, currentUserId) {
    * blurOpts, so no changes needed on the MediaComposer side.
    */
    const sendMediaMessage = useCallback(async (files, opts = {}) => {
+     if (!navigator.onLine) { alert("You're offline. Photos and videos can be sent once you're back online."); return }
     if (!conversationId || !currentUserId || !files?.length) return
     const {
       mediaType,
@@ -551,6 +596,7 @@ export function useConversations(userId) {
 
   const load = useCallback(async () => {
     if (!userId) return
+    if (!navigator.onLine) { setLoading(false); return }
 
     const { data: memberRows } = await supabase
       .from('conversation_members')
@@ -592,7 +638,7 @@ const { data } = await supabase
       .in('id', visibleIds)
       .order('updated_at', { ascending: false })
 
-    setConversations(data || [])
+   if (data) { setConversations(data); cacheConversations(userId, data).catch(() => {}) }
     setLoading(false)
   }, [userId])
 
@@ -600,6 +646,18 @@ const { data } = await supabase
 
   const idsKey = convoIds.slice().sort().join(',')
 
+  // show the saved list instantly (and when offline)
+useEffect(() => {
+  if (!userId) return
+  getCachedConversations(userId).then((c) => {
+    if (c?.length) { setConversations((prev) => (prev.length ? prev : c)); setLoading(false) }
+  }).catch(() => {})
+}, [userId])
+
+useEffect(() => {
+  window.addEventListener('online', load)
+  return () => window.removeEventListener('online', load)
+}, [load])
   useEffect(() => {
     if (!userId || !convoIds.length) return
 
