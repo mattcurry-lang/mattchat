@@ -20,7 +20,6 @@ function TrackSkeletonRow({ colors }) {
 }
 
 function TrackRow({ track, onPlay, isCurrent, isPlaying, colors }) {
-  
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
       <button
@@ -53,12 +52,12 @@ function TrackRow({ track, onPlay, isCurrent, isPlaying, colors }) {
               <span style={{ fontSize: 9, fontWeight: 800, color: '#f87171', background: 'rgba(248,113,113,0.14)', borderRadius: 4, padding: '1px 5px', letterSpacing: 0.3 }}>
                 MAINSTREAM
               </span>
-            
-      {(track.provider === 'jamendo' || track.provider === 'audius') && (
-  <span style={{ fontSize: 9, fontWeight: 800, color: '#4ade80', background: 'rgba(74,222,128,0.14)', borderRadius: 4, padding: '1px 5px', letterSpacing: 0.3 }}>
-    {track.isDownloadable ? 'FREE · DOWNLOADABLE' : 'FREE'}
-  </span>
-)}
+            )}
+            {(track.provider === 'jamendo' || track.provider === 'audius') && (
+              <span style={{ fontSize: 9, fontWeight: 800, color: '#4ade80', background: 'rgba(74,222,128,0.14)', borderRadius: 4, padding: '1px 5px', letterSpacing: 0.3 }}>
+                {track.isDownloadable ? 'FREE · DOWNLOADABLE' : 'FREE'}
+              </span>
+            )}
           </div>
         </div>
         <div style={{
