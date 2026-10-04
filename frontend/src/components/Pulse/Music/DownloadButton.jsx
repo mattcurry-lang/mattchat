@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react'
 import { OfflineCache } from '../../../lib/music/OfflineCache'
-import { MattchatProvider } from '../../../lib/music/providers/MattchatProvider'
+import { getDownloadUrl } from '../../../lib/music/getDownloadUrl'
 import { IconDownload, IconCheck, IconLoader2 } from '../../Icons'
 
 // Triggers the browser/phone's normal "save file" flow (lands in Downloads)
@@ -32,7 +31,7 @@ export default function DownloadButton({ track, size = 17 }) {
     if (status === 'done') { await OfflineCache.deleteDownload(track.id); setStatus('none'); return }
     setStatus('downloading'); setProgress(0); setError(null)
     try {
-      const url = await MattchatProvider.getDownloadUrl(track)
+    const url = await getDownloadUrl(track)
       if (!url) throw new Error('No download link for this track')
       await OfflineCache.downloadTrack(track, url, setProgress)
       setStatus('done')
@@ -49,7 +48,7 @@ export default function DownloadButton({ track, size = 17 }) {
   try {
     let blob = await OfflineCache.getBlob(track.id)        // reuse the offline copy if we have it
     if (!blob) {
-      const url = await MattchatProvider.getDownloadUrl(track)
+   const url = await getDownloadUrl(track)
       if (!url) throw new Error('No download link for this track')
       const res = await fetch(url)
       if (!res.ok) throw new Error(`Download failed (${res.status})`)
