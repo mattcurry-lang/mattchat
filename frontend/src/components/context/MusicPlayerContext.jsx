@@ -110,7 +110,10 @@ const recordRecentlyPlayed = useCallback((track) => {
     setIsMiniPlayerVisible(true)
 
     const audio = audioRef.current
-
+if (!navigator.onLine) {
+  const cached = await OfflineCache.isDownloaded(track.id).catch(() => false)
+  if (!cached) { setError("You're offline. This song needs internet."); return }
+}
     if (track.provider === 'youtube') {
       audio?.pause()
       try {
