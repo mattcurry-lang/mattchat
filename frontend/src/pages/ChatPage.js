@@ -111,6 +111,8 @@ import { RingtoneService } from '../lib/music/RingtoneService'
 import { useRecordPlays } from '../hooks/useListeningHistory'
 import { useOutboxFlush } from '../hooks/useOutboxFlush'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
+import ConnectionBanner from '../components/ConnectionBanner'
+import { useConnectionStatus } from '../lib/connectivity'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -170,8 +172,11 @@ function DateDivider({ date }) {
 // this stays silent and the bubble itself gets a purple outline
 // instead — see the `.read` class applied to .msg-bubble below.
 function MessageStatus({ isMe, isRead, isDelivered, queued }) {
+  const { status } = useConnectionStatus()
   if (!isMe) return null
-  const label = queued ? 'Waiting for network…' : isRead ? 'Read' : isDelivered ? 'Delivered' : 'Sent'
+  const label = queued
+    ? (status === 'offline' ? 'Waiting for network…' : 'Sending…')
+    : isRead ? 'Read' : isDelivered ? 'Delivered' : 'Sent'
   const cls = queued ? 'sent' : isRead ? 'read' : isDelivered ? 'delivered' : 'sent'
   return <div className={`msg-status ${cls}`}>{label}</div>
 }
@@ -1159,7 +1164,6 @@ const [curryPrefill, setCurryPrefill] = useState(null)
   const { isFullPlayerVisible, setIsFullPlayerVisible } = useMusicPlayer()
     useRecordPlays(userId)
   useOutboxFlush(userId)
-  const online = useOnlineStatus()
   const [myRingtone, setMyRingtone] = useState(null)
 const [showRingtonePicker, setShowRingtonePicker] = useState(false)
 
@@ -1965,12 +1969,7 @@ const handleSignOut = async () => {
  return (
     <div className={`app ${activeConvo ? 'chat-open' : ''}`}>
 
-      {!online && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100001, background: '#7c3aed', color: '#fff', fontSize: 12, fontWeight: 700, textAlign: 'center', padding: '6px 12px' }}>
-          You're offline. Downloaded music and saved chats still work.
-        </div>
-      )}
-
+     <ConnectionBanner />
       {/* ── INCOMING CALL ── */}
       {callStatus === 'incoming' && activeCall && (
         <IncomingCallModal
