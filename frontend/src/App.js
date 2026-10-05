@@ -129,7 +129,7 @@ export default function App() {
       })
 
     return () => { clearTimeout(splashGuard); subscription.unsubscribe() }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, []) 
 
   if (session === undefined || !aalChecked) return <Splash />
 
