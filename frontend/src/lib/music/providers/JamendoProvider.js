@@ -54,7 +54,11 @@ export class JamendoProvider extends MusicProvider {
     const rows = await jamendo('/tracks/', { order: 'popularity_week', limit: String(limit) })
     return rows.map(normalizeTrack)
   }
-
+  async getArtistTracks(artistId, { limit = 30 } = {}) {
+    if (!artistId) return []
+    const rows = await jamendo('/tracks/', { artist_id: String(artistId), limit: String(limit), order: 'popularity_total' })
+    return rows.map(normalizeTrack)
+  }
   async streamTrack(id) {
     const t = await this.getTrack(id)
     return t?.streamUrl || null
