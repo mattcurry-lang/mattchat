@@ -110,6 +110,18 @@ export const MattchatProvider = {
     return data.map(normalizeTrack)
   },
 
+    async getArtistTracks(artistId, { limit = 30 } = {}) {
+    if (!artistId) return []
+    const { data, error } = await supabase
+      .from('mattchat_tracks')
+      .select('*, music_artists(artist_name)')
+      .eq('artist_id', artistId)
+      .eq('status', 'published')
+      .order('play_count', { ascending: false })
+      .limit(limit)
+    if (error) throw error
+    return data.map(normalizeTrack)
+  },
   // Same signature as AudiusProvider.streamTrack: raw providerTrackId in, url out.
   async streamTrack(providerTrackId) {
     const { data: row, error } = await supabase
