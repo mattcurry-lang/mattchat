@@ -3,6 +3,7 @@ import { MusicService } from '../../lib/music/MusicService'
 import { YouTubeEngine } from '../../lib/music/YouTubeEngine'
 import { RecommendationEngine } from '../../lib/music/RecommendationEngine'
 import { OfflineCache } from '../../lib/music/OfflineCache'
+import { isOnlineNow } from '../../lib/connectivity'         
 
 const MusicPlayerContext = createContext(null)
 
@@ -110,7 +111,7 @@ const recordRecentlyPlayed = useCallback((track) => {
     setIsMiniPlayerVisible(true)
 
     const audio = audioRef.current
-if (!navigator.onLine) {
+if (!isOnlineNow()) {
   const cached = await OfflineCache.isDownloaded(track.id).catch(() => false)
   if (!cached) { setError("You're offline. This song needs internet."); return }
 }
