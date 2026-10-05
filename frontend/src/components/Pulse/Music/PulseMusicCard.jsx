@@ -26,6 +26,7 @@ import TrackDownloadAction from './TrackDownloadAction'
 import { jamendoProvider } from '../../../lib/music/providers/JamendoProvider'
 import SavedSongs from './SavedSongs'
 import { useOnlineStatus } from '../../../hooks/useOnlineStatus'
+import DownloadAllButton from './DownloadAllButton'
 
 function greeting() {
   const h = new Date().getHours()
@@ -229,7 +230,10 @@ function NowPlayingPanel({ colors, fallbackTrack }) {
           </button>
         </div>
       </div>
-      <div style={{ fontSize: 13, color: colors.textMuted, marginBottom: 18 }}>{currentTrack.artist}</div>
+      <div style={{ fontSize: 13, color: colors.textMuted, marginBottom: 10 }}>{currentTrack.artist}</div>
+      <div style={{ marginBottom: 16 }}>
+        <DownloadAllButton artistOf={currentTrack} label={`Download more by ${currentTrack.artist}`} />
+      </div>
 
       <AnimatePresence mode="wait">
         {tab === 'lyrics' ? (
@@ -690,6 +694,14 @@ export function PulseMusicOverlay({ onClose }) {
 {(activeTab === 'All' || activeTab === 'Playlists') && mixes.length > 0 && (
   <Section delay={0.05}><MadeForYou mixes={mixes} colors={colors} /></Section>
 )}
+            {(activeTab === 'All' || activeTab === 'Songs') && freeMusic.length > 0 && (
+  <Section delay={0.1}>
+    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+      <DownloadAllButton tracks={freeMusic} label="Download all" />
+    </div>
+    <TrackRail title="Free to download" tracks={freeMusic} />
+  </Section>
+)}
             {(activeTab === 'All' || activeTab === 'Songs') && mainstream.length > 0 && (
               <Section delay={0.06}><TrackRail title="Mainstream Hits" tracks={mainstream} /></Section>
             )}
@@ -697,9 +709,7 @@ export function PulseMusicOverlay({ onClose }) {
               <Section delay={0.09}><TrackRail title="Trending on Mattchat" tracks={trending} /></Section>
             )}
     
-{(activeTab === 'All' || activeTab === 'Songs') && freeMusic.length > 0 && (
-  <Section delay={0.1}><TrackRail title="Free to download" tracks={freeMusic} /></Section>
-)}
+ 
 {online && trendingError && trending.length === 0 && (
               <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 18 }}>Trending is temporarily unavailable.</div>
             )}
