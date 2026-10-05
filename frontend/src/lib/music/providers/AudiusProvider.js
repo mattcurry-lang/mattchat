@@ -156,7 +156,11 @@ export class AudiusProvider extends MusicProvider {
     const { json } = await fetchWithFallback('/v1/tracks/trending', params)
     return (json?.data || []).map(normalizeTrack)
   }
-
+  async getArtistTracks(artistId, { limit = 30 } = {}) {
+    if (!artistId) return []
+    const { json } = await fetchWithFallback(`/v1/users/${artistId}/tracks`, { limit: String(limit) })
+    return (json?.data || []).map(normalizeTrack)
+  }
   /**
    * Audius streaming is a direct, unauthenticated redirect URL per
    * track — no separate token exchange needed.
