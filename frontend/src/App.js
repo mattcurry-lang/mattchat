@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import ChatPage from './pages/ChatPage'
@@ -15,6 +15,7 @@ import { unlockFileAudio } from './lib/mattchatSounds'
 import TrustedInvitePage from './pages/TrustedInvitePage'
 import { MusicPlayerProvider } from './components/context/MusicPlayerContext';
 import MiniPlayer from './components/Pulse/Music/MiniPlayer'
+import { readStoredSession, storedSessionNeedsMfa } from './lib/offlineSession'
 
 export default function App() {
 
@@ -22,7 +23,7 @@ export default function App() {
   const [isRecovery, setIsRecovery] = useState(false)
   const [needsMfa, setNeedsMfa] = useState(false)
   const [aalChecked, setAalChecked] = useState(false)
-
+const usedSavedSession = useRef(false)
 
   useEffect(() => {
     window.addEventListener('pointerdown', unlockFileAudio, { once: true })
@@ -59,47 +60,55 @@ export default function App() {
 }
 
   useEffect(() => {
+    // Offline: skip the network and use the login saved on this device
+    const useSavedSession = () => {
+      const saved = readStoredSession()
+      if (!saved) return false
+      usedSavedSession.current = true
+      setSession(saved)
+      setNeedsMfa(storedSessionNeedsMfa(saved))
+      setAalChecked(true)
+      return true
+    }
+
+    if (!navigator.onLine) useSavedSession()
 
     let initialSessionHandled = false
 
-    const {
-      data: { subscription }
-    } = supabase.auth.onAuthStateChange((event, session) => {
-     if (event === 'INITIAL_SESSION') initialSessionHandled = true
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (event === 'INITIAL_SESSION') initialSessionHandled = true
+      if (event === 'PASSWORD_RECOVERY') setIsRecovery(true)
 
-    if (event === 'PASSWORD_RECOVERY') {
-      setIsRecovery(true)
-    }
+      // Offline, Supabase can't refresh the token and reports "no session".
+      // That isn't a sign-out, so keep the saved login.
+      if (!newSession && event !== 'SIGNED_OUT' && (!navigator.onLine || usedSavedSession.current) && useSavedSession()) return
 
-    setSession(session)
-    setAalChecked(false)
+      usedSavedSession.current = false
+      setSession(newSession)
+      setAalChecked(false)
 
-    if (session) {
-      checkAal(session)
-    } else {
-      setAalChecked(true)
-    }
- })
+      if (newSession) checkAal(newSession)
+      else setAalChecked(true)
+    })
 
     supabase.auth.getSession()
-      .then(({ data: { session } }) => {
+      .then(({ data: { session: s } }) => {
         if (initialSessionHandled) return
-        setSession(session)
-        if (session) checkAal(session)
+        if (!s && (!navigator.onLine || usedSavedSession.current) && useSavedSession()) return
+        setSession(s)
+        if (s) checkAal(s)
         else setAalChecked(true)
       })
       .catch((err) => {
         if (initialSessionHandled) return
         console.error('getSession failed:', err)
+        if (!navigator.onLine && useSavedSession()) return
         setSession(null)
         setAalChecked(true)
-     })
-
+      })
 
     return () => subscription.unsubscribe()
-
   }, [])
-
 
 
 if (session === undefined || !aalChecked) {
