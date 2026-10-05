@@ -24,6 +24,8 @@ import MadeForYou from './MadeForYou'
 import { OfflineCache } from '../../../lib/music/OfflineCache'
 import TrackDownloadAction from './TrackDownloadAction'
 import { jamendoProvider } from '../../../lib/music/providers/JamendoProvider'
+import SavedSongs from './SavedSongs'
+import { useOnlineStatus } from '../../../hooks/useOnlineStatus'
 
 function greeting() {
   const h = new Date().getHours()
@@ -519,6 +521,7 @@ export function PulseMusicOverlay({ onClose }) {
   const [showSearch, setShowSearch] = useState(false)
   const [activeTab, setActiveTab] = useState('All')
   const [playlists, setPlaylists] = useState([])
+  const online = useOnlineStatus()
 
   useEffect(() => {
     let cancelled = false
@@ -648,7 +651,11 @@ export function PulseMusicOverlay({ onClose }) {
                 <ForYouCarousel tracks={forYou} isMobile={isMobile} onPress={(t) => playTrack(t, forYou)} />
               </Section>
             )}
-
+{!online && (
+  <div style={{ margin: '14px 0', padding: '10px 12px', borderRadius: 12, fontSize: 12, fontWeight: 600, color: colors.textPrimary, background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.28)' }}>
+    You're offline. Songs marked OFFLINE ✓ still play. Everything else needs internet.
+  </div>
+)}
             {artistChecked && !artistProfile && (
               <Section>
                 <button
@@ -693,7 +700,7 @@ export function PulseMusicOverlay({ onClose }) {
 {(activeTab === 'All' || activeTab === 'Songs') && freeMusic.length > 0 && (
   <Section delay={0.1}><TrackRail title="Free to download" tracks={freeMusic} /></Section>
 )}
-{trendingError && trending.length === 0 && (
+{online && trendingError && trending.length === 0 && (
               <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 18 }}>Trending is temporarily unavailable.</div>
             )}
             {(activeTab === 'All' || activeTab === 'Playlists') && (
@@ -705,9 +712,9 @@ export function PulseMusicOverlay({ onClose }) {
             {(activeTab === 'All' || activeTab === 'Songs') && recentlyPlayed.length > 0 && (
               <Section delay={0.15}><TrackRail title="Recently Played" tracks={recentlyPlayed} /></Section>
             )}
-            {(activeTab === 'All' || activeTab === 'Songs') && likedTracks.length > 0 && (
-              <Section delay={0.18}><TrackRail title="Liked Music" tracks={likedTracks} /></Section>
-            )}
+           {(activeTab === 'All' || activeTab === 'Songs') && likedTracks.length > 0 && (
+  <Section delay={0.18}><SavedSongs colors={colors} /></Section>
+)}
           </div>
         </div>
 {!isMobile && <NowPlayingPanel colors={colors} fallbackTrack={lastPlayed} />}
