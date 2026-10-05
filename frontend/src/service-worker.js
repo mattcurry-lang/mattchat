@@ -39,6 +39,17 @@ registerRoute(
     plugins: [new CacheableResponsePlugin({ statuses: [0, 200] }), new ExpirationPlugin({ maxEntries: 30 })],
   })
 )
+// Google Fonts stylesheets
+registerRoute(
+  ({ url }) => url.origin === 'https://fonts.googleapis.com',
+  new StaleWhileRevalidate({ cacheName: 'mattchat-google-fonts-css' })
+)
+
+// Web manifest
+registerRoute(
+  ({ url }) => url.pathname.endsWith('.webmanifest') || url.pathname.endsWith('/manifest.json'),
+  new StaleWhileRevalidate({ cacheName: 'mattchat-manifest' })
+)
 
 // Lets the page tell a waiting update to take over
 self.addEventListener('message', (e) => { if (e.data?.type === 'SKIP_WAITING') self.skipWaiting() })
