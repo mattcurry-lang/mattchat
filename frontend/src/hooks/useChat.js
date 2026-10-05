@@ -10,6 +10,7 @@ import {
   uploadThumbnail,
 } from '../services/MediaAssetService'
 import { uploadManager } from '../services/UploadManager'
+import { isOnlineNow } from '../lib/connectivity'
 import { cacheMessages, getCachedMessages, addToOutbox, getOutbox, flushOutbox, cacheConversations, getCachedConversations } from '../lib/offlineStore'
 
 const toQueuedBubble = (o) => ({
@@ -46,7 +47,7 @@ const loadMessages = useCallback(async () => {
   if (cached?.length || queued.length) { setMessages([...(cached || []), ...queued]); setLoading(false) }
 
   // 2. offline: that's all we can show
-  if (!navigator.onLine) { setLoading(false); return }
+  if (!isOnlineNow()) { setLoading(false); return }
 
   // 3. online: fetch fresh and refresh the saved copy
   try {
@@ -194,13 +195,13 @@ useEffect(() => {
   await addToOutbox({ tempId, conversationId, senderId: currentUserId, content: trimmed, queuedAt: Date.now() })
   setMessages(prev => prev.map(m => m.id === tempId ? { ...m, _status: 'queued' } : m))
 }
-if (!navigator.onLine) { await queueIt(); return }
+if (!isOnlineNow()) { await queueIt(); return }
 
     try {
       await sendMsg(conversationId, currentUserId, trimmed)
    } catch (e) {
   console.error('sendMessage failed:', e)
-  if (!navigator.onLine) { await queueIt(); return }
+  if (!isOnlineNow()) { await queueIt(); return }
   setMessages(prev => prev.map(m => m.id === tempId ? { ...m, _status: 'failed' } : m))
   return
 }
@@ -233,7 +234,7 @@ if (!navigator.onLine) { await queueIt(); return }
    * blurOpts, so no changes needed on the MediaComposer side.
    */
    const sendMediaMessage = useCallback(async (files, opts = {}) => {
-     if (!navigator.onLine) { alert("You're offline. Photos and videos can be sent once you're back online."); return }
+     if (!isOnlineNow()) { alert("You're offline. Photos and videos can be sent once you're back online."); return }
     if (!conversationId || !currentUserId || !files?.length) return
     const {
       mediaType,
@@ -596,7 +597,7 @@ export function useConversations(userId) {
 
   const load = useCallback(async () => {
     if (!userId) return
-    if (!navigator.onLine) { setLoading(false); return }
+    if (!isOnlineNow()) { setLoading(false); return }
 
     const { data: memberRows } = await supabase
       .from('conversation_members')
