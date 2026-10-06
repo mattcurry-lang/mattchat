@@ -732,15 +732,14 @@ useEffect(() => { mainScrollRef.current?.scrollTo({ top: 0 }) }, [showSearchView
             {(activeTab === 'All' || activeTab === 'Songs') && recentlyPlayed.length > 0 && (
               <Section delay={0.15}><TrackRail title="Recently Played" tracks={recentlyPlayed} /></Section>
             )}
-           {(activeTab === 'All' || activeTab === 'Songs') && likedTracks.length > 0 && (
+                {(activeTab === 'All' || activeTab === 'Songs') && likedTracks.length > 0 && (
   <Section delay={0.18}><SavedSongs colors={colors} /></Section>
 )}
           </div>
-        </div>
-                  </>
+            </>
           )}
         </div>
- 
+
 {!isMobile && <NowPlayingPanel colors={colors} fallbackTrack={lastPlayed} />}
 </div>
 
