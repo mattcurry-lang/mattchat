@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import MusicSearch from './MusicSearch'
 import TrackRail from './TrackRail'
 import PlaylistsSection from './PlaylistsSection'
 import BecomeArtistModal from './BecomeArtistModal'
@@ -14,7 +13,7 @@ import { PlaylistService } from '../../../lib/music/PlaylistService'
 import { useDominantColor, rgba } from '../../../lib/music/extractColor'
 import { useMusicColors } from '../../../hooks/useMusicColors'
 import {
-  IconMusic, IconX, IconPlay, IconPause, IconMic, IconSearch, IconListMusic,
+  IconMusic, IconX, IconPlay, IconPause, IconMic, IconListMusic,
   IconSkipBack, IconSkipForward, IconShuffle, IconRepeat, IconHeart, IconVolume2, IconPlus,
   IconQueueList, IconLyrics, IconShare2,
 } from '../../Icons'
@@ -27,6 +26,7 @@ import { jamendoProvider } from '../../../lib/music/providers/JamendoProvider'
 import SavedSongs from './SavedSongs'
 import { useOnlineStatus } from '../../../hooks/useOnlineStatus'
 import DownloadAllButton from './DownloadAllButton'
+import { SearchBar, SearchResultsView, HomeButton, loadRecents, saveRecent } from './SpotifySearch'
 
 function greeting() {
   const h = new Date().getHours()
@@ -522,7 +522,12 @@ export function PulseMusicOverlay({ onClose }) {
   const [showBecomeArtist, setShowBecomeArtist] = useState(false)
   const [showDashboard, setShowDashboard] = useState(false)
   const [showLibrary, setShowLibrary] = useState(false)
-  const [showSearch, setShowSearch] = useState(false)
+  const [query, setQuery] = useState('')
+const [searchFocused, setSearchFocused] = useState(false)
+const [recents, setRecents] = useState(loadRecents)
+const searchInputRef = useRef(null)
+const mainScrollRef = useRef(null)
+const showSearchView = query.trim().length > 0 || (searchFocused && recents.length > 0)
   const [activeTab, setActiveTab] = useState('All')
   const [playlists, setPlaylists] = useState([])
   const online = useOnlineStatus()
@@ -548,7 +553,7 @@ export function PulseMusicOverlay({ onClose }) {
     finally { setArtistChecked(true) }
   }, [userId])
   useEffect(() => { refreshArtistProfile() }, [refreshArtistProfile])
-
+useEffect(() => { mainScrollRef.current?.scrollTo({ top: 0 }) }, [showSearchView])
  const heroTrack = mainstream[0] || trending[0] || lastPlayed || recentlyPlayed[0] || likedTracks[0] || null
   const dominant = useDominantColor(heroTrack?.artwork)
   const quickPicks = [...recentlyPlayed.slice(0, 4), ...likedTracks.slice(0, 4)].slice(0, 6)
@@ -560,53 +565,45 @@ export function PulseMusicOverlay({ onClose }) {
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
       style={{ position: 'fixed', inset: 0, zIndex: 600, background: colors.surface1, display: 'flex', flexDirection: 'column' }}
     >
-      {/* ── top bar ── */}
+          {/* ── top bar: home + search in the middle, studio + close on the right ── */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
         background: colors.surface1, borderBottom: `1px solid ${colors.border}`, flexShrink: 0,
       }}>
-        <button
-          onClick={() => setShowSearch((s) => !s)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8, background: colors.surface2,
-            border: `1px solid ${colors.border}`, borderRadius: 999,
-            padding: isMobile ? '8px 10px' : '8px 16px',
-            cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: colors.textMuted, fontSize: 13,
-            width: isMobile ? 36 : 340, height: 36, justifyContent: 'center',
-          }}
-        >
-          <IconSearch size={14} />
-          {!isMobile && 'What do you want to play?'}
-        </button>
-        <div style={{ flex: 1 }} />
-        <button
-          onClick={openArtistStudio}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, height: 32, padding: isMobile ? '0 10px' : '0 12px', borderRadius: 999, border: `1px solid ${colors.border}`, cursor: 'pointer', background: colors.surface2, color: colors.textPrimary, fontSize: 11.5, fontWeight: 700 }}
-        >
-          <IconMic size={13} /> {!isMobile && (artistProfile ? 'Your Studio' : 'Become an Artist')}
-        </button>
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          style={{ width: 32, height: 32, borderRadius: '50%', border: `1px solid ${colors.border}`, background: colors.surface2, color: colors.textSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-        >
-          <IconX size={16} />
-        </button>
-      </div>
+        {!isMobile && <div style={{ flex: 1 }} />}
 
-      <AnimatePresence>
-        {showSearch && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            style={{ overflow: 'hidden', borderBottom: `1px solid ${colors.border}`, background: colors.surface1, flexShrink: 0 }}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: isMobile ? 1 : '0 1 560px', minWidth: 0 }}>
+          {!isMobile && (
+            <HomeButton colors={colors} onClick={() => { setQuery(''); searchInputRef.current?.blur() }} />
+          )}
+          <SearchBar
+            colors={colors}
+            inputRef={searchInputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            onClear={() => setQuery('')}
+            onSubmit={() => { if (query.trim()) setRecents(saveRecent(query)) }}
+          />
+        </div>
+
+        <div style={{ flex: isMobile ? '0 0 auto' : 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+          <button
+            onClick={openArtistStudio}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, height: 32, padding: isMobile ? '0 10px' : '0 12px', borderRadius: 999, border: `1px solid ${colors.border}`, cursor: 'pointer', background: colors.surface2, color: colors.textPrimary, fontSize: 11.5, fontWeight: 700 }}
           >
-            <div style={{ padding: '14px 16px', maxWidth: 640 }}>
-              <MusicSearch autoFocus />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <IconMic size={13} /> {!isMobile && (artistProfile ? 'Your Studio' : 'Become an Artist')}
+          </button>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{ width: 32, height: 32, borderRadius: '50%', border: `1px solid ${colors.border}`, background: colors.surface2, color: colors.textSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+          >
+            <IconX size={16} />
+          </button>
+        </div>
+      </div>
 
       {/* ── main 3-column desktop layout ── */}
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
@@ -614,7 +611,20 @@ export function PulseMusicOverlay({ onClose }) {
           <LibraryRail playlists={playlists} colors={colors} onOpenLibrary={() => setShowLibrary(true)} />
         )}
 
-        <div style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
+               <div ref={mainScrollRef} style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
+          {showSearchView ? (
+            <SearchResultsView
+              query={query}
+              colors={colors}
+              isMobile={isMobile}
+              recents={recents}
+              onRecentsChange={setRecents}
+              onPickQuery={(text) => { setQuery(text); setRecents(saveRecent(text)) }}
+              onPlayed={() => { if (query.trim()) setRecents(saveRecent(query)) }}
+            />
+          ) : (
+            <>
+          
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}
             style={{
@@ -727,6 +737,10 @@ export function PulseMusicOverlay({ onClose }) {
 )}
           </div>
         </div>
+                  </>
+          )}
+        </div>
+ 
 {!isMobile && <NowPlayingPanel colors={colors} fallbackTrack={lastPlayed} />}
 </div>
 
