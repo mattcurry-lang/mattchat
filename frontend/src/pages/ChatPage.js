@@ -2454,15 +2454,14 @@ const handleSignOut = async () => {
 {showNotificationSettings && <NotificationSettingsModal userId={userId} onClose={() => setShowNotificationSettings(false)} />}
         {show2FA && <TwoFactorModal onClose={() => setShow2FA(false)} />}
 {showProfileSetup && (
-  <>
-    <ProfileSetupModal
-      session={session}
-      userId={userId}
-      username={profile?.username}
-      onComplete={(patch) => { setProfile(p => ({ ...p, ...patch })); setShowProfileSetup(false) }}
-      onClose={skipProfileSetup}
-      onSkip={skipProfileSetup}
-    />
+  <ProfileSetupModal
+    session={session}
+    userId={userId}
+    username={profile?.username}
+    onComplete={(patch) => { setProfile(p => ({ ...p, ...patch })); setShowProfileSetup(false) }}
+    onClose={skipProfileSetup}
+  />
+)}
     <button
       onClick={skipProfileSetup}
       style={{
@@ -2628,7 +2627,7 @@ const handleSignOut = async () => {
  
           
  <QuickActionsMenu
-      hidden={!!activeConvo || showShorts || showDekutCurry}
+      hidden={!!activeConvo || showShorts || showDekutCurry || showProfileMenu}
       onNewChat={() => (activeTab === 'calls' ? setShowNewCall(true) : setShowNewChat(true))}
       onOpenCurryAI={() => setActiveConvo(CURRY_AI_CONTACT)}
       onOpenDekutCurry={() => setShowDekutCurry(true)}
