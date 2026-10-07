@@ -1571,12 +1571,7 @@ useEffect(() => {
   window.history.replaceState({}, '', cleanUrl)
 }, [])
   
-useEffect(() => {
-  if (messages.length > prevMsgCountRef.current) {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-  prevMsgCountRef.current = messages.length
-}, [messages])
+ 
 useEffect(() => {
   if (!messages.length) { setHiddenMsgIds(new Set()); return }
   const realIds = messages.filter(m => !m._optimistic).map(m => m.id)
@@ -2237,49 +2232,9 @@ const handleSignOut = async () => {
     {formatLastActivity(lastActivityStatus[c.id].timestamp, lastActivityStatus[c.id].status)}
   </div>
 ) : (
-  <div className="contact-preview">
-    {c.last_message?.startsWith('status_reply:') ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <IconStatus size={11} /> Replied to a status
-                </span>
-               ) : c.last_message?.startsWith('partner_nudge:') ? (
-  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-    💗 Sent with care
-  </span>
-              ) : c.last_message?.startsWith('gif:') ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <IconFilm size={11} /> GIF
-                </span>
-              ) : c.last_message?.startsWith('pinterest:') ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  📌 Pin
-                </span>
-              ) : c.last_message?.startsWith('drawing:') ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  🎨 Drawing
-                </span>
-              ) : (c.last_message?.startsWith('call_log:') || c.last_message?.startsWith('missed_call:')) ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <IconPhone size={11} /> Call
-                </span>
-) : (c.last_message?.startsWith('{') && c.last_message.includes('"providerTrackId"')) ? (
-  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-    <IconMusic size={11} /> Song
-  </span>
-) : (c.last_message?.startsWith('{') && c.last_message.includes('"title"')) ? (
-  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-    ✨ Moment
-  </span>
-) : (c.last_message?.startsWith('short:') || (c.last_message?.startsWith('{') && c.last_message.includes('"videoId"'))) ? (
-  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-    <IconFilm size={11} /> Short
-  </span>
-) : extractYouTubeId(c.last_message) ? (          // ← ADD HERE
-  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-    <IconVideo size={11} /> sent youvid
-  </span>
-) : getMessagePreview(c.last_message)}
-            </div>
+<div className="contact-preview">
+  <LastMessagePreview content={c.last_message} />
+</div>
           )}
         </div>
       </div>
@@ -2459,7 +2414,7 @@ const handleSignOut = async () => {
       },
     ]}
   />
-)}
+ 
 
 {showChangeUsername && (
   <ChangeUsernameModal
@@ -2468,7 +2423,7 @@ const handleSignOut = async () => {
     onSaved={(newUsername) => { setProfile(p => ({ ...p, username: newUsername })); setShowChangeUsername(false) }}
     onClose={() => setShowChangeUsername(false)}
   />
- 
+)}
 
 {showChangePicture && (
   <ChangeProfilePictureModal
