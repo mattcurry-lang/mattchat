@@ -2341,7 +2341,6 @@ const handleSignOut = async () => {
 )}
         </div>
 
-  {showProfileMenu && (
  <ProfileMenuSheet
     isOpen={showProfileMenu}
     onClose={() => setShowProfileMenu(false)}
@@ -2426,7 +2425,7 @@ const handleSignOut = async () => {
     onSaved={(newUsername) => { setProfile(p => ({ ...p, username: newUsername })); setShowChangeUsername(false) }}
     onClose={() => setShowChangeUsername(false)}
   />
-)}
+ 
 
 {showChangePicture && (
   <ChangeProfilePictureModal
@@ -2461,20 +2460,6 @@ const handleSignOut = async () => {
     onComplete={(patch) => { setProfile(p => ({ ...p, ...patch })); setShowProfileSetup(false) }}
     onClose={skipProfileSetup}
   />
-)}
-    <button
-      onClick={skipProfileSetup}
-      style={{
-        position: 'fixed', top: 16, right: 16, zIndex: 100000,
-        background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.25)',
-        color: '#fff', borderRadius: 999, padding: '8px 16px',
-        fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-        backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
-      }}
-    >
-      Skip for now
-    </button>
-  </>
 )}
 {showEmailWorkspace && (
   <div className="profile-menu-overlay" onClick={() => setShowEmailWorkspace(false)}>
