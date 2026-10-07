@@ -1084,6 +1084,30 @@ function getOtherUserIsAdmin(convo, myUserId) {
   return other?.profiles?.is_admin || false
 }
 
+function LastMessagePreview({ content }) {
+  const row = (icon, text) => (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{icon}{text}</span>
+  )
+  if (!content) return 'No messages yet'
+  if (content.startsWith('status_reply:')) return row(<IconStatus size={11} />, 'Replied to a status')
+  if (content.startsWith('partner_nudge:')) return row('💗', 'Sent with care')
+  if (content.startsWith('gif:')) return row(<IconFilm size={11} />, 'GIF')
+  if (content.startsWith('pinterest:')) return row('📌', 'Pin')
+  if (content.startsWith('drawing:')) return row('🎨', 'Drawing')
+  if (content.startsWith('call_log:') || content.startsWith('missed_call:')) return row(<IconPhone size={11} />, 'Call')
+  if (content.startsWith('short:')) return row(<IconFilm size={11} />, 'Short')
+  if (content.startsWith('{')) {
+    try {
+      const p = JSON.parse(content)
+      if (p.providerTrackId) return row(<IconMusic size={11} />, 'Song')
+      if (p.videoId) return row(<IconFilm size={11} />, 'Short')
+      if ('title' in p) return row('✨', 'Moment')
+      if (typeof p.lat === 'number') return row('📍', 'Location')
+    } catch { /* fall through */ }
+  }
+  if (extractYouTubeId(content)) return row(<IconVideo size={11} />, 'sent youvid')
+  return getMessagePreview(content)
+}
 export default function ChatPage({ session }) {
   const [activeConvo, setActiveConvo]   = useState(null)
   const userId = session.user.id
@@ -1451,6 +1475,20 @@ useEffect(() => {
 // adding anything, which was yanking the view back to the bottom
 // every time, even mid-scroll.
 const prevMsgCountRef = useRef(0)
+const prevConvoIdRef = useRef(null)
+
+useEffect(() => {
+  if (prevConvoIdRef.current !== activeConvo?.id) {
+    prevConvoIdRef.current = activeConvo?.id
+    prevMsgCountRef.current = 0
+  }
+  if (messages.length > prevMsgCountRef.current) {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: prevMsgCountRef.current === 0 ? 'auto' : 'smooth',
+    })
+  }
+  prevMsgCountRef.current = messages.length
+}, [messages, activeConvo?.id])
 
   
 useEffect(() => {
@@ -1644,17 +1682,22 @@ useEffect(() => {
       runAutoContext(c.id)
     }
   }
-
-  const startNewChat = async (e) => {
-    e.preventDefault()
-    try {
-      const convoId = await getOrCreateConversation(userId, newContact)
-      await reload()
-      const found = conversations.find(c => c.id === convoId)
-      if (found) setActiveConvo(found)
-      setShowNewChat(false); setNewContact('')
-   } catch (err) { playSound('warning'); alert(err.message) }
-  }
+const startNewChat = async (e) => {
+  e.preventDefault()
+  try {
+    const convoId = await getOrCreateConversation(userId, newContact)
+    await reload()
+    const found = conversations.find(c => c.id === convoId)
+    if (found) {
+      openConvo(found)
+    } else {
+      setActiveConvo({ id: convoId, conversation_members: [] })
+      clearUnread(convoId)
+    }
+    setActiveTab('chats')
+    setShowNewChat(false); setNewContact('')
+  } catch (err) { playSound('warning'); alert(err.message) }
+}
 const handleMessageContact = async (contactEmail) => {
   if (!contactEmail) return
   try {
@@ -2453,13 +2496,27 @@ const handleSignOut = async () => {
 {showNotificationSettings && <NotificationSettingsModal userId={userId} onClose={() => setShowNotificationSettings(false)} />}
         {show2FA && <TwoFactorModal onClose={() => setShow2FA(false)} />}
 {showProfileSetup && (
-  <ProfileSetupModal
-    session={session}
-    userId={userId}
-    username={profile?.username}
-    onComplete={(patch) => { setProfile(p => ({ ...p, ...patch })); setShowProfileSetup(false) }}
-    onClose={skipProfileSetup}
-  />
+  <>
+    <ProfileSetupModal
+      session={session}
+      userId={userId}
+      username={profile?.username}
+      onComplete={(patch) => { setProfile(p => ({ ...p, ...patch })); setShowProfileSetup(false) }}
+      onClose={skipProfileSetup}
+    />
+    <button
+      onClick={skipProfileSetup}
+      style={{
+        position: 'fixed', top: 16, right: 16, zIndex: 100000,
+        background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.25)',
+        color: '#fff', borderRadius: 999, padding: '8px 16px',
+        fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+        backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+      }}
+    >
+      Skip for now
+    </button>
+  </>
 )}
 {showEmailWorkspace && (
   <div className="profile-menu-overlay" onClick={() => setShowEmailWorkspace(false)}>
