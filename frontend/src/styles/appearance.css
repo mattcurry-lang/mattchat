@@ -1,0 +1,98 @@
+/*
+ * Appearance settings. Driven by data attributes that appearanceStore.js puts on <html>.
+ * Selectors assume the class names used in ChatPage: .chat-area, .messages, .msg-wrap.mine/.theirs,
+ * .msg-bubble, .input-area. If your own CSS wins somewhere, raise the specificity here.
+ * "default" theme and "soft" bubbles add no rules, so today's look stays exactly as it is.
+ */
+
+/* ---- text size (medium = your current size) ---- */
+html[data-mc-font-size='small'] .chat-area .msg-bubble,
+html[data-mc-font-size='small'] .chat-area .input-area textarea {
+  font-size: 13px;
+}
+html[data-mc-font-size='large'] .chat-area .msg-bubble,
+html[data-mc-font-size='large'] .chat-area .input-area textarea {
+  font-size: 17px;
+  line-height: 1.45;
+}
+
+/* ---- bubble shape (soft = your current shape) ---- */
+html[data-mc-bubble='classic'] .chat-area .msg-bubble {
+  border-radius: 12px;
+}
+html[data-mc-bubble='classic'] .chat-area .msg-wrap.mine .msg-bubble {
+  border-bottom-right-radius: 3px;
+}
+html[data-mc-bubble='classic'] .chat-area .msg-wrap.theirs .msg-bubble {
+  border-bottom-left-radius: 3px;
+}
+html[data-mc-bubble='sharp'] .chat-area .msg-bubble {
+  border-radius: 4px;
+}
+
+/* ---- chat themes ----
+   Bubble colors are chosen so white or near-white text stays readable on them.
+   "Their" bubbles are opaque so they also work in light mode. */
+
+/* midnight */
+html[data-mc-chat-theme='midnight'] .chat-area .messages {
+  background: #0a0d1a;
+}
+html[data-mc-chat-theme='midnight'] .chat-area .msg-wrap.mine .msg-bubble:not(.deleted-msg):not(.status-reply-bubble) {
+  background: linear-gradient(135deg, #1e40af, #2563eb);
+  color: #fff;
+}
+html[data-mc-chat-theme='midnight'] .chat-area .msg-wrap.theirs .msg-bubble:not(.deleted-msg):not(.status-reply-bubble) {
+  background: #1b2340;
+  color: #e8ecff;
+}
+
+/* aurora */
+html[data-mc-chat-theme='aurora'] .chat-area .messages {
+  background: linear-gradient(180deg, #0b1220, #101a2e);
+}
+html[data-mc-chat-theme='aurora'] .chat-area .msg-wrap.mine .msg-bubble:not(.deleted-msg):not(.status-reply-bubble) {
+  background: linear-gradient(135deg, #0e7490, #6d28d9);
+  color: #fff;
+}
+html[data-mc-chat-theme='aurora'] .chat-area .msg-wrap.theirs .msg-bubble:not(.deleted-msg):not(.status-reply-bubble) {
+  background: #17233a;
+  color: #e6f1ff;
+}
+
+/* sunset */
+html[data-mc-chat-theme='sunset'] .chat-area .messages {
+  background: linear-gradient(180deg, #1a0f14, #24111a);
+}
+html[data-mc-chat-theme='sunset'] .chat-area .msg-wrap.mine .msg-bubble:not(.deleted-msg):not(.status-reply-bubble) {
+  background: linear-gradient(135deg, #c2410c, #be185d);
+  color: #fff;
+}
+html[data-mc-chat-theme='sunset'] .chat-area .msg-wrap.theirs .msg-bubble:not(.deleted-msg):not(.status-reply-bubble) {
+  background: #2c1b22;
+  color: #ffe9ef;
+}
+
+/* forest */
+html[data-mc-chat-theme='forest'] .chat-area .messages {
+  background: #0b1410;
+}
+html[data-mc-chat-theme='forest'] .chat-area .msg-wrap.mine .msg-bubble:not(.deleted-msg):not(.status-reply-bubble) {
+  background: linear-gradient(135deg, #15803d, #4d7c0f);
+  color: #fff;
+}
+html[data-mc-chat-theme='forest'] .chat-area .msg-wrap.theirs .msg-bubble:not(.deleted-msg):not(.status-reply-bubble) {
+  background: #15221b;
+  color: #e6f5ea;
+}
+
+/* ---- reduce motion ----
+   Stops CSS animations and transitions app-wide. Looping spinners will hold still too. */
+html[data-mc-reduce-motion='true'] *,
+html[data-mc-reduce-motion='true'] *::before,
+html[data-mc-reduce-motion='true'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
