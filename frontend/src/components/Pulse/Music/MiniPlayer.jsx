@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useMusicPlayer } from '../../context/MusicPlayerContext'
 import { useTheme } from '../../../hooks/useTheme'
-import { IconPlay, IconPause, IconMusic, IconX } from '../../Icons'
+import {
+  IconPlay, IconPause, IconSkipBack, IconSkipForward, IconMusic, IconX,
+} from '../../Icons'
 
-const TOP_OFFSET = 'calc(env(safe-area-inset-top, 0px) + 72px)' 
+const TOP_OFFSET = 'calc(env(safe-area-inset-top, 0px) + 72px)'
 
 function formatTime(seconds) {
   if (!Number.isFinite(seconds)) return '0:00'
@@ -17,6 +19,7 @@ export default function MiniPlayer() {
   const {
     currentTrack, isPlaying, isLoading, error, currentTime, duration,
     isMiniPlayerVisible, togglePlayPause, closeMiniPlayer, setIsFullPlayerVisible,
+    playNext, playPrevious,
   } = useMusicPlayer()
   const { theme } = useTheme()
   const isDark = theme !== 'light'
@@ -44,6 +47,14 @@ export default function MiniPlayer() {
   const closeColor = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(24,20,42,0.5)'
   const shadow = isDark ? '0 8px 24px rgba(0,0,0,0.4)' : '0 8px 24px rgba(60,50,100,0.22)'
 
+  // Skip buttons (prev / next)
+  const ctl = {
+    width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+    background: 'transparent', border: 'none', color: titleColor,
+    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: 0, opacity: isLoading ? 0.5 : 1,
+  }
+
   return (
     <AnimatePresence>
       {isMiniPlayerVisible && currentTrack && (
@@ -60,7 +71,7 @@ export default function MiniPlayer() {
         >
           <div
             style={{
-              display: 'flex', alignItems: 'center', gap: 10, padding: 8,
+              display: 'flex', alignItems: 'center', gap: 6, padding: 8,
               borderRadius: 18, overflow: 'hidden', position: 'relative',
               background: pillBg,
               backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)',
@@ -100,6 +111,10 @@ export default function MiniPlayer() {
               </div>
             </button>
 
+            <button onClick={playPrevious} aria-label="Previous" disabled={isLoading} style={ctl}>
+              <IconSkipBack size={16} />
+            </button>
+
             <button
               onClick={togglePlayPause}
               aria-label={isPlaying ? 'Pause' : 'Play'}
@@ -112,6 +127,10 @@ export default function MiniPlayer() {
               }}
             >
               {isPlaying ? <IconPause size={13} /> : <IconPlay size={13} />}
+            </button>
+
+            <button onClick={playNext} aria-label="Next" disabled={isLoading} style={ctl}>
+              <IconSkipForward size={16} />
             </button>
 
             <button
