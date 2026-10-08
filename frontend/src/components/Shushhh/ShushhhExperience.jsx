@@ -1,14 +1,29 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { supabase } from '../../lib/supabase' // <- adjust
-import Avatar from '../Avatar'                  // <- adjust if Avatar lives elsewhere
+import { supabase } from '../../lib/supabase'
+import Avatar from '../Avatar'
 import ShushhhMascot from './ShushhhMascot'
-import { useShushhhRoom, makeRoomTopic, sendInvite, shushhhBusy } from './useShushhhRoom'
+import { useShushhhRoom, makeRoomTopic, openInviter, loadChatContacts, shushhhBusy } from './useShushhhRoom'
 
 const IconX = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>
 )
+const IconSearch = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="2" /><path d="M16 16l4.5 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+)
+const IconArrow = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+)
+
+const css = `
+.sh-person { transition: background .15s ease, border-color .15s ease, transform .15s ease; }
+.sh-person:hover { background: rgba(139,92,246,0.14); border-color: rgba(167,139,250,0.35); }
+.sh-person:active { transform: scale(0.985); }
+.sh-person:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; }
+.sh-scroll::-webkit-scrollbar { width: 6px; }
+.sh-scroll::-webkit-scrollbar-thumb { background: rgba(167,139,250,0.25); border-radius: 6px; }
+`
 
 export default function ShushhhExperience({ me, incoming = null, onClose }) {
   const reduce = useReducedMotion()
@@ -19,16 +34,17 @@ export default function ShushhhExperience({ me, incoming = null, onClose }) {
   const [declining, setDeclining] = useState(false)
   const [confirmLeave, setConfirmLeave] = useState(false)
   const [introDone, setIntroDone] = useState(false)
-  const [inviteFailed, setInviteFailed] = useState(false)
+  const [inviteState, setInviteState] = useState('idle') // idle | sent | failed
+  const [inviteErr, setInviteErr] = useState('')
   const [waitedLong, setWaitedLong] = useState(false)
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState([])
+  const [contacts, setContacts] = useState(null) // null = loading
+  const [contactsErr, setContactsErr] = useState('')
   const [draft, setDraft] = useState('')
 
   const stageRef = useRef(stage); stageRef.current = stage
   const closingRef = useRef(false)
   const doneRef = useRef(false)
-  const invitedRef = useRef(false)
   const listRef = useRef(null)
 
   const room = useShushhhRoom({ topic, me, peerId: peer?.id, active: roomActive })
@@ -39,12 +55,11 @@ export default function ShushhhExperience({ me, incoming = null, onClose }) {
     onClose?.()
   }, [onClose])
 
-  // exit: remove the history entry we added, then close
   const finalize = useCallback(() => {
     if (closingRef.current) return
     closingRef.current = true
     window.history.back()
-    setTimeout(done, 400) // fallback if popstate never fires
+    setTimeout(done, 400)
   }, [done])
 
   // busy flag + history + keyboard
@@ -65,8 +80,7 @@ export default function ShushhhExperience({ me, incoming = null, onClose }) {
       }
     }
     const onKey = (e) => {
-      if (e.key !== 'Escape') return
-      if (stageRef.current === 'room') setConfirmLeave((v) => !v)
+      if (e.key === 'Escape' && stageRef.current === 'room') setConfirmLeave((v) => !v)
     }
     window.addEventListener('popstate', onPop, true)
     window.addEventListener('keydown', onKey)
@@ -76,43 +90,67 @@ export default function ShushhhExperience({ me, incoming = null, onClose }) {
       shushhhBusy.current = false
     }
   }, [done])
+
   // safety nets: never let an animation callback strand the screen
   useEffect(() => {
     if (stage !== 'intro') return undefined
-    const t = setTimeout(() => setIntroDone(true), 2800)
+    const t = setTimeout(() => setIntroDone(true), 4500)
     return () => clearTimeout(t)
   }, [stage])
-
   useEffect(() => {
     if (stage !== 'leaving') return undefined
     const t = setTimeout(() => finalize(), 2000)
     return () => clearTimeout(t)
   }, [stage, finalize])
-  // incoming: look up who invited us
+
+  // incoming: who invited us
   useEffect(() => {
     if (!incoming) return
     supabase.from('profiles').select('id, username, avatar_url').eq('id', incoming.fromId).single()
       .then(({ data }) => setPeer(data || { id: incoming.fromId, username: 'Someone', avatar_url: null }))
   }, [incoming])
 
-  // host: user search
+  // host: load only the people you chat with
   useEffect(() => {
-    if (stage !== 'pick') return undefined
-    const t = setTimeout(async () => {
-      let q = supabase.from('profiles').select('id, username, avatar_url').neq('id', me).limit(20)
-      if (query.trim()) q = q.ilike('username', `%${query.trim()}%`)
-      const { data } = await q
-      setResults(data || [])
-    }, 250)
-    return () => clearTimeout(t)
-  }, [stage, query, me])
+    if (stage !== 'pick' || contacts) return
+    loadChatContacts(me)
+      .then(setContacts)
+      .catch((e) => { setContactsErr(e?.message || 'Could not load your chats'); setContacts([]) })
+  }, [stage, contacts, me])
 
-  // host: send invite once our room channel is ready
+  const shown = useMemo(() => {
+    if (!contacts) return []
+    const q = query.trim().toLowerCase()
+    return q ? contacts.filter((u) => u.username.toLowerCase().includes(q)) : contacts
+  }, [contacts, query])
+
+  // host: keep inviting (every 4s, max 8 tries) until the other person is in the room
   useEffect(() => {
-    if (incoming || stage !== 'room' || room.conn !== 'ready' || invitedRef.current || !peer) return
-    invitedRef.current = true
-    sendInvite({ to: peer.id, topic, from: me }).then((ok) => { if (!ok) setInviteFailed(true) })
-  }, [room.conn, stage, incoming, peer, topic, me])
+    if (incoming || stage !== 'room' || room.conn !== 'ready' || !peer || room.peerHere || room.peerLeft) return undefined
+    let cancelled = false
+    let inviter = null
+    let timer = null
+    let tries = 0
+
+    const tick = async () => {
+      if (cancelled || tries >= 8) return
+      tries += 1
+      try {
+        if (!inviter) {
+          const opened = await openInviter(peer.id)
+          if (cancelled) { opened.close(); return }
+          inviter = opened
+        }
+        const r = await inviter.send({ topic, from: me })
+        if (!cancelled) { setInviteState(r === 'ok' ? 'sent' : 'failed'); setInviteErr(r === 'ok' ? '' : String(r)) }
+      } catch (e) {
+        if (!cancelled) { setInviteState('failed'); setInviteErr(e?.message || 'error') }
+      }
+      if (!cancelled) timer = setTimeout(tick, 4000)
+    }
+    timer = setTimeout(tick, 60) // small delay so a StrictMode remount never double-opens
+    return () => { cancelled = true; clearTimeout(timer); inviter?.close() }
+  }, [incoming, stage, room.conn, room.peerHere, room.peerLeft, peer, topic, me])
 
   useEffect(() => {
     if (stage !== 'room' || incoming || room.peerHere) { setWaitedLong(false); return undefined }
@@ -120,7 +158,7 @@ export default function ShushhhExperience({ me, incoming = null, onClose }) {
     return () => clearTimeout(t)
   }, [stage, incoming, room.peerHere])
 
-  // decline: join room briefly so the host gets a "left" signal, then close
+  // decline: join briefly so the host gets a "left" signal, then close
   useEffect(() => {
     if (!declining) return undefined
     const t = setTimeout(() => finalize(), 3000)
@@ -128,7 +166,9 @@ export default function ShushhhExperience({ me, incoming = null, onClose }) {
     return () => clearTimeout(t)
   }, [declining, room.conn, finalize])
 
-  useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: reduce ? 'auto' : 'smooth' }) }, [room.messages.length, reduce])
+  useEffect(() => {
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: reduce ? 'auto' : 'smooth' })
+  }, [room.messages.length, reduce])
 
   const enter = () => {
     if (incoming) { setRoomActive(true); setStage('room') } else setStage('pick')
@@ -142,7 +182,7 @@ export default function ShushhhExperience({ me, incoming = null, onClose }) {
   }
   const leave = () => {
     setConfirmLeave(false)
-    setRoomActive(false) // tears down channel + wipes messages immediately
+    setRoomActive(false)
     setStage('leaving')
   }
   const sendDraft = () => { const t = draft; setDraft(''); room.send(t) }
@@ -152,6 +192,8 @@ export default function ShushhhExperience({ me, incoming = null, onClose }) {
 
   return createPortal(
     <div style={shell} role="dialog" aria-modal="true" aria-label="Shushhh">
+      <style>{css}</style>
+
       {/* ---------- INTRO ---------- */}
       {stage === 'intro' && (
         <div style={center}>
@@ -181,21 +223,51 @@ export default function ShushhhExperience({ me, incoming = null, onClose }) {
       {stage === 'pick' && (
         <>
           <Header onLeft={finalize} title="Shushhh" subtitle="Temporary conversation" />
-          <div style={{ padding: '14px 16px', maxWidth: 560, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
-            <div style={sub}>Who is this for?</div>
-            <input
-              autoFocus value={query} onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search people…" autoComplete="off" autoCorrect="off" spellCheck={false}
-              style={searchInput} aria-label="Search people"
-            />
-            <div style={{ marginTop: 10 }}>
-              {results.map((u) => (
-                <button key={u.id} style={personRow} onClick={() => startRoom(u)}>
-                  <Avatar name={u.username} size={38} photoUrl={u.avatar_url} />
-                  <span style={{ fontWeight: 650 }}>{u.username}</span>
-                </button>
+          <div style={pickWrap}>
+            <div style={pickHero}>
+              <ShushhhMascot size={64} mood="curious" />
+              <div>
+                <div style={pickTitle}>Whisper to…</div>
+                <div style={{ ...sub, textAlign: 'left', marginTop: 2 }}>Pick someone you already chat with</div>
+              </div>
+            </div>
+
+            <div style={searchBox}>
+              <span style={{ opacity: 0.55, display: 'flex' }}><IconSearch /></span>
+              <input
+                value={query} onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search your chats" autoComplete="off" autoCorrect="off" spellCheck={false}
+                style={searchField} aria-label="Search your chats"
+              />
+            </div>
+
+            {contacts && contacts.length > 0 && (
+              <div style={listLabel}>Your chats · {shown.length}</div>
+            )}
+
+            <div className="sh-scroll" style={pickList}>
+              {contacts === null && <div style={listEmpty}>Loading your chats…</div>}
+              {contactsErr && <div style={{ ...listEmpty, color: '#fca5a5' }}>Couldn't load your chats ({contactsErr})</div>}
+              {contacts && !contactsErr && contacts.length === 0 && (
+                <div style={listEmpty}>No one yet. Start a normal chat with someone first, then you can whisper to them here.</div>
+              )}
+              {contacts && contacts.length > 0 && shown.length === 0 && <div style={listEmpty}>No chats match "{query}"</div>}
+
+              {shown.map((u, i) => (
+                <motion.button
+                  key={u.id} className="sh-person" style={personRow}
+                  initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i, 10) * 0.035, type: 'spring', stiffness: 380, damping: 30 }}
+                  onClick={() => startRoom(u)}
+                >
+                  <span style={avatarRing}><Avatar name={u.username} size={42} photoUrl={u.avatar_url} /></span>
+                  <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                    <span style={personName}>{u.username}</span>
+                    <span style={personSub}>Tap to whisper 🤫</span>
+                  </span>
+                  <span style={whisperPill}>Whisper <IconArrow /></span>
+                </motion.button>
               ))}
-              {results.length === 0 && <div style={{ ...fine, padding: 24 }}>No one found</div>}
             </div>
           </div>
         </>
@@ -211,10 +283,10 @@ export default function ShushhhExperience({ me, incoming = null, onClose }) {
           </div>
 
           <div style={statusLine}>
-            {room.conn === 'error' ? "Couldn't connect. Leave and try again."
+            {room.conn === 'error' ? `Couldn't connect to the room (${room.error || 'unknown'}). Leave and try again.`
               : room.peerLeft ? `${name} left Shushhh. This room is closed.`
-              : inviteFailed ? `Couldn't reach ${name}. They may be offline.`
               : room.peerHere ? `${name} is here`
+              : inviteState === 'failed' ? `Couldn't reach ${name} yet${inviteErr ? ` (${inviteErr})` : ''}. Retrying…`
               : waitedLong ? `No response from ${name} yet. They may be offline.`
               : `Waiting for ${name}…`}
           </div>
@@ -300,7 +372,7 @@ const shell = {
   background: 'radial-gradient(120% 80% at 50% -10%, #2a1650 0%, #0d0817 55%, #05030a 100%)',
   overscrollBehavior: 'contain', fontFamily: 'inherit',
 }
-const center = { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 24, position: 'relative' }
+const center = { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 24, position: 'relative', overflow: 'hidden' }
 const closeFloat = { position: 'absolute', top: 'max(12px, env(safe-area-inset-top, 0px))', left: 12, width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.07)', color: '#ece8ff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }
 const h1 = { fontSize: 26, fontWeight: 800, margin: '10px 0 2px', letterSpacing: 0.3 }
 const sub = { fontSize: 14, opacity: 0.75, margin: 0, textAlign: 'center' }
@@ -308,19 +380,34 @@ const fine = { fontSize: 11.5, opacity: 0.5, marginTop: 14, textAlign: 'center' 
 const noticeBox = { margin: '14px auto 0', maxWidth: 320, padding: '12px 14px', borderRadius: 14, background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(167,139,250,0.25)', fontSize: 13, textAlign: 'left' }
 const primaryBtn = { display: 'block', margin: '18px auto 0', padding: '12px 28px', borderRadius: 14, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 750, fontSize: 14.5, color: '#fff', background: 'var(--brand-grad, linear-gradient(135deg,#8b5cf6,#6c63ff))' }
 const ghostBtn = { display: 'block', margin: '10px auto 0', padding: '11px 24px', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 650, fontSize: 14, color: '#ece8ff', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)' }
-const headerBar = { display: 'flex', alignItems: 'center', gap: 8, padding: 'max(10px, env(safe-area-inset-top, 0px)) 12px 10px', background: 'rgba(13,8,23,0.6)', borderBottom: '1px solid rgba(167,139,250,0.14)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }
+const headerBar = { display: 'flex', alignItems: 'center', gap: 8, padding: 'max(10px, env(safe-area-inset-top, 0px)) 12px 10px', background: 'rgba(13,8,23,0.6)', borderBottom: '1px solid rgba(167,139,250,0.14)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', flexShrink: 0 }
 const headerBtn = { width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.07)', color: '#ece8ff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }
-const privacyPill = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, margin: '10px auto 0', padding: '7px 14px', borderRadius: 12, fontSize: 11.5, background: 'rgba(139,92,246,0.10)', border: '1px solid rgba(167,139,250,0.2)', textAlign: 'center', maxWidth: '92%' }
-const statusLine = { textAlign: 'center', fontSize: 12, opacity: 0.65, padding: '8px 16px 0' }
-const msgList = { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px', maxWidth: 720, width: '100%', margin: '0 auto', boxSizing: 'border-box' }
+
+// pick
+const pickWrap = { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', width: '100%', maxWidth: 560, margin: '0 auto', padding: '14px 16px 0', boxSizing: 'border-box' }
+const pickHero = { display: 'flex', alignItems: 'center', gap: 14, padding: '6px 4px 12px', flexShrink: 0 }
+const pickTitle = { fontSize: 22, fontWeight: 800, letterSpacing: 0.2 }
+const searchBox = { display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px', borderRadius: 16, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(167,139,250,0.2)', flexShrink: 0 }
+const searchField = { flex: 1, padding: '12px 0', border: 'none', outline: 'none', background: 'transparent', color: '#ece8ff', fontSize: 14.5, fontFamily: 'inherit' }
+const listLabel = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, opacity: 0.5, margin: '16px 4px 8px', flexShrink: 0 }
+const pickList = { flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 2, paddingBottom: 'calc(28px + env(safe-area-inset-bottom, 0px))' }
+const listEmpty = { textAlign: 'center', opacity: 0.6, fontSize: 13.5, padding: '36px 20px', lineHeight: 1.45 }
+const personRow = { display: 'flex', alignItems: 'center', gap: 12, width: '100%', flexShrink: 0, padding: '10px 12px', borderRadius: 18, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.04)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: '#ece8ff', cursor: 'pointer', fontFamily: 'inherit', boxSizing: 'border-box' }
+const avatarRing = { display: 'inline-flex', padding: 2, borderRadius: '50%', background: 'linear-gradient(135deg,#8b5cf6,#6c63ff)', flexShrink: 0 }
+const personName = { display: 'block', fontSize: 15, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+const personSub = { display: 'block', fontSize: 11.5, opacity: 0.55, marginTop: 1 }
+const whisperPill = { display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 700, padding: '6px 10px', borderRadius: 999, background: 'rgba(139,92,246,0.18)', color: '#c4b5fd', flexShrink: 0 }
+
+// room
+const privacyPill = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, margin: '10px auto 0', padding: '7px 14px', borderRadius: 12, fontSize: 11.5, background: 'rgba(139,92,246,0.10)', border: '1px solid rgba(167,139,250,0.2)', textAlign: 'center', maxWidth: '92%', flexShrink: 0 }
+const statusLine = { textAlign: 'center', fontSize: 12, opacity: 0.65, padding: '8px 16px 0', flexShrink: 0 }
+const msgList = { flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px', maxWidth: 720, width: '100%', margin: '0 auto', boxSizing: 'border-box' }
 const emptyWrap = { margin: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: 16 }
 const bubbleBase = { maxWidth: '78%', padding: '9px 13px', borderRadius: 16, fontSize: 14.5, lineHeight: 1.35, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }
 const bubbleMine = { ...bubbleBase, background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', borderBottomRightRadius: 5 }
 const bubbleTheirs = { ...bubbleBase, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.08)', borderBottomLeftRadius: 5 }
-const composer = { display: 'flex', gap: 8, padding: '10px 12px calc(10px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid rgba(167,139,250,0.14)', background: 'rgba(13,8,23,0.6)', maxWidth: 720, width: '100%', margin: '0 auto', boxSizing: 'border-box' }
+const composer = { display: 'flex', gap: 8, padding: '10px 12px calc(10px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid rgba(167,139,250,0.14)', background: 'rgba(13,8,23,0.6)', maxWidth: 720, width: '100%', margin: '0 auto', boxSizing: 'border-box', flexShrink: 0 }
 const composerInput = { flex: 1, padding: '11px 14px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)', color: '#ece8ff', fontSize: 14.5, outline: 'none', fontFamily: 'inherit' }
 const sendBtn = { padding: '0 18px', borderRadius: 14, border: 'none', color: '#fff', fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', background: 'var(--brand-grad, linear-gradient(135deg,#8b5cf6,#6c63ff))' }
-const searchInput = { width: '100%', boxSizing: 'border-box', marginTop: 8, padding: '11px 14px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)', color: '#ece8ff', fontSize: 14.5, outline: 'none', fontFamily: 'inherit' }
-const personRow = { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '10px 8px', border: 'none', borderRadius: 12, background: 'transparent', color: '#ece8ff', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14.5, textAlign: 'left' }
 const scrim = { position: 'absolute', inset: 0, background: 'rgba(3,1,8,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }
 const dialog = { width: '100%', maxWidth: 320, padding: 20, borderRadius: 20, background: '#150d26', border: '1px solid rgba(167,139,250,0.25)' }
