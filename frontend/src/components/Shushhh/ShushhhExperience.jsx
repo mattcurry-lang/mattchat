@@ -76,7 +76,18 @@ export default function ShushhhExperience({ me, incoming = null, onClose }) {
       shushhhBusy.current = false
     }
   }, [done])
+  // safety nets: never let an animation callback strand the screen
+  useEffect(() => {
+    if (stage !== 'intro') return undefined
+    const t = setTimeout(() => setIntroDone(true), 2800)
+    return () => clearTimeout(t)
+  }, [stage])
 
+  useEffect(() => {
+    if (stage !== 'leaving') return undefined
+    const t = setTimeout(() => finalize(), 2000)
+    return () => clearTimeout(t)
+  }, [stage, finalize])
   // incoming: look up who invited us
   useEffect(() => {
     if (!incoming) return
