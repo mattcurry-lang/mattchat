@@ -5,41 +5,83 @@ import { motion, useReducedMotion } from 'framer-motion'
 // onDone fires when 'entrance' or 'leaving' finishes (immediately if reduced motion).
 const pivot = (origin) => ({ transformBox: 'fill-box', transformOrigin: origin })
 
-const ENTRANCE = 2.2
+// ---------- The dance (3.6s, built from 0.075s keyframes) ----------
+// A (0-1.2s)  side-steps in from the left, hopping, arms swinging
+// B (1.2-2.4) shoulder shimmy: fast alternating shoulders, knees bend down then pop up
+// C (2.4-3.3) hip bumps right/left with arms up
+// D (3.3-3.6) arms drop, finger to lips: "shhh"
+const STEP = 0.075
+const N = 48
+const A_END = 16
+const B_END = 32
+const C_END = 44
+const ENTRANCE = N * STEP
 
-// Wrapper: travels in from the left edge, weaving left/right as it goes, then settles at centre.
+const frames = (fn) => Array.from({ length: N + 1 }, (_, i) => fn(i))
+const alt = (i) => (i % 2 ? 1 : -1)
+const smooth = (t) => t * t * (3 - 2 * t)
+const bump = (i) => (Math.floor((i - B_END) / 3) % 2 ? -1 : 1)
+const hop = (i) => Math.abs(Math.sin((i * Math.PI) / 4))
+
+const wrapX = frames((i) => {
+  if (i >= A_END) return '0vw'
+  const t = i / A_END
+  return `${(-60 * (1 - smooth(t)) + 4 * Math.sin((i * Math.PI) / 2) * (1 - t)).toFixed(2)}vw`
+})
+const bodyX = frames((i) => (i < A_END ? 0 : i < B_END ? alt(i) * 3 : i < C_END ? bump(i) * 7 : 0))
+const bodyY = frames((i) => {
+  if (i < A_END) return -12 * hop(i)
+  if (i < B_END) return i < 24 ? 5 + alt(i) : -3 + alt(i)
+  if (i < C_END) return -5 * Math.abs(Math.sin(((i - B_END) * Math.PI) / 3))
+  return 0
+})
+const bodyScaleY = frames((i) => {
+  if (i < A_END) return 1 - 0.07 * (1 - hop(i))
+  if (i < B_END) return i < 24 ? 0.9 : 1.04
+  return 1
+})
+const bodyRot = frames((i) => {
+  if (i < A_END) return (i >> 1) % 2 ? 6 : -6
+  if (i < B_END) return alt(i) * 3
+  if (i < C_END) return bump(i) * 5
+  return 0
+})
+const bodySkew = frames((i) => (i >= A_END && i < B_END ? alt(i) * 7 : 0))
+
+const arm = (i, s) => {
+  if (i < A_END) return 14 + s * 14 * Math.sin((i * Math.PI) / 2)
+  if (i < B_END) return 42 + s * alt(i) * 10
+  if (i < C_END) return 125 + s * bump(i) * 12
+  return 125 * (1 - (i - C_END) / (N - C_END))
+}
+const armLFrames = frames((i) => arm(i, 1))
+const armRFrames = frames((i) => -arm(i, -1))
+const fingerFrames = frames((i) => Math.min(1, Math.max(0, (i - 42) / 3)))
+
+const lin = { duration: ENTRANCE, ease: 'linear' }
+
 const wrapV = {
-  entrance: {
-    x: ['-60vw', '-34vw', '-8vw', '10vw', '-4vw', '5vw', '-2vw', '1vw', '0vw'],
-    opacity: 1,
-    transition: { duration: ENTRANCE, ease: 'easeInOut' },
-  },
+  entrance: { x: wrapX, opacity: 1, transition: lin },
   idle: { x: '0vw', opacity: 1 },
   curious: { x: '0vw', opacity: 1 },
   leaving: { x: '0vw', opacity: [1, 1, 1, 0], transition: { duration: 1.3, times: [0, 0.3, 0.6, 1], ease: 'easeInOut' } },
 }
 
-// Body: hops and leans into each sway.
 const bodyV = {
-  entrance: {
-    y: [0, -10, 0, -10, 0, -10, 0, -5, 0],
-    rotate: [-6, 8, -8, 8, -8, 6, -5, 3, 0],
-    scale: 1, scaleY: 1,
-    transition: { duration: ENTRANCE, ease: 'easeInOut' },
-  },
-  idle: { rotate: 0, scale: 1, y: [0, -3, 0], scaleY: [1, 1.018, 1], transition: { duration: 3.4, repeat: Infinity, ease: 'easeInOut' } },
-  curious: { scale: 1, scaleY: 1, y: [0, -2, 0], rotate: [0, -5, 0, 5, 0], transition: { duration: 4.2, repeat: Infinity, ease: 'easeInOut' } },
-  leaving: { rotate: 0, scaleY: 1, y: [0, -4, 0, 12], scale: [1, 1, 1, 0.85], transition: { duration: 1.3, times: [0, 0.3, 0.6, 1], ease: 'easeInOut' } },
+  entrance: { x: bodyX, y: bodyY, rotate: bodyRot, skewX: bodySkew, scaleY: bodyScaleY, scale: 1, transition: lin },
+  idle: { x: 0, skewX: 0, rotate: 0, scale: 1, y: [0, -3, 0], scaleY: [1, 1.018, 1], transition: { duration: 3.4, repeat: Infinity, ease: 'easeInOut' } },
+  curious: { x: 0, skewX: 0, scale: 1, scaleY: 1, y: [0, -2, 0], rotate: [0, -5, 0, 5, 0], transition: { duration: 4.2, repeat: Infinity, ease: 'easeInOut' } },
+  leaving: { x: 0, skewX: 0, rotate: 0, scaleY: 1, y: [0, -4, 0, 12], scale: [1, 1, 1, 0.85], transition: { duration: 1.3, times: [0, 0.3, 0.6, 1], ease: 'easeInOut' } },
 }
 
 const armLV = {
-  entrance: { rotate: [0, 25, -10, 25, -10, 25, -10, 15, 0], transition: { duration: ENTRANCE, ease: 'easeInOut' } },
+  entrance: { rotate: armLFrames, transition: lin },
   idle: { rotate: [0, 2, 0], transition: { duration: 3.4, repeat: Infinity, ease: 'easeInOut' } },
   curious: { rotate: 0 },
   leaving: { rotate: 0 },
 }
 const armRV = {
-  entrance: { rotate: [0, -25, 10, -25, 10, -25, 10, -15, 0], transition: { duration: ENTRANCE, ease: 'easeInOut' } },
+  entrance: { rotate: armRFrames, transition: lin },
   idle: { rotate: [0, -2, 0], transition: { duration: 3.4, repeat: Infinity, ease: 'easeInOut' } },
   curious: { rotate: 0 },
   leaving: { rotate: [0, -125, -145, -125, -145, -125, 0], transition: { duration: 1.2, ease: 'easeInOut' } },
@@ -51,11 +93,13 @@ const eyesV = {
   leaving: { scaleY: 1, x: 0 },
 }
 const fingerV = {
-  entrance: { opacity: [0, 0, 0, 0, 0, 0, 0, 1, 1], transition: { duration: ENTRANCE } },
+  entrance: { opacity: fingerFrames, transition: lin },
   idle: { opacity: 0, transition: { duration: 0.3 } },
   curious: { opacity: 0 },
   leaving: { opacity: [0, 1, 1, 1], transition: { duration: 0.5 } },
 }
+
+export const MASCOT_ENTRANCE_SECONDS = ENTRANCE
 
 export default function ShushhhMascot({ size = 140, mood = 'idle', onDone }) {
   const reduce = useReducedMotion()
@@ -63,14 +107,13 @@ export default function ShushhhMascot({ size = 140, mood = 'idle', onDone }) {
 
   useEffect(() => {
     if (reduce && (mood === 'entrance' || mood === 'leaving')) onDone?.(mood)
-  }, [reduce, mood]) 
+  }, [reduce, mood])  
 
   const animate = reduce ? undefined : mood
 
   return (
     <motion.div
       variants={wrapV}
-      // start off-screen left for the entrance (set here so there's no one-frame flash at centre)
       initial={!reduce && mood === 'entrance' ? { x: '-60vw' } : undefined}
       animate={animate}
       onAnimationComplete={(d) => { if (d === 'entrance' || d === 'leaving') onDone?.(d) }}
@@ -92,25 +135,19 @@ export default function ShushhhMascot({ size = 140, mood = 'idle', onDone }) {
         <ellipse cx="80" cy="172" rx="34" ry="5" fill="rgba(139,92,246,0.25)" />
 
         <motion.g variants={bodyV} style={pivot('50% 100%')}>
-          {/* legs */}
           <rect x="55" y="128" width="18" height="30" rx="9" fill="#5b21b6" />
           <rect x="87" y="128" width="18" height="30" rx="9" fill="#5b21b6" />
-          {/* arms */}
           <motion.rect variants={armLV} x="20" y="80" width="14" height="38" rx="7" fill="#7c3aed" style={pivot('50% 10%')} />
           <motion.rect variants={armRV} x="126" y="80" width="14" height="38" rx="7" fill="#7c3aed" style={pivot('50% 10%')} />
-          {/* body */}
           <rect x="30" y="28" width="100" height="108" rx="46" fill={`url(#b${uid})`} />
           <rect x="42" y="36" width="52" height="14" rx="7" fill="#fff" opacity="0.12" />
-          {/* eyes */}
           <motion.g variants={eyesV} style={pivot('50% 50%')}>
             <ellipse cx="62" cy="76" rx="6.5" ry="8.5" fill="#1a1033" />
             <ellipse cx="98" cy="76" rx="6.5" ry="8.5" fill="#1a1033" />
             <circle cx="64" cy="72.5" r="2" fill="#fff" opacity="0.9" />
             <circle cx="100" cy="72.5" r="2" fill="#fff" opacity="0.9" />
           </motion.g>
-          {/* mouth */}
           <path d="M73 101 Q80 106 87 101" stroke="#1a1033" strokeWidth="2.6" strokeLinecap="round" fill="none" />
-          {/* shush finger */}
           <motion.rect variants={fingerV} style={{ opacity: 0 }} x="76.5" y="88" width="7" height="26" rx="3.5" fill="#ddd6fe" />
         </motion.g>
       </svg>
