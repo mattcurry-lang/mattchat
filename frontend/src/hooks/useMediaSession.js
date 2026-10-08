@@ -21,7 +21,7 @@ export function useMediaSession({ track, isPlaying, currentTime, duration, onPla
       album: track.album || 'Mattchat',
       artwork: track.artwork ? sizes.map((s) => ({ src: track.artwork, sizes: s })) : [],
     })
-  }, [track?.id, track?.title, track?.artist, track?.album, track?.artwork]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [track?.id, track?.title, track?.artist, track?.album, track?.artwork])  
 
   useEffect(() => {
     if (!supported) return
@@ -48,5 +48,5 @@ export function useMediaSession({ track, isPlaying, currentTime, duration, onPla
     try {
       navigator.mediaSession.setPositionState({ duration, playbackRate: 1, position: Math.min(Math.max(time.current, 0), duration) })
     } catch { /* ignore invalid positions */ }
-  }, [track, duration, isPlaying, Math.floor(currentTime / 3)]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [track, duration, isPlaying, Math.floor(currentTime / 3)]) 
 }
