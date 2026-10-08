@@ -46,7 +46,7 @@ export default function ShushhhMascot({ size = 140, mood = 'idle', onDone }) {
 
   useEffect(() => {
     if (reduce && (mood === 'entrance' || mood === 'leaving')) onDone?.(mood)
-  }, [reduce, mood]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [reduce, mood])  
 
   const animate = reduce ? undefined : mood
 
