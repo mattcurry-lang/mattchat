@@ -1,73 +1,162 @@
--- STEP 1: persistence for the new ProfileMenuSheet
--- Run the whole script in the Supabase SQL editor. It is safe to run twice.
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { supabase } from '../lib/supabase' // adjust the path if your client lives elsewhere
 
--- 1) Public-facing profile fields (other people will see these, so they live on profiles)
-alter table public.profiles
-  add column if not exists bio               text        check (bio is null or char_length(bio) <= 120),
-  add column if not exists theme             text        not null default 'violet'
-    check (theme in ('violet','ocean','aurora','sunset','forest','gold','rose','graphite')),
-  add column if not exists presence_pref     text        not null default 'online'
-    check (presence_pref in ('online','idle','busy','invisible')),
-  add column if not exists status_emoji      text        check (status_emoji is null or char_length(status_emoji) <= 8),
-  add column if not exists status_text       text        check (status_text is null or char_length(status_text) <= 40),
-  add column if not exists status_expires_at timestamptz,
-  add column if not exists note_text         text        check (note_text is null or char_length(note_text) <= 60),
-  add column if not exists note_expires_at   timestamptz;
+/*
+ * useProfileSettings(userId, { onError })
+ *
+ * Loads everything ProfileMenuSheet needs and saves every change it reports.
+ *
+ *   const { features, onFeatureChange, ready } = useProfileSettings(user?.id, { onError })
+ *   <ProfileMenuSheet
+ *     key={ready ? 'ready' : 'loading'}   // remounts once, so the sheet starts from saved values
+ *     features={features}
+ *     onFeatureChange={onFeatureChange}
+ *     ...
+ *   />
+ *
+ * Where each key is stored:
+ *   profiles       theme, presence, bio, statusEmoji, statusText, statusClear, note
+ *   user_settings  every key in SETTING_KEYS (via the set_user_setting RPC)
+ *   not saved yet  twoStep, chatLock, blockScreenshots, hideIp (they need real implementations)
+ */
 
--- 2) Private per-user settings (only the owner can read or write)
-create table if not exists public.user_settings (
-  user_id    uuid primary key references auth.users(id) on delete cascade,
-  settings   jsonb       not null default '{}'::jsonb,
-  updated_at timestamptz not null default now()
-);
+const PROFILE_KEYS = new Set(['theme', 'presence', 'bio', 'statusEmoji', 'statusText', 'statusClear', 'note'])
 
-alter table public.user_settings enable row level security;
+const SETTING_KEYS = new Set([
+  'lastSeen', 'photoVis', 'showOnline', 'readReceipts', 'typing', 'whoCanAdd',
+  'disappearing', 'keepArchived', 'enterToSend',
+  'chatTheme', 'bubbleStyle', 'fontSize', 'autoplayMotion',
+  'dnd', 'quietHours', 'previews', 'mentionsOnly',
+  'dataSaver', 'autoDownload',
+  'language', 'reduceMotion',
+])
 
-drop policy if exists "user_settings_select_own" on public.user_settings;
-drop policy if exists "user_settings_insert_own" on public.user_settings;
-drop policy if exists "user_settings_update_own" on public.user_settings;
+const PROFILE_COLUMNS =
+  'bio, theme, presence_pref, status_emoji, status_text, status_expires_at, note_text, note_expires_at'
 
-create policy "user_settings_select_own" on public.user_settings
-  for select to authenticated using (user_id = (select auth.uid()));
-create policy "user_settings_insert_own" on public.user_settings
-  for insert to authenticated with check (user_id = (select auth.uid()));
-create policy "user_settings_update_own" on public.user_settings
-  for update to authenticated
-  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+const FLUSH_DELAY_MS = 150 // the status form changes several keys at once; send them as one write
+const NOTE_LIFETIME_MS = 24 * 60 * 60 * 1000
 
--- 3) Atomic "change one setting" call, so two devices never overwrite each other's other keys.
---    Only whitelisted keys are accepted. twoStep, chatLock, blockScreenshots and hideIp are
---    deliberately NOT here: they need real implementations (see the roadmap), and a saved
---    flag that enforces nothing would be misleading for security features.
-create or replace function public.set_user_setting(p_key text, p_value jsonb)
-returns void
-language plpgsql
-security invoker
-set search_path = public
-as $$
-begin
-  if auth.uid() is null then
-    raise exception 'Not signed in';
-  end if;
+const isLive = (iso) => !iso || new Date(iso).getTime() > Date.now()
 
-  if p_key <> all (array[
-    'lastSeen','photoVis','showOnline','readReceipts','typing','whoCanAdd',
-    'disappearing','keepArchived','enterToSend',
-    'chatTheme','bubbleStyle','fontSize','autoplayMotion',
-    'dnd','quietHours','previews','mentionsOnly',
-    'dataSaver','autoDownload',
-    'language','reduceMotion'
-  ]) then
-    raise exception 'Unknown setting key: %', p_key;
-  end if;
+function statusExpiry(clear) {
+  const now = new Date()
+  if (clear === '1h') return new Date(now.getTime() + 60 * 60 * 1000).toISOString()
+  if (clear === '4h') return new Date(now.getTime() + 4 * 60 * 60 * 1000).toISOString()
+  if (clear === 'today') {
+    const end = new Date(now)
+    end.setHours(23, 59, 59, 999)
+    return end.toISOString()
+  }
+  return null // 'never'
+}
 
-  insert into public.user_settings (user_id, settings)
-  values (auth.uid(), jsonb_build_object(p_key, p_value))
-  on conflict (user_id) do update
-    set settings   = public.user_settings.settings || jsonb_build_object(p_key, p_value),
-        updated_at = now();
-end;
-$$;
+export default function useProfileSettings(userId, { onError } = {}) {
+  const [features, setFeatures] = useState({})
+  const [ready, setReady] = useState(false)
 
-revoke all on function public.set_user_setting(text, jsonb) from public, anon;
-grant execute on function public.set_user_setting(text, jsonb) to authenticated;
+  const known = useRef({})   // latest value of every key we've seen, used to rebuild the status expiry
+  const pending = useRef({}) // changes waiting to be sent
+  const timer = useRef(null)
+  const onErrorRef = useRef(onError)
+  onErrorRef.current = onError
+
+  // ---- load ----
+  useEffect(() => {
+    setReady(false)
+    setFeatures({})
+    known.current = {}
+    if (!userId) return undefined
+
+    let cancelled = false
+    ;(async () => {
+      const [profileRes, settingsRes] = await Promise.all([
+        supabase.from('profiles').select(PROFILE_COLUMNS).eq('id', userId).maybeSingle(),
+        supabase.from('user_settings').select('settings').eq('user_id', userId).maybeSingle(),
+      ])
+      if (cancelled) return
+
+      const failure = profileRes.error || settingsRes.error
+      if (failure) onErrorRef.current?.(failure)
+
+      const next = { ...(settingsRes.data?.settings || {}) }
+      const p = profileRes.data
+      if (p) {
+        if (p.theme) next.theme = p.theme
+        if (p.presence_pref) next.presence = p.presence_pref
+        if (p.bio != null) next.bio = p.bio
+        if ((p.status_emoji || p.status_text) && isLive(p.status_expires_at)) {
+          next.statusEmoji = p.status_emoji || ''
+          next.statusText = p.status_text || ''
+        }
+        if (p.note_text && isLive(p.note_expires_at)) next.note = p.note_text
+      }
+
+      known.current = { ...next }
+      setFeatures(next)
+      setReady(true) // even after an error, so the sheet still opens with defaults
+    })()
+
+    return () => { cancelled = true }
+  }, [userId])
+
+  // ---- save ----
+  const flush = useCallback(async () => {
+    timer.current = null
+    const batch = pending.current
+    pending.current = {}
+    const keys = Object.keys(batch)
+    if (!userId || keys.length === 0) return
+
+    const profilePatch = {}
+    if ('theme' in batch) profilePatch.theme = batch.theme
+    if ('presence' in batch) profilePatch.presence_pref = batch.presence
+    if ('bio' in batch) profilePatch.bio = batch.bio || null
+
+    if ('statusEmoji' in batch || 'statusText' in batch || 'statusClear' in batch) {
+      const k = known.current
+      const hasStatus = !!(k.statusEmoji || k.statusText)
+      profilePatch.status_emoji = k.statusEmoji || null
+      profilePatch.status_text = k.statusText || null
+      profilePatch.status_expires_at = hasStatus ? statusExpiry(k.statusClear) : null
+    }
+
+    if ('note' in batch) {
+      profilePatch.note_text = batch.note || null
+      profilePatch.note_expires_at = batch.note ? new Date(Date.now() + NOTE_LIFETIME_MS).toISOString() : null
+    }
+
+    const jobs = []
+    if (Object.keys(profilePatch).length > 0) {
+      jobs.push(supabase.from('profiles').update(profilePatch).eq('id', userId))
+    }
+    for (const key of keys) {
+      if (SETTING_KEYS.has(key)) {
+        jobs.push(supabase.rpc('set_user_setting', { p_key: key, p_value: batch[key] }))
+      }
+    }
+
+    const results = await Promise.all(jobs)
+    results.forEach((res) => { if (res.error) onErrorRef.current?.(res.error) })
+  }, [userId])
+
+  const onFeatureChange = useCallback((key, value) => {
+    if (!PROFILE_KEYS.has(key) && !SETTING_KEYS.has(key)) return // not wired yet, stays local
+    known.current = { ...known.current, [key]: value }
+    pending.current = { ...pending.current, [key]: value }
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(flush, FLUSH_DELAY_MS)
+  }, [flush])
+
+  // send anything still waiting if the sheet unmounts or the tab is hidden
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === 'hidden' && timer.current) { clearTimeout(timer.current); flush() } }
+    document.addEventListener('visibilitychange', onHide)
+    return () => {
+      document.removeEventListener('visibilitychange', onHide)
+      if (timer.current) { clearTimeout(timer.current); flush() }
+    }
+  }, [flush])
+
+  return { features, onFeatureChange, ready }
+}
