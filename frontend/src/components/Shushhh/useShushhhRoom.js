@@ -48,6 +48,17 @@ export async function openInviter(to) {
   }
 }
 
+// Tell the host "no thanks" without opening the room UI.
+export async function declineInvite(topic, me) {
+  await ensureRealtimeAuth()
+  const ch = supabase.channel(topic, { config: { private: true } })
+  try {
+    await subscribeOnce(ch)
+    await ch.send({ type: 'broadcast', event: 'left', payload: { from: me } })
+  } catch { /* host will just time out */ }
+  finally { supabase.removeChannel(ch) }
+}
+
 // People you share a 1:1 chat with (conversations with exactly 2 members).
 export async function loadChatContacts(me) {
   const { data: mine, error: e1 } = await supabase
@@ -94,9 +105,11 @@ export function useShushhhRoom({ topic, me, peerId, active }) {
   const [messages, setMessages] = useState([])
   const [peerHere, setPeerHere] = useState(false)
   const [peerLeft, setPeerLeft] = useState(false)
+  const [peerTyping, setPeerTyping] = useState(false)
   const [conn, setConn] = useState('connecting') // connecting | ready | error
   const [error, setError] = useState('')
   const chRef = useRef(null)
+  const typingClear = useRef(null)
 
   useEffect(() => {
     if (!active || !topic || !peerId) return undefined
@@ -116,9 +129,16 @@ export function useShushhhRoom({ topic, me, peerId, active }) {
 
       ch.on('broadcast', { event: 'msg' }, ({ payload }) => {
         if (!payload || payload.from !== peerId || typeof payload.text !== 'string') return
+        setPeerTyping(false)
         setMessages((m) => [...m, { id: String(payload.id), from: peerId, text: payload.text.slice(0, 2000), ts: Date.now() }])
       })
-        .on('broadcast', { event: 'left' }, ({ payload }) => { if (payload?.from === peerId) setPeerLeft(true) })
+        .on('broadcast', { event: 'typing' }, ({ payload }) => {
+          if (payload?.from !== peerId) return
+          setPeerTyping(Boolean(payload.on))
+          clearTimeout(typingClear.current)
+          if (payload.on) typingClear.current = setTimeout(() => setPeerTyping(false), 3500)
+        })
+        .on('broadcast', { event: 'left' }, ({ payload }) => { if (payload?.from === peerId) { setPeerLeft(true); setPeerTyping(false) } })
         .on('presence', { event: 'sync' }, () => setPeerHere(Boolean(ch.presenceState()[peerId]?.length)))
 
       ensureRealtimeAuth().then(() => {
@@ -139,7 +159,8 @@ export function useShushhhRoom({ topic, me, peerId, active }) {
     window.addEventListener('pagehide', onHide)
     return () => {
       window.removeEventListener('pagehide', onHide)
-      setMessages([]); setPeerHere(false); setPeerLeft(false) // wipe immediately
+      clearTimeout(typingClear.current)
+      setMessages([]); setPeerHere(false); setPeerLeft(false); setPeerTyping(false) // wipe immediately
       chRef.current = null
       entry.timer = setTimeout(() => closeRoom(topic, me), 100) // deferred so a remount can reuse it
     }
@@ -156,5 +177,11 @@ export function useShushhhRoom({ topic, me, peerId, active }) {
     setMessages((m) => m.map((x) => (x.id === id ? { ...x, state: res === 'ok' ? 'sent' : 'failed' } : x)))
   }, [me])
 
-  return { messages, peerHere, peerLeft, conn, error, send }
+  const sendTyping = useCallback((on) => {
+    const ch = chRef.current
+    if (!ch) return
+    Promise.resolve(ch.send({ type: 'broadcast', event: 'typing', payload: { from: me, on } })).catch(() => {})
+  }, [me])
+
+  return { messages, peerHere, peerLeft, peerTyping, conn, error, send, sendTyping }
 }
