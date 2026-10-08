@@ -103,7 +103,9 @@ import MediaViewer from '../components/media/MediaViewer'
 import MomentMessage from '../components/media/MomentMessage'
 import MomentViewer from '../components/media/MomentViewer'
 import { motion } from 'framer-motion'
-import ProfileMenuSheet, { PlaceholderIcons } from '../components/ProfileMenuSheet'
+import ProfileMenuSheet from '../components/ProfileMenuSheetConnected'
+import { PlaceholderIcons } from '../components/ProfileMenuSheet'
+import { getSetting, useMediaPolicy } from '../lib/appearanceStore'
 import CallsLandingPanel from '../components/CallsLandingPanel'
 import QuickMusicAccess from '../components/Pulse/Music/QuickMusicAccess'
 import RingtonePicker from '../components/Pulse/Music/RingtonePicker'
@@ -244,14 +246,30 @@ function StickerBubble({ content, isMe }) {
 }
 
 function GifBubble({ content }) {
+  const { autoplay } = useMediaPolicy()
+  const [forcePlay, setForcePlay] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const parts = content.replace('gif:', '').split('::')
   const url = parts[0] || ''
   const title = parts[1] || 'GIF'
+
+  if (!autoplay && !forcePlay) {
+    return (
+      <button
+        onClick={() => setForcePlay(true)}
+        aria-label={`Play GIF: ${title}`}
+        style={{ width: 220, height: 140, borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)', color: 'var(--dark-text-2)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700 }}
+      >
+        <IconFilm size={22} />
+        <span>Tap to play GIF</span>
+      </button>
+    )
+  }
+
   return (
     <div style={{ borderRadius: 12, overflow: 'hidden', maxWidth: 220, background: 'rgba(255,255,255,0.06)', position: 'relative' }}>
       {!loaded && (
-       <div style={{ width: 220, height: 140, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--dark-text-3)' }}><IconFilm size={22} /></div>
+        <div style={{ width: 220, height: 140, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--dark-text-3)' }}><IconFilm size={22} /></div>
       )}
       <img src={url} alt={title} onLoad={() => setLoaded(true)} style={{ display: loaded ? 'block' : 'none', width: '100%', maxWidth: 220 }} />
       <div style={{ position: 'absolute', bottom: 4, right: 6, background: 'rgba(0,0,0,0.6)', borderRadius: 4, fontSize: 9, fontWeight: 700, color: '#fff', padding: '2px 5px' }}>GIF</div>
@@ -1838,7 +1856,11 @@ const handleSend = async () => {
     typingTimer.current = setTimeout(() => broadcastTyping(false), 1500)
   }
 
-  const handleKeyDown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }
+  const handleKeyDown = (e) => {
+  if (e.key !== 'Enter' || e.nativeEvent?.isComposing) return
+  const wantsSend = getSetting('enterToSend') ? !e.shiftKey : (e.ctrlKey || e.metaKey)
+  if (wantsSend) { e.preventDefault(); handleSend() }
+}
 
  const handleShare = () => {
     const link = `https://mattchat-nine.vercel.app/email/${profile?.username || ''}`
