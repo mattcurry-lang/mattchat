@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Avatar from './Avatar'
 import AvatarViewer from './AvatarViewer'
 import { IconSearch, IconLogOut, IconCamera } from './Icons'
+import { shushhhBusy } from './Shushhh/useShushhhRoom'
+import ShushhhExperience from './Shushhh/ShushhhExperience'
 
 // ---- small self-contained icons ----
 const IconDatabase = ({ size = 16 }) => (
@@ -45,6 +47,14 @@ const IconBack = ({ size = 20 }) => (
     <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 )
+const IconShushhh = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <rect x="4" y="3" width="16" height="15" rx="7" stroke="currentColor" strokeWidth={1.8} />
+    <circle cx="9" cy="10" r="1.2" fill="currentColor" /><circle cx="15" cy="10" r="1.2" fill="currentColor" />
+    <path d="M12 12.5v4" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
+    <path d="M8.5 21v-3M15.5 21v-3" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
+  </svg>
+)
 
 export const PlaceholderIcons = { IconDatabase, IconLifeBuoy, IconUserPlus, IconGift }
 
@@ -79,6 +89,7 @@ export default function ProfileMenuSheet({
 }) {
   const [query, setQuery] = useState('')
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false)
+  const [shushhhOpen, setShushhhOpen] = useState(false)
   const wide = useIsWide()
   const pageRef = useRef(null)
   const onCloseRef = useRef(onClose)
@@ -86,13 +97,26 @@ export default function ProfileMenuSheet({
   const viewerOpenRef = useRef(false)
   viewerOpenRef.current = photoViewerOpen
 
+  // Shushhh gets its own "Hidden" section, appended after the parent's sections.
+  const allSections = useMemo(() => [
+    ...sections,
+    {
+      id: 'hidden', label: 'Hidden',
+      items: [{
+        id: 'shushhh', icon: <IconShushhh />, label: 'Shushhh 🤫',
+        subtitle: 'A temporary room. Not saved to chat history.', badge: 'New',
+        onClick: () => setShushhhOpen(true),
+      }],
+    },
+  ], [sections])
+
   const filteredSections = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return sections
-    return sections
+    if (!q) return allSections
+    return allSections
       .map((s) => ({ ...s, items: s.items.filter((it) => it.label.toLowerCase().includes(q)) }))
       .filter((s) => s.items.length > 0)
-  }, [query, sections])
+  }, [query, allSections])
 
   useEffect(() => { if (!isOpen) setQuery('') }, [isOpen])
 
@@ -102,11 +126,12 @@ export default function ProfileMenuSheet({
     window.history.pushState({ mattchatProfilePage: true }, '')
 
     const onPop = (e) => {
+      if (shushhhBusy.current) return // Shushhh owns Back right now
       e.stopImmediatePropagation() // don't let the chat's own back handler react to this one
       onCloseRef.current?.()
     }
     const onKey = (e) => {
-      if (e.key === 'Escape' && !viewerOpenRef.current) onCloseRef.current?.()
+      if (e.key === 'Escape' && !viewerOpenRef.current && !shushhhBusy.current) onCloseRef.current?.()
     }
     window.addEventListener('popstate', onPop, true)
     window.addEventListener('keydown', onKey)
@@ -247,6 +272,11 @@ export default function ProfileMenuSheet({
           name={profile?.username || 'You'}
           subtitle={email}
         />
+      )}
+
+      {/* Mounted only while open => fresh topic + empty state every time */}
+      {shushhhOpen && profile?.id && (
+        <ShushhhExperience me={profile.id} onClose={() => setShushhhOpen(false)} />
       )}
     </>,
     document.body
