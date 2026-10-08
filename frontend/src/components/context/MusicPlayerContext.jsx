@@ -4,6 +4,7 @@ import { YouTubeEngine } from '../../lib/music/YouTubeEngine'
 import { RecommendationEngine } from '../../lib/music/RecommendationEngine'
 import { OfflineCache } from '../../lib/music/OfflineCache'
 import { isOnlineNow } from '../../lib/connectivity'         
+import { useMediaSession } from '../../hooks/useMediaSession'
 
 const MusicPlayerContext = createContext(null)
 
@@ -355,7 +356,18 @@ useEffect(() => {
     })
   }, [])
   const likedTracks = useMemo(() => Object.values(likedTracksMap).sort((a, b) => b.likedAt - a.likedAt), [likedTracksMap])
-
+  useMediaSession({
+    track: currentTrack,
+    isPlaying,
+    currentTime,
+    duration,
+    onPlay: () => { if (!isPlaying) togglePlayPause() },
+    onPause: () => { if (isPlaying) togglePlayPause() },
+    onNext: playNext,
+    onPrevious: playPrevious,
+    onSeekTo: seekTo,
+    onStop: closeMiniPlayer,
+  })
  const value = {
   userId,
   currentTrack, isPlaying, isLoading, error, currentTime, duration, volume,
