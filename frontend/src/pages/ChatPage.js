@@ -115,6 +115,8 @@ import { useOutboxFlush } from '../hooks/useOutboxFlush'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import ConnectionBanner from '../components/ConnectionBanner'
 import { useConnectionStatus } from '../lib/connectivity'
+import usePublicProfiles from '../hooks/usePublicProfiles'
+import { StatusBadge, StatusLine, NotesRail } from '../components/ProfileFlair'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -303,6 +305,7 @@ function ContactBubble({ content, onOpenProfile, onMessageContact, currentUserId
         style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', padding: 0 }}
       >
         <Avatar name={username} photoUrl={avatarUrl} size={38} />
+        <StatusBadge extras={publicExtras.get(otherId)} />
         <div style={{ minWidth: 0 }}>
            <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary, #f2f0f8)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center' }}>             {username || 'Contact'}             {isAdmin && <IconVerified size={12} />}           </div>
           <div style={{ fontSize: 11, color: 'var(--text-secondary, #c9c4dd)' }}>Contact card · tap to view</div>
@@ -1240,6 +1243,10 @@ const msgRefs        = useRef({})
   useRingtone(['calling', 'ringing'].includes(callStatus), 'ringback')
   useRingtone(callStatus === 'incoming', 'ringtone')
   const { conversations, loading: convLoading, reload } = useConversations(userId)
+  const publicExtras = usePublicProfiles([
+  userId,
+  ...conversations.flatMap(c => (c.conversation_members || []).map(m => m.user_id)),
+])
   const globalWatchInvite = useGlobalWatchInvites(userId, conversations.map(c => c.id))
 
 const getMemberName = (convoId, uid) => {
@@ -2119,6 +2126,18 @@ const handleSignOut = async () => {
 
           {/* ── STORY / QUICK-CONTACT RAIL ── */}
           {activeTab === 'chats' && (
+            <NotesRail
+  conversations={conversations}
+  userId={userId}
+  extras={publicExtras}
+  getOtherId={getOtherUserId}
+  getAvatar={getOtherUserAvatar}
+  getName={getConvoName}
+  myName={profile?.username}
+  myAvatar={profile?.avatar_url}
+  onOpenConversation={openConvo}
+  onEditMyNote={() => setShowProfileMenu(true)}
+/>
             <div className="story-rail">
               <button className="story-item" onClick={() => openViewer('mine')} title="My status">
                 <div className="story-avatar-wrap" style={{ position: 'relative' }}>
@@ -2873,8 +2892,10 @@ onMessageContact={handleMessageContact}
                   {getConvoName(activeConvo)}
                   {getOtherUserIsAdmin(activeConvo, userId) && <IconVerified size={14} />}
                 </div>
-                <div className="chat-header-sub" style={{ minHeight: 16 }}>{headerStatus()}</div>
-              </div>
+               <div className="chat-header-sub" style={{ minHeight: 16 }}>
+  {headerStatus()}
+  <StatusLine extras={publicExtras.get(otherUserId)} />
+</div>
              <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', flexShrink: 0, maxWidth: '100%' }}>
                 {callStatus === 'idle' && !isReadOnlyChat && (
                   <CallButtons onVoiceCall={() => startCall('audio')} onVideoCall={() => startCall('video')} disabled={false} />
