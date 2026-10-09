@@ -305,7 +305,7 @@ function ContactBubble({ content, onOpenProfile, onMessageContact, currentUserId
         style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', padding: 0 }}
       >
         <Avatar name={username} photoUrl={avatarUrl} size={38} />
-        <StatusBadge extras={publicExtras.get(otherId)} />
+         
         <div style={{ minWidth: 0 }}>
            <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary, #f2f0f8)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center' }}>             {username || 'Contact'}             {isAdmin && <IconVerified size={12} />}           </div>
           <div style={{ fontSize: 11, color: 'var(--text-secondary, #c9c4dd)' }}>Contact card · tap to view</div>
@@ -1229,7 +1229,7 @@ const msgRefs        = useRef({})
   const headerMenuBtnRef = useRef(null)
   const mediaFlowRef = useRef(null)
 
-  const { isOnline, getLastSeenLabel } = usePresence(userId)
+const { isOnline, getLastSeenLabel, getPresenceStatus } = usePresence(userId)
   const igQuick = useInstagramConnection(session, userId)
    const watchTogether = useWatchTogether(
   activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
@@ -1509,7 +1509,7 @@ useEffect(() => {
   }
   if (messages.length > prevMsgCountRef.current) {
     messagesEndRef.current?.scrollIntoView({
-      behavior: prevMsgCountRef.current === 0 ? 'auto' : 'smooth',
+    behavior: prevMsgCountRef.current === 0 || getSetting('reduceMotion') ? 'auto' : 'smooth',
     })
   }
   prevMsgCountRef.current = messages.length
@@ -1998,7 +1998,10 @@ const handleShareContact = async (profile) => {
     if (callStatus === 'connecting') return '📞 Connecting…'
     if (callStatus === 'in-call')    return '🟢 On a call'
     if (typing.length > 0)           return `${getConvoName(activeConvo)} is typing…`
-    if (otherUserId && isOnline(otherUserId)) return 'Online'
+if (otherUserId && isOnline(otherUserId)) {
+  const s = getPresenceStatus(otherUserId)
+  return s === 'busy' ? 'Busy' : s === 'idle' ? 'Away' : 'Online'
+}
     if (otherUserId) return getLastSeenLabel(otherUserId)
     return ''
   }
@@ -2125,8 +2128,9 @@ const handleSignOut = async () => {
           
 
           {/* ── STORY / QUICK-CONTACT RAIL ── */}
-          {activeTab === 'chats' && (
-            <NotesRail
+        {activeTab === 'chats' && (
+  <>
+  <NotesRail
   conversations={conversations}
   userId={userId}
   extras={publicExtras}
@@ -2183,10 +2187,11 @@ const handleSignOut = async () => {
                   <StatusRing size={58} hasStatus viewed={group.allViewed}>
                     <Avatar name={group.profile.username} size={52} />
                   </StatusRing>
-                  <span className="story-label">{(group.profile.username || 'Unknown').split(' ')[0]}</span>
+                                   <span className="story-label">{(group.profile.username || 'Unknown').split(' ')[0]}</span>
                 </button>
               ))}
             </div>
+            </>
           )}
         </div>
 
@@ -2242,6 +2247,7 @@ const handleSignOut = async () => {
     <div key={c.id} className={`contact ${activeConvo?.id === c.id ? 'active' : ''}`} onClick={() => openConvo(c)}>
       <div className="contact-avatar-wrap">
         <Avatar name={getConvoName(c)} online={state?.onlineStatus} size={46} photoUrl={getOtherUserAvatar(c, userId)} />
+                  <StatusBadge extras={publicExtras.get(otherId)} />
         {unread > 0 && <span className="unread-badge">{unread > 9 ? '9+' : unread}</span>}
         {sharedConvoIds.has(c.id) && (
           <span className="shared-badge" title="Shared with Curry">
@@ -2769,6 +2775,7 @@ onForward={(m) => setForwardingMessage(m)}
   onClose={() => setProfileCardTarget(null)}
   onAskCurry={(question) => { setCurryPrefill(question); setActiveConvo(CURRY_AI_CONTACT) }}
 onMessageContact={handleMessageContact} 
+  extras={publicExtras.get(profileCardTarget?.id)}
 />
 )}
 
@@ -2892,11 +2899,12 @@ onMessageContact={handleMessageContact}
                   {getConvoName(activeConvo)}
                   {getOtherUserIsAdmin(activeConvo, userId) && <IconVerified size={14} />}
                 </div>
-               <div className="chat-header-sub" style={{ minHeight: 16 }}>
-  {headerStatus()}
-  <StatusLine extras={publicExtras.get(otherUserId)} />
-</div>
-             <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', flexShrink: 0, maxWidth: '100%' }}>
+                <div className="chat-header-sub" style={{ minHeight: 16 }}>
+                  {headerStatus()}
+                  <StatusLine extras={publicExtras.get(otherUserId)} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflowX: 'auto',
                 {callStatus === 'idle' && !isReadOnlyChat && (
                   <CallButtons onVoiceCall={() => startCall('audio')} onVideoCall={() => startCall('video')} disabled={false} />
                 )}
