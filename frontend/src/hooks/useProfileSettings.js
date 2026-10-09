@@ -15,14 +15,15 @@ import { supabase } from '../lib/supabase' // adjust the path if your client liv
  *   />
  *
  * Where each key is stored:
- *   profiles       theme, presence, bio, statusEmoji, statusText, statusClear, note
- *   user_settings  every key in SETTING_KEYS (via the set_user_setting RPC)
+ *   profiles       theme, bio, statusEmoji, statusText, statusClear, note  (visible to other people)
+ *   user_settings  every key in SETTING_KEYS, including presence (private, via the set_user_setting RPC)
  *   not saved yet  twoStep, chatLock, blockScreenshots, hideIp (they need real implementations)
  */
 
-const PROFILE_KEYS = new Set(['theme', 'presence', 'bio', 'statusEmoji', 'statusText', 'statusClear', 'note'])
+const PROFILE_KEYS = new Set(['theme', 'bio', 'statusEmoji', 'statusText', 'statusClear', 'note'])
 
 const SETTING_KEYS = new Set([
+  'presence', // private on purpose: other people must not be able to read that you chose Invisible
   'lastSeen', 'photoVis', 'showOnline', 'readReceipts', 'typing', 'whoCanAdd',
   'disappearing', 'keepArchived', 'enterToSend',
   'chatTheme', 'bubbleStyle', 'fontSize', 'autoplayMotion',
@@ -32,7 +33,7 @@ const SETTING_KEYS = new Set([
 ])
 
 const PROFILE_COLUMNS =
-  'bio, theme, presence_pref, status_emoji, status_text, status_expires_at, note_text, note_expires_at'
+  'bio, theme, status_emoji, status_text, status_expires_at, note_text, note_expires_at'
 
 const FLUSH_DELAY_MS = 150 // the status form changes several keys at once; send them as one write
 const NOTE_LIFETIME_MS = 24 * 60 * 60 * 1000
@@ -83,7 +84,6 @@ export default function useProfileSettings(userId, { onError } = {}) {
       const p = profileRes.data
       if (p) {
         if (p.theme) next.theme = p.theme
-        if (p.presence_pref) next.presence = p.presence_pref
         if (p.bio != null) next.bio = p.bio
         if ((p.status_emoji || p.status_text) && isLive(p.status_expires_at)) {
           next.statusEmoji = p.status_emoji || ''
@@ -110,7 +110,6 @@ export default function useProfileSettings(userId, { onError } = {}) {
 
     const profilePatch = {}
     if ('theme' in batch) profilePatch.theme = batch.theme
-    if ('presence' in batch) profilePatch.presence_pref = batch.presence
     if ('bio' in batch) profilePatch.bio = batch.bio || null
 
     if ('statusEmoji' in batch || 'statusText' in batch || 'statusClear' in batch) {
