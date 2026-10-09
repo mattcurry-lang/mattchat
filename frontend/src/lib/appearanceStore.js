@@ -24,6 +24,8 @@ const osPrefersReducedMotion = () =>
 // and they are what the sheet should display.
 export function getDefaults() {
   return {
+    // presence: online | idle | busy | invisible (usePresence reads this)
+    presence: 'online',
     // privacy (stored now, enforced in step 4)
     lastSeen: 'contacts', photoVis: 'everyone', showOnline: true, readReceipts: true, typing: true, whoCanAdd: 'everyone',
     // messages
@@ -104,6 +106,13 @@ export function hydrate(owner, serverValues = {}) {
 
 export function useSetting(key) {
   return useSyncExternalStore(subscribe, () => state.values[key], () => DEFAULTS[key])
+}
+
+// Which account the cached settings belong to. It matches the signed-in user once their settings
+// have been loaded (or were cached on this device before). Code that must not act on a guess,
+// such as presence, waits until this equals the user's id.
+export function useSettingsOwner() {
+  return useSyncExternalStore(subscribe, () => state.owner, () => null)
 }
 
 // ---- data saver / media policy ----
