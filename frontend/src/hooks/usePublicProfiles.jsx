@@ -102,7 +102,7 @@ export default function usePublicProfiles(userIds) {
     return () => clearTimeout(id)
   }, [rows, tick])
 
-  const get = useCallback((id) => (id ? toView(rows[id]) : null), [rows, tick]) // eslint-disable-line react-hooks/exhaustive-deps
+  const get = useCallback((id) => (id ? toView(rows[id]) : null), [rows, tick])  
 
   return useMemo(() => ({ get }), [get])
 }
