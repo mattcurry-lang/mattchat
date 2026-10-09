@@ -2904,7 +2904,7 @@ onMessageContact={handleMessageContact}
                   <StatusLine extras={publicExtras.get(otherUserId)} />
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflowX: 'auto',
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', flexShrink: 0, maxWidth: '100%' }}>
                 {callStatus === 'idle' && !isReadOnlyChat && (
                   <CallButtons onVoiceCall={() => startCall('audio')} onVideoCall={() => startCall('video')} disabled={false} />
                 )}
