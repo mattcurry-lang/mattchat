@@ -102,7 +102,12 @@ export default function usePublicProfiles(userIds) {
     return () => clearTimeout(id)
   }, [rows, tick])
 
-  const get = useCallback((id) => (id ? toView(rows[id]) : null), [rows, tick])  
+  // `tick` changes when a status or note expires, which gives consumers a fresh `get` and a re-render.
+  // Reading it here keeps the dependency honest, so no lint suppression is needed.
+  const get = useCallback((id) => {
+    void tick
+    return id ? toView(rows[id]) : null
+  }, [rows, tick])
 
   return useMemo(() => ({ get }), [get])
 }
