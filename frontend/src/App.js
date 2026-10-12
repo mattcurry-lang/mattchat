@@ -9,6 +9,8 @@ import MiniPlayer from './components/Pulse/Music/MiniPlayer'
 import { readStoredSession, storedSessionNeedsMfa } from './lib/offlineSession'
 import { isOnlineNow } from './lib/connectivity'
 import ShushhhInviteListener from './components/Shushhh/ShushhhInviteListener'
+import ShushhhShortcut from './components/Shushhh/ShushhhShortcut'
+
 // Loaded only when someone actually visits them
 const AuthPage = lazy(() => import('./pages/AuthPage'))
 const EmailFormPage = lazy(() => import('./pages/EmailFormPage'))
@@ -177,6 +179,7 @@ export default function App() {
 
         {/* Shushhh: listens for incoming temporary-room invites (in-memory only, nothing persisted) */}
         {session?.user?.id && !needsMfa && <ShushhhInviteListener me={session.user.id} />}
+{session?.user?.id && !needsMfa && <ShushhhShortcut />}
       </BrowserRouter>
     </MusicPlayerProvider>
   )
