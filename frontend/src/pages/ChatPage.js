@@ -61,7 +61,7 @@ import PersonalAnalytics from '../components/PersonalAnalytics'
 import ProfileSetupModal from '../components/ProfileSetupModal'
 import { connectPinterest } from '../lib/supabase'   
 import ProfileCard from '../components/ProfileCard'
-import ConnectedAppsSection from '../components/ConnectedApps/ConnectedAppsSection'
+import ConnectedApps from '../components/ConnectedApps/ConnectedApps'
 import { useInstagramConnection } from '../hooks/useInstagramConnection'
 import InstagramView from '../components/ConnectedApps/InstagramView'
 import PulsePage from '../components/Pulse/PulsePage'
@@ -2611,6 +2611,14 @@ const handleSignOut = async () => {
       />
     </div>
   </div>
+)}
+{showConnectedApps && (
+  <ConnectedApps
+    onClose={() => setShowConnectedApps(false)}
+    internalHandlers={{
+      spotify: () => { setShowConnectedApps(false); setShowMusicSettings(true) },
+    }}
+  />
 )}
 {showAISettings && <AISettingsModal userId={userId} onClose={() => setShowAISettings(false)} />}
 
