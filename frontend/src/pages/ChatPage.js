@@ -2593,25 +2593,7 @@ const handleSignOut = async () => {
   </div>
 )}
 
-{showConnectedApps && (
-  <div className="profile-menu-overlay" onClick={() => setShowConnectedApps(false)}>
-    <div
-      onClick={(e) => e.stopPropagation()}
-      style={{
-        background: 'var(--bg-surface-1, #14141f)', borderRadius: 20, padding: 20,
-        width: 'min(420px, 92vw)', maxHeight: '80vh', overflowY: 'auto',
-        border: '1px solid var(--border)',
-      }}
-    >
-      <ConnectedAppsSection
-        session={session}
-        userId={userId}
-        avatarPreference={profile?.avatar_category}
-        onAvatarChange={(url) => setProfile(p => ({ ...p, avatar_url: url, avatar_source: 'pinterest' }))}
-      />
-    </div>
-  </div>
-)}
+ 
 {showConnectedApps && (
   <ConnectedApps
     onClose={() => setShowConnectedApps(false)}
