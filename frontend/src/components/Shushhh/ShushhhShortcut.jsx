@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import ShushhhExperience from './ShushhhExperience'
 
-export const SHUSHHH_OPEN_EVENT = 'shushhh:open'
-const WINDOW_MS = 700 // all three hits must land within this time
+const WINDOW_MS = 1200
 
-export default function ShushhhShortcut() {
+export default function ShushhhShortcut({ me }) {
+  const [open, setOpen] = useState(false)
   const enterHits = useRef([])
   const tapHits = useRef([])
 
@@ -14,29 +15,30 @@ export default function ShushhhShortcut() {
       if (ref.current.length >= 3) { ref.current = []; return true }
       return false
     }
-    const open = () => window.dispatchEvent(new CustomEvent(SHUSHHH_OPEN_EVENT))
 
-    // Desktop: Enter x3, but never while typing or on a focused button/link
+    // Desktop: Enter x3 (ignored only when you're typing real text)
     const onKeyDown = (e) => {
       if (e.key !== 'Enter' || e.repeat) return
-      const tag = e.target?.tagName
-      if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A'].includes(tag) || e.target?.isContentEditable) return
-      if (hit(enterHits)) open()
+      const el = e.target
+      const isText = el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable
+      const hasText = isText && String(el.value ?? el.textContent ?? '').trim().length > 0
+      if (hasText) { enterHits.current = []; return }
+      if (hit(enterHits)) { e.preventDefault(); setOpen(true) }
     }
 
-    // Mobile: tap x3 on any element marked data-shushhh-trigger
+    // Mobile: tap x3 on anything marked data-shushhh-trigger
     const onPointerUp = (e) => {
       if (!e.target?.closest?.('[data-shushhh-trigger]')) return
-      if (hit(tapHits)) open()
+      if (hit(tapHits)) setOpen(true)
     }
 
-    window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('keydown', onKeyDown, true) // capture, so other handlers can't swallow it
+    window.addEventListener('pointerup', onPointerUp, true)
     return () => {
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('keydown', onKeyDown, true)
+      window.removeEventListener('pointerup', onPointerUp, true)
     }
   }, [])
 
-  return null
+  return open && me ? <ShushhhExperience me={me} onClose={() => setOpen(false)} /> : null
 }
