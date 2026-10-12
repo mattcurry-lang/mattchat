@@ -6,15 +6,9 @@ import AvatarViewer from './AvatarViewer'
 import { IconSearch, IconLogOut, IconCamera } from './Icons'
 import { shushhhBusy } from './Shushhh/useShushhhRoom'
 import ShushhhExperience from './Shushhh/ShushhhExperience'
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
-import { createPortal } from 'react-dom'
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import Avatar from './Avatar'
-import AvatarViewer from './AvatarViewer'
-import { IconSearch, IconLogOut, IconCamera } from './Icons'
-import { shushhhBusy } from './Shushhh/useShushhhRoom'
-import ShushhhExperience from './Shushhh/ShushhhExperience'
+import { SHUSHHH_OPEN_EVENT } from './Shushhh/ShushhhShortcut'
 
+ 
 /*
  * ProfileMenuSheet — hybrid profile page (UI-first, wire later)
  *
