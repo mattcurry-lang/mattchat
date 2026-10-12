@@ -179,7 +179,7 @@ export default function App() {
 
         {/* Shushhh: listens for incoming temporary-room invites (in-memory only, nothing persisted) */}
         {session?.user?.id && !needsMfa && <ShushhhInviteListener me={session.user.id} />}
-{session?.user?.id && !needsMfa && <ShushhhShortcut />}
+        {session?.user?.id && !needsMfa && <ShushhhShortcut me={session.user.id} />}
       </BrowserRouter>
     </MusicPlayerProvider>
   )
