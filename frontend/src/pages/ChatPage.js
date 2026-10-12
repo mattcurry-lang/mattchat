@@ -117,6 +117,8 @@ import ConnectionBanner from '../components/ConnectionBanner'
 import { useConnectionStatus } from '../lib/connectivity'
 import usePublicProfiles from '../hooks/usePublicProfiles'
 import { StatusBadge, StatusLine, NotesRail } from '../components/ProfileFlair'
+import ShushhhExperience from '../components/Shushhh/ShushhhExperience'
+import useShushhhShortcut from '../hooks/useShushhhShortcut'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -1140,6 +1142,7 @@ export default function ChatPage({ session }) {
   const [showSearchBar, setShowSearchBar] = useState(false)
   const [listFilter, setListFilter]     = useState('all') // 'all' | 'group'
   const [showProfileMenu, setShowProfileMenu] = useState(false)
+  const [showShushhh, setShowShushhh] = useState(false)
   const [showProfileSetup, setShowProfileSetup] = useState(false)
   const [show2FA, setShow2FA] = useState(false)
   const [profile, setProfile]           = useState(null)
@@ -1209,6 +1212,8 @@ const [curryPrefill, setCurryPrefill] = useState(null)
   const { isFullPlayerVisible, setIsFullPlayerVisible } = useMusicPlayer()
     useRecordPlays(userId)
   useOutboxFlush(userId)
+  // Shortcut into Shushhh: Enter x3 on desktop, three quick taps on the logo on mobile
+  const { tripleTapProps } = useShushhhShortcut({ onTrigger: () => setShowShushhh(true), enabled: !showShushhh && !!userId })
   const [myRingtone, setMyRingtone] = useState(null)
 const [showRingtonePicker, setShowRingtonePicker] = useState(false)
 
@@ -2080,8 +2085,8 @@ const handleSignOut = async () => {
       <div className="sidebar">
         <div className="top-header">
 <div className="top-header-brand">
-  <img src="/logo.png" alt="Mattchat" className="top-header-logo" />
-  <span className="top-header-name">Mattchat</span>
+  <img src="/logo.png" alt="Mattchat" className="top-header-logo" {...tripleTapProps} />
+  <span className="top-header-name" {...tripleTapProps}>Mattchat</span>
 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
   <QuickMusicAccess />
   <div style={{ position: 'relative' }}>
@@ -2470,6 +2475,10 @@ const handleSignOut = async () => {
     onSaved={(newUsername) => { setProfile(p => ({ ...p, username: newUsername })); setShowChangeUsername(false) }}
     onClose={() => setShowChangeUsername(false)}
   />
+)}
+
+{showShushhh && (
+  <ShushhhExperience me={userId} onClose={() => setShowShushhh(false)} />
 )}
 
 {showChangePicture && (
