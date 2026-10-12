@@ -6,7 +6,7 @@ import AvatarViewer from './AvatarViewer'
 import { IconSearch, IconLogOut, IconCamera } from './Icons'
 import { shushhhBusy } from './Shushhh/useShushhhRoom'
 import ShushhhExperience from './Shushhh/ShushhhExperience'
-import { SHUSHHH_OPEN_EVENT } from './Shushhh/ShushhhShortcut'
+ 
 
  
 /*
@@ -388,12 +388,7 @@ export default function ProfileMenuSheet({
 
   useEffect(() => { if (profile?.bio != null) setVals((v) => ({ ...v, bio: profile.bio })) }, [profile?.bio])
   useEffect(() => () => clearTimeout(toastTimer.current), [])
- useEffect(() => {
-  const open = () => setShushhhOpen(true)
-  window.addEventListener(SHUSHHH_OPEN_EVENT, open)
-  return () => window.removeEventListener(SHUSHHH_OPEN_EVENT, open)
-}, [])
-
+ 
   const showToast = useCallback((msg) => {
     setToast(msg)
     clearTimeout(toastTimer.current)
