@@ -77,6 +77,8 @@ import WeeklyReportModal from '../components/WeeklyReportModal'
 import AISettingsModal from '../components/AISettingsModal'
 import { extractYouTubeId } from '../lib/youtube'
 import YouTubeCard from '../components/YouTubeCard'
+import SocialEmbedCard from '../components/SocialEmbedCard'
+import { extractSocialLink } from '../lib/socialLinks'
 import YouTubePlayer from '../components/YouTubePlayer'
 import { useWatchTogether } from '../hooks/useWatchTogether'
 import WatchTogetherPlayer from '../components/WatchTogetherPlayer'
@@ -784,6 +786,7 @@ if (msg.message_type === 'media') {
  }
 
 const youtubeId = extractYouTubeId(msg.content)
+const socialLink = youtubeId ? null : extractSocialLink(msg.content)
 
   return (
     <div className={`msg-row ${isMe ? 'mine' : ''}`}>
@@ -792,18 +795,21 @@ const youtubeId = extractYouTubeId(msg.content)
         {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
         {youtubeId ? (
           <YouTubeCard videoId={youtubeId} onPlay={msg._onPlayYouTube} onWatchTogether={msg._onWatchTogether} session={session} />
-        ) : (
-          <div className={`msg-bubble ${msg.is_email ? 'email-msg' : ''} ${isMe && isRead ? 'read' : ''}`}>
-            {msg.forwarded && <div className="forwarded-tag">➡️ Forwarded</div>}
-            {msg.reply_to_message_id && msg._quotedMessage && (
-              <div className="reply-quote">
-                <div className="reply-quote-name">{msg._quotedMessage.profiles?.username || 'You'}</div>
-                <div className="reply-quote-text">{msg._quotedMessage.content?.slice(0, 80)}</div>
-              </div>
-            )}
-            {msg.is_email && <span className="email-tag">📧 via email</span>}
-            {msg.content}
-          </div>
+              ) : (
+          <>
+            <div className={`msg-bubble ${msg.is_email ? 'email-msg' : ''} ${isMe && isRead ? 'read' : ''}`}>
+              {msg.forwarded && <div className="forwarded-tag">➡️ Forwarded</div>}
+              {msg.reply_to_message_id && msg._quotedMessage && (
+                <div className="reply-quote">
+                  <div className="reply-quote-name">{msg._quotedMessage.profiles?.username || 'You'}</div>
+                  <div className="reply-quote-text">{msg._quotedMessage.content?.slice(0, 80)}</div>
+                </div>
+              )}
+              {msg.is_email && <span className="email-tag">📧 via email</span>}
+              {msg.content}
+            </div>
+            {socialLink && <SocialEmbedCard link={socialLink} />}
+          </>
         )}
               <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
         <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} queued={msg._status === 'queued'} />
