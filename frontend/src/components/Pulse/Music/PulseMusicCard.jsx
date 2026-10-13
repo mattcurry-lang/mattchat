@@ -5,6 +5,7 @@ import PlaylistsSection from './PlaylistsSection'
 import BecomeArtistModal from './BecomeArtistModal'
 import ArtistDashboard from './ArtistDashboard'
 import LibraryPanel from './LibraryPanel'
+import FullPlayer from './FullPlayer'
 import { useMusicPlayer } from '../../context/MusicPlayerContext'
 import { MusicService } from '../../../lib/music/MusicService'
 import { YouTubeMusicProvider } from '../../../lib/music/providers/YouTubeMusicProvider'
@@ -28,6 +29,32 @@ import { useOnlineStatus } from '../../../hooks/useOnlineStatus'
 import DownloadAllButton from './DownloadAllButton'
 import { SearchBar, SearchResultsView, HomeButton, loadRecents, saveRecent } from './SpotifySearch'
 
+/* ------------------------------------------------------------------ */
+/* shared display helpers (same rules as FullPlayer.jsx)               */
+/* ------------------------------------------------------------------ */
+
+// "DJ PHAPHANE - Topic" -> "DJ PHAPHANE"
+const cleanArtist = (a = '') => a.replace(/\s*-\s*Topic\s*$/i, '').trim()
+
+// "Song (Official Video) [HD]" -> "Song"
+const cleanTitle = (t = '') =>
+  t.replace(/\s*[\(\[][^)\]]*(official|video|audio|lyrics?|hd|4k|visuali[sz]er)[^)\]]*[\)\]]/gi, '').trim()
+
+// YouTube thumbnails have black bars baked in; zooming crops them out.
+const YT_ART_ZOOM = 1.34
+const artZoom = (url = '') => (/ytimg|ggpht|googleusercontent/i.test(url) ? YT_ART_ZOOM : 1)
+
+// Square-cropped artwork. Parent must be overflow:hidden.
+function Art({ src, fallback }) {
+  if (!src) return fallback || null
+  return (
+    <img
+      src={src} alt="" loading="lazy" draggable={false}
+      style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${artZoom(src)})` }}
+    />
+  )
+}
+
 function greeting() {
   const h = new Date().getHours()
   if (h < 12) return 'Good morning'
@@ -41,6 +68,101 @@ function formatTime(seconds) {
   const s = Math.floor(seconds % 60)
   return `${m}:${s.toString().padStart(2, '0')}`
 }
+
+/* ------------------------------------------------------------------ */
+/* lyrics hook (free lyrics.ovh lookup, cached per session)            */
+/* ------------------------------------------------------------------ */
+
+const lyricsCache = new Map()
+
+function useLyrics(track, enabled) {
+  const [state, setState] = useState({ status: 'idle', text: '' })
+
+  useEffect(() => {
+    if (!enabled || !track) return undefined
+    const artist = cleanArtist(track.artist)
+    const title = cleanTitle(track.title)
+    const key = `${artist}::${title}`.toLowerCase()
+    if (lyricsCache.has(key)) { setState(lyricsCache.get(key)); return undefined }
+
+    const ctrl = new AbortController()
+    setState({ status: 'loading', text: '' })
+    fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`, { signal: ctrl.signal })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('not found'))))
+      .then((d) => {
+        const next = d?.lyrics ? { status: 'ok', text: d.lyrics.trim() } : { status: 'none', text: '' }
+        lyricsCache.set(key, next)
+        setState(next)
+      })
+      .catch((e) => { if (e.name !== 'AbortError') setState({ status: 'none', text: '' }) })
+    return () => ctrl.abort()
+  }, [track?.id, track?.artist, track?.title, enabled])
+
+  return state
+}
+
+/* ------------------------------------------------------------------ */
+/* seek bar — drag to scrub, thumb on hover (Spotify desktop)          */
+/* ------------------------------------------------------------------ */
+
+function SeekBar({ currentTime, duration, onSeek, colors }) {
+  const ref = useRef(null)
+  const [dragging, setDragging] = useState(false)
+  const [hover, setHover] = useState(false)
+  const [dragValue, setDragValue] = useState(0)
+
+  const ratioFromEvent = (e) => {
+    const r = ref.current.getBoundingClientRect()
+    return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width))
+  }
+
+  const shown = dragging ? dragValue : currentTime
+  const pct = duration > 0 ? Math.min(100, (shown / duration) * 100) : 0
+  const active = hover || dragging
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+      <span style={{ fontSize: 10.5, color: colors.textMuted, width: 32, textAlign: 'right' }}>{formatTime(shown)}</span>
+      <div
+        ref={ref}
+        role="slider" tabIndex={0} aria-label="Seek"
+        aria-valuemin={0} aria-valuemax={Math.round(duration || 0)} aria-valuenow={Math.round(shown || 0)}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowRight') onSeek(Math.min(duration, currentTime + 5))
+          if (e.key === 'ArrowLeft') onSeek(Math.max(0, currentTime - 5))
+        }}
+        onPointerEnter={() => setHover(true)}
+        onPointerLeave={() => setHover(false)}
+        onPointerDown={(e) => {
+          if (!duration) return
+          e.currentTarget.setPointerCapture(e.pointerId)
+          setDragging(true)
+          setDragValue(ratioFromEvent(e) * duration)
+        }}
+        onPointerMove={(e) => { if (dragging) setDragValue(ratioFromEvent(e) * duration) }}
+        onPointerUp={(e) => {
+          if (!dragging) return
+          onSeek(ratioFromEvent(e) * duration)
+          setDragging(false)
+        }}
+        style={{ flex: 1, height: 16, display: 'flex', alignItems: 'center', cursor: 'pointer', touchAction: 'none' }}
+      >
+        <div style={{ position: 'relative', width: '100%', height: 4, borderRadius: 2, background: colors.surface2 }}>
+          <div style={{ position: 'absolute', inset: '0 auto 0 0', width: `${pct}%`, borderRadius: 2, background: active ? '#c4b5fd' : '#a78bfa' }} />
+          <div style={{
+            position: 'absolute', top: '50%', left: `${pct}%`, width: 12, height: 12, borderRadius: '50%', background: '#fff',
+            transform: 'translate(-50%,-50%)', opacity: active ? 1 : 0, transition: 'opacity 0.12s', boxShadow: '0 1px 4px rgba(0,0,0,0.5)',
+          }} />
+        </div>
+      </div>
+      <span style={{ fontSize: 10.5, color: colors.textMuted, width: 32 }}>{formatTime(duration)}</span>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* entry card                                                          */
+/* ------------------------------------------------------------------ */
 
 export function PulseMusicEntryCard({ onOpen }) {
   const colors = useMusicColors()
@@ -61,7 +183,7 @@ export function PulseMusicEntryCard({ onOpen }) {
       <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: colors.textPrimary }}>Music</div>
         <div style={{ fontSize: 11.5, color: colors.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {isPlaying && currentTrack ? `Playing · ${currentTrack.title}` : 'Discover, search, and play — keeps going while you chat'}
+          {isPlaying && currentTrack ? `Playing · ${cleanTitle(currentTrack.title)}` : 'Discover, search, and play — keeps going while you chat'}
         </div>
       </div>
     </button>
@@ -79,7 +201,10 @@ function EqBarsSmall() {
   )
 }
 
-// ── Left icon rail — Spotify's collapsed sidebar ──
+/* ------------------------------------------------------------------ */
+/* left icon rail                                                      */
+/* ------------------------------------------------------------------ */
+
 function LibraryRail({ playlists, colors, onOpenLibrary }) {
   const { likedTracks, playTrack } = useMusicPlayer()
   return (
@@ -91,6 +216,7 @@ function LibraryRail({ playlists, colors, onOpenLibrary }) {
       <button
         onClick={onOpenLibrary}
         title="Your Library"
+        aria-label="Your Library"
         style={{ width: 40, height: 40, borderRadius: 10, border: 'none', background: colors.surface2, color: colors.textSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', marginBottom: 4 }}
       >
         <IconListMusic size={17} />
@@ -100,6 +226,7 @@ function LibraryRail({ playlists, colors, onOpenLibrary }) {
         whileTap={{ scale: 0.92 }}
         onClick={() => likedTracks.length && playTrack(likedTracks[0], likedTracks)}
         title="Liked Songs"
+        aria-label="Play liked songs"
         style={{
           width: 44, height: 44, borderRadius: 10, border: 'none', cursor: 'pointer',
           background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -115,6 +242,7 @@ function LibraryRail({ playlists, colors, onOpenLibrary }) {
           whileTap={{ scale: 0.94 }}
           onClick={onOpenLibrary}
           title={p.name}
+          aria-label={p.name}
           style={{
             width: 44, height: 44, borderRadius: 10, overflow: 'hidden', border: 'none', cursor: 'pointer', padding: 0,
             background: p.artwork_url ? colors.surface2 : 'linear-gradient(135deg, rgba(167,139,250,0.35), rgba(108,99,255,0.2))',
@@ -128,13 +256,17 @@ function LibraryRail({ playlists, colors, onOpenLibrary }) {
   )
 }
 
-// ── Right "Now Playing" panel — Spotify context panel + Boomplay-style Lyrics tab ──
+/* ------------------------------------------------------------------ */
+/* right "Now Playing" panel — details + real lyrics                   */
+/* ------------------------------------------------------------------ */
+
 function NowPlayingPanel({ colors, fallbackTrack }) {
-  const { currentTrack: playing, isLiked, toggleLike, recentlyPlayed } = useMusicPlayer()
+  const { currentTrack: playing, isLiked, toggleLike, recentlyPlayed, playTrack } = useMusicPlayer()
   const currentTrack = playing || fallbackTrack
   const dominant = useDominantColor(currentTrack?.artwork)
   const [tab, setTab] = useState('details') // 'details' | 'lyrics'
   const [burst, setBurst] = useState(false)
+  const lyrics = useLyrics(currentTrack, tab === 'lyrics')
 
   if (!currentTrack) {
     return (
@@ -149,39 +281,33 @@ function NowPlayingPanel({ colors, fallbackTrack }) {
 
   const liked = isLiked(currentTrack.id)
   const related = recentlyPlayed.filter((t) => t.id !== currentTrack.id).slice(0, 5)
+  const title = cleanTitle(currentTrack.title)
+  const artist = cleanArtist(currentTrack.artist)
 
   const handleLike = () => {
     if (!liked) { setBurst(true); setTimeout(() => setBurst(false), 600) }
     toggleLike(currentTrack)
   }
- 
+
   const share = () => {
-    if (navigator.share) {
-      navigator.share({ title: currentTrack.title, text: `${currentTrack.title} — ${currentTrack.artist}` }).catch(() => {})
-    }
+    const text = `${title} — ${artist}`
+    if (navigator.share) navigator.share({ title, text }).catch(() => {})
+    else navigator.clipboard?.writeText(text).catch(() => {})
   }
+
+  const tabStyle = (on) => ({
+    display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, padding: '6px 12px', borderRadius: 999,
+    border: 'none', cursor: 'pointer', background: on ? 'linear-gradient(135deg,#a78bfa,#6c63ff)' : colors.surface2,
+    color: on ? '#fff' : colors.textSecondary,
+  })
 
   return (
     <div style={{ width: 300, flexShrink: 0, borderLeft: `1px solid ${colors.border}`, background: colors.surface1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-        <button
-          onClick={() => setTab('details')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, padding: '6px 12px', borderRadius: 999,
-            border: 'none', cursor: 'pointer', background: tab === 'details' ? 'linear-gradient(135deg,#a78bfa,#6c63ff)' : colors.surface2,
-            color: tab === 'details' ? '#fff' : colors.textSecondary,
-          }}
-        >
+        <button onClick={() => setTab('details')} style={tabStyle(tab === 'details')}>
           <IconMusic size={12} /> Now Playing
         </button>
-        <button
-          onClick={() => setTab('lyrics')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, padding: '6px 12px', borderRadius: 999,
-            border: 'none', cursor: 'pointer', background: tab === 'lyrics' ? 'linear-gradient(135deg,#a78bfa,#6c63ff)' : colors.surface2,
-            color: tab === 'lyrics' ? '#fff' : colors.textSecondary,
-          }}
-        >
+        <button onClick={() => setTab('lyrics')} style={tabStyle(tab === 'lyrics')}>
           <IconLyrics size={12} /> Lyrics
         </button>
       </div>
@@ -190,24 +316,20 @@ function NowPlayingPanel({ colors, fallbackTrack }) {
         key={currentTrack.id}
         initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }}
         style={{
-          width: '100%', aspectRatio: '1 / 1', borderRadius: 12, overflow: 'hidden', marginBottom: 14,
+          width: '100%', aspectRatio: '1 / 1', borderRadius: 12, overflow: 'hidden', marginBottom: 14, flexShrink: 0,
           background: colors.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: `0 16px 40px ${rgba(dominant, 0.35)}`,
         }}
       >
-        {currentTrack.artwork ? (
-          <img src={currentTrack.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        ) : (
-          <IconMusic size={40} style={{ color: colors.textMuted }} />
-        )}
+        <Art src={currentTrack.artwork} fallback={<IconMusic size={40} style={{ color: colors.textMuted }} />} />
       </motion.div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
         <div style={{ fontSize: 15, fontWeight: 800, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-          {currentTrack.title}
+          {title}
         </div>
         <div style={{ display: 'flex', gap: 4, marginLeft: 8, flexShrink: 0, position: 'relative' }}>
-          <button onClick={handleLike} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: liked ? '#f87171' : colors.textMuted, position: 'relative' }}>
+          <button onClick={handleLike} aria-label={liked ? 'Unlike' : 'Like'} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: liked ? '#f87171' : colors.textMuted, position: 'relative' }}>
             <IconHeart size={17} filled={liked} />
             <AnimatePresence>
               {burst && [0, 1, 2].map((i) => (
@@ -222,24 +344,35 @@ function NowPlayingPanel({ colors, fallbackTrack }) {
                 </motion.span>
               ))}
             </AnimatePresence>
-                  </button>
+          </button>
           <TrackDownloadAction track={currentTrack} size={16} />
-          <button onClick={share} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: colors.textMuted }}>
+          <button onClick={share} aria-label="Share" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: colors.textMuted }}>
             <IconShare2 size={16} />
-          
           </button>
         </div>
       </div>
-      <div style={{ fontSize: 13, color: colors.textMuted, marginBottom: 10 }}>{currentTrack.artist}</div>
+      <div style={{ fontSize: 13, color: colors.textMuted, marginBottom: 10 }}>{artist}</div>
       <div style={{ marginBottom: 16 }}>
-        <DownloadAllButton artistOf={currentTrack} label={`Download more by ${currentTrack.artist}`} />
+        <DownloadAllButton artistOf={currentTrack} label={`Download more by ${artist}`} />
       </div>
 
       <AnimatePresence mode="wait">
         {tab === 'lyrics' ? (
-          <motion.div key="lyrics" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ textAlign: 'center', color: colors.textMuted, fontSize: 12.5, padding: '30px 10px' }}>
-            <IconLyrics size={26} style={{ marginBottom: 10, opacity: 0.5 }} />
-            <div>Lyrics for this track aren't available yet.</div>
+          <motion.div key="lyrics" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            {lyrics.status === 'loading' && (
+              <div style={{ textAlign: 'center', color: colors.textMuted, fontSize: 12.5, padding: '30px 10px' }}>Finding lyrics…</div>
+            )}
+            {lyrics.status === 'none' && (
+              <div style={{ textAlign: 'center', color: colors.textMuted, fontSize: 12.5, padding: '30px 10px' }}>
+                <IconLyrics size={26} style={{ marginBottom: 10, opacity: 0.5 }} />
+                <div>No lyrics found for this song.</div>
+              </div>
+            )}
+            {lyrics.status === 'ok' && (
+              <div style={{ whiteSpace: 'pre-wrap', color: colors.textPrimary, fontSize: 15, fontWeight: 700, lineHeight: 1.65, paddingBottom: 12 }}>
+                {lyrics.text}
+              </div>
+            )}
           </motion.div>
         ) : (
           related.length > 0 && (
@@ -248,15 +381,19 @@ function NowPlayingPanel({ colors, fallbackTrack }) {
                 More like this
               </div>
               {related.map((t) => (
-                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0' }}>
+                <button
+                  key={t.id}
+                  onClick={() => playTrack(t, related)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                >
                   <div style={{ width: 34, height: 34, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: colors.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {t.artwork ? <img src={t.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={13} style={{ color: colors.textMuted }} />}
+                    <Art src={t.artwork} fallback={<IconMusic size={13} style={{ color: colors.textMuted }} />} />
                   </div>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
-                    <div style={{ fontSize: 10.5, color: colors.textMuted }}>{t.artist}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanTitle(t.title)}</div>
+                    <div style={{ fontSize: 10.5, color: colors.textMuted }}>{cleanArtist(t.artist)}</div>
                   </div>
-                </div>
+                </button>
               ))}
             </motion.div>
           )
@@ -266,8 +403,11 @@ function NowPlayingPanel({ colors, fallbackTrack }) {
   )
 }
 
-// ── Bottom playback bar — mobile version is now swipeable (drag left/right to skip) ──
-function PlaybackBar({ colors, fallbackTrack }) {
+/* ------------------------------------------------------------------ */
+/* bottom playback bar                                                 */
+/* ------------------------------------------------------------------ */
+
+function PlaybackBar({ colors, fallbackTrack, onExpand }) {
   const isMobile = useIsMobile()
   const {
     currentTrack: playing, isPlaying, currentTime, duration, volume,
@@ -276,6 +416,10 @@ function PlaybackBar({ colors, fallbackTrack }) {
     playTrack, recentlyPlayed,
   } = useMusicPlayer()
 
+  const lastVolume = useRef(0.8)
+  useEffect(() => { if (volume > 0) lastVolume.current = volume }, [volume])
+  const toggleMute = () => setVolume(volume > 0 ? 0 : lastVolume.current || 0.8)
+
   const currentTrack = playing || fallbackTrack
   // If nothing is loaded yet, the play button starts the remembered track
   const togglePlay = () =>
@@ -283,7 +427,7 @@ function PlaybackBar({ colors, fallbackTrack }) {
       ? togglePlayPause()
       : playTrack(currentTrack, recentlyPlayed?.length ? recentlyPlayed : [currentTrack])
 
-    if (!currentTrack) {
+  if (!currentTrack) {
     return (
       <div style={{ height: isMobile ? 56 : 72, borderTop: `1px solid ${colors.border}`, background: colors.surface1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textMuted, fontSize: 12 }}>
         Nothing playing
@@ -293,7 +437,8 @@ function PlaybackBar({ colors, fallbackTrack }) {
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
   const liked = isLiked(currentTrack.id)
-  
+  const title = cleanTitle(currentTrack.title)
+  const artist = cleanArtist(currentTrack.artist)
 
   if (isMobile) {
     return (
@@ -309,19 +454,29 @@ function PlaybackBar({ colors, fallbackTrack }) {
         style={{ position: 'relative', height: 56, borderTop: `1px solid ${colors.border}`, background: colors.surface2, display: 'flex', alignItems: 'center', padding: '0 10px', gap: 10, touchAction: 'pan-y' }}
       >
         <div style={{ position: 'absolute', top: 0, left: 0, height: 2, width: `${progress}%`, background: '#a78bfa' }} />
-        <div style={{ width: 38, height: 38, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: colors.surface1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {currentTrack.artwork ? <img src={currentTrack.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={14} style={{ color: colors.textMuted }} />}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTrack.title}</div>
-          <div style={{ fontSize: 10.5, color: colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTrack.artist}</div>
-        </div>
-                      <button onClick={() => toggleLike(currentTrack)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: liked ? '#f87171' : colors.textMuted, flexShrink: 0 }}>
+
+        {/* tap the track info to open the full player */}
+        <button
+          onClick={onExpand}
+          aria-label="Open player"
+          style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+        >
+          <div style={{ width: 38, height: 38, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: colors.surface1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Art src={currentTrack.artwork} fallback={<IconMusic size={14} style={{ color: colors.textMuted }} />} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+            <div style={{ fontSize: 10.5, color: colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{artist}</div>
+          </div>
+        </button>
+
+        <button onClick={() => toggleLike(currentTrack)} aria-label={liked ? 'Unlike' : 'Like'} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: liked ? '#f87171' : colors.textMuted, flexShrink: 0 }}>
           <IconHeart size={16} filled={liked} />
         </button>
         <TrackDownloadAction track={currentTrack} size={15} />
         <button
           onClick={togglePlay}
+          aria-label={isPlaying ? 'Pause' : 'Play'}
           style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', cursor: 'pointer', background: '#fff', color: '#0f0f1a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
         >
           {isPlaying ? <IconPause size={13} /> : <IconPlay size={13} />}
@@ -330,56 +485,59 @@ function PlaybackBar({ colors, fallbackTrack }) {
     )
   }
 
+  const iconBtn = (on) => ({ background: 'transparent', border: 'none', cursor: 'pointer', color: on ? '#a78bfa' : colors.textMuted, position: 'relative' })
+
   return (
     <div style={{ height: 72, borderTop: `1px solid ${colors.border}`, background: colors.surface1, display: 'flex', alignItems: 'center', padding: '0 16px', gap: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: 220, minWidth: 0 }}>
-        <div style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: colors.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {currentTrack.artwork ? <img src={currentTrack.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={16} style={{ color: colors.textMuted }} />}
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTrack.title}</div>
-          <div style={{ fontSize: 11, color: colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTrack.artist}</div>
-        </div>
-        <button onClick={() => toggleLike(currentTrack)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: liked ? '#f87171' : colors.textMuted, flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: 240, minWidth: 0 }}>
+        <button
+          onClick={onExpand}
+          aria-label="Open player"
+          style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+        >
+          <div style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: colors.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Art src={currentTrack.artwork} fallback={<IconMusic size={16} style={{ color: colors.textMuted }} />} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+            <div style={{ fontSize: 11, color: colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{artist}</div>
+          </div>
+        </button>
+        <button onClick={() => toggleLike(currentTrack)} aria-label={liked ? 'Unlike' : 'Like'} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: liked ? '#f87171' : colors.textMuted, flexShrink: 0 }}>
           <IconHeart size={15} filled={liked} />
         </button>
         <TrackDownloadAction track={currentTrack} size={15} />
       </div>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, maxWidth: 640, margin: '0 auto' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, maxWidth: 640, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          <button onClick={toggleShuffle} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: shuffle ? '#a78bfa' : colors.textMuted }}><IconShuffle size={15} /></button>
-          <button onClick={playPrevious} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: colors.textPrimary }}><IconSkipBack size={17} /></button>
+          <button onClick={toggleShuffle} aria-label="Shuffle" aria-pressed={shuffle} style={iconBtn(shuffle)}><IconShuffle size={15} /></button>
+          <button onClick={playPrevious} aria-label="Previous" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: colors.textPrimary }}><IconSkipBack size={17} /></button>
           <motion.button
             whileTap={{ scale: 0.88 }}
-          onClick={togglePlay}
+            onClick={togglePlay}
+            aria-label={isPlaying ? 'Pause' : 'Play'}
             style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', cursor: 'pointer', background: '#fff', color: '#0f0f1a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             {isPlaying ? <IconPause size={14} /> : <IconPlay size={14} />}
           </motion.button>
-          <button onClick={playNext} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: colors.textPrimary }}><IconSkipForward size={17} /></button>
-          <button onClick={cycleRepeat} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: repeatMode !== 'off' ? '#a78bfa' : colors.textMuted, position: 'relative' }}>
+          <button onClick={playNext} aria-label="Next" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: colors.textPrimary }}><IconSkipForward size={17} /></button>
+          <button onClick={cycleRepeat} aria-label="Repeat" aria-pressed={repeatMode !== 'off'} style={iconBtn(repeatMode !== 'off')}>
             <IconRepeat size={15} />
             {repeatMode === 'one' && <span style={{ position: 'absolute', bottom: -3, right: -3, fontSize: 7, fontWeight: 800 }}>1</span>}
           </button>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
-          <span style={{ fontSize: 10.5, color: colors.textMuted, width: 32, textAlign: 'right' }}>{formatTime(currentTime)}</span>
-          <div
-            onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); seekTo(((e.clientX - r.left) / r.width) * duration) }}
-            style={{ flex: 1, height: 4, borderRadius: 2, background: colors.surface2, cursor: 'pointer', position: 'relative' }}
-          >
-            <div style={{ position: 'absolute', inset: '0 auto 0 0', width: `${progress}%`, borderRadius: 2, background: '#a78bfa' }} />
-          </div>
-          <span style={{ fontSize: 10.5, color: colors.textMuted, width: 32 }}>{formatTime(duration)}</span>
-        </div>
+        <SeekBar currentTime={currentTime} duration={duration} onSeek={seekTo} colors={colors} />
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: 140, justifyContent: 'flex-end' }}>
-        <IconVolume2 size={15} style={{ color: colors.textMuted }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: 150, justifyContent: 'flex-end' }}>
+        <button onClick={toggleMute} aria-label={volume > 0 ? 'Mute' : 'Unmute'} style={{ ...iconBtn(false), display: 'flex', opacity: volume > 0 ? 1 : 0.5 }}>
+          <IconVolume2 size={15} />
+        </button>
         <input
           type="range" min={0} max={1} step={0.01} value={volume}
           onChange={(e) => setVolume(parseFloat(e.target.value))}
+          aria-label="Volume"
           style={{ width: 90, accentColor: '#a78bfa' }}
         />
       </div>
@@ -387,7 +545,13 @@ function PlaybackBar({ colors, fallbackTrack }) {
   )
 }
 
+/* ------------------------------------------------------------------ */
+/* home sections                                                       */
+/* ------------------------------------------------------------------ */
+
 function QuickPickTile({ track, onPress, index, colors }) {
+  const { currentTrack, isPlaying } = useMusicPlayer()
+  const active = currentTrack?.id === track.id
   return (
     <motion.button
       onClick={onPress}
@@ -395,17 +559,30 @@ function QuickPickTile({ track, onPress, index, colors }) {
       whileTap={{ scale: 0.97 }}
       style={{
         display: 'flex', alignItems: 'center', gap: 10, background: colors.surface2,
-        border: `1px solid ${colors.border}`, borderRadius: 10, overflow: 'hidden', cursor: 'pointer',
+        border: `1px solid ${active ? 'rgba(167,139,250,0.55)' : colors.border}`, borderRadius: 10, overflow: 'hidden', cursor: 'pointer',
         padding: 0, textAlign: 'left', height: 56,
       }}
     >
-      <div style={{ width: 56, height: 56, flexShrink: 0, background: colors.surface1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {track.artwork ? <img src={track.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={16} style={{ color: colors.textMuted }} />}
+      <div style={{ width: 56, height: 56, flexShrink: 0, overflow: 'hidden', background: colors.surface1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Art src={track.artwork} fallback={<IconMusic size={16} style={{ color: colors.textMuted }} />} />
       </div>
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 10 }}>
-        {track.title}
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: active ? '#c4b5fd' : colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+        {cleanTitle(track.title)}
       </div>
+      {active && isPlaying && (
+        <div style={{ paddingRight: 12, flexShrink: 0, color: '#a78bfa' }}><EqBarsAccent /></div>
+      )}
     </motion.button>
+  )
+}
+
+function EqBarsAccent() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, height: 14 }}>
+      {[0, 1, 2].map((i) => (
+        <span key={i} style={{ width: 2.5, background: 'currentColor', borderRadius: 1, animation: `mattchatEqSm 0.9s ease-in-out ${i * 0.15}s infinite` }} />
+      ))}
+    </div>
   )
 }
 
@@ -417,19 +594,19 @@ function Section({ delay = 0, children, style }) {
   )
 }
 
-// ── Boomplay-style hero carousel — swipeable "For You" cards above the fold ──
+// ── Boomplay-style hero carousel ──
 function ForYouCarousel({ tracks, onPress, isMobile }) {
   const [index, setIndex] = useState(0)
   const timerRef = useRef(null)
 
   useEffect(() => {
-    if (tracks.length < 2) return
+    if (tracks.length < 2) return undefined
     timerRef.current = setInterval(() => setIndex((i) => (i + 1) % tracks.length), 5000)
     return () => clearInterval(timerRef.current)
   }, [tracks.length])
 
   if (!tracks || tracks.length === 0) return null
-  const track = tracks[index]
+  const track = tracks[index % tracks.length]
 
   const restartTimer = () => {
     clearInterval(timerRef.current)
@@ -441,7 +618,7 @@ function ForYouCarousel({ tracks, onPress, isMobile }) {
       <div style={{ fontSize: 14.5, fontWeight: 800, color: '#fff', marginBottom: 10, letterSpacing: -0.2, textShadow: '0 2px 10px rgba(0,0,0,0.4)' }}>
         For You
       </div>
-      <div style={{ position: 'relative', borderRadius: 18, overflow: 'hidden', height: isMobile ? 150 : 190 }}>
+      <div style={{ position: 'relative', borderRadius: 18, overflow: 'hidden', height: isMobile ? 150 : 190, background: 'linear-gradient(135deg,#a78bfa,#6c63ff)' }}>
         <AnimatePresence mode="wait">
           <motion.button
             key={track.id}
@@ -458,16 +635,18 @@ function ForYouCarousel({ tracks, onPress, isMobile }) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4 }}
-            style={{
-              position: 'absolute', inset: 0, width: '100%', border: 'none', cursor: 'pointer', padding: 0,
-              background: track.artwork ? `url(${track.artwork}) center/cover no-repeat` : 'linear-gradient(135deg,#a78bfa,#6c63ff)',
-            }}
+            style={{ position: 'absolute', inset: 0, width: '100%', border: 'none', cursor: 'pointer', padding: 0, overflow: 'hidden', background: 'transparent' }}
           >
+            {/* wide banner: cover-fit, no zoom crop needed */}
+            {track.artwork && (
+              <img src={track.artwork} alt="" draggable={false}
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${artZoom(track.artwork)})` }} />
+            )}
             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.15) 100%)' }} />
             <div style={{ position: 'absolute', left: isMobile ? 14 : 22, bottom: isMobile ? 12 : 18, right: 70, textAlign: 'left' }}>
-              <div style={{ fontSize: 10.5, fontWeight: 800, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 }}>Recommended</div>
-              <div style={{ fontSize: isMobile ? 15 : 19, fontWeight: 900, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.title}</div>
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.artist}</div>
+              <div style={{ fontSize: 10.5, fontWeight: 800, color: '#c4b5fd', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 }}>Recommended</div>
+              <div style={{ fontSize: isMobile ? 15 : 19, fontWeight: 900, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanTitle(track.title)}</div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanArtist(track.artist)}</div>
             </div>
             <div style={{ position: 'absolute', right: isMobile ? 12 : 20, bottom: isMobile ? 12 : 18, width: 42, height: 42, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 18px rgba(0,0,0,0.4)' }}>
               <IconPlay size={17} style={{ color: '#0f0f1a', marginLeft: 2 }} />
@@ -480,9 +659,10 @@ function ForYouCarousel({ tracks, onPress, isMobile }) {
           {tracks.slice(0, 8).map((_, i) => (
             <button
               key={i}
+              aria-label={`Go to slide ${i + 1}`}
               onClick={() => { setIndex(i); restartTimer() }}
               style={{
-                width: i === index ? 16 : 6, height: 6, borderRadius: 3, border: 'none', cursor: 'pointer',
+                width: i === index ? 16 : 6, height: 6, borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0,
                 background: i === index ? '#a78bfa' : 'rgba(255,255,255,0.25)', transition: 'width 0.2s ease',
               }}
             />
@@ -508,8 +688,12 @@ function DownloadedSection() {
   return tracks.length ? <TrackRail title="Downloaded" tracks={tracks} /> : null
 }
 
-export function PulseMusicOverlay({ onClose }) {
-  const { userId, recentlyPlayed, likedTracks, playTrack } = useMusicPlayer()
+/* ------------------------------------------------------------------ */
+/* overlay                                                             */
+/* ------------------------------------------------------------------ */
+
+export function PulseMusicOverlay({ onClose, conversations = [], onShareTrack, onOpenFullPlayer }) {
+  const { userId, recentlyPlayed, likedTracks, playTrack, currentTrack } = useMusicPlayer()
   const { mixes, lastPlayed } = useListeningHistory(userId)
   const colors = useMusicColors()
   const isMobile = useIsMobile()
@@ -522,15 +706,22 @@ export function PulseMusicOverlay({ onClose }) {
   const [showBecomeArtist, setShowBecomeArtist] = useState(false)
   const [showDashboard, setShowDashboard] = useState(false)
   const [showLibrary, setShowLibrary] = useState(false)
+  const [showFull, setShowFull] = useState(false)
   const [query, setQuery] = useState('')
-const [searchFocused, setSearchFocused] = useState(false)
-const [recents, setRecents] = useState(loadRecents)
-const searchInputRef = useRef(null)
-const mainScrollRef = useRef(null)
-const showSearchView = query.trim().length > 0 || (searchFocused && recents.length > 0)
+  const [searchFocused, setSearchFocused] = useState(false)
+  const [recents, setRecents] = useState(loadRecents)
+  const searchInputRef = useRef(null)
+  const mainScrollRef = useRef(null)
+  const showSearchView = query.trim().length > 0 || (searchFocused && recents.length > 0)
   const [activeTab, setActiveTab] = useState('All')
   const [playlists, setPlaylists] = useState([])
   const online = useOnlineStatus()
+
+  // if a parent hands us its own full-player opener, use it; otherwise open locally
+  const expandPlayer = useCallback(() => {
+    if (onOpenFullPlayer) onOpenFullPlayer()
+    else setShowFull(true)
+  }, [onOpenFullPlayer])
 
   useEffect(() => {
     let cancelled = false
@@ -553,8 +744,10 @@ const showSearchView = query.trim().length > 0 || (searchFocused && recents.leng
     finally { setArtistChecked(true) }
   }, [userId])
   useEffect(() => { refreshArtistProfile() }, [refreshArtistProfile])
-useEffect(() => { mainScrollRef.current?.scrollTo({ top: 0 }) }, [showSearchView])
- const heroTrack = mainstream[0] || trending[0] || lastPlayed || recentlyPlayed[0] || likedTracks[0] || null
+
+  useEffect(() => { mainScrollRef.current?.scrollTo({ top: 0 }) }, [showSearchView])
+
+  const heroTrack = mainstream[0] || trending[0] || lastPlayed || recentlyPlayed[0] || likedTracks[0] || null
   const dominant = useDominantColor(heroTrack?.artwork)
   const quickPicks = [...recentlyPlayed.slice(0, 4), ...likedTracks.slice(0, 4)].slice(0, 6)
   const forYou = [...mainstream, ...trending].slice(0, 8)
@@ -565,7 +758,7 @@ useEffect(() => { mainScrollRef.current?.scrollTo({ top: 0 }) }, [showSearchView
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
       style={{ position: 'fixed', inset: 0, zIndex: 600, background: colors.surface1, display: 'flex', flexDirection: 'column' }}
     >
-          {/* ── top bar: home + search in the middle, studio + close on the right ── */}
+      {/* ── top bar: home + search in the middle, studio + close on the right ── */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
         background: colors.surface1, borderBottom: `1px solid ${colors.border}`, flexShrink: 0,
@@ -605,13 +798,13 @@ useEffect(() => { mainScrollRef.current?.scrollTo({ top: 0 }) }, [showSearchView
         </div>
       </div>
 
-      {/* ── main 3-column desktop layout ── */}
+      {/* ── main layout ── */}
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
         {!isMobile && (
           <LibraryRail playlists={playlists} colors={colors} onOpenLibrary={() => setShowLibrary(true)} />
         )}
 
-               <div ref={mainScrollRef} style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
+        <div ref={mainScrollRef} style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
           {showSearchView ? (
             <SearchResultsView
               query={query}
@@ -624,126 +817,129 @@ useEffect(() => { mainScrollRef.current?.scrollTo({ top: 0 }) }, [showSearchView
             />
           ) : (
             <>
-          
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}
-            style={{
-              position: 'relative', padding: isMobile ? '14px 14px 16px' : '18px 24px 20px',
-              background: `linear-gradient(180deg, ${rgba(dominant, 0.4)} 0%, ${rgba(dominant, 0.12)} 55%, ${colors.surface1} 100%)`,
-            }}
-          >
-            {/* Dark scrim behind hero text — guarantees contrast no matter
-                the theme or how light the extracted dominant color is. This
-                was the source of most of the "can't see text" complaints. */}
-            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.38) 0%, rgba(0,0,0,0.12) 60%, transparent 100%)', pointerEvents: 'none' }} />
+              <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}
+                style={{
+                  position: 'relative', padding: isMobile ? '14px 14px 16px' : '18px 24px 20px',
+                  background: `linear-gradient(180deg, ${rgba(dominant, 0.4)} 0%, ${rgba(dominant, 0.12)} 55%, ${colors.surface1} 100%)`,
+                }}
+              >
+                {/* Dark scrim behind hero text — guarantees contrast whatever the dominant color is. */}
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.38) 0%, rgba(0,0,0,0.12) 60%, transparent 100%)', pointerEvents: 'none' }} />
 
-            <div style={{ position: 'relative' }}>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 14, overflowX: isMobile ? 'auto' : 'visible', WebkitOverflowScrolling: 'touch' }}>
-                {TABS.map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    style={{
-                      fontSize: 12.5, fontWeight: 700, padding: '7px 14px', borderRadius: 999, cursor: 'pointer',
-                      border: 'none', color: activeTab === tab ? '#0f0f1a' : '#fff',
-                      background: activeTab === tab ? '#fff' : 'rgba(255,255,255,0.18)',
-                    }}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
-              <h2 style={{ fontSize: 20, fontWeight: 900, color: '#fff', margin: '0 0 14px', letterSpacing: -0.4, textShadow: '0 2px 12px rgba(0,0,0,0.45)' }}>
-                {greeting()}
-              </h2>
-            </div>
-          </motion.div>
-
-          <div style={{ padding: isMobile ? '0 14px 100px' : '0 24px 40px' }}>
-            {(activeTab === 'All') && forYou.length > 0 && (
-              <Section>
-                <ForYouCarousel tracks={forYou} isMobile={isMobile} onPress={(t) => playTrack(t, forYou)} />
-              </Section>
-            )}
-{!online && (
-  <div style={{ margin: '14px 0', padding: '10px 12px', borderRadius: 12, fontSize: 12, fontWeight: 600, color: colors.textPrimary, background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.28)' }}>
-    You're offline. Songs marked OFFLINE ✓ still play. Everything else needs internet.
-  </div>
-)}
-            {artistChecked && !artistProfile && (
-              <Section>
-                <button
-                  onClick={() => setShowBecomeArtist(true)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12, width: '100%', marginBottom: 24, maxWidth: 640,
-                    background: 'linear-gradient(135deg, rgba(167,139,250,0.14), rgba(108,99,255,0.08))',
-                    border: '1px solid rgba(167,139,250,0.28)', borderRadius: 14, padding: '12px 14px',
-                    cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
-                  }}
-                >
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <IconMic size={16} style={{ color: '#fff' }} />
+                <div style={{ position: 'relative' }}>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 14, overflowX: isMobile ? 'auto' : 'visible', WebkitOverflowScrolling: 'touch' }}>
+                    {TABS.map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        style={{
+                          fontSize: 12.5, fontWeight: 700, padding: '7px 14px', borderRadius: 999, cursor: 'pointer',
+                          border: 'none', color: activeTab === tab ? '#0f0f1a' : '#fff',
+                          background: activeTab === tab ? '#fff' : 'rgba(255,255,255,0.18)',
+                        }}
+                      >
+                        {tab}
+                      </button>
+                    ))}
                   </div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: colors.textPrimary }}>Make music? Publish it here.</div>
-                    <div style={{ fontSize: 11.5, color: colors.textMuted }}>Upload tracks, get real plays and likes from Mattchat listeners</div>
-                  </div>
-                </button>
-              </Section>
-            )}
-
-            {(activeTab === 'All' || activeTab === 'Songs') && quickPicks.length > 0 && (
-              <Section delay={0.03} style={{ marginBottom: 26 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(220px, 1fr))', gap: isMobile ? 8 : 10 }}>
-                  {quickPicks.map((t, i) => (
-                    <QuickPickTile key={t.id} track={t} index={i} colors={colors} onPress={() => playTrack(t, quickPicks)} />
-                  ))}
+                  <h2 style={{ fontSize: 20, fontWeight: 900, color: '#fff', margin: '0 0 14px', letterSpacing: -0.4, textShadow: '0 2px 12px rgba(0,0,0,0.45)' }}>
+                    {greeting()}
+                  </h2>
                 </div>
-              </Section>
-            )}
-{(activeTab === 'All' || activeTab === 'Playlists') && mixes.length > 0 && (
-  <Section delay={0.05}><MadeForYou mixes={mixes} colors={colors} /></Section>
-)}
-            {(activeTab === 'All' || activeTab === 'Songs') && freeMusic.length > 0 && (
-  <Section delay={0.1}>
-    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
-      <DownloadAllButton tracks={freeMusic} label="Download all" />
-    </div>
-    <TrackRail title="Free to download" tracks={freeMusic} />
-  </Section>
-)}
-            {(activeTab === 'All' || activeTab === 'Songs') && mainstream.length > 0 && (
-              <Section delay={0.06}><TrackRail title="Mainstream Hits" tracks={mainstream} /></Section>
-            )}
-            {(activeTab === 'All' || activeTab === 'Songs') && trending.length > 0 && (
-              <Section delay={0.09}><TrackRail title="Trending on Mattchat" tracks={trending} /></Section>
-            )}
-    
- 
-{online && trendingError && trending.length === 0 && (
-              <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 18 }}>Trending is temporarily unavailable.</div>
-            )}
-            {(activeTab === 'All' || activeTab === 'Playlists') && (
-              <Section delay={0.12}><PlaylistsSection /></Section>
-            )}
-            {(activeTab === 'All' || activeTab === 'Songs') && (
-  <Section delay={0.14}><DownloadedSection /></Section>
-)}
-            {(activeTab === 'All' || activeTab === 'Songs') && recentlyPlayed.length > 0 && (
-              <Section delay={0.15}><TrackRail title="Recently Played" tracks={recentlyPlayed} /></Section>
-            )}
+              </motion.div>
+
+              <div style={{ padding: isMobile ? '0 14px 100px' : '0 24px 40px' }}>
+                {activeTab === 'All' && forYou.length > 0 && (
+                  <Section>
+                    <ForYouCarousel tracks={forYou} isMobile={isMobile} onPress={(t) => playTrack(t, forYou)} />
+                  </Section>
+                )}
+
+                {!online && (
+                  <div style={{ margin: '14px 0', padding: '10px 12px', borderRadius: 12, fontSize: 12, fontWeight: 600, color: colors.textPrimary, background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.28)' }}>
+                    You're offline. Songs marked OFFLINE ✓ still play. Everything else needs internet.
+                  </div>
+                )}
+
+                {artistChecked && !artistProfile && (
+                  <Section>
+                    <button
+                      onClick={() => setShowBecomeArtist(true)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12, width: '100%', marginBottom: 24, maxWidth: 640,
+                        background: 'linear-gradient(135deg, rgba(167,139,250,0.14), rgba(108,99,255,0.08))',
+                        border: '1px solid rgba(167,139,250,0.28)', borderRadius: 14, padding: '12px 14px',
+                        cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+                      }}
+                    >
+                      <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <IconMic size={16} style={{ color: '#fff' }} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: colors.textPrimary }}>Make music? Publish it here.</div>
+                        <div style={{ fontSize: 11.5, color: colors.textMuted }}>Upload tracks, get real plays and likes from Mattchat listeners</div>
+                      </div>
+                    </button>
+                  </Section>
+                )}
+
+                {(activeTab === 'All' || activeTab === 'Songs') && quickPicks.length > 0 && (
+                  <Section delay={0.03} style={{ marginBottom: 26 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(220px, 1fr))', gap: isMobile ? 8 : 10 }}>
+                      {quickPicks.map((t, i) => (
+                        <QuickPickTile key={t.id} track={t} index={i} colors={colors} onPress={() => playTrack(t, quickPicks)} />
+                      ))}
+                    </div>
+                  </Section>
+                )}
+
+                {(activeTab === 'All' || activeTab === 'Playlists') && mixes.length > 0 && (
+                  <Section delay={0.05}><MadeForYou mixes={mixes} colors={colors} /></Section>
+                )}
+
+                {(activeTab === 'All' || activeTab === 'Songs') && freeMusic.length > 0 && (
+                  <Section delay={0.1}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+                      <DownloadAllButton tracks={freeMusic} label="Download all" />
+                    </div>
+                    <TrackRail title="Free to download" tracks={freeMusic} />
+                  </Section>
+                )}
+
+                {(activeTab === 'All' || activeTab === 'Songs') && mainstream.length > 0 && (
+                  <Section delay={0.06}><TrackRail title="Mainstream Hits" tracks={mainstream} /></Section>
+                )}
+                {(activeTab === 'All' || activeTab === 'Songs') && trending.length > 0 && (
+                  <Section delay={0.09}><TrackRail title="Trending on Mattchat" tracks={trending} /></Section>
+                )}
+
+                {online && trendingError && trending.length === 0 && (
+                  <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 18 }}>Trending is temporarily unavailable.</div>
+                )}
+
+                {(activeTab === 'All' || activeTab === 'Playlists') && (
+                  <Section delay={0.12}><PlaylistsSection /></Section>
+                )}
+                {(activeTab === 'All' || activeTab === 'Songs') && (
+                  <Section delay={0.14}><DownloadedSection /></Section>
+                )}
+                {(activeTab === 'All' || activeTab === 'Songs') && recentlyPlayed.length > 0 && (
+                  <Section delay={0.15}><TrackRail title="Recently Played" tracks={recentlyPlayed} /></Section>
+                )}
                 {(activeTab === 'All' || activeTab === 'Songs') && likedTracks.length > 0 && (
-  <Section delay={0.18}><SavedSongs colors={colors} /></Section>
-)}
-          </div>
+                  <Section delay={0.18}><SavedSongs colors={colors} /></Section>
+                )}
+              </div>
             </>
           )}
         </div>
 
-{!isMobile && <NowPlayingPanel colors={colors} fallbackTrack={lastPlayed} />}
-</div>
+        {!isMobile && <NowPlayingPanel colors={colors} fallbackTrack={lastPlayed} />}
+      </div>
 
-<PlaybackBar colors={colors} fallbackTrack={lastPlayed} />
+      <PlaybackBar colors={colors} fallbackTrack={lastPlayed} onExpand={expandPlayer} />
+
       <AnimatePresence>
         {showLibrary && (
           <LibraryPanel
@@ -761,11 +957,20 @@ useEffect(() => { mainScrollRef.current?.scrollTo({ top: 0 }) }, [showSearchView
       <AnimatePresence>
         {showDashboard && <ArtistDashboard userId={userId} onClose={() => setShowDashboard(false)} />}
       </AnimatePresence>
+      <AnimatePresence>
+        {showFull && currentTrack && (
+          <FullPlayer
+            onClose={() => setShowFull(false)}
+            conversations={conversations}
+            onShareTrack={onShareTrack}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
 
-export default function PulseMusicCard({ onFullscreenChange }) {
+export default function PulseMusicCard({ onFullscreenChange, conversations, onShareTrack, onOpenFullPlayer }) {
   const [open, setOpen] = useState(false)
 
   const handleOpen = () => { setOpen(true); onFullscreenChange?.(true) }
@@ -774,7 +979,16 @@ export default function PulseMusicCard({ onFullscreenChange }) {
   return (
     <>
       <PulseMusicEntryCard onOpen={handleOpen} />
-      <AnimatePresence>{open && <PulseMusicOverlay onClose={handleClose} />}</AnimatePresence>
+      <AnimatePresence>
+        {open && (
+          <PulseMusicOverlay
+            onClose={handleClose}
+            conversations={conversations}
+            onShareTrack={onShareTrack}
+            onOpenFullPlayer={onOpenFullPlayer}
+          />
+        )}
+      </AnimatePresence>
     </>
   )
 }
