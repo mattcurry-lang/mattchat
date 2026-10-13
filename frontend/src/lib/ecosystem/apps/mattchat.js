@@ -1,0 +1,18 @@
+import { registerEcosystemApp } from '../registry'
+
+registerEcosystemApp({
+  id: 'mattchat',
+  name: 'Mattchat',
+  description: 'Your conversations',
+  firstParty: true,
+  emits: [
+    { type: 'message.received', label: 'A new message arrives', fields: ['conversationId', 'senderName', 'preview'] },
+  ],
+  actions: [
+    { id: 'message.send', label: 'Send a message in a conversation',
+      params: [
+        { key: 'conversationId', label: 'Conversation', required: true },
+        { key: 'text', label: 'Message', required: true },
+      ] },
+  ],
+})
