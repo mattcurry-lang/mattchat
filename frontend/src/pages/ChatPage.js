@@ -122,6 +122,7 @@ import { StatusBadge, StatusLine, NotesRail } from '../components/ProfileFlair'
 import ShushhhExperience from '../components/Shushhh/ShushhhExperience'
 import useShushhhShortcut from '../hooks/useShushhhShortcut'
 import '../lib/ecosystem'
+import { useFlowRunner } from '../hooks/useFlowRunner'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -1219,6 +1220,7 @@ const [curryPrefill, setCurryPrefill] = useState(null)
   const { isFullPlayerVisible, setIsFullPlayerVisible } = useMusicPlayer()
     useRecordPlays(userId)
   useOutboxFlush(userId)
+  useFlowRunner(userId, session)
   // Shortcut into Shushhh: Enter x3 on desktop, three quick taps on the logo on mobile
   const { tripleTapProps } = useShushhhShortcut({ onTrigger: () => setShowShushhh(true), enabled: !showShushhh && !!userId })
   const [myRingtone, setMyRingtone] = useState(null)
