@@ -2424,6 +2424,7 @@ const handleSignOut = async () => {
       onSelectVideo={(videoId) => setYoutubePlayer({ videoId, mini: false })}
       onOpenShorts={() => setShowShorts(true)}
       onFullscreenChange={setDekutFullscreen}  
+        onAskCurry={(question) => { setCurryPrefill(question); setActiveConvo(CURRY_AI_CONTACT) }}
     />
   </div>
 )}
