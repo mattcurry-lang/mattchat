@@ -91,17 +91,7 @@ export default function MiniPlayer() {
               onClick={expand}
               style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 0', textAlign: 'left' }}
             >
-              <div style={{
-                width: 36, height: 36, borderRadius: 10, overflow: 'hidden', flexShrink: 0,
-                background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-              }}>
-                {currentTrack.artwork ? (
-                  <TrackArt src={currentTrack.artwork} size={36} radius={10} iconSize={15} style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }} />
-                ) : (
-                  <IconMusic size={15} style={{ color: 'var(--text-muted)' }} />
-                )}
-              </div>
+            <TrackArt src={currentTrack.artwork} size={36} radius={10} iconSize={15} style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }} />
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontSize: 12.5, fontWeight: 700, color: titleColor, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {currentTrack.title}
