@@ -47,6 +47,9 @@ export function MusicPlayerProvider({ children, session = null }) {
   const [volume, setVolumeState] = useState(0.85)
   const [isMiniPlayerVisible, setIsMiniPlayerVisible] = useState(false)
   const [isFullPlayerVisible, setIsFullPlayerVisible] = useState(false)
+  const [playbackRate, setPlaybackRateState] = useState(() => readJSON('mattchat:music:rate', 1))
+  // null | { mode: 'time', endsAt } | { mode: 'track' }
+  const [sleepTimer, setSleepTimerState] = useState(null)
 
   const [likedTracksMap, setLikedTracksMap] = useState(() => readJSON(LIKES_KEY, {}))
   const [recentlyPlayed, setRecentlyPlayed] = useState(() => readJSON(RECENTLY_PLAYED_KEY, []))
@@ -54,8 +57,37 @@ export function MusicPlayerProvider({ children, session = null }) {
   const currentTrack = queueIndex >= 0 && queueIndex < queue.length ? queue[queueIndex] : null
 
   const stateRef = useRef({})
-  stateRef.current = { queue, queueIndex, shuffle, repeatMode, volume, currentTrack }
+  stateRef.current = { queue, queueIndex, shuffle, repeatMode, volume, currentTrack, playbackRate }
   const blobUrlRef = useRef(null)
+
+  // ── sleep timer ──
+  const sleepRef = useRef(null)
+  sleepRef.current = sleepTimer
+  const pauseAll = useCallback(() => {
+    audioRef.current?.pause()
+    if (stateRef.current.currentTrack?.provider === 'youtube') YouTubeEngine.pause()
+    setIsPlaying(false)
+  }, [])
+  // called when a track ends on its own; true = "stop here, sleep timer was set to end of track"
+  const consumeSleepEnd = useCallback(() => {
+    if (sleepRef.current?.mode !== 'track') return false
+    setSleepTimerState(null)
+    pauseAll()
+    return true
+  }, [pauseAll])
+  const setSleepTimer = useCallback((opt) => {
+    if (opt == null) setSleepTimerState(null)
+    else if (opt === 'track') setSleepTimerState({ mode: 'track' })
+    else setSleepTimerState({ mode: 'time', endsAt: Date.now() + opt * 60000 })
+  }, [])
+  useEffect(() => {
+    if (sleepTimer?.mode !== 'time') return undefined
+    const id = setTimeout(() => { setSleepTimerState(null); pauseAll() }, Math.max(0, sleepTimer.endsAt - Date.now()))
+    return () => clearTimeout(id)
+  }, [sleepTimer, pauseAll])
+
+  // ── playback speed ──
+  const setPlaybackRate = useCallback((r) => setPlaybackRateState(r), [])
 const pendingRestoreRef = useRef(false)
 const resumeAtRef = useRef(0)
 const POS_KEY = 'mattchat:music:position'
@@ -114,13 +146,14 @@ const recordRecentlyPlayed = useCallback((track) => {
     const audio = audioRef.current
 if (!isOnlineNow()) {
   const cached = await OfflineCache.isDownloaded(track.id).catch(() => false)
-  if (!cached) { setError("You're offline. This song needs internet."); return }
+  if (!cached) { setIsLoading(false); setError("You're offline. This song needs internet."); return }
 }
     if (track.provider === 'youtube') {
       audio?.pause()
       try {
         await YouTubeEngine.load(track.providerTrackId)
         await YouTubeEngine.setVolume(stateRef.current.volume)
+        await YouTubeEngine.setRate(stateRef.current.playbackRate)
         await YouTubeEngine.play()
         if (resumeAtRef.current > 1) { YouTubeEngine.seekTo(resumeAtRef.current); resumeAtRef.current = 0 }
         recordRecentlyPlayed(track)
@@ -145,6 +178,8 @@ try {
   if (!url) { setIsLoading(false); setError('Track unavailable'); setIsPlaying(false); return }
   audio.src = url
   audio.volume = stateRef.current.volume
+  audio.defaultPlaybackRate = stateRef.current.playbackRate
+  audio.playbackRate = stateRef.current.playbackRate
   const resumeAt = resumeAtRef.current
   resumeAtRef.current = 0
   if (resumeAt > 1) audio.addEventListener('loadedmetadata', () => { audio.currentTime = resumeAt }, { once: true })
@@ -215,6 +250,7 @@ const playNext = useCallback(async () => {
     const onPlay = () => { if (stateRef.current.currentTrack?.provider !== 'youtube') setIsPlaying(true) }
     const onPause = () => { if (stateRef.current.currentTrack?.provider !== 'youtube') setIsPlaying(false) }
     const onEnded = () => {
+      if (consumeSleepEnd()) return
       if (stateRef.current.repeatMode === 'one') { audio.currentTime = 0; audio.play().catch(() => {}); return }
       playNext()
     }
@@ -238,7 +274,7 @@ const playNext = useCallback(async () => {
       audio.removeEventListener('ended', onEnded)
       audio.removeEventListener('error', onError)
     }
-  }, [playNext])
+  }, [playNext, consumeSleepEnd])
 
   // YouTube engine events — same job as the <audio> listeners above,
   // just fed by polling since the IFrame API has no timeupdate event
@@ -270,16 +306,24 @@ useEffect(() => {
     },
     onEnded: () => {
       if (stateRef.current.currentTrack?.provider !== 'youtube') return
+      if (consumeSleepEnd()) return
       if (stateRef.current.repeatMode === 'one') { YouTubeEngine.seekTo(0); YouTubeEngine.play(); return }
       playNext()
     },
   })
-}, [playNext])
+}, [playNext, consumeSleepEnd])
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume
     if (currentTrack?.provider === 'youtube') YouTubeEngine.setVolume(volume)
   }, [volume, currentTrack?.provider])
+
+  useEffect(() => {
+    writeJSON('mattchat:music:rate', playbackRate)
+    const a = audioRef.current
+    if (a) { a.defaultPlaybackRate = playbackRate; a.playbackRate = playbackRate }
+    if (currentTrack?.provider === 'youtube') YouTubeEngine.setRate(playbackRate)
+  }, [playbackRate, currentTrack?.id, currentTrack?.provider])
 
   const playTrack = useCallback((track, contextTracks = null) => {
     const newQueue = contextTracks && contextTracks.length ? contextTracks : [track]
@@ -320,6 +364,7 @@ useEffect(() => {
     setQueue([])
     setQueueIndex(-1)
     setIsMiniPlayerVisible(false)
+    setSleepTimerState(null)
   }, [])
 
   const addToQueue = useCallback((track) => setQueue((q) => [...q, track]), [])
@@ -377,6 +422,7 @@ useEffect(() => {
   addToQueue, removeFromQueue, playFromQueue, clearQueue, toggleShuffle, cycleRepeat,
   isLiked, toggleLike, likedTracks,
   recentlyPlayed,
+  playbackRate, setPlaybackRate, sleepTimer, setSleepTimer,
 }
 
   return <MusicPlayerContext.Provider value={value}>{children}</MusicPlayerContext.Provider>
