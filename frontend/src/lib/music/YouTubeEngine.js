@@ -103,6 +103,10 @@ export const YouTubeEngine = {
     const p = await ensurePlayer()
     p.seekTo(seconds, true)
   },
+    async setRate(rate) {
+    const p = await ensurePlayer()
+    try { p.setPlaybackRate(rate) } catch {}
+  },
   async setVolume(v01) {
     const p = await ensurePlayer()
     p.setVolume(Math.round(Math.max(0, Math.min(1, v01)) * 100))
