@@ -1,7 +1,8 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 import { useMusicPlayer } from '../../context/MusicPlayerContext'
-import { IconX, IconMusic, IconTrash } from '../../Icons'
+import { IconX, IconTrash } from '../../Icons'
+import TrackArt from './TrackArt'
 
 export default function QueueDrawer({ onClose }) {
   const { queue, queueIndex, currentTrack, playFromQueue, removeFromQueue, clearQueue } = useMusicPlayer()
@@ -64,9 +65,7 @@ function QueueRow({ track, active = false, onPlay, onRemove }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 6px', borderRadius: 10, background: active ? 'rgba(167,139,250,0.10)' : 'transparent' }}>
       <button onClick={onPlay} disabled={active} style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, background: 'transparent', border: 'none', cursor: active ? 'default' : 'pointer', padding: 0, textAlign: 'left' }}>
-        <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {track.artwork ? <img src={track.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMusic size={14} style={{ color: 'var(--text-muted)' }} />}
-        </div>
+        <TrackArt src={track.artwork} size={36} radius={8} iconSize={14} />
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 12.5, fontWeight: 700, color: active ? '#a78bfa' : 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.artist}</div>
