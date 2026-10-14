@@ -1,556 +1,332 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 import { useMusicPlayer } from '../../context/MusicPlayerContext'
 import { useDominantColor, rgba } from '../../../lib/music/extractColor'
+import { useIsDesktop } from '../../../hooks/useIsDesktop'
 import {
   IconPlay, IconPause, IconSkipBack, IconSkipForward, IconChevronDown,
-  IconShuffle, IconRepeat, IconHeart, IconShare2, IconListMusic,
-  IconVolume2, IconMusic,
+  IconShuffle, IconRepeat, IconHeart, IconShare2, IconVolume2, IconLoader2, IconPlus,
 } from '../../Icons'
-import QueueDrawer from './QueueDrawer'
+import { IconDisc, IconSquareArt, IconMoon, IconVolumeX } from './PlayerIcons'
+import TrackArt from './TrackArt'
+import LyricsPanel from './LyricsPanel'
+import UpNextPanel from './UpNextPanel'
+import { SleepSheet, SpeedSheet, PlaylistSheet } from './PlayerSheets'
 import ShareTrackSheet from './ShareTrackSheet'
 import TrackDownloadAction from './TrackDownloadAction'
 
-/* ------------------------------------------------------------------ */
-/* helpers                                                             */
-/* ------------------------------------------------------------------ */
+const ART_MODE_KEY = 'mattchat:music:artMode'
+const BG = '#0b0b13'
 
 function formatTime(seconds) {
-  if (!Number.isFinite(seconds)) return '0:00'
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
   const m = Math.floor(seconds / 60)
   const s = Math.floor(seconds % 60)
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-// "DJ PHAPHANE - Topic" -> "DJ PHAPHANE"
-const cleanArtist = (a = '') => a.replace(/\s*-\s*Topic\s*$/i, '').trim()
-
-// "Song (Official Video) [HD]" -> "Song"
-const cleanTitle = (t = '') =>
-  t.replace(/\s*[\(\[][^)\]]*(official|video|audio|lyrics?|hd|4k|visuali[sz]er)[^)\]]*[\)\]]/gi, '').trim()
-
-// YouTube thumbnails come with black bars baked in. Zooming the image
-// inside the square crops them out. Tune this one number if needed.
-const YT_ART_ZOOM = 1.34
-const artZoom = (url = '') => (/ytimg|ggpht|googleusercontent/i.test(url) ? YT_ART_ZOOM : 1)
-
-const SPEEDS = [0.75, 1, 1.25, 1.5, 2]
-const SLEEP_OPTIONS = [
-  { label: 'Off', minutes: 0 },
-  { label: '15 minutes', minutes: 15 },
-  { label: '30 minutes', minutes: 30 },
-  { label: '60 minutes', minutes: 60 },
-  { label: 'End of this song', minutes: -1 },
-]
-
-const lyricsCache = new Map()
-
-/* small inline icons so we don't depend on new exports in Icons.jsx */
-const Svg = ({ children, size = 18 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
-)
-const IconMoon = (p) => <Svg {...p}><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></Svg>
-const IconLyrics = (p) => <Svg {...p}><path d="M4 6h16M4 12h10M4 18h14" /></Svg>
-const IconGauge = (p) => <Svg {...p}><path d="M12 14l4-4" /><path d="M3.3 17a9 9 0 1 1 17.4 0" /></Svg>
-
-/* ------------------------------------------------------------------ */
-/* bottom sheet shell                                                  */
-/* ------------------------------------------------------------------ */
-
-function Sheet({ title, onClose, children }) {
-  return (
-    <>
-      <motion.div
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        onClick={onClose}
-        style={{ position: 'absolute', inset: 0, zIndex: 20, background: 'rgba(0,0,0,0.55)' }}
-      />
-      <motion.div
-        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-        transition={{ type: 'spring', stiffness: 320, damping: 34 }}
-        drag="y" dragConstraints={{ top: 0, bottom: 0 }} dragElastic={{ top: 0, bottom: 0.6 }}
-        onDragEnd={(_, info) => { if (info.offset.y > 90 || info.velocity.y > 500) onClose() }}
-        style={{
-          position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 21,
-          maxHeight: '72%', display: 'flex', flexDirection: 'column',
-          background: 'rgba(18,18,28,0.97)', backdropFilter: 'blur(20px)',
-          borderRadius: '22px 22px 0 0', paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        }}
-      >
-        <div style={{ width: 38, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.25)', margin: '10px auto 6px' }} />
-        <div style={{ padding: '4px 20px 12px', fontSize: 16, fontWeight: 800, color: '#fff' }}>{title}</div>
-        <div style={{ overflowY: 'auto', padding: '0 12px 18px' }}>{children}</div>
-      </motion.div>
-    </>
-  )
-}
-
-const rowStyle = (active) => ({
-  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-  width: '100%', padding: '13px 10px', border: 'none', borderRadius: 12, cursor: 'pointer',
-  background: active ? 'rgba(255,255,255,0.1)' : 'transparent',
-  color: active ? '#fff' : 'rgba(255,255,255,0.8)', fontSize: 15, fontWeight: active ? 700 : 500, textAlign: 'left',
+const iconBtn = (active) => ({
+  background: 'transparent', border: 'none', cursor: 'pointer', padding: 8, display: 'flex', alignItems: 'center',
+  justifyContent: 'center', color: active ? '#fff' : 'rgba(255,255,255,0.6)', position: 'relative',
 })
 
-/* ------------------------------------------------------------------ */
-/* lyrics sheet (Boomplay-style) — free lyrics.ovh lookup, cached      */
-/* ------------------------------------------------------------------ */
-
-function LyricsSheet({ track, onClose }) {
-  const [state, setState] = useState({ status: 'loading', text: '' })
-
-  useEffect(() => {
-    const artist = cleanArtist(track.artist)
-    const title = cleanTitle(track.title)
-    const key = `${artist}::${title}`.toLowerCase()
-    if (lyricsCache.has(key)) { setState(lyricsCache.get(key)); return }
-
-    const ctrl = new AbortController()
-    setState({ status: 'loading', text: '' })
-    fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`, { signal: ctrl.signal })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('not found'))))
-      .then((d) => {
-        const next = d?.lyrics
-          ? { status: 'ok', text: d.lyrics.trim() }
-          : { status: 'none', text: '' }
-        lyricsCache.set(key, next)
-        setState(next)
-      })
-      .catch((e) => { if (e.name !== 'AbortError') setState({ status: 'none', text: '' }) })
-    return () => ctrl.abort()
-  }, [track.id, track.artist, track.title])
-
+function SeekBar({ current, duration, onSeek, glow }) {
+  const barRef = useRef(null)
+  const [scrub, setScrub] = useState(null)
+  const [hot, setHot] = useState(false)
+  const ratio = (e) => {
+    const r = barRef.current.getBoundingClientRect()
+    return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width))
+  }
+  const shown = scrub ?? current
+  const pct = duration > 0 ? Math.min(100, (shown / duration) * 100) : 0
+  const big = hot || scrub !== null
   return (
-    <Sheet title="Lyrics" onClose={onClose}>
-      {state.status === 'loading' && (
-        <div style={{ padding: 24, color: 'rgba(255,255,255,0.6)', fontSize: 14 }}>Finding lyrics…</div>
-      )}
-      {state.status === 'none' && (
-        <div style={{ padding: 24, color: 'rgba(255,255,255,0.6)', fontSize: 14, lineHeight: 1.5 }}>
-          No lyrics found for this song. Many mainstream tracks aren't covered by the free lyrics source.
+    <div style={{ padding: '14px 0 2px' }}>
+      <div
+        ref={barRef} role="slider" tabIndex={0} aria-label="Seek" aria-valuemin={0} aria-valuemax={Math.round(duration || 0)} aria-valuenow={Math.round(shown || 0)}
+        onPointerDown={(e) => { if (!duration) return; e.currentTarget.setPointerCapture(e.pointerId); setScrub(ratio(e) * duration) }}
+        onPointerMove={(e) => { if (scrub !== null) setScrub(ratio(e) * duration) }}
+        onPointerUp={(e) => { if (scrub !== null) { onSeek(ratio(e) * duration); setScrub(null) } }}
+        onPointerCancel={() => setScrub(null)}
+        onMouseEnter={() => setHot(true)} onMouseLeave={() => setHot(false)}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowRight') { e.preventDefault(); onSeek(Math.min(duration, current + 5)) }
+          if (e.key === 'ArrowLeft') { e.preventDefault(); onSeek(Math.max(0, current - 5)) }
+        }}
+        style={{ height: 24, display: 'flex', alignItems: 'center', cursor: 'pointer', touchAction: 'none', outline: 'none' }}
+      >
+        <div style={{ position: 'relative', width: '100%', height: big ? 6 : 4, borderRadius: 3, background: 'rgba(255,255,255,0.18)', transition: 'height .12s' }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, borderRadius: 3, background: '#fff', boxShadow: `0 0 12px ${glow}` }} />
+          <div style={{ position: 'absolute', top: '50%', left: `${pct}%`, width: 14, height: 14, borderRadius: '50%', background: '#fff', transform: `translate(-50%,-50%) scale(${big ? 1 : 0.0})`, transition: 'transform .12s', boxShadow: '0 2px 6px rgba(0,0,0,0.5)' }} />
         </div>
-      )}
-      {state.status === 'ok' && (
-        <div style={{ padding: '4px 10px 16px', whiteSpace: 'pre-wrap', color: '#fff', fontSize: 18, fontWeight: 700, lineHeight: 1.6 }}>
-          {state.text}
-        </div>
-      )}
-    </Sheet>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>
+        <span>{formatTime(shown)}</span>
+        <span>{formatTime(duration)}</span>
+      </div>
+    </div>
   )
 }
 
-/* ------------------------------------------------------------------ */
-/* up next sheet                                                       */
-/* ------------------------------------------------------------------ */
-
-function UpNextSheet({ queue, currentTrack, onPlay, onOpenQueue, onClose }) {
-  const idx = queue.findIndex((t) => t.id === currentTrack.id)
-  const upcoming = idx >= 0 ? queue.slice(idx + 1, idx + 11) : queue.slice(0, 10)
-
+function Disc({ track, playing, size, glow }) {
   return (
-    <Sheet title="Up next" onClose={onClose}>
-      {upcoming.length === 0 && (
-        <div style={{ padding: 24, color: 'rgba(255,255,255,0.6)', fontSize: 14 }}>
-          Nothing queued after this song.
-        </div>
-      )}
-      {upcoming.map((t) => (
-        <button key={t.id} onClick={() => onPlay && onPlay(t)} style={rowStyle(false)}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-            <span style={{ width: 44, height: 44, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {t.artwork
-                ? <img src={t.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${artZoom(t.artwork)})` }} />
-                : <IconMusic size={18} />}
-            </span>
-            <span style={{ minWidth: 0 }}>
-              <span style={{ display: 'block', fontSize: 14.5, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanTitle(t.title)}</span>
-              <span style={{ display: 'block', fontSize: 12.5, color: 'rgba(255,255,255,0.6)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanArtist(t.artist)}</span>
-            </span>
-          </span>
-        </button>
-      ))}
-      <button onClick={onOpenQueue} style={{ ...rowStyle(false), justifyContent: 'center', marginTop: 6, color: '#fff', fontWeight: 700 }}>
-        Open full queue
-      </button>
-    </Sheet>
+    <div style={{ width: size, height: size, position: 'relative', filter: `drop-shadow(0 22px 40px ${glow})` }}>
+      <style>{`@keyframes mc-spin{to{transform:rotate(360deg)}}`}</style>
+      <div style={{
+        width: '100%', height: '100%', borderRadius: '50%', position: 'relative', overflow: 'hidden',
+        background: 'repeating-radial-gradient(circle at center, #0d0d12 0 2px, #17171f 2px 3px)',
+        animation: 'mc-spin 14s linear infinite', animationPlayState: playing ? 'running' : 'paused',
+        border: '2px solid rgba(255,255,255,0.06)',
+      }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'conic-gradient(from 20deg, transparent 0 20%, rgba(255,255,255,0.10) 28%, transparent 36% 70%, rgba(255,255,255,0.08) 78%, transparent 86%)' }} />
+        <TrackArt src={track.artwork} size="62%" radius="50%" iconSize={40}
+          style={{ position: 'absolute', top: '19%', left: '19%', boxShadow: '0 0 0 3px rgba(0,0,0,0.55)' }} />
+        <div style={{ position: 'absolute', top: '47%', left: '47%', width: '6%', height: '6%', borderRadius: '50%', background: BG, boxShadow: '0 0 0 2px rgba(255,255,255,0.25)' }} />
+      </div>
+    </div>
   )
 }
-
-/* ------------------------------------------------------------------ */
-/* main component                                                      */
-/* ------------------------------------------------------------------ */
 
 export default function FullPlayer({ onClose, conversations = [], onShareTrack }) {
-  const player = useMusicPlayer()
   const {
     currentTrack, isPlaying, isLoading, error, currentTime, duration, volume,
     togglePlayPause, seekTo, setVolume, playNext, playPrevious,
     shuffle, toggleShuffle, repeatMode, cycleRepeat,
-    isLiked, toggleLike, isQueueVisible, setIsQueueVisible, queue,
-  } = player
+    isLiked, toggleLike, queue, playbackRate, setPlaybackRate, sleepTimer, setSleepTimer,
+  } = useMusicPlayer()
 
-  // optional capabilities — only shown if your context provides them
-  const setPlaybackRate = player.setPlaybackRate
-  const playbackRate = player.playbackRate || 1
-  const playTrack = player.playTrack
-
-  const [isScrubbing, setIsScrubbing] = useState(false)
-  const [scrubValue, setScrubValue] = useState(0)
-  const [shareSheetOpen, setShareSheetOpen] = useState(false)
-  const [sheet, setSheet] = useState(null) // 'lyrics' | 'upnext' | 'sleep' | 'speed' | null
-  const [sleep, setSleep] = useState({ mode: 0, endsAt: 0, trackId: null })
-  const [, forceTick] = useState(0)
-  const barRef = useRef(null)
-  const dragControls = useDragControls()
-
+  const isDesktop = useIsDesktop()
   const dominant = useDominantColor(currentTrack?.artwork)
+  const dragControls = useDragControls()
+  const [tab, setTab] = useState('now') // now | lyrics | queue
+  const [artMode, setArtMode] = useState(() => { try { return localStorage.getItem(ART_MODE_KEY) || 'cover' } catch { return 'cover' } })
+  const [sheet, setSheet] = useState(null) // sleep | speed | playlist | share
+  const [now, setNow] = useState(Date.now())
+  const prevVolume = useRef(0.85)
 
-  // latest-value refs so the sleep timer never uses a stale closure
-  const isPlayingRef = useRef(isPlaying)
-  const toggleRef = useRef(togglePlayPause)
-  useEffect(() => { isPlayingRef.current = isPlaying; toggleRef.current = togglePlayPause })
+  useEffect(() => { try { localStorage.setItem(ART_MODE_KEY, artMode) } catch { /* ignore */ } }, [artMode])
 
-  const pauseIfPlaying = useCallback(() => {
-    if (isPlayingRef.current) toggleRef.current()
-  }, [])
-
-  // timed sleep
+  // sleep countdown label
   useEffect(() => {
-    if (sleep.mode <= 0 || !sleep.endsAt) return undefined
-    const ms = Math.max(0, sleep.endsAt - Date.now())
-    const t = setTimeout(() => { pauseIfPlaying(); setSleep({ mode: 0, endsAt: 0, trackId: null }) }, ms)
-    const tick = setInterval(() => forceTick((n) => n + 1), 30000)
-    return () => { clearTimeout(t); clearInterval(tick) }
-  }, [sleep.mode, sleep.endsAt, pauseIfPlaying])
+    if (sleepTimer?.mode !== 'time') return undefined
+    const id = setInterval(() => setNow(Date.now()), 15000)
+    setNow(Date.now())
+    return () => clearInterval(id)
+  }, [sleepTimer])
+  const sleepLabel = sleepTimer?.mode === 'time'
+    ? `${Math.max(1, Math.ceil((sleepTimer.endsAt - now) / 60000))}m`
+    : sleepTimer?.mode === 'track' ? 'End' : null
 
-  // "end of this song" sleep
+  // keyboard shortcuts (desktop)
+  const kb = useRef({})
+  kb.current = { currentTrack, currentTime, duration, volume, sheet, onClose }
   useEffect(() => {
-    if (sleep.mode !== -1 || !sleep.trackId) return
-    if (currentTrack?.id !== sleep.trackId) {
-      pauseIfPlaying()
-      setSleep({ mode: 0, endsAt: 0, trackId: null })
+    const onKey = (e) => {
+      const t = e.target
+      if (t && (/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(t.tagName) || t.isContentEditable || t.getAttribute?.('role') === 'slider')) return
+      const k = kb.current
+      if (!k.currentTrack) return
+      if (e.key === 'Escape') { if (k.sheet) setSheet(null); else k.onClose(); return }
+      if (e.key === ' ') { e.preventDefault(); togglePlayPause() }
+      else if (e.key === 'ArrowRight') seekTo(Math.min(k.duration, k.currentTime + 5))
+      else if (e.key === 'ArrowLeft') seekTo(Math.max(0, k.currentTime - 5))
+      else if (e.key === 'ArrowUp') { e.preventDefault(); setVolume(k.volume + 0.05) }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); setVolume(k.volume - 0.05) }
+      else if (e.key === 'n') playNext()
+      else if (e.key === 'p') playPrevious()
+      else if (e.key === 'l') toggleLike(k.currentTrack)
+      else if (e.key === 'm') { if (k.volume > 0) { prevVolume.current = k.volume; setVolume(0) } else setVolume(prevVolume.current || 0.85) }
     }
-  }, [sleep.mode, sleep.trackId, currentTrack?.id, pauseIfPlaying])
-
-  const chooseSleep = (opt) => {
-    if (opt.minutes === 0) setSleep({ mode: 0, endsAt: 0, trackId: null })
-    else if (opt.minutes === -1) setSleep({ mode: -1, endsAt: 0, trackId: currentTrack.id })
-    else setSleep({ mode: opt.minutes, endsAt: Date.now() + opt.minutes * 60000, trackId: null })
-    setSheet(null)
-  }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [togglePlayPause, seekTo, setVolume, playNext, playPrevious, toggleLike])
 
   if (!currentTrack) return null
 
-  const title = cleanTitle(currentTrack.title)
-  const artist = cleanArtist(currentTrack.artist)
-  const zoom = artZoom(currentTrack.artwork)
-
-  const shownTime = isScrubbing ? scrubValue : currentTime
-  const progress = duration > 0 ? (shownTime / duration) * 100 : 0
   const liked = isLiked(currentTrack.id)
+  const glow = rgba(dominant, 0.6)
+  const activeTab = isDesktop && tab === 'now' ? 'lyrics' : tab
+  const muted = volume === 0
+  const artSize = isDesktop ? 'min(46vh, 420px)' : 'min(80vw, 40vh, 340px)'
+  const tabs = isDesktop
+    ? [['lyrics', 'Lyrics'], ['queue', 'Up Next']]
+    : [['now', 'Player'], ['lyrics', 'Lyrics'], ['queue', 'Up Next']]
 
-  const sleepActive = sleep.mode !== 0
-  const sleepLabel = sleep.mode === -1
-    ? 'End of song'
-    : sleepActive
-      ? `${Math.max(1, Math.ceil((sleep.endsAt - Date.now()) / 60000))} min`
-      : 'Sleep'
-
-  /* scrubbing */
-  const updateScrub = (e) => {
-    if (!barRef.current || !duration) return
-    const rect = barRef.current.getBoundingClientRect()
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX
-    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
-    setScrubValue(ratio * duration)
-  }
-  const handleScrubStart = (e) => { setIsScrubbing(true); updateScrub(e) }
-  const handleScrubMove = (e) => { if (isScrubbing) updateScrub(e) }
-  const handleScrubEnd = () => { if (isScrubbing) seekTo(scrubValue); setIsScrubbing(false) }
-  const handleSeekKey = (e) => {
-    if (e.key === 'ArrowRight') seekTo(Math.min(duration, currentTime + 5))
-    if (e.key === 'ArrowLeft') seekTo(Math.max(0, currentTime - 5))
+  const toggleMute = () => {
+    if (volume > 0) { prevVolume.current = volume; setVolume(0) } else setVolume(prevVolume.current || 0.85)
   }
 
-  const chip = (active) => ({
-    display: 'flex', alignItems: 'center', gap: 6, padding: '8px 13px', borderRadius: 18,
-    border: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap',
-    background: active ? '#fff' : 'rgba(255,255,255,0.1)',
-    color: active ? '#0f0f1a' : 'rgba(255,255,255,0.85)',
-  })
+  const art = (
+    <div style={{ flex: isDesktop ? 1 : '1 1 auto', minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isDesktop ? 0 : '0 24px' }}>
+      <AnimatePresence mode="wait">
+        {artMode === 'disc' ? (
+          <motion.div key={`d-${currentTrack.id}`} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.3 }}>
+            <Disc track={currentTrack} playing={isPlaying} size={artSize} glow={rgba(dominant, 0.45)} />
+          </motion.div>
+        ) : (
+          <motion.div
+            key={`c-${currentTrack.id}`}
+            drag="x" dragSnapToOrigin dragElastic={0.45} dragConstraints={{ left: 0, right: 0 }}
+            onDragEnd={(_, info) => { if (info.offset.x < -80) playNext(); else if (info.offset.x > 80) playPrevious() }}
+            initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: isPlaying ? 1 : 0.9 }} exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+            style={{ width: artSize, height: artSize, borderRadius: 18, overflow: 'hidden', boxShadow: `0 28px 60px ${rgba(dominant, 0.5)}`, touchAction: 'pan-y' }}
+          >
+            <TrackArt src={currentTrack.artwork} size="100%" radius={0} iconSize={64} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+
+  const info = (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 8 }}>
+      <AnimatePresence mode="wait">
+        <motion.div key={currentTrack.id} initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.22 }} style={{ minWidth: 0 }}>
+          <div style={{ fontSize: isDesktop ? 26 : 21, fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: -0.4 }}>{currentTrack.title}</div>
+          <div style={{ fontSize: 15, color: 'rgba(255,255,255,0.68)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTrack.artist}</div>
+        </motion.div>
+      </AnimatePresence>
+      <motion.button
+        onClick={() => toggleLike(currentTrack)} whileTap={{ scale: 1.35 }} transition={{ type: 'spring', stiffness: 500, damping: 15 }}
+        aria-label={liked ? 'Unlike' : 'Like'} aria-pressed={liked}
+        style={{ ...iconBtn(true), color: liked ? '#f87171' : 'rgba(255,255,255,0.75)', flexShrink: 0 }}
+      >
+        <IconHeart size={25} filled={liked} />
+      </motion.button>
+    </div>
+  )
+
+  const controls = (
+    <div style={{ width: '100%', maxWidth: isDesktop ? 520 : 460, margin: '0 auto', padding: isDesktop ? 0 : '0 24px' }}>
+      {info}
+      {error && (
+        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, fontSize: 12.5, color: '#fca5a5', background: 'rgba(248,113,113,0.12)', borderRadius: 10, padding: '8px 12px' }}>
+          <span>{error}</span>
+          <button onClick={playNext} style={{ background: 'rgba(255,255,255,0.14)', border: 'none', color: '#fff', fontWeight: 700, fontSize: 12, borderRadius: 999, padding: '5px 12px', cursor: 'pointer' }}>Skip</button>
+        </div>
+      )}
+      <SeekBar current={currentTime} duration={duration} onSeek={seekTo} glow={glow} />
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
+        <button onClick={toggleShuffle} aria-label="Shuffle" aria-pressed={shuffle} style={iconBtn(shuffle)}>
+          <IconShuffle size={21} />{shuffle && <span style={{ position: 'absolute', bottom: 0, width: 4, height: 4, borderRadius: '50%', background: '#fff' }} />}
+        </button>
+        <button onClick={playPrevious} aria-label="Previous" style={{ ...iconBtn(true), color: '#fff' }}><IconSkipBack size={30} /></button>
+        <motion.button
+          onClick={togglePlayPause} whileTap={{ scale: 0.92 }} aria-label={isPlaying ? 'Pause' : 'Play'}
+          style={{ width: 72, height: 72, borderRadius: '50%', border: 'none', cursor: 'pointer', background: '#fff', color: '#0f0f1a', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 12px 30px ${glow}` }}
+        >
+          {isLoading ? (
+            <><style>{`@keyframes mc-spin{to{transform:rotate(360deg)}}`}</style><IconLoader2 size={28} style={{ animation: 'mc-spin .8s linear infinite' }} /></>
+          ) : isPlaying ? <IconPause size={30} /> : <IconPlay size={30} />}
+        </motion.button>
+        <button onClick={playNext} aria-label="Next" style={{ ...iconBtn(true), color: '#fff' }}><IconSkipForward size={30} /></button>
+        <button onClick={cycleRepeat} aria-label={`Repeat ${repeatMode}`} aria-pressed={repeatMode !== 'off'} style={iconBtn(repeatMode !== 'off')}>
+          <IconRepeat size={21} />
+          {repeatMode === 'one' && <span style={{ position: 'absolute', top: 6, right: 4, fontSize: 9, fontWeight: 900 }}>1</span>}
+          {repeatMode !== 'off' && <span style={{ position: 'absolute', bottom: 0, width: 4, height: 4, borderRadius: '50%', background: '#fff' }} />}
+        </button>
+      </div>
+
+      {/* Boomplay-style action strip */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6 }}>
+        <span style={{ color: 'rgba(255,255,255,0.6)', display: 'flex' }}><TrackDownloadAction track={currentTrack} size={20} /></span>
+        <button onClick={() => setSheet('playlist')} aria-label="Add to playlist" style={iconBtn(false)}><IconPlus size={21} /></button>
+        <button onClick={() => setSheet('sleep')} aria-label="Sleep timer" style={{ ...iconBtn(!!sleepTimer), gap: 4, color: sleepTimer ? '#a78bfa' : 'rgba(255,255,255,0.6)' }}>
+          <IconMoon size={20} />{sleepLabel && <span style={{ fontSize: 11, fontWeight: 800 }}>{sleepLabel}</span>}
+        </button>
+        <button onClick={() => setSheet('speed')} aria-label="Playback speed" style={{ ...iconBtn(playbackRate !== 1), fontSize: 13, fontWeight: 800, minWidth: 40, color: playbackRate !== 1 ? '#a78bfa' : 'rgba(255,255,255,0.6)' }}>
+          {playbackRate}x
+        </button>
+        <button onClick={() => setSheet('share')} aria-label="Share" style={iconBtn(false)}><IconShare2 size={20} /></button>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px 16px' }}>
+        <button onClick={toggleMute} aria-label={muted ? 'Unmute' : 'Mute'} style={{ ...iconBtn(false), padding: 4 }}>
+          {muted ? <IconVolumeX size={17} /> : <IconVolume2 size={17} />}
+        </button>
+        <input type="range" min={0} max={1} step={0.01} value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))} aria-label="Volume" style={{ flex: 1, accentColor: '#fff' }} />
+      </div>
+    </div>
+  )
+
+  const panel = activeTab === 'lyrics'
+    ? <LyricsPanel track={currentTrack} currentTime={currentTime} seekTo={seekTo} large={isDesktop} />
+    : activeTab === 'queue' ? <UpNextPanel /> : null
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 40 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 60 }}
-      transition={{ duration: 0.25 }}
-      // swipe down from the header to minimize (Spotify behaviour)
-      drag="y"
-      dragListener={false}
-      dragControls={dragControls}
-      dragConstraints={{ top: 0, bottom: 0 }}
-      dragElastic={{ top: 0, bottom: 0.5 }}
-      onDragEnd={(_, info) => { if (info.offset.y > 110 || info.velocity.y > 600) onClose() }}
+      initial={{ y: '100%' }} animate={{ y: 0 }} transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+      drag="y" dragControls={dragControls} dragListener={false} dragConstraints={{ top: 0, bottom: 0 }} dragElastic={{ top: 0, bottom: 0.5 }}
+      onDragEnd={(_, info) => { if (info.offset.y > 140 || info.velocity.y > 700) onClose() }}
       style={{
-        position: 'fixed', inset: 0, zIndex: 700,
-        display: 'flex', flexDirection: 'column',
-        paddingTop: 'env(safe-area-inset-top, 0px)',
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        overflow: 'hidden', background: '#0b0b13',
+        position: 'fixed', inset: 0, zIndex: 700, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: BG,
+        paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
-      onMouseMove={handleScrubMove}
-      onMouseUp={handleScrubEnd}
-      onTouchMove={handleScrubMove}
-      onTouchEnd={handleScrubEnd}
     >
-      {/* colour wash from artwork */}
+      {/* colour wash from artwork + blurred art texture */}
       <AnimatePresence mode="sync">
-        <motion.div
-          key={currentTrack.id}
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          transition={{ duration: 0.7, ease: 'easeInOut' }}
-          style={{
-            position: 'absolute', inset: 0, zIndex: 0,
-            background: `linear-gradient(180deg, ${rgba(dominant, 0.85)} 0%, ${rgba(dominant, 0.35)} 32%, #0b0b13 68%)`,
-          }}
-        />
+        <motion.div key={currentTrack.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.7 }}
+          style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg, ${rgba(dominant, 0.85)} 0%, ${rgba(dominant, 0.35)} 38%, ${BG} 78%)` }} />
       </AnimatePresence>
       {currentTrack.artwork && (
-        <div style={{
-          position: 'absolute', inset: 0, zIndex: 0,
-          backgroundImage: `url(${currentTrack.artwork})`, backgroundSize: 'cover', backgroundPosition: 'center',
-          filter: 'blur(60px) saturate(1.4)', opacity: 0.35, transform: 'scale(1.2)',
-        }} />
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${currentTrack.artwork})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(70px) saturate(1.5)', opacity: 0.28, transform: 'scale(1.3)' }} />
       )}
 
-      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
-        {/* header — also the drag handle for swipe-down */}
-        <div
-          onPointerDown={(e) => { if (e.target === e.currentTarget || e.target.dataset.grip) dragControls.start(e) }}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', touchAction: 'none' }}
-        >
-          <button onClick={onClose} aria-label="Minimize player"
-            style={{ width: 34, height: 34, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.08)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-            <IconChevronDown size={18} />
-          </button>
-          <div data-grip="1" style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.65)', letterSpacing: 1, textTransform: 'uppercase', flex: 1, textAlign: 'center', padding: '8px 0' }}>
-            Now Playing
-          </div>
-          <button onClick={() => setIsQueueVisible(true)} aria-label="View queue"
-            style={{ width: 34, height: 34, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.08)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', position: 'relative' }}>
-            <IconListMusic size={17} />
-            {queue.length > 1 && (
-              <span style={{ position: 'absolute', top: -2, right: -2, fontSize: 9, fontWeight: 800, background: '#fff', color: '#0f0f1a', borderRadius: 8, minWidth: 15, height: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
-                {queue.length}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* artwork — swipe left/right to change track */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 32px', minHeight: 0 }}>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentTrack.id}
-              initial={{ opacity: 0, scale: 0.92, y: 10 }}
-              animate={{ opacity: 1, scale: isPlaying ? 1 : 0.9, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-              drag="x"
-              dragSnapToOrigin
-              dragElastic={0.35}
-              onDragEnd={(_, info) => {
-                if (info.offset.x < -80 || info.velocity.x < -500) playNext()
-                else if (info.offset.x > 80 || info.velocity.x > 500) playPrevious()
-              }}
-              style={{
-                width: '100%', maxWidth: 320, aspectRatio: '1 / 1', borderRadius: 20, overflow: 'hidden',
-                background: 'var(--bg-surface-2)', boxShadow: `0 24px 60px ${rgba(dominant, 0.5)}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 1,
-                touchAction: 'pan-y', cursor: 'grab',
-              }}
-            >
-              {currentTrack.artwork ? (
-                <img src={currentTrack.artwork} alt="" draggable={false}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${zoom})`, pointerEvents: 'none' }} />
-              ) : (
-                <IconMusic size={64} style={{ color: 'var(--text-muted)' }} />
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        {/* title / artist / like */}
-        <div style={{ padding: '0 24px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentTrack.id}
-              initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }}
-              transition={{ duration: 0.25 }}
-              style={{ minWidth: 0 }}
-            >
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: -0.3 }}>
-                {title}
-              </div>
-              <div style={{ fontSize: 14.5, color: 'rgba(255,255,255,0.65)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {artist}
-              </div>
-            </motion.div>
-          </AnimatePresence>
-          <motion.button
-            onClick={() => toggleLike(currentTrack)}
-            whileTap={{ scale: 1.35 }}
-            transition={{ type: 'spring', stiffness: 500, damping: 15 }}
-            aria-label={liked ? 'Remove from liked songs' : 'Add to liked songs'}
-            aria-pressed={liked}
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: liked ? '#f87171' : 'rgba(255,255,255,0.7)', flexShrink: 0, padding: 6 }}
-          >
-            <IconHeart size={24} filled={liked} />
-          </motion.button>
-        </div>
-
-        {/* progress */}
-        <div style={{ padding: '18px 24px 4px' }}>
-          <div
-            ref={barRef}
-            role="slider" tabIndex={0}
-            aria-label="Seek" aria-valuemin={0} aria-valuemax={Math.round(duration || 0)} aria-valuenow={Math.round(shownTime || 0)}
-            onKeyDown={handleSeekKey}
-            onMouseDown={handleScrubStart} onTouchStart={handleScrubStart}
-            style={{ height: 24, display: 'flex', alignItems: 'center', cursor: 'pointer', position: 'relative', touchAction: 'none' }}
-          >
-            <div style={{ position: 'relative', width: '100%', height: isScrubbing ? 6 : 4, borderRadius: 3, background: 'rgba(255,255,255,0.15)', transition: 'height 0.12s' }}>
-              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${progress}%`, borderRadius: 3, background: '#fff', boxShadow: `0 0 12px ${rgba(dominant, 0.7)}` }} />
-              <div style={{ position: 'absolute', top: '50%', left: `${progress}%`, transform: `translate(-50%,-50%) scale(${isScrubbing ? 1.35 : 1})`, transition: 'transform 0.12s', width: 13, height: 13, borderRadius: '50%', background: '#fff', boxShadow: '0 2px 6px rgba(0,0,0,0.5)' }} />
-              {isScrubbing && (
-                <div style={{ position: 'absolute', bottom: 18, left: `${progress}%`, transform: 'translateX(-50%)', padding: '3px 8px', borderRadius: 8, background: '#fff', color: '#0f0f1a', fontSize: 11.5, fontWeight: 800, pointerEvents: 'none' }}>
-                  {formatTime(scrubValue)}
-                </div>
-              )}
-            </div>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'rgba(255,255,255,0.55)', marginTop: 2 }}>
-            <span>{formatTime(shownTime)}</span>
-            <span>{error ? <span style={{ color: '#f87171' }}>{error}</span> : formatTime(duration)}</span>
-          </div>
-        </div>
-
-        {/* transport */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 22, padding: '10px 24px 6px' }}>
-          <button onClick={toggleShuffle} aria-label="Shuffle" aria-pressed={shuffle}
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: shuffle ? '#fff' : 'rgba(255,255,255,0.5)', padding: 8, position: 'relative' }}>
-            <IconShuffle size={18} />
-            {shuffle && <span style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 4, height: 4, borderRadius: '50%', background: '#fff' }} />}
-          </button>
-          <button onClick={playPrevious} aria-label="Previous" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#fff', padding: 8 }}>
-            <IconSkipBack size={26} />
-          </button>
-          <motion.button
-            onClick={togglePlayPause}
-            whileTap={{ scale: 0.9 }}
-            aria-label={isPlaying ? 'Pause' : 'Play'}
-            disabled={isLoading}
-            style={{
-              width: 66, height: 66, borderRadius: '50%', border: 'none', cursor: 'pointer',
-              background: '#fff', color: '#0f0f1a',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isLoading ? 0.6 : 1,
-              boxShadow: `0 10px 26px ${rgba(dominant, 0.55)}`,
-            }}
-          >
-            {isLoading
-              ? <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.9, ease: 'linear' }}
-                  style={{ width: 24, height: 24, borderRadius: '50%', border: '3px solid rgba(15,15,26,0.2)', borderTopColor: '#0f0f1a', display: 'block' }} />
-              : isPlaying ? <IconPause size={26} /> : <IconPlay size={26} />}
-          </motion.button>
-          <button onClick={playNext} aria-label="Next" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#fff', padding: 8 }}>
-            <IconSkipForward size={26} />
-          </button>
-          <button onClick={cycleRepeat} aria-label="Repeat" aria-pressed={repeatMode !== 'off'}
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: repeatMode !== 'off' ? '#fff' : 'rgba(255,255,255,0.5)', padding: 8, position: 'relative' }}>
-            <IconRepeat size={18} />
-            {repeatMode === 'one' && <span style={{ position: 'absolute', bottom: 2, right: 2, fontSize: 8, fontWeight: 800 }}>1</span>}
-            {repeatMode !== 'off' && <span style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 4, height: 4, borderRadius: '50%', background: '#fff' }} />}
-          </button>
-        </div>
-
-        {/* Boomplay-style action chips */}
-        <div style={{ display: 'flex', gap: 8, padding: '8px 20px 4px', overflowX: 'auto', scrollbarWidth: 'none' }}>
-          <button onClick={() => setSheet('lyrics')} style={chip(false)}>
-            <IconLyrics size={15} /> Lyrics
-          </button>
-          <button onClick={() => setSheet('upnext')} style={chip(false)}>
-            <IconListMusic size={15} /> Up next
-          </button>
-          <button onClick={() => setSheet('sleep')} style={chip(sleepActive)}>
-            <IconMoon size={15} /> {sleepLabel}
-          </button>
-          {setPlaybackRate && (
-            <button onClick={() => setSheet('speed')} style={chip(playbackRate !== 1)}>
-              <IconGauge size={15} /> {playbackRate}x
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+        {/* header — also the swipe-down handle */}
+        <div onPointerDown={(e) => dragControls.start(e)} style={{ touchAction: 'none', cursor: 'grab' }}>
+          <div style={{ width: 38, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.3)', margin: '8px auto 0' }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 16px 10px' }}>
+            <button onClick={onClose} onPointerDown={(e) => e.stopPropagation()} aria-label="Minimize player"
+              style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.1)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <IconChevronDown size={19} />
             </button>
-          )}
+            <div onPointerDown={(e) => e.stopPropagation()} role="tablist" style={{ display: 'flex', gap: 2, padding: 3, borderRadius: 999, background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(10px)' }}>
+              {tabs.map(([id, text]) => {
+                const on = activeTab === id
+                return (
+                  <button key={id} role="tab" aria-selected={on} onClick={() => setTab(id)}
+                    style={{ border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, padding: '7px 14px', borderRadius: 999, background: on ? '#fff' : 'transparent', color: on ? '#0f0f1a' : 'rgba(255,255,255,0.75)', transition: 'all .2s' }}>
+                    {text}{id === 'queue' && queue.length > 1 ? ` · ${queue.length}` : ''}
+                  </button>
+                )
+              })}
+            </div>
+            <button onClick={() => setArtMode((m) => (m === 'cover' ? 'disc' : 'cover'))} onPointerDown={(e) => e.stopPropagation()}
+              aria-label={artMode === 'cover' ? 'Switch to vinyl view' : 'Switch to cover view'}
+              style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.1)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              {artMode === 'cover' ? <IconDisc size={18} /> : <IconSquareArt size={18} />}
+            </button>
+          </div>
         </div>
 
-        {/* volume + share + download */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 28px 22px' }}>
-          <IconVolume2 size={16} style={{ color: 'rgba(255,255,255,0.55)', flexShrink: 0 }} />
-          <input type="range" min={0} max={1} step={0.01} value={volume}
-            onChange={(e) => setVolume(parseFloat(e.target.value))} aria-label="Volume"
-            style={{ flex: 1, accentColor: '#fff' }} />
-          <button onClick={() => setShareSheetOpen(true)} aria-label="Share"
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', padding: 6, flexShrink: 0 }}>
-            <IconShare2 size={17} />
-          </button>
-          <TrackDownloadAction track={currentTrack} size={17} />
-        </div>
+        {isDesktop ? (
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 56, padding: '8px 56px 12px', width: '100%', maxWidth: 1280, margin: '0 auto' }}>
+            <div style={{ flex: '0 0 46%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>{art}{controls}</div>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', borderRadius: 20, background: 'rgba(0,0,0,0.22)', backdropFilter: 'blur(14px)', overflow: 'hidden' }}>{panel}</div>
+          </div>
+        ) : (
+          <>
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>{activeTab === 'now' ? art : panel}</div>
+            {controls}
+          </>
+        )}
       </div>
 
-      {/* sheets */}
       <AnimatePresence>
-        {sheet === 'lyrics' && <LyricsSheet key="lyrics" track={currentTrack} onClose={() => setSheet(null)} />}
-        {sheet === 'upnext' && (
-          <UpNextSheet
-            key="upnext" queue={queue} currentTrack={currentTrack}
-            onPlay={playTrack ? (t) => { playTrack(t, queue); setSheet(null) } : undefined}
-            onOpenQueue={() => { setSheet(null); setIsQueueVisible(true) }}
-            onClose={() => setSheet(null)}
-          />
-        )}
-        {sheet === 'sleep' && (
-          <Sheet key="sleep" title="Sleep timer" onClose={() => setSheet(null)}>
-            {SLEEP_OPTIONS.map((o) => {
-              const active = (o.minutes === 0 && !sleepActive) || (o.minutes !== 0 && o.minutes === sleep.mode)
-              return (
-                <button key={o.label} onClick={() => chooseSleep(o)} style={rowStyle(active)}>
-                  {o.label}{active && <span>✓</span>}
-                </button>
-              )
-            })}
-          </Sheet>
-        )}
-        {sheet === 'speed' && setPlaybackRate && (
-          <Sheet key="speed" title="Playback speed" onClose={() => setSheet(null)}>
-            {SPEEDS.map((s) => (
-              <button key={s} onClick={() => { setPlaybackRate(s); setSheet(null) }} style={rowStyle(s === playbackRate)}>
-                {s === 1 ? 'Normal' : `${s}x`}{s === playbackRate && <span>✓</span>}
-              </button>
-            ))}
-          </Sheet>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {isQueueVisible && <QueueDrawer onClose={() => setIsQueueVisible(false)} />}
+        {sheet === 'sleep' && <SleepSheet key="sleep" sleepTimer={sleepTimer} remainingLabel={sleepLabel} onPick={setSleepTimer} onClose={() => setSheet(null)} />}
+        {sheet === 'speed' && <SpeedSheet key="speed" rate={playbackRate} onPick={setPlaybackRate} onClose={() => setSheet(null)} />}
+        {sheet === 'playlist' && <PlaylistSheet key="pl" track={currentTrack} onClose={() => setSheet(null)} />}
       </AnimatePresence>
       <AnimatePresence>
-        {shareSheetOpen && (
+        {sheet === 'share' && (
           <ShareTrackSheet
-            track={currentTrack}
-            conversations={conversations}
+            track={currentTrack} conversations={conversations}
             onShare={(conversationId, track) => onShareTrack && onShareTrack(conversationId, track)}
-            onClose={() => setShareSheetOpen(false)}
+            onClose={() => setSheet(null)}
           />
         )}
       </AnimatePresence>
