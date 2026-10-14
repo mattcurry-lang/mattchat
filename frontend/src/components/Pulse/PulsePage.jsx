@@ -350,7 +350,7 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
           />
         ))}
 
-        {(filter === 'all' || filter === 'more') && (
+      
            
        
     </div>
