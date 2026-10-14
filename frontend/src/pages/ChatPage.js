@@ -1139,6 +1139,35 @@ function LastMessagePreview({ content }) {
   if (extractYouTubeId(content)) return row(<IconVideo size={11} />, 'sent youvid')
   return getMessagePreview(content)
 }
+
+// Opens the real WhatsApp (phone app or desktop app) instead of the
+// in-app WhatsAppPage. Tries the native whatsapp:// protocol first,
+// then falls back to a web link if nothing took over the screen.
+function openWhatsApp() {
+  const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+  let handedOff = false
+
+  const markHandedOff = () => { handedOff = true }
+  const onVisibility = () => { if (document.hidden) handedOff = true }
+  window.addEventListener('blur', markHandedOff)
+  document.addEventListener('visibilitychange', onVisibility)
+
+  // Native app protocol: opens WhatsApp on phones and the WhatsApp
+  // desktop app on Windows/Mac if it's installed.
+  window.location.href = 'whatsapp://send'
+
+  setTimeout(() => {
+    window.removeEventListener('blur', markHandedOff)
+    document.removeEventListener('visibilitychange', onVisibility)
+    if (handedOff) return
+    // App didn't open (not installed, or the user cancelled): fall back.
+    window.open(
+      isMobileDevice ? 'https://wa.me/' : 'https://web.whatsapp.com',
+      '_blank',
+      'noopener,noreferrer'
+    )
+  }, 1500)
+}
 export default function ChatPage({ session }) {
   const [activeConvo, setActiveConvo]   = useState(null)
   const userId = session.user.id
@@ -2442,7 +2471,7 @@ const handleSignOut = async () => {
         items: [
           { id: 'email-workspace', icon: <IconInbox size={15} />, label: 'Email Workspace', onClick: () => { setShowEmailWorkspace(true); setShowProfileMenu(false) } },
           { id: 'documents', icon: <IconFolder size={15} />, label: 'Documents', onClick: () => { setShowDocuments(true); setShowProfileMenu(false) } },
-          { id: 'whatsapp', icon: <WhatsAppIcon size={15} />, label: 'WhatsApp', subtitle: 'Keep your WhatsApp chats in the same place', onClick: () => { setShowWhatsApp(true); setShowProfileMenu(false) } },
+          { id: 'whatsapp', icon: <WhatsAppIcon size={15} />, label: 'WhatsApp', subtitle: 'Open WhatsApp on this device', onClick: () => { openWhatsApp(); setShowProfileMenu(false) } },
         ],
       },
       {
@@ -2824,7 +2853,7 @@ onMessageContact={handleMessageContact}
                  {[
                   { icon: <IconSparkle size={22} color="#a78bfa" />, title: 'Ask Curry', onClick: () => setActiveConvo(CURRY_AI_CONTACT) },
                   { icon: <IconCamera size={22} color="#d4d0e0" />, title: 'Connected Apps', onClick: () => setShowConnectedApps(true) },
-                  { icon: <WhatsAppIcon size={22} />, title: 'WhatsApp', onClick: () => setShowWhatsApp(true) },
+                  { icon: <WhatsAppIcon size={22} />, title: 'WhatsApp', onClick: openWhatsApp },
                 ].map((item) => (
                   <button
                     key={item.title}
