@@ -9,6 +9,7 @@
 // Results are cached by URL so replaying a track is instant.
 
 import { useState, useEffect } from 'react'
+import { isLetterboxed } from './artwork'
 
 const cache = new Map()
 const FALLBACK = { r: 108, g: 99, b: 255 } // brand purple — used until extraction resolves, or on failure
@@ -67,7 +68,11 @@ export function extractDominantColor(imageUrl) {
         canvas.width = SIZE
         canvas.height = SIZE
         const ctx = canvas.getContext('2d')
-        ctx.drawImage(img, 0, 0, SIZE, SIZE)
+               if (isLetterboxed(imageUrl)) {
+          ctx.drawImage(img, img.width * 0.15, img.height * 0.125, img.width * 0.7, img.height * 0.75, 0, 0, SIZE, SIZE)
+        } else {
+          ctx.drawImage(img, 0, 0, SIZE, SIZE)
+        }
         const { data } = ctx.getImageData(0, 0, SIZE, SIZE)
 
         let r = 0, g = 0, b = 0, n = 0
