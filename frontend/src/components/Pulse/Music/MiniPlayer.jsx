@@ -3,8 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useMusicPlayer } from '../../context/MusicPlayerContext'
 import { useTheme } from '../../../hooks/useTheme'
 import {
-  IconPlay, IconPause, IconSkipBack, IconSkipForward, IconMusic, IconX,
+  IconPlay, IconPause, IconSkipBack, IconSkipForward,  IconX,
 } from '../../Icons'
+import TrackArt from './TrackArt'
 
 const TOP_OFFSET = 'calc(env(safe-area-inset-top, 0px) + 72px)'
 
@@ -19,7 +20,7 @@ export default function MiniPlayer() {
   const {
     currentTrack, isPlaying, isLoading, error, currentTime, duration,
     isMiniPlayerVisible, togglePlayPause, closeMiniPlayer, setIsFullPlayerVisible,
-    playNext, playPrevious,
+    playNext,isFullPlayerVisible, playPrevious,
   } = useMusicPlayer()
   const { theme } = useTheme()
   const isDark = theme !== 'light'
@@ -57,7 +58,7 @@ export default function MiniPlayer() {
 
   return (
     <AnimatePresence>
-      {isMiniPlayerVisible && currentTrack && (
+     {isMiniPlayerVisible && currentTrack && !isFullPlayerVisible && (
         <motion.div
           key={currentTrack.id}
           initial={{ y: -28, opacity: 0, scale: 0.94 }}
@@ -96,7 +97,7 @@ export default function MiniPlayer() {
                 boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
               }}>
                 {currentTrack.artwork ? (
-                  <img src={currentTrack.artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <TrackArt src={currentTrack.artwork} size={36} radius={10} iconSize={15} style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }} />
                 ) : (
                   <IconMusic size={15} style={{ color: 'var(--text-muted)' }} />
                 )}
