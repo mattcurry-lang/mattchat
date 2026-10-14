@@ -2,14 +2,13 @@ import React, { useState, useMemo, useEffect } from 'react'
 import PulseSummaryCard from './PulseSummaryCard'
 import PulseFilterBar from './PulseFilterBar'
 import PulseActivityCard from './PulseActivityCard'
-import PulseLockedCard from './PulseLockedCard'
 import BirthdayCard from './BirthdayCard'
 import BirthdayExperience from './BirthdayExperience'
 import TeamPicker from './TeamPicker'
 import TeamSection from './TeamSection'
 import BibleCard from './BibleCard'
 import { useBirthday } from '../../hooks/useBirthday'
-import { PLATFORM_META, AppIcon } from './PulseIcons'
+import { AppIcon } from './PulseIcons'
 import { usePulseData, usePulseSettings } from '../../hooks/usePulseData'
 import { getPulsePlugin } from '../../lib/pulsePlugins'
 import { supabase } from '../../lib/supabase'
@@ -30,13 +29,105 @@ import DekutCateringAdmin from './DekutCateringAdmin'
 import DekutKnowledgeAdmin from './DekutKnowledgeAdmin'
 
 
-const LOCKED_PLATFORMS = Object.entries(PLATFORM_META).filter(([, meta]) => meta.supportLevel === 'native_only')
+ 
+function LaunchTile({ icon, title, subtitle, onClick, wide, tint, badge }) {
+  return (
+    <button
+      className="pulse-tile"
+      onClick={onClick}
+      style={{
+        gridColumn: wide ? 'span 2' : 'span 1',
+        position: 'relative', width: '100%', boxSizing: 'border-box',
+        display: 'flex', flexDirection: wide ? 'row' : 'column',
+        alignItems: wide ? 'center' : 'flex-start',
+        justifyContent: wide ? 'flex-start' : 'space-between',
+        gap: 12, minHeight: wide ? 84 : 118, padding: 14, borderRadius: 20,
+        background: tint
+          ? `linear-gradient(135deg, ${tint}, var(--bg-surface-2) 75%)`
+          : 'var(--bg-surface-2)',
+        border: '1px solid var(--border)',
+        cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: 'inherit',
+      }}
+    >
+      {icon}
+      <div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{title}</div>
+        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{subtitle}</div>
+      </div>
+      {badge}
+    </button>
+  )
+}
 
+function IconBox({ background, children }) {
+  return (
+    <div style={{ width: 40, height: 40, borderRadius: 12, background, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      {children}
+    </div>
+  )
+}
+
+function PulseLaunchGrid({ onOpenShorts, onOpenYouTube, onOpenCycle, cycleInvites }) {
+  return (
+    <>
+      <style>{`
+        .pulse-tile { transition: transform 0.15s ease; }
+        .pulse-tile:active { transform: scale(0.97); }
+        @media (prefers-reduced-motion: reduce) {
+          .pulse-tile { transition: none; }
+          .pulse-tile:active { transform: none; }
+        }
+      `}</style>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+        <LaunchTile
+          wide
+          tint="rgba(254,44,85,0.16)"
+          onClick={onOpenShorts}
+          title="Shorts"
+          subtitle="Swipe through trending videos"
+          icon={
+            <IconBox background="linear-gradient(135deg,#fe2c55,#25f4ee)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="6" y="2" width="12" height="20" rx="2" /><path d="M11 18h2" />
+              </svg>
+            </IconBox>
+          }
+        />
+        <LaunchTile
+          onClick={onOpenYouTube}
+          title="YouTube"
+          subtitle="Search and browse"
+          icon={<AppIcon.youtube size={40} />}
+        />
+        <LaunchTile
+          onClick={onOpenCycle}
+          title="Cycle Care"
+          subtitle="Private wellness tracking"
+          icon={
+            <IconBox background="linear-gradient(135deg,#a78bfa,#6c63ff)">
+              <IconFlower size={18} style={{ color: '#fff' }} />
+            </IconBox>
+          }
+          badge={cycleInvites > 0 && (
+            <span style={{
+              position: 'absolute', top: 10, right: 10, background: '#ef4444', color: '#fff',
+              borderRadius: '50%', width: 18, height: 18, fontSize: 10, fontWeight: 800,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {cycleInvites > 9 ? '9+' : cycleInvites}
+            </span>
+          )}
+        />
+      </div>
+    </>
+  )
+}
 export default function PulsePage({
   session, userId, profile, conversations, unreadCounts, getConvoName, getOtherUserId,
   onOpenConversation, onSelectVideo, aiSummary, onOpenShorts,
-  onFullscreenChange,
+  onFullscreenChange, onAskCurry,
 }) {
+
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [showYouTubePulse, setShowYouTubePulse] = useState(false)
@@ -66,12 +157,10 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
     if (toolId === 'scientific-calculator') setShowCalculator(true)
   }
  
-  const handleExplainWithCurry = ({ expression, result }) => {
-    const prompt = `Explain how to calculate ${expression} = ${result}, step by step, in simple language.`
-    console.log('[Mattchat Tools] Explain with Curry requested:', prompt)
-    // Example once wired up: onOpenConversation?.(CURRY_USER_ID, prompt)
-  }
-
+ const handleExplainWithCurry = ({ expression, result }) => {
+  onAskCurry?.(`Explain how to calculate ${expression} = ${result}, step by step, in simple language.`)
+  setShowCalculator(false)
+}
   const filtered = useMemo(() => {
     let list = items
     if (filter === 'priority') list = list.filter((i) => i.importance === 'high' || i.importance === 'critical')
@@ -191,7 +280,12 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
       {!birthday.hasBirthday && <BirthdayCard onSave={birthday.saveBirthday} />}
 
       <PulseSummaryCard name={profile?.username} items={items} loading={loading} aiSummary={aiSummary} />
-
+<PulseLaunchGrid
+  onOpenShorts={onOpenShorts}
+  onOpenYouTube={() => setShowYouTubePulse(true)}
+  onOpenCycle={() => setShowCycle(true)}
+  cycleInvites={pendingCycleInvites}
+/>
      {favoriteTeam ? (
   <TeamSection
     userId={userId}
@@ -257,165 +351,7 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
         ))}
 
         {(filter === 'all' || filter === 'more') && (
-          <>
-            <button
-              onClick={onOpenShorts}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-surface-2)',
-                border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px',
-                cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%',
-              }}
-            >
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg,#fe2c55,#25f4ee)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="6" y="2" width="12" height="20" rx="2" /><path d="M11 18h2" />
-                </svg>
-              </div>
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>Shorts</div>
-                <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Swipe through trending videos</div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setShowYouTubePulse(true)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-surface-2)',
-                border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px',
-                cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%',
-              }}
-            >
-              <AppIcon.youtube size={40} />
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>YouTube</div>
-                <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Search and browse videos</div>
-              </div>
-            </button>
- <button
-  onClick={() => setShowCycle(true)}
-  style={{
-    display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-surface-2)',
-    border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px',
-    cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%', position: 'relative',
-  }}
->
-  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-    <IconFlower size={18} style={{ color: '#fff' }} />
-  </div>
-  <div>
-    <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>Cycle Care</div>
-    <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Private cycle & wellness tracking</div>
-  </div>
-  {pendingCycleInvites > 0 && (
-    <span style={{
-      position: 'absolute', top: 10, right: 10, background: '#ef4444', color: '#fff',
-      borderRadius: '50%', width: 18, height: 18, fontSize: 10, fontWeight: 800,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      {pendingCycleInvites > 9 ? '9+' : pendingCycleInvites}
-    </span>
-  )}
-</button>
-
-            <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', marginTop: 8, marginBottom: 2 }}>
-              More apps — coming with the Mattchat mobile app
-            </div>
-            {LOCKED_PLATFORMS.map(([key, meta]) => (
-              <PulseLockedCard key={key} app={key} label={meta.label} />
-            ))}
-          </>
-        )}
-      </div>
-
-      {showYouTubePulse && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto' }}>
-          <YouTubePulsePage
-            session={session}
-            userId={userId}
-            onSelectVideo={(videoId) => { setShowYouTubePulse(false); onSelectVideo?.(videoId) }}
-            onClose={() => setShowYouTubePulse(false)}
-          />
-        </div>
-      )}
-    
-{showCycle && (
-  <CyclePage 
-    userId={userId} 
-    conversations={conversations}
-    getConvoName={getConvoName}
-    getOtherUserId={getOtherUserId}
-    onClose={() => setShowCycle(false)} 
-    onOpenConversation={(targetUserId, prefillMessage) => {
-      setShowCycle(false) // Close cycle modal
-      onOpenConversation?.(targetUserId, prefillMessage) // Pass both up to ChatPage
-    }}
-  />
-)}
-
-      {showCalculator && (
-        <ScientificCalculator
-          userId={userId}
-          onClose={() => setShowCalculator(false)}
-          onExplainWithCurry={handleExplainWithCurry}
-        />
-      )}
-{dekutView === 'catering-admin' && profile?.is_admin && (
-  <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
-    <DekutCateringAdmin onClose={() => setDekutView(null)} />
-  </div>
-)}
-      {dekutView === 'knowledge-admin' && profile?.is_admin && (
-  <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
-    <DekutKnowledgeAdmin onClose={() => setDekutView(null)} />
-  </div>
-)}
-   {dekutView === 'room-finder' && (
-  <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
-    <RoomFinder
-      onClose={() => { setDekutView(null); setDekutRouteContext(null) }}
-      userId={userId}
-      isAdmin={profile?.is_admin}
-      originLocationId={dekutRouteContext?.originLocationId}
-      destinationLocationId={dekutRouteContext?.destinationLocationId}
-      initialTab={dekutRouteContext?.initialTab}
-    />
-  </div>
-)}
-      {dekutView === 'fresher-mode' && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
-          <FresherMode onNavigate={(route) => setDekutView(route)} onClose={() => setDekutView(null)} />
-        </div>
-      )}
-
-    {dekutView === 'faq' && (
-  <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
-    <AskCurry
-      userId={userId}
-      onNavigate={(route, svc, routeContext) => {           // ← accept all three now
-        setDekutRouteContext(routeContext || null)
-        setDekutView(route)
-      }}
-      onClose={() => setDekutView(null)}
-    />
-  </div>
-)}
-
-      {dekutView === 'email-setup' && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
-          <EmailSetupGuide onNavigate={(route) => setDekutView(route)} onClose={() => setDekutView(null)} />
-        </div>
-      )}
-
-      {dekutView === 'contacts' && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
-          <ContactsPage onClose={() => setDekutView(null)} />
-        </div>
-      )}
-
-      {birthday.shouldShowExperience && (
-        <BirthdayExperience profile={profile} onClose={birthday.dismiss} />
-      )}
-  
+           
        
     </div>
   )
