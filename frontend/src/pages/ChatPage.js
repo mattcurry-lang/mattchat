@@ -2425,6 +2425,12 @@ const handleSignOut = async () => {
       onOpenShorts={() => setShowShorts(true)}
       onFullscreenChange={setDekutFullscreen}  
         onAskCurry={(question) => { setCurryPrefill(question); setActiveConvo(CURRY_AI_CONTACT) }}
+          onShareTrack={handleShareMusic}
+shareConversations={conversations.map(c => ({
+  id: c.id,
+  name: getConvoName(c),
+  avatarUrl: getOtherUserAvatar(c, userId),
+}))}
     />
   </div>
 )}
