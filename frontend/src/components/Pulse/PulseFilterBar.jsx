@@ -8,7 +8,7 @@ const FILTERS = [
   { id: 'mattchat', label: 'Mattchat' },
   { id: 'gmail', label: 'Gmail' },
   { id: 'instagram', label: 'Instagram' },
-  { id: 'more', label: 'More apps' },
+ 
 ]
 
 export default function PulseFilterBar({ active, onChange }) {
