@@ -165,7 +165,7 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
     let list = items
     if (filter === 'priority') list = list.filter((i) => i.importance === 'high' || i.importance === 'critical')
     else if (filter === 'unread') list = list.filter((i) => i.count > 0)
-    else if (filter !== 'all' && filter !== 'more') list = list.filter((i) => i.app === filter)
+    else if (filter !== 'all') list = list.filter((i) => i.app === filter)
 
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -329,18 +329,18 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {loading && (
           <div style={{ textAlign: 'center', padding: '20px 0', fontSize: 12.5, color: 'var(--text-muted)' }}>Loading your activity…</div>
         )}
 
-        {!loading && filtered.length === 0 && filter !== 'more' && (
+        {!loading && filtered.length === 0 && (
           <div style={{ textAlign: 'center', padding: '20px 0', fontSize: 12.5, color: 'var(--text-muted)' }}>
             Nothing here right now.
           </div>
         )}
 
-        {filter !== 'more' && filtered.map((item) => (
+        {filtered.map((item) => (
           <PulseActivityCard
             key={item.id}
             item={item}
@@ -349,10 +349,100 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
             onMarkRead={() => {}}
           />
         ))}
+      </div>
 
-      
-           
-       
+      {showYouTubePulse && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto' }}>
+          <YouTubePulsePage
+            session={session}
+            userId={userId}
+            onSelectVideo={(videoId) => { setShowYouTubePulse(false); onSelectVideo?.(videoId) }}
+            onClose={() => setShowYouTubePulse(false)}
+          />
+        </div>
+      )}
+
+      {showCycle && (
+        <CyclePage
+          userId={userId}
+          conversations={conversations}
+          getConvoName={getConvoName}
+          getOtherUserId={getOtherUserId}
+          onClose={() => setShowCycle(false)}
+          onOpenConversation={(targetUserId, prefillMessage) => {
+            setShowCycle(false)
+            onOpenConversation?.(targetUserId, prefillMessage)
+          }}
+        />
+      )}
+
+      {showCalculator && (
+        <ScientificCalculator
+          userId={userId}
+          onClose={() => setShowCalculator(false)}
+          onExplainWithCurry={handleExplainWithCurry}
+        />
+      )}
+
+      {dekutView === 'catering-admin' && profile?.is_admin && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
+          <DekutCateringAdmin onClose={() => setDekutView(null)} />
+        </div>
+      )}
+
+      {dekutView === 'knowledge-admin' && profile?.is_admin && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
+          <DekutKnowledgeAdmin onClose={() => setDekutView(null)} />
+        </div>
+      )}
+
+      {dekutView === 'room-finder' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
+          <RoomFinder
+            onClose={() => { setDekutView(null); setDekutRouteContext(null) }}
+            userId={userId}
+            isAdmin={profile?.is_admin}
+            originLocationId={dekutRouteContext?.originLocationId}
+            destinationLocationId={dekutRouteContext?.destinationLocationId}
+            initialTab={dekutRouteContext?.initialTab}
+          />
+        </div>
+      )}
+
+      {dekutView === 'fresher-mode' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
+          <FresherMode onNavigate={(route) => setDekutView(route)} onClose={() => setDekutView(null)} />
+        </div>
+      )}
+
+      {dekutView === 'faq' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
+          <AskCurry
+            userId={userId}
+            onNavigate={(route, svc, routeContext) => {
+              setDekutRouteContext(routeContext || null)
+              setDekutView(route)
+            }}
+            onClose={() => setDekutView(null)}
+          />
+        </div>
+      )}
+
+      {dekutView === 'email-setup' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
+          <EmailSetupGuide onNavigate={(route) => setDekutView(route)} onClose={() => setDekutView(null)} />
+        </div>
+      )}
+
+      {dekutView === 'contacts' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
+          <ContactsPage onClose={() => setDekutView(null)} />
+        </div>
+      )}
+
+      {birthday.shouldShowExperience && (
+        <BirthdayExperience profile={profile} onClose={birthday.dismiss} />
+      )}
     </div>
   )
 }
