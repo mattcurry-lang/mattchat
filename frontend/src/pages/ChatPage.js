@@ -123,6 +123,7 @@ import ShushhhExperience from '../components/Shushhh/ShushhhExperience'
 import useShushhhShortcut from '../hooks/useShushhhShortcut'
 import '../lib/ecosystem'
 import { useFlowRunner } from '../hooks/useFlowRunner'
+import EcosystemHub from '../components/Ecosystem/EcosystemHub'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -1210,6 +1211,7 @@ export default function ChatPage({ session }) {
   const [showPersonalAnalytics, setShowPersonalAnalytics] = useState(false)
   const [showTasksPage, setShowTasksPage] = useState(false)
   const [showConnectedApps, setShowConnectedApps] = useState(false)
+  const [showEcosystem, setShowEcosystem] = useState(false)
 const [showInstagramFull, setShowInstagramFull] = useState(false)
   const [replyingTo, setReplyingTo] = useState(null)
   const [forwardingMessage, setForwardingMessage] = useState(null)
@@ -2484,7 +2486,7 @@ shareConversations={conversations.map(c => ({
       {
         id: 'connections', label: 'Connections',
         items: [
-          { id: 'connected-apps', icon: <IconCamera size={15} />, label: 'Connected Apps', onClick: () => { setShowConnectedApps(true); setShowProfileMenu(false) } },
+          { id: 'connected-apps', icon: <IconCamera size={15} />, label: 'Ecosystem', onClick: () => { setShowEcosystem(true); setShowProfileMenu(false) } },
           ...(profileLoaded && profile?.is_admin ? [{ id: 'announcements', icon: <IconMail size={15} />, label: 'Announcements', onClick: () => { setShowAnnouncements(true); setShowProfileMenu(false) } }] : []),
         ],
       },
@@ -2638,7 +2640,14 @@ shareConversations={conversations.map(c => ({
   </div>
 )}
 
- 
+ {showEcosystem && (
+  <EcosystemHub
+    userId={userId}
+    conversations={conversations.filter(c => !c.isCurryAI).map(c => ({ id: c.id, name: getConvoName(c) }))}
+    onClose={() => setShowEcosystem(false)}
+    onOpenLauncher={() => { setShowEcosystem(false); setShowConnectedApps(true) }}
+  />
+)}
 {showConnectedApps && (
   <ConnectedApps
     onClose={() => setShowConnectedApps(false)}
@@ -2859,7 +2868,7 @@ onMessageContact={handleMessageContact}
               <div style={{ display: 'flex', justifyContent: 'center', gap: 44, marginTop: 40 }}>
                  {[
                   { icon: <IconSparkle size={22} color="#a78bfa" />, title: 'Ask Curry', onClick: () => setActiveConvo(CURRY_AI_CONTACT) },
-                  { icon: <IconCamera size={22} color="#d4d0e0" />, title: 'Connected Apps', onClick: () => setShowConnectedApps(true) },
+                  { icon: <IconCamera size={22} color="#d4d0e0" />, title: 'Ecosystem', onClick: () => setShowEcosystem(true) },
                   { icon: <WhatsAppIcon size={22} />, title: 'WhatsApp', onClick: openWhatsApp },
                 ].map((item) => (
                   <button
