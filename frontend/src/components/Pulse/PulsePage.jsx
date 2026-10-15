@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import PulseSummaryCard from './PulseSummaryCard'
 import PulseFilterBar from './PulseFilterBar'
 import PulseActivityCard from './PulseActivityCard'
@@ -231,7 +231,15 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
   const ACTIVITY_PREVIEW = 5
   const expanded = showAllActivity || !!search.trim() || filter !== 'all'
   const visibleItems = expanded ? filtered : filtered.slice(0, ACTIVITY_PREVIEW)
- 
+   const activityRef = useRef(null)
+
+  const handleCatchUp = () => {
+    setFilter('unread')
+    setShowAllActivity(true)
+    requestAnimationFrame(() => {
+      activityRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
   const handleOpen = (item) => {
     const plugin = getPulsePlugin(item.app)
     plugin?.onOpen?.(item, { onOpenConversation })
@@ -312,7 +320,7 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
       {/* ── PERSONALIZED HIERARCHY ── */}
       {!birthday.hasBirthday && <BirthdayCard onSave={birthday.saveBirthday} />}
 
-      <PulseSummaryCard name={profile?.username} items={items} loading={loading} aiSummary={aiSummary} />
+      <PulseSummaryCard name={profile?.username} items={items} loading={loading} aiSummary={aiSummary} onCatchUp={handleCatchUp} />
       <PulseLaunchGrid
         onOpenShorts={onOpenShorts}
         onOpenYouTube={() => setShowYouTubePulse(true)}
@@ -322,7 +330,7 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
       />
 
       {/* ── ACTIVITY ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div ref={activityRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', scrollMarginTop: 12 }}>
         <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>Activity</h3>
         <button
           aria-label={showSearch ? 'Close search' : 'Search activity'}
