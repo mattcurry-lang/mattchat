@@ -159,7 +159,7 @@ export default function EcosystemHub({ userId, conversations = [], onClose, onOp
 
     if (!missing.length && !sends) { commit(spec, []); return }
     setConsent({ spec, apps: missing, lines })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [connected, chatName])
 
   async function commit(spec, appsToConnect) {
