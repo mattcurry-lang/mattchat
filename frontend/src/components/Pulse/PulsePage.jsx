@@ -313,7 +313,110 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
       {!birthday.hasBirthday && <BirthdayCard onSave={birthday.saveBirthday} />}
 
       <PulseSummaryCard name={profile?.username} items={items} loading={loading} aiSummary={aiSummary} />
-<PulseLaunchGrid
+      <PulseLaunchGrid
+        onOpenShorts={onOpenShorts}
+        onOpenYouTube={() => setShowYouTubePulse(true)}
+        onOpenCycle={() => setShowCycle(true)}
+        onOpenCalculator={() => setShowCalculator(true)}
+        cycleInvites={pendingCycleInvites}
+      />
+
+      {/* ── ACTIVITY ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>Activity</h3>
+        <button
+          aria-label={showSearch ? 'Close search' : 'Search activity'}
+          onClick={() => { setShowSearch(v => !v); if (showSearch) setSearch('') }}
+          style={{
+            width: 32, height: 32, borderRadius: '50%', cursor: 'pointer', fontSize: 13,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit',
+            background: showSearch ? 'rgba(167,139,250,0.15)' : 'var(--bg-surface-2)',
+            border: '1px solid var(--border)', color: 'var(--text-primary)',
+          }}
+        >
+          {showSearch ? '✕' : '🔍'}
+        </button>
+      </div>
+
+      {showSearch && (
+        <input
+          autoFocus
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search sender, app, or title…"
+          style={{
+            background: 'var(--bg-surface-2)', border: '1px solid var(--border)', borderRadius: 12,
+            padding: '10px 14px', color: 'var(--text-primary)', fontSize: 13.5, fontFamily: 'inherit',
+          }}
+        />
+      )}
+
+      <PulseFilterBar active={filter} onChange={setFilter} />
+
+      {error && (
+        <div style={{ fontSize: 12.5, color: '#f87171', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '10px 12px' }}>
+          Couldn't load your connected accounts right now.
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {loading && (
+          <div style={{ textAlign: 'center', padding: '20px 0', fontSize: 12.5, color: 'var(--text-muted)' }}>Loading your activity…</div>
+        )}
+
+        {!loading && filtered.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '20px 0', fontSize: 12.5, color: 'var(--text-muted)' }}>
+            Nothing here right now.
+          </div>
+        )}
+
+        {visibleItems.map((item) => (
+          <PulseActivityCard
+            key={item.id}
+            item={item}
+            privacyMode={privacyMode}
+            onOpen={handleOpen}
+          />
+        ))}
+
+        {!expanded && filtered.length > ACTIVITY_PREVIEW && (
+          <button
+            onClick={() => setShowAllActivity(true)}
+            style={{
+              background: 'transparent', border: '1px dashed var(--border)', borderRadius: 14,
+              padding: '10px 12px', cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 13, fontWeight: 700, color: 'var(--text-primary)',
+            }}
+          >
+            Show all {filtered.length}
+          </button>
+        )}
+      </div>
+
+      {/* ── EXPLORE ── */}
+      <h3 style={{ margin: '8px 0 0', fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>Explore</h3>
+
+      {favoriteTeam ? (
+        <TeamSection
+          userId={userId}
+          teamId={favoriteTeam}
+          onChangeTeam={(id) => setTeamOverride(id)}
+          session={session}
+          onSelectVideo={onSelectVideo}
+        />
+      ) : (
+        <div style={{ borderRadius: 18, padding: 16, background: 'var(--bg-surface-2)', border: '1px solid var(--border)' }}>
+          <TeamPicker onSelect={selectTeam} />
+        </div>
+      )}
+
+      <DeKUTHubCard onNavigate={(route, service) => {
+        setDekutRouteContext(service?.id === 'campus-map' ? { initialTab: 'map' } : null)
+        setDekutView(route)
+      }} />
+
+      <BibleCard />
+      <PulseMusicCard onFullscreenChange={onFullscreenChange} />
       {showYouTubePulse && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto' }}>
           <YouTubePulsePage
