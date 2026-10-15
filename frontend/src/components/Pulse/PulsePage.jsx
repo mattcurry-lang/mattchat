@@ -182,7 +182,7 @@ function HeaderMenu({ items }) {
 export default function PulsePage({
   session, userId, profile, conversations, unreadCounts, getConvoName, getOtherUserId,
   onOpenConversation, onSelectVideo, aiSummary, onOpenShorts,
-  onFullscreenChange, onAskCurry,
+  onFullscreenChange, onAskCurry, onShareTrack, shareConversations,
 }) {
 
   const [filter, setFilter] = useState('all')
@@ -321,6 +321,7 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
       {!birthday.hasBirthday && <BirthdayCard onSave={birthday.saveBirthday} />}
 
       <PulseSummaryCard name={profile?.username} items={items} loading={loading} aiSummary={aiSummary} onCatchUp={handleCatchUp} />
+           <PulseMusicCard onFullscreenChange={onFullscreenChange} />
       <PulseLaunchGrid
         onOpenShorts={onOpenShorts}
         onOpenYouTube={() => setShowYouTubePulse(true)}
@@ -424,7 +425,7 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
       }} />
 
       <BibleCard />
-      <PulseMusicCard onFullscreenChange={onFullscreenChange} />
+      
       {showYouTubePulse && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto' }}>
           <YouTubePulsePage
