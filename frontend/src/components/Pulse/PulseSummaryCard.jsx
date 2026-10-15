@@ -7,19 +7,22 @@ function greetingWord() {
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
 }
 
-// aiSummary: { mostActiveApp, mostActivePerson, priorityLines } | null
-// Everything here is either computed directly from `items` (deterministic,
-// no AI) or comes from an optional aiSummary the caller fetched from
-// Curry — never invented client-side.
-export default function PulseSummaryCard({ name, items, loading, aiSummary }) {
+const MAX_ROWS = 3
+
+// aiSummary: { priorityLines } | null — optional, only shown when the
+// caller provides it. Everything else is computed from `items`.
+// onCatchUp: called when the user taps "Catch up".
+export default function PulseSummaryCard({ name, items, loading, aiSummary, onCatchUp }) {
   const totalUnread = items.reduce((sum, i) => sum + (i.count || 0), 0)
-  const byApp = {}
-  items.forEach((i) => { byApp[i.app] = (byApp[i.app] || 0) + (i.count || 0) })
-  const mostActiveApp = Object.entries(byApp).sort((a, b) => b[1] - a[1])[0]?.[0]
+
+  // Group by sender so one person with several items shows once.
   const bySender = {}
-  items.forEach((i) => { if (i.count > 0) bySender[i.sender] = (bySender[i.sender] || 0) + i.count })
-  const mostActivePerson = Object.entries(bySender).sort((a, b) => b[1] - a[1])[0]?.[0]
-  const unreadRows = items.filter((i) => i.count > 0)
+  items.forEach((i) => {
+    if (i.count > 0) bySender[i.sender] = (bySender[i.sender] || 0) + i.count
+  })
+  const senderRows = Object.entries(bySender).sort((a, b) => b[1] - a[1])
+  const shownRows = senderRows.slice(0, MAX_ROWS)
+  const hiddenCount = senderRows.length - shownRows.length
 
   return (
     <motion.div
@@ -39,33 +42,18 @@ export default function PulseSummaryCard({ name, items, loading, aiSummary }) {
 
       <AnimatePresence mode="wait">
         {loading ? (
-          <motion.div
-            key="loading"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={{ fontSize: 13, color: 'var(--text-muted)' }}
-          >
+          <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ fontSize: 13, color: 'var(--text-muted)' }}>
             Checking your connected accounts…
           </motion.div>
         ) : totalUnread === 0 ? (
-          <motion.div
-            key="caught-up"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={{ fontSize: 13.5, color: 'var(--text-secondary)' }}
-          >
+          <motion.div key="caught-up" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ fontSize: 13.5, color: 'var(--text-secondary)' }}>
             You're all caught up. Nothing needs your attention right now.
           </motion.div>
         ) : (
-          <motion.div
-            key="unread"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={{ fontSize: 13.5, color: 'var(--text-secondary)' }}
-          >
+          <motion.div key="unread" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ fontSize: 13.5, color: 'var(--text-secondary)' }}>
             You have{' '}
             <motion.strong
               key={totalUnread}
@@ -82,24 +70,44 @@ export default function PulseSummaryCard({ name, items, loading, aiSummary }) {
       </AnimatePresence>
 
       {!loading && totalUnread > 0 && (
-        <motion.div layout style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
-          <AnimatePresence initial={false}>
-            {unreadRows.map((i, idx) => (
-              <motion.div
-                layout
-                key={i.id}
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -8 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 30, delay: Math.min(idx * 0.04, 0.24) }}
-                style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}
-              >
-                <span>{i.sender}</span>
-                <span style={{ color: '#c4b5fd', fontWeight: 700 }}>{i.count}</span>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
+        <>
+          <motion.div layout style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
+            <AnimatePresence initial={false}>
+              {shownRows.map(([sender, count], idx) => (
+                <motion.div
+                  layout
+                  key={sender}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -8 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 30, delay: Math.min(idx * 0.04, 0.12) }}
+                  style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between', gap: 8 }}
+                >
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sender}</span>
+                  <span style={{ color: '#c4b5fd', fontWeight: 700, flexShrink: 0 }}>{count}</span>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            {hiddenCount > 0 && (
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                +{hiddenCount} more {hiddenCount === 1 ? 'sender' : 'senders'}
+              </div>
+            )}
+          </motion.div>
+
+          {onCatchUp && (
+            <button
+              onClick={onCatchUp}
+              style={{
+                marginTop: 14, background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none',
+                borderRadius: 20, color: '#fff', fontSize: 12.5, fontWeight: 700, padding: '8px 16px',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              Catch up
+            </button>
+          )}
+        </>
       )}
 
       <AnimatePresence>
