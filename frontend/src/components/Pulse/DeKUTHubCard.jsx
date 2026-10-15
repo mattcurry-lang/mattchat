@@ -103,7 +103,7 @@ export default function DeKUTHubCard({ onNavigate, userId, orbHidden }) {
                 </div>
               </div>
 
-              <span style={{ flexShrink: 0, opacity: isHovered ? 1 : 0, transition: 'opacity 160ms ease' }}>
+              <span style={{ flexShrink: 0, opacity: isHovered ? 1 : 0.5, transition: 'opacity 160ms ease' }}>
                 <DekutIcon type={service.type === 'internal' ? 'chevronRight' : 'externalLink'} size={14} color="var(--text-secondary)" strokeWidth={2} />
               </span>
             </button>
