@@ -23,7 +23,7 @@ import AskCurry from './AskCurry'
 import EmailSetupGuide from './EmailSetupGuide'
 import ContactsPage from './ContactsPage'
 import MattchatToolsCard from './MattchatToolsCard'
-import ScientificCalculator, { CalculatorGlyph } from './ScientificCalculator'
+import ScientificCalculator from './ScientificCalculator'
 import PulseMusicCard from './Music/PulseMusicCard'
 import DekutCateringAdmin from './DekutCateringAdmin'
 import DekutKnowledgeAdmin from './DekutKnowledgeAdmin'
@@ -122,6 +122,53 @@ function PulseLaunchGrid({ onOpenShorts, onOpenYouTube, onOpenCycle, cycleInvite
     </>
   )
 }
+function HeaderMenu({ items }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        aria-label="More options"
+        aria-expanded={open}
+        onClick={() => setOpen(v => !v)}
+        style={{
+          width: 32, height: 32, borderRadius: '50%', cursor: 'pointer', fontFamily: 'inherit',
+          background: open ? 'rgba(167,139,250,0.15)' : 'var(--bg-surface-2)',
+          border: '1px solid var(--border)', color: 'var(--text-primary)',
+          fontSize: 16, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+      >
+        ⋯
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+          <div
+            style={{
+              position: 'absolute', right: 0, top: 40, zIndex: 41, minWidth: 210, overflow: 'hidden',
+              background: 'var(--bg-surface-1, #14141f)', border: '1px solid var(--border)',
+              borderRadius: 14, boxShadow: '0 12px 32px rgba(0,0,0,0.4)',
+            }}
+          >
+            {items.map(({ id, icon, label, onClick }) => (
+              <button
+                key={id}
+                onClick={() => { setOpen(false); onClick() }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 14px',
+                  background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                  fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', textAlign: 'left',
+                }}
+              >
+                <span style={{ width: 20, textAlign: 'center' }}>{icon}</span>
+                {label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
 export default function PulsePage({
   session, userId, profile, conversations, unreadCounts, getConvoName, getOtherUserId,
   onOpenConversation, onSelectVideo, aiSummary, onOpenShorts,
@@ -209,70 +256,45 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
     h2 span[aria-hidden="true"] span:first-child { animation: none !important; }
   }
 `}</style>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {birthday.hasBirthday && birthday.isBirthdayToday && (
             <button
               onClick={birthday.reopen}
               title="Revisit your birthday card"
+              aria-label="Revisit your birthday card"
               style={{
                 background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.3)',
-                borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', color: '#c4b5fd',
               }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l2.5 5 5.5.8-4 4 1 5.5L12 15l-5 2.3 1-5.5-4-4 5.5-.8z" /></svg>
             </button>
           )}
-          {profile?.is_admin && (
-  <button
-    onClick={() => setDekutView('knowledge-admin')}
-    title="Curry Knowledge Base"
-    style={{
-      background: 'var(--bg-surface-2)', border: '1px solid var(--border)',
-      borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      cursor: 'pointer', fontSize: 13,
-    }}
-  >
-    📚
-  </button>
-)}
-          {profile?.is_admin && (
-  <button
-    onClick={() => setDekutView('catering-admin')}
-    title="Catering Admin"
-    style={{
-      background: 'var(--bg-surface-2)', border: '1px solid var(--border)',
-      borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      cursor: 'pointer', fontSize: 13,
-    }}
-  >
-    🍛
-  </button>
-)}
-          <button
-            onClick={() => setShowCalculator(true)}
-            title="Scientific Calculator"
-            style={{
-              background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', border: 'none',
-              borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer',
-            }}
-          >
-            <CalculatorGlyph size={15} />
-          </button>
+
           <button
             onClick={() => setPrivacyMode(!privacyMode)}
+            aria-pressed={privacyMode}
+            aria-label="Privacy mode"
             title={privacyMode ? 'Privacy mode is on — tap to turn off' : 'Turn on Privacy Mode'}
             style={{
-              display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 700,
+              width: 32, height: 32, borderRadius: '50%', cursor: 'pointer', fontSize: 14,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: privacyMode ? 'rgba(74,222,128,0.12)' : 'var(--bg-surface-2)',
               border: `1px solid ${privacyMode ? 'rgba(74,222,128,0.3)' : 'var(--border)'}`,
-              color: privacyMode ? '#4ade80' : 'var(--text-secondary)',
-              borderRadius: 20, padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit',
             }}
           >
-            {privacyMode ? '🔒 Privacy on' : '🔓 Privacy mode'}
+            {privacyMode ? '🔒' : '🔓'}
           </button>
+
+          {profile?.is_admin && (
+            <HeaderMenu
+              items={[
+                { id: 'kb', icon: '📚', label: 'Curry Knowledge Base', onClick: () => setDekutView('knowledge-admin') },
+                { id: 'catering', icon: '🍛', label: 'Catering Admin', onClick: () => setDekutView('catering-admin') },
+              ]}
+            />
+          )}
         </div>
       </div>
 
