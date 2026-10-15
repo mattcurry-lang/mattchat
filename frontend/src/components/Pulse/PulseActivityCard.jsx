@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { AppIcon } from './PulseIcons'
 
@@ -19,18 +19,19 @@ function timeAgo(iso) {
   return `${Math.round(hours / 24)}d ago`
 }
 
-export default function PulseActivityCard({ item, privacyMode, onOpen, onMarkRead }) {
-  const [menuOpen, setMenuOpen] = useState(false)
+export default function PulseActivityCard({ item, privacyMode, onOpen }) {
   const Icon = AppIcon[item.app] || AppIcon.mattchat
 
   return (
     <motion.div
       layout
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen?.(item) } }}
       initial={{ opacity: 0, y: 8, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.97 }}
-      whileHover={{ y: -1, backgroundColor: 'var(--bg-surface-3, rgba(255,255,255,0.05))' }}
-      whileTap={{ scale: 0.99 }}
+      whileTap={{ scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 380, damping: 28 }}
       style={{
         display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
@@ -54,7 +55,7 @@ export default function PulseActivityCard({ item, privacyMode, onOpen, onMarkRea
             </span>
           )}
         </div>
-        <div style={{ fontSize: 12, color: item.error ? '#f87171' : 'var(--text-secondary)', marginTop: 2 }}>
+        <div style={{ fontSize: 12, color: item.error ? '#f87171' : 'var(--text-secondary)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {privacyMode && !item.error ? (item.app === 'gmail' ? 'New email' : item.app === 'mattchat' ? 'New message' : 'New activity') : item.title}
         </div>
         <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 3 }}>{timeAgo(item.receivedAt)}</div>
@@ -78,50 +79,6 @@ export default function PulseActivityCard({ item, privacyMode, onOpen, onMarkRea
           </motion.div>
         )}
       </AnimatePresence>
-
-      <div style={{ position: 'relative' }}>
-        <motion.button
-          whileHover={{ scale: 1.15, color: 'var(--text-secondary)' }}
-          whileTap={{ scale: 0.9 }}
-          onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v) }}
-          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16, padding: 4 }}
-        >⋮</motion.button>
-        <AnimatePresence>
-          {menuOpen && (
-            <motion.div
-              onClick={(e) => e.stopPropagation()}
-              initial={{ opacity: 0, y: -4, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -4, scale: 0.96 }}
-              transition={{ type: 'spring', stiffness: 420, damping: 30 }}
-              style={{
-                position: 'absolute', top: '100%', right: 0, zIndex: 50, marginTop: 4,
-                background: 'var(--bg-surface-1, #14141f)', border: '1px solid var(--border)', borderRadius: 12,
-                boxShadow: 'var(--shadow-lg)', minWidth: 150, overflow: 'hidden',
-              }}
-            >
-              {[
-                { label: 'Open app', action: () => { onOpen?.(item); setMenuOpen(false) } },
-                { label: 'Mark read', action: () => { onMarkRead?.(item); setMenuOpen(false) } },
-              ].map((opt) => (
-                <button
-                  key={opt.label}
-                  onClick={opt.action}
-                  style={{
-                    display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px',
-                    background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 12.5,
-                    fontFamily: 'inherit', cursor: 'pointer', transition: 'background 0.12s',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-surface-2)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
     </motion.div>
   )
 }
