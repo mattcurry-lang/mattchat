@@ -22,8 +22,7 @@ import FresherMode from './FresherMode'
 import AskCurry from './AskCurry'
 import EmailSetupGuide from './EmailSetupGuide'
 import ContactsPage from './ContactsPage'
-import MattchatToolsCard from './MattchatToolsCard'
-import ScientificCalculator from './ScientificCalculator'
+import ScientificCalculator, { CalculatorGlyph } from './ScientificCalculator'
 import PulseMusicCard from './Music/PulseMusicCard'
 import DekutCateringAdmin from './DekutCateringAdmin'
 import DekutKnowledgeAdmin from './DekutKnowledgeAdmin'
@@ -67,7 +66,7 @@ function IconBox({ background, children }) {
   )
 }
 
-function PulseLaunchGrid({ onOpenShorts, onOpenYouTube, onOpenCycle, cycleInvites }) {
+function PulseLaunchGrid({ onOpenShorts, onOpenYouTube, onOpenCycle, onOpenCalculator, cycleInvites }) {
   return (
     <>
       <style>{`
@@ -117,6 +116,17 @@ function PulseLaunchGrid({ onOpenShorts, onOpenYouTube, onOpenCycle, cycleInvite
               {cycleInvites > 9 ? '9+' : cycleInvites}
             </span>
           )}
+        />
+               <LaunchTile
+          wide
+          onClick={onOpenCalculator}
+          title="Scientific Calculator"
+          subtitle="Everyday and advanced maths"
+          icon={
+            <IconBox background="linear-gradient(135deg,#a78bfa,#6c63ff)">
+              <CalculatorGlyph size={18} />
+            </IconBox>
+          }
         />
       </div>
     </>
@@ -181,6 +191,8 @@ export default function PulsePage({
   const [showCycle, setShowCycle] = useState(false)
   const [showCalculator, setShowCalculator] = useState(false)
  const [dekutView, setDekutView] = useState(null)
+   const [showSearch, setShowSearch] = useState(false)
+  const [showAllActivity, setShowAllActivity] = useState(false)
 const [dekutRouteContext, setDekutRouteContext] = useState(null)    
   const { privacyMode, setPrivacyMode } = usePulseSettings(userId)
   const { items, loading, error, reload } = usePulseData(session, { conversations, unreadCounts, getConvoName })
@@ -199,10 +211,6 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
       setTeamOverride(undefined) // revert on failure
     }
   }
-
-  const handleOpenTool = (toolId) => {
-    if (toolId === 'scientific-calculator') setShowCalculator(true)
-  }
  
  const handleExplainWithCurry = ({ expression, result }) => {
   onAskCurry?.(`Explain how to calculate ${expression} = ${result}, step by step, in simple language.`)
@@ -220,7 +228,10 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
     }
     return list
   }, [items, filter, search])
-
+  const ACTIVITY_PREVIEW = 5
+  const expanded = showAllActivity || !!search.trim() || filter !== 'all'
+  const visibleItems = expanded ? filtered : filtered.slice(0, ACTIVITY_PREVIEW)
+ 
   const handleOpen = (item) => {
     const plugin = getPulsePlugin(item.app)
     plugin?.onOpen?.(item, { onOpenConversation })
@@ -303,76 +314,6 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
 
       <PulseSummaryCard name={profile?.username} items={items} loading={loading} aiSummary={aiSummary} />
 <PulseLaunchGrid
-  onOpenShorts={onOpenShorts}
-  onOpenYouTube={() => setShowYouTubePulse(true)}
-  onOpenCycle={() => setShowCycle(true)}
-  cycleInvites={pendingCycleInvites}
-/>
-     {favoriteTeam ? (
-  <TeamSection
-    userId={userId}
-    teamId={favoriteTeam}
-    onChangeTeam={(id) => setTeamOverride(id)}
-    session={session}
-    onSelectVideo={onSelectVideo}
-  />
-) : (
-        <div style={{ borderRadius: 18, padding: 16, background: 'var(--bg-surface-2)', border: '1px solid var(--border)' }}>
-          <TeamPicker onSelect={selectTeam} />
-        </div>
-      )}
-
-      <BibleCard />
-     <DeKUTHubCard onNavigate={(route, service) => {
-  setDekutRouteContext(service?.id === 'campus-map' ? { initialTab: 'map' } : null)
-  setDekutView(route)
-}} />
-
-      {/* ── MATTCHAT TOOLS ── */}
-<MattchatToolsCard onOpenTool={handleOpenTool} />
-<PulseMusicCard onFullscreenChange={onFullscreenChange} />
-
-      {/* ── OTHER PULSE CONTENT (existing activity feed, unchanged) ── */}
-      <input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search sender, app, or title…"
-        style={{
-          background: 'var(--bg-surface-2)', border: '1px solid var(--border)', borderRadius: 12,
-          padding: '10px 14px', color: 'var(--text-primary)', fontSize: 13.5, fontFamily: 'inherit',
-        }}
-      />
-
-      <PulseFilterBar active={filter} onChange={setFilter} />
-
-      {error && (
-        <div style={{ fontSize: 12.5, color: '#f87171', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '10px 12px' }}>
-          Couldn't load your connected accounts right now.
-        </div>
-      )}
-
-           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {loading && (
-          <div style={{ textAlign: 'center', padding: '20px 0', fontSize: 12.5, color: 'var(--text-muted)' }}>Loading your activity…</div>
-        )}
-
-        {!loading && filtered.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '20px 0', fontSize: 12.5, color: 'var(--text-muted)' }}>
-            Nothing here right now.
-          </div>
-        )}
-
-        {filtered.map((item) => (
-          <PulseActivityCard
-            key={item.id}
-            item={item}
-            privacyMode={privacyMode}
-            onOpen={handleOpen}
-            onMarkRead={() => {}}
-          />
-        ))}
-      </div>
-
       {showYouTubePulse && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto' }}>
           <YouTubePulsePage
