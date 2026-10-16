@@ -47,6 +47,7 @@ export function MusicPlayerProvider({ children, session = null }) {
   const [volume, setVolumeState] = useState(0.85)
   const [isMiniPlayerVisible, setIsMiniPlayerVisible] = useState(false)
   const [isFullPlayerVisible, setIsFullPlayerVisible] = useState(false)
+    const [isMusicHubOpen, setIsMusicHubOpen] = useState(false)
   const [playbackRate, setPlaybackRateState] = useState(() => readJSON('mattchat:music:rate', 1))
   // null | { mode: 'time', endsAt } | { mode: 'track' }
   const [sleepTimer, setSleepTimerState] = useState(null)
@@ -422,7 +423,8 @@ useEffect(() => {
   addToQueue, removeFromQueue, playFromQueue, clearQueue, toggleShuffle, cycleRepeat,
   isLiked, toggleLike, likedTracks,
   recentlyPlayed,
-  playbackRate, setPlaybackRate, sleepTimer, setSleepTimer,
+   playbackRate, setPlaybackRate, sleepTimer, setSleepTimer,
+  isMusicHubOpen, setIsMusicHubOpen,
 }
 
   return <MusicPlayerContext.Provider value={value}>{children}</MusicPlayerContext.Provider>
