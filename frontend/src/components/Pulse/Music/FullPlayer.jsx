@@ -5,9 +5,9 @@ import { useDominantColor, rgba } from '../../../lib/music/extractColor'
 import { useIsDesktop } from '../../../hooks/useIsDesktop'
 import {
   IconPlay, IconPause, IconSkipBack, IconSkipForward, IconChevronDown,
-  IconShuffle, IconRepeat, IconHeart, IconShare2, IconVolume2, IconLoader2, IconPlus,
+  IconShuffle, IconRepeat, IconHeart, IconShare2, IconVolume2, IconLoader2,IconX, IconPlus,
 } from '../../Icons'
-import { IconDisc, IconSquareArt, IconMoon, IconVolumeX } from './PlayerIcons'
+import { IconDisc, IconSquareArt, IconMoon, IconVolumeX, IconPanelRight } from './PlayerIcons'
 import TrackArt from './TrackArt'
 import LyricsPanel from './LyricsPanel'
 import UpNextPanel from './UpNextPanel'
@@ -16,6 +16,7 @@ import ShareTrackSheet from './ShareTrackSheet'
 import TrackDownloadAction from './TrackDownloadAction'
 
 const ART_MODE_KEY = 'mattchat:music:artMode'
+const PANEL_KEY = 'mattchat:music:fullPanelOpen'
 const BG = '#0b0b13'
 
 function formatTime(seconds) {
@@ -102,6 +103,8 @@ export default function FullPlayer({ onClose, conversations = [], onShareTrack }
   const [tab, setTab] = useState('now') // now | lyrics | queue
   const [artMode, setArtMode] = useState(() => { try { return localStorage.getItem(ART_MODE_KEY) || 'cover' } catch { return 'cover' } })
   const [sheet, setSheet] = useState(null) // sleep | speed | playlist | share
+    const [panelOpen, setPanelOpen] = useState(() => { try { return localStorage.getItem(PANEL_KEY) !== '0' } catch { return true } })
+  useEffect(() => { try { localStorage.setItem(PANEL_KEY, panelOpen ? '1' : '0') } catch { /* ignore */ } }, [panelOpen])
   const [now, setNow] = useState(Date.now())
   const prevVolume = useRef(0.85)
 
@@ -136,6 +139,7 @@ export default function FullPlayer({ onClose, conversations = [], onShareTrack }
       else if (e.key === 'n') playNext()
       else if (e.key === 'p') playPrevious()
       else if (e.key === 'l') toggleLike(k.currentTrack)
+      else if (e.key === 'h') setPanelOpen((o) => !o)
       else if (e.key === 'm') { if (k.volume > 0) { prevVolume.current = k.volume; setVolume(0) } else setVolume(prevVolume.current || 0.85) }
     }
     window.addEventListener('keydown', onKey)
@@ -148,7 +152,8 @@ export default function FullPlayer({ onClose, conversations = [], onShareTrack }
   const glow = rgba(dominant, 0.6)
   const activeTab = isDesktop && tab === 'now' ? 'lyrics' : tab
   const muted = volume === 0
-  const artSize = isDesktop ? 'min(46vh, 420px)' : 'min(80vw, 40vh, 340px)'
+   const showPanel = isDesktop && panelOpen
+  const artSize = isDesktop ? (panelOpen ? 'min(46vh, 420px)' : 'min(54vh, 500px)') : 'min(80vw, 40vh, 340px)'
   const tabs = isDesktop
     ? [['lyrics', 'Lyrics'], ['queue', 'Up Next']]
     : [['now', 'Player'], ['lyrics', 'Lyrics'], ['queue', 'Up Next']]
@@ -286,27 +291,50 @@ export default function FullPlayer({ onClose, conversations = [], onShareTrack }
             </button>
             <div onPointerDown={(e) => e.stopPropagation()} role="tablist" style={{ display: 'flex', gap: 2, padding: 3, borderRadius: 999, background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(10px)' }}>
               {tabs.map(([id, text]) => {
-                const on = activeTab === id
+                             const on = activeTab === id && (!isDesktop || panelOpen)
                 return (
-                  <button key={id} role="tab" aria-selected={on} onClick={() => setTab(id)}
+                  <button key={id} role="tab" aria-selected={on}
+                    onClick={() => {
+                      if (isDesktop) {
+                        if (panelOpen && activeTab === id) setPanelOpen(false)
+                        else { setTab(id); setPanelOpen(true) }
+                      } else setTab(id)
+                    }}
                     style={{ border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, padding: '7px 14px', borderRadius: 999, background: on ? '#fff' : 'transparent', color: on ? '#0f0f1a' : 'rgba(255,255,255,0.75)', transition: 'all .2s' }}>
                     {text}{id === 'queue' && queue.length > 1 ? ` · ${queue.length}` : ''}
                   </button>
                 )
               })}
             </div>
-            <button onClick={() => setArtMode((m) => (m === 'cover' ? 'disc' : 'cover'))} onPointerDown={(e) => e.stopPropagation()}
-              aria-label={artMode === 'cover' ? 'Switch to vinyl view' : 'Switch to cover view'}
-              style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.1)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-              {artMode === 'cover' ? <IconDisc size={18} /> : <IconSquareArt size={18} />}
-            </button>
+                      <div style={{ display: 'flex', gap: 8 }} onPointerDown={(e) => e.stopPropagation()}>
+              {isDesktop && (
+                <button onClick={() => setPanelOpen((o) => !o)} aria-label={panelOpen ? 'Hide lyrics and queue panel' : 'Show lyrics and queue panel'} title={panelOpen ? 'Hide panel (H)' : 'Show panel (H)'} aria-pressed={panelOpen}
+                  style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: panelOpen ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                  <IconPanelRight size={18} />
+                </button>
+              )}
+              <button onClick={() => setArtMode((m) => (m === 'cover' ? 'disc' : 'cover'))}
+                aria-label={artMode === 'cover' ? 'Switch to vinyl view' : 'Switch to cover view'}
+                style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.1)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                {artMode === 'cover' ? <IconDisc size={18} /> : <IconSquareArt size={18} />}
+              </button>
+            </div>
           </div>
         </div>
 
         {isDesktop ? (
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 56, padding: '8px 56px 12px', width: '100%', maxWidth: 1280, margin: '0 auto' }}>
-            <div style={{ flex: '0 0 46%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>{art}{controls}</div>
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', borderRadius: 20, background: 'rgba(0,0,0,0.22)', backdropFilter: 'blur(14px)', overflow: 'hidden' }}>{panel}</div>
+                 <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 56, padding: '8px 56px 12px', width: '100%', maxWidth: showPanel ? 1280 : 720, margin: '0 auto', transition: 'max-width .35s ease' }}>
+            <div style={{ flex: showPanel ? '0 0 46%' : '1 1 auto', display: 'flex', flexDirection: 'column', minHeight: 0 }}>{art}{controls}</div>
+            {showPanel && (
+              <motion.div initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.25 }}
+                style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', borderRadius: 20, background: 'rgba(0,0,0,0.22)', backdropFilter: 'blur(14px)', overflow: 'hidden', position: 'relative' }}>
+                <button onClick={() => setPanelOpen(false)} aria-label="Hide panel" title="Hide panel (H)"
+                  style={{ position: 'absolute', top: 10, right: 10, zIndex: 3, width: 30, height: 30, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.12)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                  <IconX size={14} />
+                </button>
+                {panel}
+              </motion.div>
+            )}
           </div>
         ) : (
           <>
