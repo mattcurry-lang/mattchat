@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import TrackRail from './TrackRail'
+import HubNowPlaying from './HubNowPlaying'
 import PlaylistsSection from './PlaylistsSection'
 import BecomeArtistModal from './BecomeArtistModal'
 import ArtistDashboard from './ArtistDashboard'
@@ -255,153 +256,7 @@ function LibraryRail({ playlists, colors, onOpenLibrary }) {
     </div>
   )
 }
-
-/* ------------------------------------------------------------------ */
-/* right "Now Playing" panel — details + real lyrics                   */
-/* ------------------------------------------------------------------ */
-
-function NowPlayingPanel({ colors, fallbackTrack }) {
-  const { currentTrack: playing, isLiked, toggleLike, recentlyPlayed, playTrack } = useMusicPlayer()
-  const currentTrack = playing || fallbackTrack
-  const dominant = useDominantColor(currentTrack?.artwork)
-  const [tab, setTab] = useState('details') // 'details' | 'lyrics'
-  const [burst, setBurst] = useState(false)
-  const lyrics = useLyrics(currentTrack, tab === 'lyrics')
-
-  if (!currentTrack) {
-    return (
-      <div style={{ width: 300, flexShrink: 0, borderLeft: `1px solid ${colors.border}`, background: colors.surface1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-        <div style={{ textAlign: 'center', color: colors.textMuted, fontSize: 12.5 }}>
-          <IconMusic size={28} style={{ marginBottom: 8, opacity: 0.5 }} />
-          <div>Play something to see it here</div>
-        </div>
-      </div>
-    )
-  }
-
-  const liked = isLiked(currentTrack.id)
-  const related = recentlyPlayed.filter((t) => t.id !== currentTrack.id).slice(0, 5)
-  const title = cleanTitle(currentTrack.title)
-  const artist = cleanArtist(currentTrack.artist)
-
-  const handleLike = () => {
-    if (!liked) { setBurst(true); setTimeout(() => setBurst(false), 600) }
-    toggleLike(currentTrack)
-  }
-
-  const share = () => {
-    const text = `${title} — ${artist}`
-    if (navigator.share) navigator.share({ title, text }).catch(() => {})
-    else navigator.clipboard?.writeText(text).catch(() => {})
-  }
-
-  const tabStyle = (on) => ({
-    display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, padding: '6px 12px', borderRadius: 999,
-    border: 'none', cursor: 'pointer', background: on ? 'linear-gradient(135deg,#a78bfa,#6c63ff)' : colors.surface2,
-    color: on ? '#fff' : colors.textSecondary,
-  })
-
-  return (
-    <div style={{ width: 300, flexShrink: 0, borderLeft: `1px solid ${colors.border}`, background: colors.surface1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-        <button onClick={() => setTab('details')} style={tabStyle(tab === 'details')}>
-          <IconMusic size={12} /> Now Playing
-        </button>
-        <button onClick={() => setTab('lyrics')} style={tabStyle(tab === 'lyrics')}>
-          <IconLyrics size={12} /> Lyrics
-        </button>
-      </div>
-
-      <motion.div
-        key={currentTrack.id}
-        initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }}
-        style={{
-          width: '100%', aspectRatio: '1 / 1', borderRadius: 12, overflow: 'hidden', marginBottom: 14, flexShrink: 0,
-          background: colors.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: `0 16px 40px ${rgba(dominant, 0.35)}`,
-        }}
-      >
-        <Art src={currentTrack.artwork} fallback={<IconMusic size={40} style={{ color: colors.textMuted }} />} />
-      </motion.div>
-
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-          {title}
-        </div>
-        <div style={{ display: 'flex', gap: 4, marginLeft: 8, flexShrink: 0, position: 'relative' }}>
-          <button onClick={handleLike} aria-label={liked ? 'Unlike' : 'Like'} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: liked ? '#f87171' : colors.textMuted, position: 'relative' }}>
-            <IconHeart size={17} filled={liked} />
-            <AnimatePresence>
-              {burst && [0, 1, 2].map((i) => (
-                <motion.span
-                  key={i}
-                  initial={{ opacity: 1, scale: 0.4, x: 0, y: 0 }}
-                  animate={{ opacity: 0, scale: 1, x: (i - 1) * 14, y: -20 }}
-                  transition={{ duration: 0.55, ease: 'easeOut' }}
-                  style={{ position: 'absolute', top: 0, right: 0, color: '#f87171', pointerEvents: 'none' }}
-                >
-                  <IconHeart size={10} filled />
-                </motion.span>
-              ))}
-            </AnimatePresence>
-          </button>
-          <TrackDownloadAction track={currentTrack} size={16} />
-          <button onClick={share} aria-label="Share" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: colors.textMuted }}>
-            <IconShare2 size={16} />
-          </button>
-        </div>
-      </div>
-      <div style={{ fontSize: 13, color: colors.textMuted, marginBottom: 10 }}>{artist}</div>
-      <div style={{ marginBottom: 16 }}>
-        <DownloadAllButton artistOf={currentTrack} label={`Download more by ${artist}`} />
-      </div>
-
-      <AnimatePresence mode="wait">
-        {tab === 'lyrics' ? (
-          <motion.div key="lyrics" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            {lyrics.status === 'loading' && (
-              <div style={{ textAlign: 'center', color: colors.textMuted, fontSize: 12.5, padding: '30px 10px' }}>Finding lyrics…</div>
-            )}
-            {lyrics.status === 'none' && (
-              <div style={{ textAlign: 'center', color: colors.textMuted, fontSize: 12.5, padding: '30px 10px' }}>
-                <IconLyrics size={26} style={{ marginBottom: 10, opacity: 0.5 }} />
-                <div>No lyrics found for this song.</div>
-              </div>
-            )}
-            {lyrics.status === 'ok' && (
-              <div style={{ whiteSpace: 'pre-wrap', color: colors.textPrimary, fontSize: 15, fontWeight: 700, lineHeight: 1.65, paddingBottom: 12 }}>
-                {lyrics.text}
-              </div>
-            )}
-          </motion.div>
-        ) : (
-          related.length > 0 && (
-            <motion.div key="details">
-              <div style={{ fontSize: 11, fontWeight: 700, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-                More like this
-              </div>
-              {related.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => playTrack(t, related)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
-                >
-                  <div style={{ width: 34, height: 34, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: colors.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Art src={t.artwork} fallback={<IconMusic size={13} style={{ color: colors.textMuted }} />} />
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanTitle(t.title)}</div>
-                    <div style={{ fontSize: 10.5, color: colors.textMuted }}>{cleanArtist(t.artist)}</div>
-                  </div>
-                </button>
-              ))}
-            </motion.div>
-          )
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
+const NowPlayingPanel = HubNowPlaying
 
 /* ------------------------------------------------------------------ */
 /* bottom playback bar                                                 */
@@ -693,7 +548,8 @@ function DownloadedSection() {
 /* ------------------------------------------------------------------ */
 
 export function PulseMusicOverlay({ onClose, conversations = [], onShareTrack, onOpenFullPlayer }) {
-  const { userId, recentlyPlayed, likedTracks, playTrack, currentTrack } = useMusicPlayer()
+   const { userId, recentlyPlayed, likedTracks, playTrack, setIsMusicHubOpen } = useMusicPlayer()
+  useEffect(() => { setIsMusicHubOpen(true); return () => setIsMusicHubOpen(false) }, [setIsMusicHubOpen])
   const { mixes, lastPlayed } = useListeningHistory(userId)
   const colors = useMusicColors()
   const isMobile = useIsMobile()
