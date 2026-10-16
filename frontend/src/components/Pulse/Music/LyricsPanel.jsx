@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react'
 import { LyricsService } from '../../../lib/music/LyricsService'
 import { IconLyrics } from '../../Icons'
 
-export default function LyricsPanel({ track, currentTime, seekTo, large = false }) {
+export default function LyricsPanel({ track, currentTime, seekTo, large = false, rgb = '255,255,255' }) {
+  const c = (a) => (a === 1 ? `rgb(${rgb})` : `rgba(${rgb},${a})`)
   const [state, setState] = useState({ status: 'loading' })
   const [retry, setRetry] = useState(0)
   const boxRef = useRef(null)
@@ -39,7 +40,7 @@ export default function LyricsPanel({ track, currentTime, seekTo, large = false 
   const fontSize = large ? 28 : 22
 
   const center = (children) => (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 32, textAlign: 'center', color: 'rgba(255,255,255,0.6)', fontSize: 14 }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 32, textAlign: 'center', color: c(0.6), fontSize: 14 }}>
       {children}
     </div>
   )
@@ -48,7 +49,7 @@ export default function LyricsPanel({ track, currentTime, seekTo, large = false 
     return center(
       <div style={{ width: '70%', display: 'flex', flexDirection: 'column', gap: 14 }}>
         {[90, 70, 85, 55, 75].map((w, i) => (
-          <div key={i} style={{ height: 18, width: `${w}%`, borderRadius: 9, background: 'rgba(255,255,255,0.12)', animation: 'mc-pulse 1.4s ease-in-out infinite', animationDelay: `${i * 0.12}s` }} />
+          <div key={i} style={{ height: 18, width: `${w}%`, borderRadius: 9, background: c(0.12), animation: 'mc-pulse 1.4s ease-in-out infinite', animationDelay: `${i * 0.12}s` }} />
         ))}
         <style>{`@keyframes mc-pulse{0%,100%{opacity:.4}50%{opacity:.9}}`}</style>
       </div>
@@ -58,19 +59,19 @@ export default function LyricsPanel({ track, currentTime, seekTo, large = false 
     return center(<>
       <IconLyrics size={30} />
       <div>Couldn't load lyrics. Check your connection.</div>
-      <button onClick={() => setRetry((n) => n + 1)} style={{ marginTop: 6, padding: '8px 18px', borderRadius: 999, border: 'none', background: 'rgba(255,255,255,0.14)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Retry</button>
+      <button onClick={() => setRetry((n) => n + 1)} style={{ marginTop: 6, padding: '8px 18px', borderRadius: 999, border: 'none', background: c(0.14), color: c(1), fontWeight: 700, cursor: 'pointer' }}>Retry</button>
     </>)
   }
   if (state.status === 'none') {
     const q = encodeURIComponent(`${track.artist || ''} ${track.title || ''} lyrics`.trim())
     return center(<>
       <IconLyrics size={30} />
-      <div style={{ fontWeight: 700, color: '#fff' }}>No lyrics found for this song</div>
-      <a href={`https://www.google.com/search?q=${q}`} target="_blank" rel="noreferrer" style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13 }}>Search the web</a>
+      <div style={{ fontWeight: 700, color: c(1) }}>No lyrics found for this song</div>
+      <a href={`https://www.google.com/search?q=${q}`} target="_blank" rel="noreferrer" style={{ color: c(0.75), fontSize: 13 }}>Search the web</a>
     </>)
   }
   if (state.instrumental) {
-    return center(<><IconLyrics size={30} /><div style={{ fontWeight: 700, color: '#fff' }}>Instrumental</div></>)
+    return center(<><IconLyrics size={30} /><div style={{ fontWeight: 700, color: c(1) }}>Instrumental</div></>)
   }
 
   return (
@@ -87,7 +88,7 @@ export default function LyricsPanel({ track, currentTime, seekTo, large = false 
             onClick={() => { lastUserScroll.current = 0; seekTo(l.t) }}
             style={{
               fontSize, lineHeight: 1.3, fontWeight: 800, letterSpacing: -0.3, padding: '7px 0', cursor: 'pointer',
-              color: isActive ? '#fff' : `rgba(255,255,255,${past ? 0.34 : 0.5})`,
+              color: isActive ? c(1) : c(past ? 0.34 : 0.5),
               transform: isActive ? 'scale(1.02)' : 'scale(1)', transformOrigin: 'left center',
               transition: 'color .35s ease, transform .35s ease',
             }}
@@ -96,11 +97,11 @@ export default function LyricsPanel({ track, currentTime, seekTo, large = false 
           </div>
         )
       }) : (
-        <div style={{ fontSize: large ? 20 : 18, lineHeight: 1.6, fontWeight: 700, color: 'rgba(255,255,255,0.88)', whiteSpace: 'pre-wrap' }}>
+        <div style={{ fontSize: large ? 20 : 18, lineHeight: 1.6, fontWeight: 700, color: c(0.88), whiteSpace: 'pre-wrap' }}>
           {state.plain}
         </div>
       )}
-      <div style={{ marginTop: 28, fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+      <div style={{ marginTop: 28, fontSize: 11, color: c(0.4) }}>
         {synced ? 'Synced lyrics · ' : ''}Lyrics from LRCLIB
       </div>
     </div>
