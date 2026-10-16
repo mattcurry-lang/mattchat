@@ -70,7 +70,9 @@ export function SpeedSheet({ rate, onPick, onClose }) {
 export function PlaylistSheet({ track, onClose }) {
   return (
     <Sheet title="Add to playlist" onClose={onClose}>
-      <AddToPlaylistPicker track={track} onDone={onClose} />
+          <div style={{ '--text-primary': '#f5f5f7', '--text-muted': 'rgba(255,255,255,0.55)', '--border': 'rgba(255,255,255,0.1)', '--bg-surface-2': 'rgba(255,255,255,0.06)', color: '#f5f5f7' }}>
+        <AddToPlaylistPicker track={track} onDone={onClose} />
+      </div>
     </Sheet>
   )
 }
