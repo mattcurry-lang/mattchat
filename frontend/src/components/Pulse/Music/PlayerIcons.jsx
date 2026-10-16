@@ -30,3 +30,11 @@ export function IconVolumeX({ size = 18, ...p }) {
     </svg>
   )
 }
+
+export function IconPanelRight({ size = 18, ...p }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} {...p}>
+      <rect x="3" y="4" width="18" height="16" rx="3" /><line x1="15" y1="4" x2="15" y2="20" />
+    </svg>
+  )
+}
