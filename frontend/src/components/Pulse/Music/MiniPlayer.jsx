@@ -20,7 +20,7 @@ export default function MiniPlayer() {
   const {
     currentTrack, isPlaying, isLoading, error, currentTime, duration,
     isMiniPlayerVisible, togglePlayPause, closeMiniPlayer, setIsFullPlayerVisible,
-    playNext,isFullPlayerVisible, playPrevious,
+    playNext,isFullPlayerVisible, isMusicHubOpen,playPrevious,
   } = useMusicPlayer()
   const { theme } = useTheme()
   const isDark = theme !== 'light'
@@ -58,7 +58,7 @@ export default function MiniPlayer() {
 
   return (
     <AnimatePresence>
-     {isMiniPlayerVisible && currentTrack && !isFullPlayerVisible && (
+    {isMiniPlayerVisible && currentTrack && !isFullPlayerVisible && !isMusicHubOpen && (
         <motion.div
           key={currentTrack.id}
           initial={{ y: -28, opacity: 0, scale: 0.94 }}
