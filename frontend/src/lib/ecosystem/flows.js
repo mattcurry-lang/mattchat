@@ -48,7 +48,7 @@ export async function deleteFlow(flowId) {
 // Most recent automation runs for the user's flows (with the flow's name).
 export async function listRuns(limit = 30) {
   const { data, error } = await supabase.from('eco_flow_runs')
-    .select('id, status, error, created_at, event_id, flow:eco_flows(name, trigger_event, action_type)')
+    .select('id, flow_id, status, error, created_at, event_id, flow:eco_flows(name, trigger_event, action_type)')
     .order('created_at', { ascending: false }).limit(limit)
   if (error) throw error
   return data || []
