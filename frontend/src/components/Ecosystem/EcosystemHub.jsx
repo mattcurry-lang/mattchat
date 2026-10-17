@@ -28,10 +28,10 @@ const TEMPLATES = [
     triggerEvent: 'task.confirmed', actionType: 'calendar.push_task', actionParams: { taskId: '{{taskId}}' },
   },
   {
-    id: 'announce-confirmed', title: 'Tell a chat when I confirm a task',
-    desc: 'Posts a short note in the chat you choose.',
-    triggerEvent: 'task.confirmed', actionType: 'message.send', needsChat: true,
-    actionParams: { text: '🤖 Task confirmed: {{title}}' },
+    id: 'share-card', title: 'Share confirmed tasks as a card',
+    desc: 'Posts a task card in the chat you choose, with an Add to calendar button.',
+    triggerEvent: 'task.confirmed', actionType: 'card.send_task', needsChat: true,
+    actionParams: { title: '{{title}}', dueDate: '{{dueDate}}' },
   },
   {
     id: 'announce-done', title: 'Tell a chat when I finish a task',
@@ -154,7 +154,7 @@ export default function EcosystemHub({ userId, conversations = [], onClose, onOp
     const lines = []
     if (missing.includes(trig.app.id)) lines.push(`${trig.app.name} will tell Mattchat when: ${trig.event.label.toLowerCase()}`)
     if (missing.includes(act.app.id)) lines.push(`${act.app.name} will be asked to: ${act.action.label.toLowerCase()}`)
-    const sends = act.action.id === 'message.send'
+    const sends = ['message.send', 'card.send_task'].includes(act.action.id)
     if (sends) lines.push(`Mattchat will send a message from your account to ${chatName(spec.actionParams.conversationId)}`)
 
     if (!missing.length && !sends) { commit(spec, []); return }
