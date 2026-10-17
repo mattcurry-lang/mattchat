@@ -353,7 +353,7 @@ export default function FullPlayer({ onClose, conversations = [], onShareTrack }
         {sheet === 'share' && (
           <ShareTrackSheet
             track={currentTrack} conversations={conversations}
-            onShare={(conversationId, track) => onShareTrack && onShareTrack(conversationId, track)}
+           onShare={(conversationId, track, note) => onShareTrack && onShareTrack(conversationId, track, note)}
             onClose={() => setSheet(null)}
           />
         )}
