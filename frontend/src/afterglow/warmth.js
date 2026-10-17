@@ -76,3 +76,26 @@ export function applyLens(list, lens, { unreadCounts = {}, closeIds = new Set(),
   }
   return list
 }
+
+/**
+ * Conversations in the order you most likely want them: someone typing to you
+ * first, then chats with unread messages, then everything else by warmth
+ * (recency, online). Used by the desktop home: the first becomes the "resume"
+ * card and the next few become the "also alive" strip. Ring glow still comes
+ * straight from warmthOf, so only this ordering is tiered.
+ */
+export function rankByWarmth(list, { unreadCounts = {}, listState = {}, now = Date.now() } = {}) {
+  const tier = (x) => (x.typing ? 2 : x.unread > 0 ? 1 : 0)
+  return list
+    .map((c) => {
+      const st = listState[c.id] || {}
+      const unread = unreadCounts[c.id] || st.unreadMessageCount || 0
+      const online = !!st.onlineStatus
+      const typing = !!st.isTyping
+      return { c, unread, online, typing, warmth: warmthOf({ lastActivityAt: c.updated_at, unread, online, typing, now }) }
+    })
+    .sort((a, b) =>
+      tier(b) - tier(a) ||
+      b.warmth - a.warmth ||
+      new Date(b.c.updated_at || 0) - new Date(a.c.updated_at || 0))
+}

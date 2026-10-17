@@ -1,0 +1,71 @@
+/* ───────────────────────── Afterglow · desktop home ───────────────────────── */
+
+/* the old welcome content is capped at 360px; the home needs room to breathe */
+.welcome-pane-content.ag-home-host { max-width: 640px; width: 100%; padding: 24px; text-align: left; }
+
+.ag-home { position: relative; width: 100%; }
+/* the whole pane takes on the color of the warmest conversation */
+.ag-home-wash {
+  /* absolute, not fixed: the welcome pane clips it, so it never tints the sidebar */
+  position: absolute; left: 50%; top: 50%; width: 1800px; height: 1300px; transform: translate(-50%, -50%);
+  pointer-events: none; z-index: -1;
+  background:
+    radial-gradient(60% 50% at 70% 30%, hsl(var(--ag-h) 75% 52% / 0.16), transparent 70%),
+    radial-gradient(50% 45% at 20% 85%, hsl(calc(var(--ag-h) + 50) 70% 50% / 0.1), transparent 70%);
+}
+.ag-home-inner { display: flex; flex-direction: column; gap: 22px; }
+
+.ag-home-hello { font-family: var(--font-display, inherit); font-size: 30px; font-weight: 800; letter-spacing: -0.5px; color: var(--dark-text, #fff); line-height: 1.15; }
+.ag-home-hello b { color: hsl(var(--ag-h) 92% 80%); font-weight: 800; }
+.ag-home-sub { margin-top: 6px; font-size: 14.5px; color: var(--dark-text-2, rgba(255,255,255,0.6)); }
+
+/* the resume card */
+.ag-resume {
+  display: flex; align-items: center; gap: 18px; padding: 18px 20px; border-radius: 26px; cursor: pointer;
+  background: linear-gradient(135deg, hsl(var(--ag-h) 45% 24% / 0.62), hsl(calc(var(--ag-h) + 30) 40% 18% / 0.5));
+  border: 1px solid hsl(var(--ag-h) 70% 72% / 0.26);
+  box-shadow: 0 20px 50px -18px hsl(var(--ag-h) 80% 40% / 0.55), inset 0 1px 0 rgba(255,255,255,0.08);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.ag-resume:hover { transform: translateY(-2px); border-color: hsl(var(--ag-h) 85% 78% / 0.5); box-shadow: 0 26px 60px -18px hsl(var(--ag-h) 85% 45% / 0.7), inset 0 1px 0 rgba(255,255,255,0.1); }
+.ag-resume:focus-visible { outline: 2px solid hsl(var(--ag-h) 95% 80%); outline-offset: 3px; }
+.ag-resume-body { flex: 1; min-width: 0; }
+.ag-resume-name { font-size: 20px; font-weight: 800; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ag-resume-status { margin-top: 2px; font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.6); }
+.ag-resume-status.hot { color: hsl(var(--ag-h) 95% 82%); }
+.ag-resume-preview { margin-top: 6px; font-size: 13.5px; color: rgba(255,255,255,0.72); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ag-resume-preview .contact-preview { margin: 0; }
+.ag-resume-go {
+  display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0; padding: 11px 18px; border-radius: 999px;
+  font-size: 13.5px; font-weight: 800; color: #fff;
+  background: linear-gradient(135deg, hsl(var(--ag-h) 72% 56%), hsl(calc(var(--ag-h) + 30) 76% 46%));
+  box-shadow: 0 6px 20px hsl(var(--ag-h) 80% 50% / 0.5); transition: transform 0.2s ease;
+}
+.ag-resume:hover .ag-resume-go { transform: translateX(3px); }
+
+.ag-start {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 9px; padding: 15px 30px; border: none; border-radius: 999px;
+  font: inherit; font-size: 15px; font-weight: 800; color: #fff; cursor: pointer;
+  background: linear-gradient(135deg, #667eea, #764ba2); box-shadow: 0 10px 28px rgba(118,75,162,0.4);
+}
+
+/* also alive */
+.ag-section-label { font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.42); margin-bottom: 10px; }
+.ag-alive-row { display: flex; gap: 14px; flex-wrap: wrap; }
+.ag-alive-item { display: flex; flex-direction: column; align-items: center; gap: 7px; background: none; border: none; cursor: pointer; width: 64px; padding: 4px 0; font: inherit; transition: transform 0.18s ease; }
+.ag-alive-item:hover { transform: translateY(-3px); }
+.ag-alive-name { font-size: 11.5px; font-weight: 700; color: rgba(255,255,255,0.78); max-width: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* shortcuts (these replace the floating "Quick actions" pill on desktop) */
+.ag-tiles { display: flex; gap: 12px; flex-wrap: wrap; padding-top: 4px; }
+.ag-home-tile { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 78px; background: none; border: none; cursor: pointer; font: inherit; }
+.ag-home-tile-ico {
+  position: relative; width: 54px; height: 54px; border-radius: 18px; display: flex; align-items: center; justify-content: center;
+  color: hsl(var(--ag-h) 92% 82%); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+.ag-home-tile:hover .ag-home-tile-ico { transform: translateY(-3px); background: hsl(var(--ag-h) 70% 55% / 0.2); border-color: hsl(var(--ag-h) 80% 72% / 0.4); }
+.ag-home-tile:focus-visible .ag-home-tile-ico { outline: 2px solid #fff; outline-offset: 2px; }
+.ag-home-tile-label { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.8); text-align: center; line-height: 1.2; }
+.ag-home-tile-badge { position: absolute; top: 5px; right: 5px; width: 9px; height: 9px; border-radius: 50%; background: #fb7185; border: 2px solid #14141f; }
