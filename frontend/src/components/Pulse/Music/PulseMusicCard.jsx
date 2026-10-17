@@ -791,7 +791,7 @@ export function PulseMusicOverlay({ onClose, conversations = [], onShareTrack, o
           )}
         </div>
 
-        {!isMobile && <NowPlayingPanel colors={colors} fallbackTrack={lastPlayed} />}
+        {!isMobile && <NowPlayingPanel colors={colors} fallbackTrack={lastPlayed} conversations={conversations} onShareTrack={onShareTrack} />}
       </div>
 
       <PlaybackBar colors={colors} fallbackTrack={lastPlayed} onExpand={expandPlayer} />
