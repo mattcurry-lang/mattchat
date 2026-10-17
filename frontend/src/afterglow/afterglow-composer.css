@@ -1,0 +1,101 @@
+/* ───────────────────────── Afterglow · composer (the capsule) ─────────────────────────
+   Scoped to .ag-composer / .ag-capsule so the old input bar is untouched when Afterglow is off. */
+
+/* the old full-width bar becomes a transparent frame the capsule floats in */
+.input-area.ag-composer {
+  background: transparent; border-top: none; box-shadow: none;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+}
+.input-area.ag-composer .reply-preview-bar {
+  margin: 0 14px 8px; border-radius: 16px; padding: 8px 12px;
+  background: hsl(var(--ag-h, 258) 38% 22% / 0.7);
+  border: 1px solid hsl(var(--ag-h, 258) 60% 72% / 0.22);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+
+.ag-capsule { position: relative; margin: 4px 12px 2px; }
+
+/* The frosted glass is its own layer BEHIND the content. A blur filter on the
+   row itself would turn it into a containing block for fixed-position pop-ups
+   (the emoji picker), which would then render in the wrong place. */
+.ag-capsule-glass {
+  position: absolute; inset: 0; border-radius: 30px; z-index: 0;
+  background: rgba(18, 16, 34, 0.74);
+  backdrop-filter: blur(20px) saturate(1.2); -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  border: 1px solid hsl(var(--ag-h) 55% 72% / 0.2);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.36), 0 0 0 0 hsl(var(--ag-h) 90% 60% / 0);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+/* typing warms the capsule: it takes on the conversation's color */
+.ag-capsule:focus-within .ag-capsule-glass {
+  border-color: hsl(var(--ag-h) 90% 74% / 0.55);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.36), 0 0 28px hsl(var(--ag-h) 90% 60% / 0.34);
+}
+.ag-capsule-row { position: relative; z-index: 1; display: flex; align-items: flex-end; gap: 4px; padding: 6px; }
+
+.ag-plus {
+  width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, 0.09); color: #fff; transition: background 0.15s;
+}
+.ag-plus:hover { background: rgba(255, 255, 255, 0.16); }
+
+.ag-field { flex: 1; min-width: 0; display: flex; }
+.ag-capsule .ag-field textarea {
+  background: transparent; box-shadow: none; border-radius: 0; color: #fff;
+  padding: 10px 6px; width: 100%; caret-color: hsl(var(--ag-h) 95% 78%);
+}
+.ag-capsule .ag-field textarea::placeholder { color: rgba(255, 255, 255, 0.4); }
+.ag-capsule .attach-btn { width: 38px; height: 38px; color: rgba(255, 255, 255, 0.7); }
+
+.ag-recorder { flex: 1; display: flex; min-width: 0; }
+.ag-capsule .voice-recorder { background: transparent; border: none; padding: 4px 8px; color: #fff; }
+
+/* the one button that changes shape: mic → send → Curry */
+.ag-act-btn {
+  position: relative; overflow: hidden; width: 42px; height: 42px; border-radius: 50%; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff;
+  transition: box-shadow 0.25s ease, background 0.25s ease, transform 0.12s ease, opacity 0.15s;
+}
+.ag-act-btn:active { transform: scale(0.92); }
+.ag-act-btn:disabled { opacity: 0.45; cursor: default; }
+.ag-act-ico { display: flex; }
+.ag-mode-mic { background: rgba(255, 255, 255, 0.1); }
+.ag-mode-mic:hover { background: rgba(255, 255, 255, 0.18); }
+.ag-mode-send {
+  background: linear-gradient(135deg, hsl(var(--ag-h) 72% 56%), hsl(calc(var(--ag-h) + 30) 76% 46%));
+  box-shadow: 0 4px 16px hsl(var(--ag-h) 80% 50% / 0.5);
+}
+.ag-mode-curry { background: linear-gradient(135deg, #8b5cf6, #ec4899); box-shadow: 0 4px 18px rgba(236, 72, 153, 0.45); }
+.ag-mode-curry::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.35) 50%, transparent 70%);
+  transform: translateX(-100%); animation: agShimmer 2.6s ease-in-out infinite;
+}
+@keyframes agShimmer { 60%, 100% { transform: translateX(100%); } }
+
+/* ── the tray ── */
+.ag-tray-scrim { position: fixed; inset: 0; z-index: 30; }
+.ag-tray {
+  position: absolute; left: 0; bottom: calc(100% + 10px); z-index: 31;
+  width: min(100%, 360px); padding: 14px 10px 10px; border-radius: 26px; transform-origin: bottom left;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 2px;
+  background: rgba(20, 18, 38, 0.92); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px);
+  border: 1px solid hsl(var(--ag-h) 55% 72% / 0.24); box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+}
+.ag-tile {
+  background: none; border: none; cursor: pointer; padding: 2px 0;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  color: rgba(255, 255, 255, 0.82); font-size: 11px; font-weight: 700;
+}
+.ag-tile-ico {
+  width: 50px; height: 50px; border-radius: 17px; display: flex; align-items: center; justify-content: center;
+  background: hsl(var(--tile-h) 70% 55% / 0.2); color: hsl(var(--tile-h) 95% 80%);
+  border: 1px solid hsl(var(--tile-h) 80% 70% / 0.3); transition: transform 0.15s, background 0.15s;
+}
+.ag-tile:hover .ag-tile-ico { transform: translateY(-2px) scale(1.06); background: hsl(var(--tile-h) 70% 55% / 0.32); }
+.ag-tile.on .ag-tile-ico { box-shadow: 0 0 0 2px hsl(var(--tile-h) 95% 75% / 0.75); }
+.ag-tile:focus-visible .ag-tile-ico { outline: 2px solid #fff; outline-offset: 2px; }
+.ag-tile-label { text-align: center; line-height: 1.2; max-width: 74px; }
+
+@media (prefers-reduced-motion: reduce) { .ag-mode-curry::after { animation: none; } }
