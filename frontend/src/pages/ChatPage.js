@@ -46,6 +46,7 @@ import QuickActionsMenu from '../components/QuickActionsMenu'
 import AskCurry from '../components/Pulse/AskCurry'
 import MessageActionsMenu, { useMessageLongPress } from '../components/MessageActionsMenu'
 import SmartCollections, { useConvoTags, filterByCollection } from '../components/SmartCollections'
+import { ConversationRow, LensBar, LensEmpty, TimeRail, Capsule, buildTrayItems, applyLens, convoHue, groupPosition, flashMessage, isAfterglowEnabled, useCloseCircle, useLensSwipe } from '../afterglow'
 import SmartReplyPreview, { useSmartReplyCache } from '../components/SmartReplyPreview'
 import RelationshipInsights from '../components/RelationshipInsights'
 import TodaysTimeline from '../components/TodaysTimeline'
@@ -126,7 +127,6 @@ import { useFlowRunner } from '../hooks/useFlowRunner'
 import EcosystemHub from '../components/Ecosystem/EcosystemHub'
 import EcoCardMessage from '../components/Ecosystem/EcoCardMessage'
 import { parseEcoCard } from '../lib/ecosystem/cards'
-import { ConversationRow, LensBar, LensEmpty, TimeRail, applyLens, convoHue, groupPosition, flashMessage, isAfterglowEnabled, useCloseCircle, useLensSwipe } from '../afterglow'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -178,7 +178,7 @@ function formatMsgTime(ts) {
 function DateDivider({ date }) {
   const d = new Date(date)
   const label = isToday(d) ? 'Today' : isYesterday(d) ? 'Yesterday' : format(d, 'MMMM d, yyyy')
-  return <div className="date-divider">{label}</div>
+  return <div className="date-divider" data-ts={String(date)}>{label}</div>
 }
 
 // Shows "Delivered" under a sent message. Once the other person has
@@ -819,7 +819,7 @@ const socialLink = youtubeId ? null : extractSocialLink(msg.content)
             <div className={`msg-bubble ${msg.is_email ? 'email-msg' : ''} ${isMe && isRead ? 'read' : ''}`}>
               {msg.forwarded && <div className="forwarded-tag">➡️ Forwarded</div>}
               {msg.reply_to_message_id && msg._quotedMessage && (
-                <div className="reply-quote">
+                <div className="reply-quote" onClick={(e) => { e.stopPropagation(); msg._onJumpToMessage?.(msg.reply_to_message_id) }}>
                   <div className="reply-quote-name">{msg._quotedMessage.profiles?.username || 'You'}</div>
                   <div className="reply-quote-text">{msg._quotedMessage.content?.slice(0, 80)}</div>
                 </div>
@@ -1224,6 +1224,13 @@ export default function ChatPage({ session }) {
   const [showNewCall, setShowNewCall] = useState(false)
   const [messageMenu, setMessageMenu] = useState(null) // { message, x, y } | null
   const [collection, setCollection] = useState('all')
+  // ── Afterglow chat list (redesign step 1) ──
+  // Kill-switch: localStorage.setItem('mattchat:afterglow','off') restores the old list.
+  const afterglowOn = isAfterglowEnabled()
+  const [lens, setLens] = useState('all') // 'now' | 'close' | 'all'
+  const [showMoreFilters, setShowMoreFilters] = useState(false)
+  const { closeIds, toggleClose } = useCloseCircle()
+  const lensSwipe = useLensSwipe(lens, setLens)
   const [showPersonalAnalytics, setShowPersonalAnalytics] = useState(false)
   const [showTasksPage, setShowTasksPage] = useState(false)
   const [showConnectedApps, setShowConnectedApps] = useState(false)
@@ -1284,6 +1291,7 @@ useEffect(() => {
 
 const msgRefs        = useRef({})
   const messagesEndRef = useRef(null)
+  const messagesScrollRef = useRef(null) // Afterglow time rail needs the scroller
   const typingTimer    = useRef(null)
   const textareaRef    = useRef(null)
   const threeDotBtnRef = useRef(null)
@@ -2051,7 +2059,13 @@ const handleShareContact = async (profile) => {
 }, [activeConvo, otherUserId, getConvoName])
 
   const searchFiltered = conversations.filter(c => getConvoName(c).toLowerCase().includes(search.toLowerCase()))
-  const filtered = filterByCollection(searchFiltered, collection, { unreadCounts, sharedConvoIds, tags })
+  const collectionFiltered = filterByCollection(searchFiltered, collection, { unreadCounts, sharedConvoIds, tags })
+  const lensCtx = { unreadCounts, closeIds, listState }
+  // while searching, show every match — the lens only shapes the browsing view
+  const filtered = afterglowOn && !search.trim() ? applyLens(collectionFiltered, lens, lensCtx) : collectionFiltered
+  const lensCounts = afterglowOn
+    ? { now: applyLens(collectionFiltered, 'now', lensCtx).length, close: applyLens(collectionFiltered, 'close', lensCtx).length }
+    : {}
 
   const headerStatus = () => {
     if (callStatus === 'calling')    return '📞 Calling…'
@@ -2091,6 +2105,32 @@ const headerTint = otherUserId && isOnline(otherUserId)
       avatarUrl: getOtherUserAvatar(c, userId),
       unread: unreadCounts[c.id] || 0,
     }))
+// The line under a chat name: typing → unread count → smart reply → last activity → last message.
+  // Used by the Afterglow row; the original row keeps its own inline copy until it's retired.
+  const renderRowPreview = (c, state, unread) => {
+    if (state?.isTyping) return <span className="typing-preview">typing…</span>
+    if (unread > 1) return <span className="unread-count-preview" style={{ color: '#a78bfa', fontWeight: 700 }}>{unread} new messages</span>
+    if (unread === 1 && !getOtherUserIsAdmin(c, userId)) {
+      return (
+        <SmartReplyPreview
+          session={session}
+          convo={c}
+          entry={smartReplyCache[c.id]}
+          onFetch={fetchSuggestion}
+          onSend={(text) => quickSendReply(c, text)}
+          fallbackText={c.last_message}
+        />
+      )
+    }
+    if (lastActivityStatus[c.id]) {
+      return (
+        <div className="contact-preview" style={{ color: '#8b8b9e' }}>
+          {formatLastActivity(lastActivityStatus[c.id].timestamp, lastActivityStatus[c.id].status)}
+        </div>
+      )
+    }
+    return <div className="contact-preview"><LastMessagePreview content={c.last_message} /></div>
+  }
 const handleSignOut = async () => {
   try { await signOut() } catch (e) { console.error('signOut failed:', e) }
   // Hard replace: lands on /auth, removes the chat page from history, and
@@ -2269,14 +2309,31 @@ const handleSignOut = async () => {
         <div className="list-card">
           {activeTab === 'chats' && (
             <>
-              <SmartCollections
-                active={collection}
-                onChange={setCollection}
-                conversations={searchFiltered}
-                unreadCounts={unreadCounts}
-                sharedConvoIds={sharedConvoIds}
-                tags={tags}
-              />
+              {afterglowOn ? (
+                <LensBar
+                  lens={lens} onChange={setLens} counts={lensCounts}
+                  moreActive={collection !== 'all'} moreOpen={showMoreFilters}
+                  onToggleMore={() => setShowMoreFilters(v => !v)}
+                >
+                  <SmartCollections
+                    active={collection}
+                    onChange={setCollection}
+                    conversations={searchFiltered}
+                    unreadCounts={unreadCounts}
+                    sharedConvoIds={sharedConvoIds}
+                    tags={tags}
+                  />
+                </LensBar>
+              ) : (
+                <SmartCollections
+                  active={collection}
+                  onChange={setCollection}
+                  conversations={searchFiltered}
+                  unreadCounts={unreadCounts}
+                  sharedConvoIds={sharedConvoIds}
+                  tags={tags}
+                />
+              )}
 
               {showNewChat && (
                 <form className="new-chat-form" onSubmit={startNewChat}>
@@ -2288,7 +2345,11 @@ const handleSignOut = async () => {
                 </form>
               )}
 
-              <div className="contact-list">
+              <div
+                key={afterglowOn ? lens : undefined}
+                className={`contact-list${afterglowOn ? ' ag-list-enter' : ''}`}
+                {...(afterglowOn ? lensSwipe : {})}
+              >
                 {listFilter === 'all' && (
                   <div className={`contact ${activeConvo?.isCurryAI ? 'active' : ''}`} onClick={() => setActiveConvo(CURRY_AI_CONTACT)}>
 <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconSparkle size={20} style={{ color: '#fff' }} /></div>
@@ -2304,6 +2365,38 @@ const handleSignOut = async () => {
   const otherId = getOtherUserId(c, userId)
   const state = listState[c.id]
   const unread = state?.unreadMessageCount || 0
+  if (afterglowOn) {
+    return (
+      <ConversationRow
+        key={c.id}
+        id={c.id}
+        name={getConvoName(c)}
+        photoUrl={getOtherUserAvatar(c, userId)}
+        active={activeConvo?.id === c.id}
+        unread={unread}
+        online={!!state?.onlineStatus}
+        typing={!!state?.isTyping}
+        lastActivityAt={c.updated_at}
+        timeLabel={c.updated_at ? formatMsgTime(c.updated_at) : ''}
+        extras={publicExtras.get(otherId)}
+        isClose={closeIds.has(c.id)}
+        nameSuffix={getOtherUserIsAdmin(c, userId) ? <IconVerified size={12} /> : null}
+        avatarExtras={(
+          <>
+            <StatusBadge extras={publicExtras.get(otherId)} />
+            {sharedConvoIds.has(c.id) && (
+              <span className="shared-badge" title="Shared with Curry"><IconSparkle size={9} /></span>
+            )}
+          </>
+        )}
+        previewKey={state?.previewKind}
+        preview={renderRowPreview(c, state, unread)}
+        onOpen={() => openConvo(c)}
+        onDelete={() => deleteConversation(c.id)}
+        onToggleClose={() => toggleClose(c.id)}
+      />
+    )
+  }
   return (
     <div key={c.id} className={`contact ${activeConvo?.id === c.id ? 'active' : ''}`} onClick={() => openConvo(c)}>
       <div className="contact-avatar-wrap">
@@ -2355,7 +2448,10 @@ const handleSignOut = async () => {
 })}
 
 
-                {!convLoading && filtered.length === 0 && (
+                {!convLoading && filtered.length === 0 && afterglowOn && lens !== 'all' && !search.trim() && (
+                  <LensEmpty lens={lens} />
+                )}
+                {!convLoading && filtered.length === 0 && !(afterglowOn && lens !== 'all' && !search.trim()) && (
                   <div className="empty-state">
                     <p>No conversations yet.</p>
                     <button className="btn-primary" onClick={() => setShowNewChat(true)}>Start one →</button>
@@ -3099,7 +3195,12 @@ onCurryAssistant={() => setShowCurryAssistant(v => !v)}
             )}
 
    {/* Messages */}
-<div className="messages">
+<div
+              className={`messages${afterglowOn ? ' ag-chat' : ''}`}
+              ref={messagesScrollRef}
+              style={afterglowOn ? { '--ag-h': convoHue(activeConvo?.id) } : undefined}
+            >
+              {afterglowOn && <TimeRail scrollerRef={messagesScrollRef} version={messages.length} />}
               {msgLoading && <div className="loading-state">Loading messages…</div>}
               {(() => { const visibleMessages = messages.filter(m => !hiddenMsgIds.has(m.id)); return visibleMessages.map((msg, i) => {
                 const prev = visibleMessages[i - 1]
@@ -3113,7 +3214,7 @@ onCurryAssistant={() => setShowCurryAssistant(v => !v)}
                     {showDate && <DateDivider date={msg.created_at} />}
                     <div
                       ref={el => (msgRefs.current[msg.id] = el)}
-                      className={`msg-wrap ${wrapClass}`}
+                      className={`msg-wrap ${wrapClass}${afterglowOn && wrapClass !== 'system' ? ' ' + groupPosition(prev, msg, visibleMessages[i + 1]) : ''}`}
                       onContextMenu={e => {
                         if (!isCurryMsg) {
                           e.preventDefault()
@@ -3140,6 +3241,7 @@ onCurryAssistant={() => setShowCurryAssistant(v => !v)}
     ...msg,
     _currentUserId: userId,
     _quotedMessage: msg.reply_to_message_id ? findMessageById(msg.reply_to_message_id) : null,
+    _onJumpToMessage: (id) => flashMessage(msgRefs.current[id]),
     _onPlayYouTube: (videoId, startSeconds) => setYoutubePlayer({ videoId, mini: false, startSeconds }),
     _onWatchTogether: (videoId, videoTitle, videoThumbnailUrl) => {
       watchTogether.inviteToWatch(videoId, videoTitle, videoThumbnailUrl)
@@ -3244,7 +3346,10 @@ _onMessageContact: (contactEmail) => handleMessageContact(contactEmail),
                 </div>
               </div>
             ) : (
-            <div className="input-area" style={{ flexDirection: 'column', alignItems: 'stretch', padding: 0 }}>
+            <div
+              className={`input-area${afterglowOn ? ' ag-composer' : ''}`}
+              style={{ flexDirection: 'column', alignItems: 'stretch', padding: 0, ...(afterglowOn ? { '--ag-h': convoHue(activeConvo?.id) } : null) }}
+            >
               {replyingTo && (
                 <div className="reply-preview-bar">
                   <div className="reply-preview-content">
@@ -3315,6 +3420,53 @@ _onMessageContact: (contactEmail) => handleMessageContact(contactEmail),
                 </div>
               )}
 
+              {afterglowOn ? (
+                <Capsule
+                  hue={convoHue(activeConvo?.id)}
+                  text={inputText}
+                  busy={curryChatBusy}
+                  recording={showVoice}
+                  alwaysCurry={!!activeConvo?.isCurryAI}
+                  onSend={handleSend}
+                  onMic={() => setShowVoice(true)}
+                  trayItems={buildTrayItems({
+                    onMedia: () => mediaFlowRef.current?.open(),
+                    onDraw: inviteToDraw,
+                    onPoll: () => { setShowPoll(v => !v); setShowTask(false) },
+                    onTask: () => { setShowTask(v => !v); setShowPoll(false) },
+                    onSchedule: () => setShowScheduler(true),
+                    onYouTube: () => setShowYouTubeSearch(true),
+                    onCurry: () => setShowCurryAssistant(v => !v),
+                    pollActive: showPoll,
+                    taskActive: showTask,
+                    curryActive: showCurryAssistant,
+                  })}
+                  field={(
+                    <textarea ref={textareaRef} value={inputText} onChange={handleTyping} onKeyDown={handleKeyDown} placeholder='Message… (try "hey curry ...")' rows={1} />
+                  )}
+                  emojiSlot={(
+                    <div style={{ position: 'relative' }}>
+                      <button className="attach-btn" onClick={() => setShowEmojiPicker(v => !v)} title="Emoji, stickers & GIFs"
+                        style={{ background: showEmojiPicker ? 'rgba(255,255,255,0.14)' : 'none', borderRadius: '50%', color: showEmojiPicker ? '#fff' : undefined, transition: 'all 0.15s' }}>
+                        <IconSmile size={20} />
+                      </button>
+                      {showEmojiPicker && (
+                        <EmojiPicker
+                          onEmojiSelect={handleEmojiSelect}
+                          onStickerSelect={handleStickerSelect}
+                          onGifSelect={handleGifSelect}
+                          onPinterestSelect={handlePinterestSelect}
+                          onClose={() => setShowEmojiPicker(false)}
+                          session={session}
+                        />
+                      )}
+                    </div>
+                  )}
+                  recorderSlot={(
+                    <VoiceRecorder conversationId={activeConvo.id} senderId={userId} onSent={() => setShowVoice(false)} onCancel={() => setShowVoice(false)} />
+                  )}
+                />
+              ) : (
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, padding: '12px 16px', position: 'relative' }}>
 {!showVoice && (
   <motion.button
@@ -3358,6 +3510,7 @@ _onMessageContact: (contactEmail) => handleMessageContact(contactEmail),
                       </>
                 )}
               </div>
+              )}
             </div>
             )}
       {showScheduler && (
