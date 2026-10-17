@@ -124,6 +124,8 @@ import useShushhhShortcut from '../hooks/useShushhhShortcut'
 import '../lib/ecosystem'
 import { useFlowRunner } from '../hooks/useFlowRunner'
 import EcosystemHub from '../components/Ecosystem/EcosystemHub'
+import EcoCardMessage from '../components/Ecosystem/EcoCardMessage'
+import { parseEcoCard } from '../lib/ecosystem/cards'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -482,6 +484,7 @@ function CurryChatBubble({ msg }) {
 }
 
 function MessageBubble({ msg, isMe, isRead, isDelivered, session }) {
+
   
   if (msg.message_type === 'curry') {
     return <CurryChatBubble msg={msg} />
@@ -771,7 +774,19 @@ if (msg.message_type === 'media') {
     </div>
   )
 }
-
+if (msg.message_type === 'eco_card') {
+  return (
+    <div className={`msg-row ${isMe ? 'mine' : ''}`}>
+      {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
+      <div>
+        {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
+        <EcoCardMessage card={parseEcoCard(msg.content)} />
+        <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+        <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
+      </div>
+    </div>
+  )
+}
  if (msg.message_type === 'music') {
    let music
    try { music = JSON.parse(msg.content) } catch { music = null }
