@@ -57,3 +57,34 @@ export async function sendEcoCard(conversationId, senderId, card) {
     .eq('id', conversationId)
   return data
 }
+
+// ── "Add to my tasks" ────────────────────────────────────
+// The tag marks which card a task came from, so tapping twice (or on another
+// device) can't create duplicates. The Tasks screen doesn't display tags.
+const cardTag = (messageId) => `mattchat-card:${messageId}`
+
+export async function hasCardTask(userId, messageId) {
+  const { data, error } = await supabase.from('ai_tasks').select('id')
+    .eq('user_id', userId).contains('tags', [cardTag(messageId)]).limit(1)
+  if (error) throw error
+  return (data?.length || 0) > 0
+}
+
+// Creates a normal task for `userId` from a card someone shared.
+// It starts as 'pending' so the person confirms it themselves; nothing reaches
+// their calendar until they do. RLS allows inserting only your own rows.
+export async function addCardToMyTasks(userId, card, { messageId, fromName } = {}) {
+  const clean = sanitizeCard(card)
+  if (messageId && await hasCardTask(userId, messageId)) return { added: false, already: true }
+  const { error } = await supabase.from('ai_tasks').insert({
+    user_id: userId,
+    title: clean.title,
+    due_date: clean.dueDate,
+    description: `Shared in Mattchat${fromName ? ` by ${fromName}` : ''}`,
+    status: 'pending',
+    source: 'manual',
+    tags: messageId ? [cardTag(messageId)] : [],
+  })
+  if (error) throw error
+  return { added: true, already: false }
+}
