@@ -783,11 +783,11 @@ if (msg.message_type === 'eco_card') {
         {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
         <EcoCardMessage
           card={parseEcoCard(msg.content)}
-          viewerId={userId}
+          viewerId={msg._currentUserId || session?.user?.id}
           messageId={msg.id}
           senderName={msg.profiles?.username}
           isMe={isMe}
-          onOpenTasks={() => setShowTasksPage(true)}
+          onOpenTasks={msg._onOpenTasks}
         />
         <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
         <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} />
@@ -3274,6 +3274,7 @@ onCurryAssistant={() => setShowCurryAssistant(v => !v)}
   msg={{
     ...msg,
     _currentUserId: userId,
+    _onOpenTasks: () => setShowTasksPage(true),
     _quotedMessage: msg.reply_to_message_id ? findMessageById(msg.reply_to_message_id) : null,
     _onJumpToMessage: (id) => flashMessage(msgRefs.current[id]),
     _onPlayYouTube: (videoId, startSeconds) => setYoutubePlayer({ videoId, mini: false, startSeconds }),
