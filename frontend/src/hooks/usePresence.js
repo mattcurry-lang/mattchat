@@ -3,87 +3,62 @@ import { supabase } from '../lib/supabase'
 import { formatDistanceToNow, isToday, isYesterday, format } from 'date-fns'
 import { useSetting, useSettingsOwner } from '../lib/appearanceStore'
 
-const HEARTBEAT_MS = 20000   // how often we write our own last_seen
-const POLL_MS = 15000        // how often we refresh everyone else's last_seen
+const HEARTBEAT_MS = 20000        // how often we write our own last_seen
+const POLL_MS = 15000             // how often we refresh everyone else's presence
 const ONLINE_THRESHOLD_MS = 45000 // last_seen within this window = "online"
+const BATCH_MS = 60               // collect ids asked about during a render into one request
 
 /**
- * Heartbeat-based presence — deliberately NOT using Supabase's Presence
- * API. After extensive testing, Presence's sync/join/leave events were
- * silently withheld by this project's Realtime Authorization layer even
- * though subscribe()/track() both reported success. This is a simpler,
- * more reliable substitute:
+ * Heartbeat-based presence, enforced in the database (step4_privacy_sql).
  *
- *   - Every HEARTBEAT_MS, write your own `last_seen = now()` to profiles.
- *   - Every POLL_MS, re-fetch last_seen for everyone you might need to
- *     check ("known" ids — accumulated from every isOnline()/lastSeen
- *     call).
- *   - Someone is "online" if their last_seen is within
- *     ONLINE_THRESHOLD_MS.
- *
- * Presence settings (from the profile sheet):
- *   - Invisible, or "Show when I'm online" turned off: the heartbeat stops and last_seen is cleared
- *     (set to null), so other people see no online dot and no "last seen" text. Nothing in the
- *     database says you chose Invisible; to everyone else you look like someone who has no activity.
- *   - Busy / Away: written to profiles.presence_status next to last_seen, so others can show it.
- *     (Needs step2b_presence_sql.sql. Until it is run, this falls back to last_seen only.)
+ *   - Writes go to user_presence (own row only).
+ *   - Reads go through the get_presence() RPC, which applies the OWNER's rules
+ *     (invisible, show-online off, last-seen audience). People who are hidden from you
+ *     simply aren't returned, so they look offline with no "last seen".
  *
  * Returns { isOnline, getLastSeenLabel, getPresenceStatus }:
  *   isOnline(userId)           -> boolean
- *   getLastSeenLabel(userId)   -> "Last seen 2 minutes ago" | "Last seen yesterday" | '' (unknown/online/hidden)
+ *   getLastSeenLabel(userId)   -> "Last seen 2 minutes ago" | "Last seen yesterday" | ''
  *   getPresenceStatus(userId)  -> 'online' | 'idle' | 'busy' | 'offline'
  */
 
-// presence_status is a newer column. If it does not exist yet we stop asking for it and carry on.
-let hasStatusColumn = true
-const mentionsStatusColumn = (error) =>
-  !!error && /presence_status/.test(`${error.message || ''} ${error.details || ''}`)
-
-async function selectPresence(filter) {
-  const cols = hasStatusColumn ? 'id, last_seen, presence_status' : 'id, last_seen'
-  const res = await filter(supabase.from('profiles').select(cols))
-  if (res.error && hasStatusColumn && mentionsStatusColumn(res.error)) {
-    hasStatusColumn = false
-    return selectPresence(filter)
-  }
-  return res
-}
-
-async function writePresence(userId, lastSeen, status) {
-  const patch = { last_seen: lastSeen }
-  if (hasStatusColumn) patch.presence_status = status
-  const res = await supabase.from('profiles').update(patch).eq('id', userId)
-  if (res.error && hasStatusColumn && mentionsStatusColumn(res.error)) {
-    hasStatusColumn = false
-    return writePresence(userId, lastSeen, status)
-  }
-  return res
+function writePresence(userId, lastSeen, status) {
+  return supabase.from('user_presence').upsert(
+    {
+      user_id: userId,
+      last_seen: lastSeen,
+      status: status,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id' }
+  )
 }
 
 export function usePresence(myUserId) {
-  const [people, setPeople] = useState({}) // { [userId]: { lastSeen, status } }
+  const [people, setPeople] = useState({}) // { [id]: { lastSeen, status } }
   const knownIds = useRef(new Set())
+  const pendingIds = useRef(new Set())
+  const batchTimer = useRef(null)
 
   // What I chose in the profile sheet.
   const presence = useSetting('presence')
   const showOnline = useSetting('showOnline')
   const settingsOwner = useSettingsOwner()
-  // Do not announce anything until my own saved choice has loaded. Otherwise someone who set
-  // Invisible on another device would flash as "online" for a few seconds at every app start.
+  // Don't announce anything until my own saved choice has loaded.
   const settingsReady = !!myUserId && settingsOwner === myUserId
   const hidden = presence === 'invisible' || showOnline === false
   const publicStatus = !hidden && (presence === 'idle' || presence === 'busy') ? presence : null
 
-  // ── Heartbeat: write our own last_seen (or go quiet when hidden) ──
+  // ── Heartbeat: write our own last_seen (or clear it when hidden) ──
   useEffect(() => {
     if (!myUserId || !settingsReady) return undefined
 
-    const report = (res) => { if (res.error) console.error('[presence] write failed:', res.error) }
+    const report = (res) => { if (res && res.error) console.error('[presence] write failed:', res.error) }
 
     if (hidden) {
       const hide = () => writePresence(myUserId, null, null).then(report)
       hide()
-      // a heartbeat that was already in flight can land after the first clear; clear once more
+      // a heartbeat already in flight can land after the first clear; clear once more
       const again = setTimeout(hide, 1500)
       return () => clearTimeout(again)
     }
@@ -102,22 +77,26 @@ export function usePresence(myUserId) {
     }
   }, [myUserId, settingsReady, hidden, publicStatus])
 
-  // ── Poll: refresh last_seen for every id we've been asked about ──
-  const pollKnownIds = useCallback(() => {
-    const ids = [...knownIds.current]
-    if (ids.length === 0) return
-    selectPresence((q) => q.in('id', ids))
-      .then(({ data, error }) => {
-        if (error) { console.error('[presence] poll failed:', error); return }
-        setPeople((prev) => {
-          const next = { ...prev }
-          ;(data || []).forEach((row) => {
-            next[row.id] = { lastSeen: row.last_seen, status: row.presence_status ?? null }
-          })
-          return next
-        })
+  // ── Read: ask the database what I'm allowed to see for these ids ──
+  const fetchPresence = useCallback(async (ids) => {
+    if (!ids || ids.length === 0) return
+    const { data, error } = await supabase.rpc('get_presence', { p_ids: ids })
+    if (error) { console.error('[presence] read failed:', error); return }
+    const byId = new Map((data || []).map((row) => [row.user_id, row]))
+    setPeople((prev) => {
+      const next = { ...prev }
+      ids.forEach((id) => {
+        const row = byId.get(id)
+        if (row) next[id] = { lastSeen: row.last_seen, status: row.status ?? null }
+        else delete next[id] // hidden from me (or never seen): show nothing
       })
+      return next
+    })
   }, [])
+
+  const pollKnownIds = useCallback(() => {
+    fetchPresence([...knownIds.current])
+  }, [fetchPresence])
 
   useEffect(() => {
     if (!myUserId) return undefined
@@ -125,38 +104,40 @@ export function usePresence(myUserId) {
     return () => clearInterval(interval)
   }, [myUserId, pollKnownIds])
 
-  const registerAndFetch = useCallback((userId) => {
-    if (!userId || knownIds.current.has(userId)) return
-    knownIds.current.add(userId)
-    selectPresence((q) => q.eq('id', userId).maybeSingle())
-      .then(({ data }) => {
-        if (data) {
-          setPeople((prev) => ({ ...prev, [data.id]: { lastSeen: data.last_seen, status: data.presence_status ?? null } }))
-        }
-      })
-  }, [])
+  useEffect(() => () => { if (batchTimer.current) clearTimeout(batchTimer.current) }, [])
 
-  const isOnline = useCallback((userId) => {
-    if (!userId) return false
-    registerAndFetch(userId)
-    const lastSeen = people[userId]?.lastSeen
+  const registerAndFetch = useCallback((id) => {
+    if (!id || knownIds.current.has(id)) return
+    knownIds.current.add(id)
+    pendingIds.current.add(id)
+    if (batchTimer.current) return
+    batchTimer.current = setTimeout(() => {
+      batchTimer.current = null
+      const ids = [...pendingIds.current]
+      pendingIds.current.clear()
+      fetchPresence(ids)
+    }, BATCH_MS)
+  }, [fetchPresence])
+
+  const isOnline = useCallback((id) => {
+    if (!id) return false
+    registerAndFetch(id)
+    const lastSeen = people[id]?.lastSeen
     if (!lastSeen) return false
     return Date.now() - new Date(lastSeen).getTime() < ONLINE_THRESHOLD_MS
   }, [people, registerAndFetch])
 
   // "online" | "idle" | "busy" | "offline"
-  const getPresenceStatus = useCallback((userId) => {
-    if (!isOnline(userId)) return 'offline'
-    return people[userId]?.status || 'online'
+  const getPresenceStatus = useCallback((id) => {
+    if (!isOnline(id)) return 'offline'
+    return people[id]?.status || 'online'
   }, [isOnline, people])
 
   // "Last seen 2 minutes ago" / "Last seen yesterday" / "Last seen Jul 3"
-  // Never called for someone currently online — ChatPage checks
-  // isOnline() first and only falls back to this label if they're not.
-  const getLastSeenLabel = useCallback((userId) => {
-    if (!userId) return ''
-    registerAndFetch(userId)
-    const lastSeen = people[userId]?.lastSeen
+  const getLastSeenLabel = useCallback((id) => {
+    if (!id) return ''
+    registerAndFetch(id)
+    const lastSeen = people[id]?.lastSeen
     if (!lastSeen) return ''
     const d = new Date(lastSeen)
     if (isToday(d)) return `Last seen ${formatDistanceToNow(d, { addSuffix: true })}`
