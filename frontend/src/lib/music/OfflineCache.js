@@ -35,6 +35,16 @@ const getRecord = (trackId) =>
 
 const notify = () => window.dispatchEvent(new CustomEvent('mattchat-downloads-changed'))
 
+// Songs saved automatically because the person listened to them (in a chat
+// or in Music). Kept in localStorage so we never rewrite big blobs just to
+// bump a timestamp. Manual downloads are NOT in this index, so they are
+// never evicted.  origin strength: manual > chat > auto
+export const AUTO_LIMIT = 10
+const HEARD_KEY = 'mattchat:music:heardIndex'
+const RANK = { auto: 1, chat: 2 }
+const readHeard = () => { try { return JSON.parse(localStorage.getItem(HEARD_KEY) || '{}') } catch { return {} } }
+const writeHeard = (v) => { try { localStorage.setItem(HEARD_KEY, JSON.stringify(v)) } catch { /* ignore */ } }
+
 export const OfflineCache = {
   async isDownloaded(trackId) {
     return Boolean(await getRecord(trackId))
@@ -60,7 +70,7 @@ export const OfflineCache = {
     return blob ? URL.createObjectURL(blob) : null
   },
 
-  async downloadTrack(track, signedUrl, onProgress) {
+  async downloadTrack(track, signedUrl, onProgress, source = 'manual') {
     const res = await fetch(signedUrl)
     if (!res.ok) throw new Error(`Download failed (${res.status})`)
 
@@ -94,16 +104,44 @@ export const OfflineCache = {
         duration: track.duration,
         track: trackMeta,            // full track object so it can be played from the Downloads list
         blob,
+        source,                      // 'manual' | 'chat' | 'auto'  (missing on old records = manual)
         downloadedAt: Date.now(),
       })
     })
+    if (source === 'manual') this.forgetHeard(track.id)   // a deliberate download is never auto-evicted
     onProgress?.(100)
     notify()
     return true
   },
 
+  // strongest origin wins; refreshes the "last heard" time used for eviction
+  markHeard(trackId, origin) {
+    const idx = readHeard()
+    const prev = idx[trackId]
+    idx[trackId] = { origin: prev && RANK[prev.origin] > RANK[origin] ? prev.origin : origin, heardAt: Date.now() }
+    writeHeard(idx)
+  },
+  isHeardEntry(trackId) { return Boolean(readHeard()[trackId]) },
+  forgetHeard(trackId) {
+    const idx = readHeard()
+    if (idx[trackId]) { delete idx[trackId]; writeHeard(idx) }
+  },
+
+  // keep at most `limit` auto-saved songs (chat-saved and manual downloads are untouched)
+  async evictAuto(limit = AUTO_LIMIT) {
+    const autos = Object.entries(readHeard()).filter(([, v]) => v.origin === 'auto').sort((a, b) => a[1].heardAt - b[1].heardAt)
+    let removed = 0
+    while (autos.length - removed > limit) {
+      const [id] = autos[removed]
+      await this.deleteDownload(id).catch(() => {})
+      removed += 1
+    }
+    return removed
+  },
+
   async deleteDownload(trackId) {
     await withStore('readwrite', (store) => store.delete(trackId))
+    this.forgetHeard(trackId)
     notify()
   },
 }
