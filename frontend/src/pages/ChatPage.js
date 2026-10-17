@@ -46,7 +46,7 @@ import QuickActionsMenu from '../components/QuickActionsMenu'
 import AskCurry from '../components/Pulse/AskCurry'
 import MessageActionsMenu, { useMessageLongPress } from '../components/MessageActionsMenu'
 import SmartCollections, { useConvoTags, filterByCollection } from '../components/SmartCollections'
-import { ConversationRow, LensBar, LensEmpty, TimeRail, Capsule, buildTrayItems, applyLens, convoHue, groupPosition, flashMessage, isAfterglowEnabled, useCloseCircle, useLensSwipe } from '../afterglow'
+import { ConversationRow, LensBar, LensEmpty, TimeRail, Capsule, ResumeHome, buildTrayItems, rankByWarmth, applyLens, convoHue, groupPosition, flashMessage, isAfterglowEnabled, useCloseCircle, useLensSwipe } from '../afterglow'
 import SmartReplyPreview, { useSmartReplyCache } from '../components/SmartReplyPreview'
 import RelationshipInsights from '../components/RelationshipInsights'
 import TodaysTimeline from '../components/TodaysTimeline'
@@ -1231,6 +1231,7 @@ export default function ChatPage({ session }) {
   const [showMoreFilters, setShowMoreFilters] = useState(false)
   const { closeIds, toggleClose } = useCloseCircle()
   const lensSwipe = useLensSwipe(lens, setLens)
+  const isNarrowViewport = useIsMobile(640) // below this the right-hand pane is hidden by CSS
   const [showPersonalAnalytics, setShowPersonalAnalytics] = useState(false)
   const [showTasksPage, setShowTasksPage] = useState(false)
   const [showConnectedApps, setShowConnectedApps] = useState(false)
@@ -2131,6 +2132,19 @@ const headerTint = otherUserId && isOnline(otherUserId)
     }
     return <div className="contact-preview"><LastMessagePreview content={c.last_message} /></div>
   }
+// Warmest conversations first, shaped for the desktop home (Afterglow).
+  const buildHomeChats = () =>
+    rankByWarmth(conversations, { unreadCounts, listState }).slice(0, 7).map(({ c, unread, online, typing, warmth }, i) => ({
+      id: c.id,
+      name: getConvoName(c),
+      photoUrl: getOtherUserAvatar(c, userId),
+      unread, online, typing, warmth,
+      lastActivityAt: c.updated_at,
+      timeLabel: c.updated_at ? formatMsgTime(c.updated_at) : '',
+      extras: publicExtras.get(getOtherUserId(c, userId)),
+      preview: i === 0 ? renderRowPreview(c, listState[c.id], unread) : null,
+      open: () => openConvo(c),
+    }))
 const handleSignOut = async () => {
   try { await signOut() } catch (e) { console.error('signOut failed:', e) }
   // Hard replace: lands on /auth, removes the chat page from history, and
@@ -2836,7 +2850,7 @@ shareConversations={conversations.map(c => ({
  
           
  <QuickActionsMenu
-      hidden={!!activeConvo || showShorts || showDekutCurry || showProfileMenu}
+      hidden={!!activeConvo || showShorts || showDekutCurry || showProfileMenu || (afterglowOn && !isNarrowViewport && activeTab !== 'calls')}
       onNewChat={() => (activeTab === 'calls' ? setShowNewCall(true) : setShowNewChat(true))}
       onOpenCurryAI={() => setActiveConvo(CURRY_AI_CONTACT)}
       onOpenDekutCurry={() => setShowDekutCurry(true)}
@@ -2945,9 +2959,22 @@ onMessageContact={handleMessageContact}
 )}
 
       <div className="welcome-pane">
-        <div className="welcome-pane-content">
+        <div className={`welcome-pane-content${afterglowOn && activeTab !== 'calls' ? ' ag-home-host' : ''}`}>
        {activeTab === 'calls' ? (
             <CallsLandingPanel onStartCall={() => setShowNewCall(true)} />
+          ) : afterglowOn ? (
+            <ResumeHome
+              chats={buildHomeChats()}
+              userName={profile?.username}
+              onNewChat={() => setShowNewChat(true)}
+              tiles={[
+                { id: 'new', label: 'New chat', icon: <IconMessageSquare size={20} />, onClick: () => setShowNewChat(true) },
+                { id: 'curry', label: 'Ask Curry', icon: <IconSparkle size={20} />, onClick: () => setActiveConvo(CURRY_AI_CONTACT) },
+                { id: 'eco', label: 'Ecosystem', icon: <IconCamera size={20} />, onClick: () => setShowEcosystem(true) },
+                { id: 'wa', label: 'WhatsApp', icon: <WhatsAppIcon size={20} />, onClick: openWhatsApp },
+                { id: 'dekut', label: 'Ask Curry (DeKUT)', icon: <span style={{ fontSize: 18 }}>🎓</span>, onClick: () => setShowDekutCurry(true), badge: dekutHasNudge },
+              ]}
+            />
           ) : (
             <>
              <img src="/logo.png" alt="" className="welcome-pane-logo" />
