@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useTasks } from '../../hooks/useTasks'
+import AddTaskRow from './AddTaskRow'
 import { confirmTask, dismissTask, completeTask, updateTask, findStudySpot, pushTaskToCalendar, geocodeLocation } from '../../lib/supabase'
 
 const PRIORITY_COLOR = { urgent: '#ef4444', high: '#f59e0b', medium: '#a78bfa', low: '#6b7280' }
@@ -333,6 +334,7 @@ export default function TasksPage({ userId, session }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: 16, maxWidth: 640, margin: '0 auto' }}>
+      <AddTaskRow userId={userId} onAdded={reload} />
       {pendingConfirmation.length > 0 && (
         <section>
           <h3 style={{ fontSize: 14, fontWeight: 800, color: '#fbbf24', marginBottom: 8 }}>
