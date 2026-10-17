@@ -12,6 +12,7 @@ import UpNextPanel from './UpNextPanel'
 import TrackDownloadAction from './TrackDownloadAction'
 import DownloadAllButton from './DownloadAllButton'
 import { SleepSheet, SpeedSheet, PlaylistSheet } from './PlayerSheets'
+import ShareTrackSheet from './ShareTrackSheet'
 
 const COLLAPSE_KEY = 'mattchat:music:hubPanelCollapsed'
 const W = 300
@@ -66,10 +67,10 @@ function Sleeve({ track, playing, dominant, colors }) {
   )
 }
 
-export default function HubNowPlaying({ colors, fallbackTrack }) {
+export default function HubNowPlaying({ colors, fallbackTrack, conversations = [], onShareTrack }) {
   const {
     currentTrack: playing, isPlaying, currentTime, seekTo, isLiked, toggleLike, recentlyPlayed, playTrack, addToQueue,
-    queue, playbackRate, setPlaybackRate, sleepTimer, setSleepTimer, setIsFullPlayerVisible,
+    queue, playbackRate, setPlaybackRate, sleepTimer, setSleepTimer, setIsFullPlayerVisible,autoCacheEnabled, setAutoCacheEnabled,
   } = useMusicPlayer()
   const currentTrack = playing || fallbackTrack
   const dominant = useDominantColor(currentTrack?.artwork)
@@ -144,6 +145,7 @@ export default function HubNowPlaying({ colors, fallbackTrack }) {
     toggleLike(currentTrack)
   }
   const share = () => {
+    if (conversations.length && onShareTrack) { setSheet('share'); return }
     const text = `${currentTrack.title} — ${currentTrack.artist}`
     if (navigator.share) navigator.share({ title: currentTrack.title, text }).catch(() => {})
     else navigator.clipboard?.writeText(text).catch(() => {})
@@ -202,6 +204,9 @@ export default function HubNowPlaying({ colors, fallbackTrack }) {
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
             <button onClick={() => setSheet('sleep')} style={chip(!!sleepTimer)}><IconMoon size={13} /> {sleepLabel ? `Sleep · ${sleepLabel}` : 'Sleep'}</button>
             <button onClick={() => setSheet('speed')} style={chip(playbackRate !== 1)}>{playbackRate}x speed</button>
+            <button onClick={() => setAutoCacheEnabled(!autoCacheEnabled)} style={chip(autoCacheEnabled)} title="Keep songs you listen to available offline (last 10 from Music)">
+  {autoCacheEnabled ? '✓ Offline auto-save' : 'Offline auto-save off'}
+</button>
           </div>
 
           <div style={{ marginBottom: 16 }}>
@@ -241,5 +246,11 @@ export default function HubNowPlaying({ colors, fallbackTrack }) {
         {sheet === 'speed' && <SpeedSheet key="speed" rate={playbackRate} onPick={setPlaybackRate} onClose={() => setSheet(null)} />}
         {sheet === 'playlist' && <PlaylistSheet key="pl" track={currentTrack} onClose={() => setSheet(null)} />}
       </AnimatePresence>
+      <AnimatePresence>
+  {sheet === 'share' && (
+    <ShareTrackSheet key="share" track={currentTrack} conversations={conversations}
+      onShare={(cid, t, note) => onShareTrack(cid, t, note)} onClose={() => setSheet(null)} />
+  )}
+</AnimatePresence>
     </div>, W)
 }
