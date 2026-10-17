@@ -2000,7 +2000,7 @@ const handleSend = async () => {
 // stream URL or audio file. Targets an arbitrary conversationId (the
 // one picked in ShareTrackSheet), not necessarily activeConvo, so it
 // can't reuse bumpConversationActivity as-is.
-const handleShareMusic = async (conversationId, track) => {
+const handleShareMusic = async (conversationId, track, note) => {
   if (!conversationId || !track) return
   const payload = JSON.stringify({
     provider: track.provider,
@@ -2009,13 +2009,20 @@ const handleShareMusic = async (conversationId, track) => {
     artist: track.artist,
     artwork: track.artwork,
     duration: track.duration,
+    isDownloadable: Boolean(track.isDownloadable),   // lets the receiver save it offline
   })
-  await supabase.from('messages').insert({
+  const { error } = await supabase.from('messages').insert({
     conversation_id: conversationId,
     sender_id: userId,
     content: payload,
     message_type: 'music',
   })
+  if (error) throw error                              // so the share sheet can show "Retry"
+  if (note) {
+    await supabase.from('messages').insert({
+      conversation_id: conversationId, sender_id: userId, content: note, message_type: 'text',
+    })
+  }
   await supabase
     .from('conversations')
     .update({ updated_at: new Date().toISOString(), last_message: payload })
