@@ -1,0 +1,114 @@
+/* ───────────────────────── Afterglow · chat screen ─────────────────────────
+   Everything is scoped under .ag-chat (added to .messages only when Afterglow
+   is on), so turning the feature off restores the old look exactly.
+   --ag-h is this conversation's hue, the same one its avatar ring uses in the list. */
+
+/* shared "wallpaper": the room takes on the color of the relationship */
+.ag-chat {
+  background-image:
+    radial-gradient(120% 60% at 100% 0%, hsl(var(--ag-h) 70% 50% / 0.13), transparent 62%),
+    radial-gradient(90% 55% at 0% 100%, hsl(calc(var(--ag-h) + 40) 70% 50% / 0.09), transparent 62%);
+  padding-right: 20px;
+}
+
+/* ── pebbles: no tails, soft glass, tinted by the conversation ── */
+.ag-chat .msg-bubble {
+  border: 1px solid hsl(var(--ag-h) 55% 70% / 0.16);
+  background: hsl(var(--ag-h) 32% 21% / 0.66);
+  color: #f3f1ff;
+  border-radius: 20px;
+  padding: 8px 14px 7px;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 1px 0 hsl(var(--ag-h) 80% 85% / 0.06) inset;
+}
+.ag-chat .msg-bubble::before { display: none; } /* the tail */
+.ag-chat .msg-bubble a { color: hsl(var(--ag-h) 100% 86%); text-decoration: underline; text-underline-offset: 2px; }
+
+.ag-chat .msg-row.mine .msg-bubble {
+  background: linear-gradient(135deg, hsl(var(--ag-h) 62% 41%), hsl(calc(var(--ag-h) + 24) 66% 34%));
+  border-color: hsl(var(--ag-h) 90% 80% / 0.28);
+  color: #fff;
+  box-shadow: 0 6px 20px hsl(var(--ag-h) 70% 30% / 0.35), 0 1px 0 hsl(var(--ag-h) 100% 90% / 0.2) inset;
+}
+.ag-chat .msg-row.mine .msg-bubble::before { display: none; }
+
+/* ── runs: stacked pebbles hug each other ── */
+.ag-chat .msg-wrap.ag-first, .ag-chat .msg-wrap.ag-solo { margin-top: 9px; }
+.ag-chat .msg-wrap.theirs.ag-first .msg-bubble { border-radius: 20px 20px 20px 6px; }
+.ag-chat .msg-wrap.theirs.ag-mid   .msg-bubble { border-radius: 6px 20px 20px 6px; }
+.ag-chat .msg-wrap.theirs.ag-last  .msg-bubble { border-radius: 6px 20px 20px 20px; }
+.ag-chat .msg-wrap.mine.ag-first   .msg-bubble { border-radius: 20px 20px 6px 20px; }
+.ag-chat .msg-wrap.mine.ag-mid     .msg-bubble { border-radius: 20px 6px 6px 20px; }
+.ag-chat .msg-wrap.mine.ag-last    .msg-bubble { border-radius: 20px 6px 20px 20px; }
+
+/* name and time once per run; hover reveals the time on any message */
+.ag-chat .msg-wrap.ag-mid .msg-sender, .ag-chat .msg-wrap.ag-last .msg-sender { display: none; }
+.ag-chat .msg-wrap.ag-first .msg-time, .ag-chat .msg-wrap.ag-mid .msg-time {
+  max-height: 0; margin-top: 0; opacity: 0; overflow: hidden;
+  transition: max-height 0.15s ease, opacity 0.15s ease, margin-top 0.15s ease;
+}
+.ag-chat .msg-wrap.ag-first:hover .msg-time, .ag-chat .msg-wrap.ag-mid:hover .msg-time {
+  max-height: 16px; margin-top: 3px; opacity: 1;
+}
+.ag-chat .msg-time { color: rgba(255,255,255,0.4); }
+
+/* ── replies: a thread line you can follow, not a quoted box ── */
+.ag-chat .reply-quote {
+  background: none; border-radius: 0; cursor: pointer;
+  border-left: 2px solid hsl(var(--ag-h) 92% 72% / 0.85);
+  padding: 1px 0 1px 9px; margin: 0 0 7px;
+  transition: border-color 0.15s, opacity 0.15s;
+}
+.ag-chat .reply-quote:hover { border-left-color: hsl(var(--ag-h) 100% 85%); }
+.ag-chat .reply-quote-name { color: hsl(var(--ag-h) 100% 85%); font-size: 11px; letter-spacing: 0.2px; }
+.ag-chat .reply-quote-text { color: rgba(255,255,255,0.68); font-size: 12.5px; }
+.ag-chat .msg-wrap.ag-jump-flash .msg-bubble { animation: agJump 1.6s ease; }
+@keyframes agJump {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--ag-h) 100% 75% / 0); }
+  20%, 60% { box-shadow: 0 0 0 4px hsl(var(--ag-h) 100% 75% / 0.55), 0 0 28px hsl(var(--ag-h) 100% 70% / 0.5); }
+}
+
+/* ── day dividers become quiet hairlines (the rail does the heavy lifting) ── */
+.ag-chat .date-divider {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  background: none; padding: 14px 0 6px; border-radius: 0;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.9px; text-transform: uppercase;
+  color: rgba(255,255,255,0.42);
+}
+.ag-chat .date-divider::before, .ag-chat .date-divider::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.14));
+}
+.ag-chat .date-divider::after { transform: scaleX(-1); }
+
+/* ── the time rail ── */
+.ag-chat > .ag-rail-anchor { position: sticky; top: 0; height: 0; width: 0; align-self: flex-end; z-index: 6; }
+.ag-rail-hot { position: absolute; right: -16px; top: 0; width: 14px; }
+.ag-rail {
+  position: absolute; right: -10px; top: 0; width: 22px;
+  opacity: 0; pointer-events: none; transition: opacity 0.25s ease; cursor: grab;
+}
+.ag-rail.show { opacity: 1; pointer-events: auto; }
+.ag-rail.drag { cursor: grabbing; }
+.ag-rail-line {
+  position: absolute; right: 8px; top: 6px; bottom: 6px; width: 2px; border-radius: 1px;
+  background: rgba(255,255,255,0.12);
+}
+.ag-rail-tick { position: absolute; right: 6px; width: 6px; height: 1.5px; border-radius: 1px; background: rgba(255,255,255,0.3); transform: translateY(-50%); }
+.ag-rail-thumb {
+  position: absolute; right: 4px; width: 10px; border-radius: 6px;
+  background: linear-gradient(180deg, hsl(var(--ag-h) 95% 74%), hsl(calc(var(--ag-h) + 24) 85% 58%));
+  box-shadow: 0 0 14px hsl(var(--ag-h) 95% 65% / 0.6);
+}
+.ag-rail-label {
+  position: absolute; right: 18px; top: 50%; transform: translateY(-50%); white-space: nowrap;
+  font-size: 11px; font-weight: 800; letter-spacing: 0.3px; padding: 5px 10px; border-radius: 10px;
+  background: rgba(14,12,28,0.88); color: #fff; border: 1px solid hsl(var(--ag-h) 80% 70% / 0.35);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  opacity: 0; transition: opacity 0.15s; pointer-events: none;
+}
+.ag-rail.drag .ag-rail-label, .ag-rail.show:hover .ag-rail-label { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ag-chat .msg-wrap.ag-jump-flash .msg-bubble { animation: none; }
+}
