@@ -5,6 +5,7 @@ import { RecommendationEngine } from '../../lib/music/RecommendationEngine'
 import { OfflineCache } from '../../lib/music/OfflineCache'
 import { isOnlineNow } from '../../lib/connectivity'         
 import { useMediaSession } from '../../hooks/useMediaSession'
+import { AutoCache } from '../../lib/music/AutoCache'
 
 const MusicPlayerContext = createContext(null)
 
@@ -51,6 +52,7 @@ export function MusicPlayerProvider({ children, session = null }) {
   const [playbackRate, setPlaybackRateState] = useState(() => readJSON('mattchat:music:rate', 1))
   // null | { mode: 'time', endsAt } | { mode: 'track' }
   const [sleepTimer, setSleepTimerState] = useState(null)
+  const [autoCacheEnabled, setAutoCacheEnabledState] = useState(() => AutoCache.isEnabled())
 
   const [likedTracksMap, setLikedTracksMap] = useState(() => readJSON(LIKES_KEY, {}))
   const [recentlyPlayed, setRecentlyPlayed] = useState(() => readJSON(RECENTLY_PLAYED_KEY, []))
@@ -89,6 +91,7 @@ export function MusicPlayerProvider({ children, session = null }) {
 
   // ── playback speed ──
   const setPlaybackRate = useCallback((r) => setPlaybackRateState(r), [])
+  const setAutoCacheEnabled = useCallback((on) => { AutoCache.setEnabled(on); setAutoCacheEnabledState(on) }, [])
 const pendingRestoreRef = useRef(false)
 const resumeAtRef = useRef(0)
 const POS_KEY = 'mattchat:music:position'
@@ -136,7 +139,7 @@ const recordRecentlyPlayed = useCallback((track) => {
   // ── the branch point: everything else in the app just calls
   // loadAndPlay/togglePlayPause/etc — this is the only place that
   // knows a YouTube track needs a different engine than <audio> ──
-  const loadAndPlay = useCallback(async (track, index) => {
+ async (track, index, origin = 'auto') => {
     if (!track) return
     pendingRestoreRef.current = false
     setError(null)
@@ -186,6 +189,7 @@ try {
   if (resumeAt > 1) audio.addEventListener('loadedmetadata', () => { audio.currentTime = resumeAt }, { once: true })
   await audio.play()
   recordRecentlyPlayed(track)
+    AutoCache.noteHeard(track, origin).catch(() => {})
   } catch {
     setIsLoading(false)
     setError('Track unavailable')
@@ -326,11 +330,11 @@ useEffect(() => {
     if (currentTrack?.provider === 'youtube') YouTubeEngine.setRate(playbackRate)
   }, [playbackRate, currentTrack?.id, currentTrack?.provider])
 
-  const playTrack = useCallback((track, contextTracks = null) => {
+ (track, contextTracks = null, opts = {}) => {
     const newQueue = contextTracks && contextTracks.length ? contextTracks : [track]
     const idx = newQueue.findIndex((t) => t.id === track.id)
     setQueue(newQueue)
-    loadAndPlay(track, idx === -1 ? 0 : idx)
+   loadAndPlay(track, idx === -1 ? 0 : idx, opts.origin)
   }, [loadAndPlay])
 
   const togglePlayPause = useCallback(() => {
@@ -422,7 +426,7 @@ useEffect(() => {
   queue, queueIndex, shuffle, repeatMode, isQueueVisible, setIsQueueVisible,
   addToQueue, removeFromQueue, playFromQueue, clearQueue, toggleShuffle, cycleRepeat,
   isLiked, toggleLike, likedTracks,
-  recentlyPlayed,
+  recentlyPlayed,autoCacheEnabled, setAutoCacheEnabled,
    playbackRate, setPlaybackRate, sleepTimer, setSleepTimer,
   isMusicHubOpen, setIsMusicHubOpen,
 }
