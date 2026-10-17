@@ -139,7 +139,7 @@ const recordRecentlyPlayed = useCallback((track) => {
   // ── the branch point: everything else in the app just calls
   // loadAndPlay/togglePlayPause/etc — this is the only place that
   // knows a YouTube track needs a different engine than <audio> ──
- async (track, index, origin = 'auto') => {
+  const loadAndPlay = useCallback(async (track, index, origin = 'auto') => {
     if (!track) return
     pendingRestoreRef.current = false
     setError(null)
@@ -330,7 +330,7 @@ useEffect(() => {
     if (currentTrack?.provider === 'youtube') YouTubeEngine.setRate(playbackRate)
   }, [playbackRate, currentTrack?.id, currentTrack?.provider])
 
- (track, contextTracks = null, opts = {}) => {
+  const playTrack = useCallback((track, contextTracks = null, opts = {}) => {
     const newQueue = contextTracks && contextTracks.length ? contextTracks : [track]
     const idx = newQueue.findIndex((t) => t.id === track.id)
     setQueue(newQueue)
