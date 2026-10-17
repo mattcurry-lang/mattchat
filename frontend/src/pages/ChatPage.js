@@ -126,6 +126,7 @@ import { useFlowRunner } from '../hooks/useFlowRunner'
 import EcosystemHub from '../components/Ecosystem/EcosystemHub'
 import EcoCardMessage from '../components/Ecosystem/EcoCardMessage'
 import { parseEcoCard } from '../lib/ecosystem/cards'
+import { ConversationRow, LensBar, LensEmpty, TimeRail, applyLens, convoHue, groupPosition, flashMessage, isAfterglowEnabled, useCloseCircle, useLensSwipe } from '../afterglow'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
