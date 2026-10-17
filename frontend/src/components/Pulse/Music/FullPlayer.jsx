@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 import { useMusicPlayer } from '../../context/MusicPlayerContext'
 import { useDominantColor, rgba } from '../../../lib/music/extractColor'
@@ -19,6 +19,21 @@ const ART_MODE_KEY = 'mattchat:music:artMode'
 const PANEL_KEY = 'mattchat:music:fullPanelOpen'
 const BG = '#0b0b13'
 
+// Measures a slot and returns the biggest square (up to `max`) that fits inside it,
+// so the cover can never spill over the title, tabs or controls — at any window size.
+function useFitSquare(ref, max) {
+  const [size, setSize] = useState(0)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return undefined
+    const measure = (w, h) => setSize(Math.max(0, Math.floor(Math.min(w, h, max))))
+    const ro = new ResizeObserver(([entry]) => measure(entry.contentRect.width, entry.contentRect.height))
+    ro.observe(el)
+    measure(el.clientWidth, el.clientHeight)
+    return () => ro.disconnect()
+  }, [ref, max])
+  return size
+}
 function formatTime(seconds) {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
   const m = Math.floor(seconds / 60)
@@ -107,6 +122,8 @@ export default function FullPlayer({ onClose, conversations = [], onShareTrack }
   useEffect(() => { try { localStorage.setItem(PANEL_KEY, panelOpen ? '1' : '0') } catch { /* ignore */ } }, [panelOpen])
   const [now, setNow] = useState(Date.now())
   const prevVolume = useRef(0.85)
+    const artSlotRef = useRef(null)
+  const fit = useFitSquare(artSlotRef, isDesktop ? (panelOpen ? 460 : 560) : 400)
 
   useEffect(() => { try { localStorage.setItem(ART_MODE_KEY, artMode) } catch { /* ignore */ } }, [artMode])
 
@@ -153,7 +170,7 @@ export default function FullPlayer({ onClose, conversations = [], onShareTrack }
   const activeTab = isDesktop && tab === 'now' ? 'lyrics' : tab
   const muted = volume === 0
    const showPanel = isDesktop && panelOpen
-  const artSize = isDesktop ? (panelOpen ? 'min(46vh, 420px)' : 'min(54vh, 500px)') : 'min(80vw, 40vh, 340px)'
+   const artSize = fit || 240   // measured to fit the free space; 240 only for the first frame
   const tabs = isDesktop
     ? [['lyrics', 'Lyrics'], ['queue', 'Up Next']]
     : [['now', 'Player'], ['lyrics', 'Lyrics'], ['queue', 'Up Next']]
@@ -162,26 +179,30 @@ export default function FullPlayer({ onClose, conversations = [], onShareTrack }
     if (volume > 0) { prevVolume.current = volume; setVolume(0) } else setVolume(prevVolume.current || 0.85)
   }
 
-  const art = (
-    <div style={{ flex: isDesktop ? 1 : '1 1 auto', minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isDesktop ? 0 : '0 24px' }}>
-      <AnimatePresence mode="wait">
-        {artMode === 'disc' ? (
-          <motion.div key={`d-${currentTrack.id}`} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.3 }}>
-            <Disc track={currentTrack} playing={isPlaying} size={artSize} glow={rgba(dominant, 0.45)} />
-          </motion.div>
-        ) : (
-          <motion.div
-            key={`c-${currentTrack.id}`}
-            drag="x" dragSnapToOrigin dragElastic={0.45} dragConstraints={{ left: 0, right: 0 }}
-            onDragEnd={(_, info) => { if (info.offset.x < -80) playNext(); else if (info.offset.x > 80) playPrevious() }}
-            initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: isPlaying ? 1 : 0.9 }} exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 26 }}
-            style={{ width: artSize, height: artSize, borderRadius: 18, overflow: 'hidden', boxShadow: `0 28px 60px ${rgba(dominant, 0.5)}`, touchAction: 'pan-y' }}
-          >
-            <TrackArt src={currentTrack.artwork} size="100%" radius={0} iconSize={64} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+   const art = (
+    <div ref={artSlotRef} style={{ flex: '1 1 0', minHeight: 0, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isDesktop ? '10px 0 6px' : '4px 24px' }}>
+      {/* plain sized box animates its size; the motion children inside only handle swipe/scale */}
+      <div style={{ width: artSize, height: artSize, flexShrink: 0, transition: 'width .3s ease, height .3s ease' }}>
+        <AnimatePresence mode="wait">
+          {artMode === 'disc' ? (
+            <motion.div key={`d-${currentTrack.id}`} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.3 }}
+              style={{ width: '100%', height: '100%' }}>
+              <Disc track={currentTrack} playing={isPlaying} size="100%" glow={rgba(dominant, 0.45)} />
+            </motion.div>
+          ) : (
+            <motion.div
+              key={`c-${currentTrack.id}`}
+              drag="x" dragSnapToOrigin dragElastic={0.45} dragConstraints={{ left: 0, right: 0 }}
+              onDragEnd={(_, info) => { if (info.offset.x < -80) playNext(); else if (info.offset.x > 80) playPrevious() }}
+              initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: isPlaying ? 1 : 0.92 }} exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+              style={{ width: '100%', height: '100%', borderRadius: 18, overflow: 'hidden', boxShadow: `0 24px 54px ${rgba(dominant, 0.5)}`, touchAction: 'pan-y' }}
+            >
+              <TrackArt src={currentTrack.artwork} size="100%" radius={0} iconSize={64} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   )
 
@@ -204,7 +225,7 @@ export default function FullPlayer({ onClose, conversations = [], onShareTrack }
   )
 
   const controls = (
-    <div style={{ width: '100%', maxWidth: isDesktop ? 520 : 460, margin: '0 auto', padding: isDesktop ? 0 : '0 24px' }}>
+        <div style={{ width: '100%', maxWidth: isDesktop ? 520 : 460, margin: '0 auto', padding: isDesktop ? 0 : '0 24px', flexShrink: 0 }}>
       {info}
       {error && (
         <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, fontSize: 12.5, color: '#fca5a5', background: 'rgba(248,113,113,0.12)', borderRadius: 10, padding: '8px 12px' }}>
