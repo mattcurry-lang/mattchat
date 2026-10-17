@@ -548,7 +548,7 @@ function DownloadedSection() {
 /* ------------------------------------------------------------------ */
 
 export function PulseMusicOverlay({ onClose, conversations = [], onShareTrack, onOpenFullPlayer }) {
-   const { userId, recentlyPlayed, likedTracks, playTrack, setIsMusicHubOpen } = useMusicPlayer()
+   const { userId, recentlyPlayed, likedTracks, playTrack, currentTrack, setIsMusicHubOpen } = useMusicPlayer()
   useEffect(() => { setIsMusicHubOpen(true); return () => setIsMusicHubOpen(false) }, [setIsMusicHubOpen])
   const { mixes, lastPlayed } = useListeningHistory(userId)
   const colors = useMusicColors()
