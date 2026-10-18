@@ -4,6 +4,15 @@
 import { supabase } from '../supabase'
 import { getEventDefinition, getActionDefinition } from './registry'
 
+// "igs@dkut.ac.ke" -> { senderEmail }, "dkut.ac.ke" or "@dkut.ac.ke" -> { senderDomain }, else null.
+export function parseSenderFilter(input) {
+  const v = String(input ?? '').trim().toLowerCase()
+  if (/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(v)) return { senderEmail: v }
+  const d = v.replace(/^@/, '')
+  if (/^([a-z0-9-]+\.)+[a-z]{2,}$/.test(d)) return { senderDomain: d }
+  return null
+}
+
 export async function listFlows(userId) {
   const { data, error } = await supabase.from('eco_flows').select('*')
     .eq('user_id', userId).order('created_at', { ascending: false })
@@ -22,6 +31,11 @@ export async function createFlow(userId, { name, triggerEvent, triggerFilter = {
   // tasks must name the one chat it trusts. Never an open-ended "any chat".
   if (triggerEvent === 'card.received' && actionType === 'task.create' && !triggerFilter?.conversationId) {
     throw new Error('Choose which chat these cards may come from.')
+  }
+  // Email is private. A flow on incoming mail must name the sender (or domain)
+  // it applies to, never "every email".
+  if (triggerEvent === 'email.received' && !triggerFilter?.senderEmail && !triggerFilter?.senderDomain) {
+    throw new Error('Choose which sender or domain this applies to.')
   }
   const missing = action.action.params.filter((p) => p.required && !actionParams[p.key]).map((p) => p.key)
   if (missing.length) throw new Error(`Missing action parameter(s): ${missing.join(', ')}`)
