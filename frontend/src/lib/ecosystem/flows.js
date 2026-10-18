@@ -18,6 +18,11 @@ export async function createFlow(userId, { name, triggerEvent, triggerFilter = {
   if (!trigger) throw new Error(`Unknown trigger "${triggerEvent}"`)
   const action = getActionDefinition(actionType)
   if (!action) throw new Error(`Unknown action "${actionType}"`)
+  // Anyone in a chat can send you a card, so a flow that turns cards into your
+  // tasks must name the one chat it trusts. Never an open-ended "any chat".
+  if (triggerEvent === 'card.received' && actionType === 'task.create' && !triggerFilter?.conversationId) {
+    throw new Error('Choose which chat these cards may come from.')
+  }
   const missing = action.action.params.filter((p) => p.required && !actionParams[p.key]).map((p) => p.key)
   if (missing.length) throw new Error(`Missing action parameter(s): ${missing.join(', ')}`)
 
