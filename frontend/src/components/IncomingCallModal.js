@@ -3,7 +3,8 @@ import { IconPhone, IconMic, IconBluetooth } from './Icons'
 import { useRingtone } from '../hooks/useRingtone'
 import { useCustomRingtone } from '../hooks/useCustomRingtone'
 
-export default function IncomingCallModal({ callerName, callType, avatarUrl, onAnswer, onDecline, userId }) {
+export default function IncomingCallModal({ callerName, callType, avatarUrl, onAnswer, onDecline, userId, provider = 'daily' }) {
+  const isZoom = provider === 'zoom'
   const [dots, setDots] = useState('.')
   const [startMuted, setStartMuted] = useState(false)
 
@@ -41,7 +42,7 @@ export default function IncomingCallModal({ callerName, callType, avatarUrl, onA
       <div style={styles.modal}>
         <div style={styles.hudLabel}>
           <span style={styles.pulseDot} />
-          {callType === 'video' ? 'INCOMING VIDEO CALL' : `INCOMING CALL${dots}`}
+          {isZoom ? `INCOMING ZOOM CALL${dots}` : callType === 'video' ? 'INCOMING VIDEO CALL' : `INCOMING CALL${dots}`}
         </div>
 
         <div style={styles.rippleWrap}>
@@ -57,9 +58,9 @@ export default function IncomingCallModal({ callerName, callType, avatarUrl, onA
         </div>
 
         <div style={styles.callerName}>{callerName}</div>
-        <div style={styles.subLabel}>MATTCHAT {callType === 'video' ? 'VIDEO' : 'VOICE'}</div>
+              <div style={styles.subLabel}>{isZoom ? 'MATTCHAT × ZOOM · ANSWER OPENS ZOOM' : `MATTCHAT ${callType === 'video' ? 'VIDEO' : 'VOICE'}`}</div>
 
-        <div style={styles.preRow}>
+        {!isZoom && <div style={styles.preRow}>
           <button style={styles.preBtn} onClick={pickBluetoothDevice} title="Choose audio output" aria-label="Choose audio output">
             <IconBluetooth size={18} />
           </button>
@@ -68,9 +69,9 @@ export default function IncomingCallModal({ callerName, callType, avatarUrl, onA
             onClick={() => setStartMuted(v => !v)}
             aria-label={startMuted ? 'Will join muted' : 'Join with microphone on'}
           >
-            <IconMic size={18} />
+                      <IconMic size={18} />
           </button>
-        </div>
+        </div>}
 
         <div style={styles.btnRow}>
           <button style={styles.declineBtn} onClick={onDecline} title="Decline" aria-label="Decline call">
