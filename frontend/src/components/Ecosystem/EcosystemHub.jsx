@@ -34,6 +34,12 @@ const TEMPLATES = [
     actionParams: { title: '{{title}}', dueDate: '{{dueDate}}' },
   },
   {
+    id: 'auto-add', title: 'Add task cards from a chat to my tasks',
+    desc: 'When someone shares a task card in the chat you choose, it lands in your tasks as pending, for you to confirm.',
+    triggerEvent: 'card.received', actionType: 'task.create', needsChat: true, filterChat: true,
+    actionParams: { title: '{{title}}', dueDate: '{{dueDate}}', messageId: '{{messageId}}', senderName: '{{senderName}}' },
+  },
+  {
     id: 'announce-done', title: 'Tell a chat when I finish a task',
     desc: 'Posts a short note in the chat you choose.',
     triggerEvent: 'task.completed', actionType: 'message.send', needsChat: true,
@@ -145,7 +151,7 @@ export default function EcosystemHub({ userId, conversations = [], onClose, onOp
   }, [runs])
 
   // ── creating a flow, always through a consent step ─────
-  const requestFlow = useCallback((spec) => {
+  const requestFlow = (spec) => {
     const trig = getEventDefinition(spec.triggerEvent)
     const act = getActionDefinition(spec.actionType)
     if (!trig || !act) { setNotice('That automation uses an app that isn’t available.'); return }
@@ -156,11 +162,12 @@ export default function EcosystemHub({ userId, conversations = [], onClose, onOp
     if (missing.includes(act.app.id)) lines.push(`${act.app.name} will be asked to: ${act.action.label.toLowerCase()}`)
     const sends = ['message.send', 'card.send_task'].includes(act.action.id)
     if (sends) lines.push(`Mattchat will send a message from your account to ${chatName(spec.actionParams.conversationId)}`)
+    const adds = act.action.id === 'task.create'
+    if (adds) lines.push(`Task cards shared in ${chatName(spec.triggerFilter?.conversationId)} will be added to your tasks as pending. Anyone in that chat can add tasks to your list this way, and you confirm each one`)
 
-    if (!missing.length && !sends) { commit(spec, []); return }
+    if (!missing.length && !sends && !adds) { commit(spec, []); return }
     setConsent({ spec, apps: missing, lines })
-   
-  }, [connected, chatName])
+  }
 
   async function commit(spec, appsToConnect) {
     setBusy(true)
@@ -191,7 +198,8 @@ export default function EcosystemHub({ userId, conversations = [], onClose, onOp
   const turnOnTemplate = (tpl, conversationId) => {
     requestFlow({
       name: tpl.title, triggerEvent: tpl.triggerEvent, actionType: tpl.actionType,
-      actionParams: conversationId ? { ...tpl.actionParams, conversationId } : tpl.actionParams,
+      triggerFilter: tpl.filterChat && conversationId ? { conversationId } : {},
+      actionParams: !tpl.filterChat && conversationId ? { ...tpl.actionParams, conversationId } : tpl.actionParams,
     })
   }
 
@@ -286,7 +294,7 @@ export default function EcosystemHub({ userId, conversations = [], onClose, onOp
                           <div className="eh-name eh-grow">{f.name}</div>
                           <Switch on={f.enabled} label={`${f.name} on or off`} onChange={(v) => toggleFlow(f, v)} />
                         </div>
-                        <div className="eh-muted"><b>When</b> {when}</div>
+                        <div className="eh-muted"><b>When</b> {when}{f.trigger_filter?.conversationId ? ` in ${chatName(f.trigger_filter.conversationId)}` : ''}</div>
                         <div className="eh-muted"><b>Then</b> {then}{f.action_params?.conversationId ? ` in ${chatName(f.action_params.conversationId)}` : ''}</div>
                         <div className="eh-row">
                           <span className={`eh-chip ${lr ? `t-${lr.tone}` : 't-idle'}`}>{lr ? `${lr.text} · ${timeAgo(last.created_at)}` : 'Hasn’t run yet'}</span>
@@ -423,6 +431,7 @@ function Builder({ conversations, onClose, onSubmit }) {
   const [action, setAction] = useState(actions[0]?.action.id || '')
   const [name, setName] = useState('')
   const [values, setValues] = useState({ text: '🤖 ' })
+  const [filterChat, setFilterChat] = useState('')
   const [error, setError] = useState('')
 
   const trig = getEventDefinition(trigger)
@@ -430,19 +439,24 @@ function Builder({ conversations, onClose, onSubmit }) {
   const fields = trig?.event.fields || []
   const needsTask = act?.action.params.some((p) => p.key === 'taskId')
   const taskMismatch = needsTask && !fields.includes('taskId')
+  const canFilterChat = fields.includes('conversationId')
+  const mustFilterChat = trigger === 'card.received' && action === 'task.create'
+  // Inputs the trigger already provides (title, dueDate...) are filled in automatically.
+  const autoKeys = (act?.action.params || []).filter((p) => !['taskId', 'conversationId', 'text'].includes(p.key) && fields.includes(p.key)).map((p) => p.key)
   const set = (k, v) => setValues((s) => ({ ...s, [k]: v }))
 
   const submit = () => {
     setError('')
     if (!trig || !act) return setError('Pick a trigger and an action.')
     if (taskMismatch) return setError('That action needs a task, but the trigger isn’t about a task.')
+    if (mustFilterChat && !filterChat) return setError('Choose which chat these cards may come from.')
     const actionParams = {}
     for (const p of act.action.params) {
-      const v = p.key === 'taskId' ? '{{taskId}}' : (values[p.key] || '').trim()
+      const v = p.key === 'taskId' ? '{{taskId}}' : autoKeys.includes(p.key) ? `{{${p.key}}}` : (values[p.key] || '').trim()
       if (p.required && !v) return setError(`Please fill in: ${p.label}`)
       if (v) actionParams[p.key] = v
     }
-    onSubmit({ name: name.trim(), triggerEvent: trigger, actionType: action, actionParams })
+    onSubmit({ name: name.trim(), triggerEvent: trigger, triggerFilter: canFilterChat && filterChat ? { conversationId: filterChat } : {}, actionType: action, actionParams })
   }
 
   return (
@@ -455,6 +469,14 @@ function Builder({ conversations, onClose, onSubmit }) {
           {events.map(({ app, event }) => <option key={event.type} value={event.type}>{app.name}: {event.label}</option>)}
         </select>
       </label>
+      {canFilterChat && (
+        <label className="eh-label">{mustFilterChat ? 'Only from this chat' : 'Only from this chat (optional)'}
+          <select className="eh-input" value={filterChat} onChange={(e) => setFilterChat(e.target.value)}>
+            <option value="">{mustFilterChat ? 'Choose a chat…' : 'Any chat'}</option>
+            {conversations.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </label>
+      )}
       <label className="eh-label">Do this
         <select className="eh-input" value={action} onChange={(e) => setAction(e.target.value)}>
           {actions.map(({ app, action: a }) => <option key={a.id} value={a.id}>{app.name}: {a.label}</option>)}
@@ -462,6 +484,7 @@ function Builder({ conversations, onClose, onSubmit }) {
       </label>
 
       {act?.action.params.map((p) => {
+        if (autoKeys.includes(p.key)) return null
         if (p.key === 'taskId') return <p key={p.key} className="eh-muted">{taskMismatch ? 'This action needs a task, but this trigger isn’t about a task. Pick a task trigger.' : 'Uses the task that triggered the flow.'}</p>
         if (p.key === 'conversationId') {
           return (
@@ -488,6 +511,7 @@ function Builder({ conversations, onClose, onSubmit }) {
         )
       })}
 
+      {autoKeys.length > 0 && <p className="eh-muted">Filled in automatically from the trigger: {autoKeys.join(', ')}.</p>}
       {error && <p className="eh-error" role="alert">{error}</p>}
       <div className="eh-actions">
         <button type="button" className="eh-btn eh-ghost" onClick={onClose}>Cancel</button>
