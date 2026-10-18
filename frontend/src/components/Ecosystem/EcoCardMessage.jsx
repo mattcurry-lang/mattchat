@@ -50,7 +50,7 @@ export default function EcoCardMessage({ card, viewerId, messageId, senderName, 
   const box = {
     width: 'min(300px, 100%)', borderRadius: 16, overflow: 'hidden',
     background: 'var(--bg-surface-1, #14141f)', border: '1px solid var(--border, #2a2a3a)',
-    color: 'var(--text-primary, #f2eefc)',
+    color: 'var(--dark-text, #ffffff)',
   }
 
   if (!card) {
