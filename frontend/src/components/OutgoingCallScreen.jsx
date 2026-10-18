@@ -1,7 +1,8 @@
 import React from 'react'
 import { IconPhone, IconMic, IconBluetooth, IconVideo } from './Icons'
 
-export default function OutgoingCallScreen({ callerName, callType, status, avatarUrl, onCancel }) {
+export default function OutgoingCallScreen({ callerName, callType, status, avatarUrl, onCancel, provider = 'daily' }) {
+  const isZoom = provider === 'zoom'
   const label = status === 'ringing' ? 'RINGING' : 'CALLING'
   const initial = callerName?.charAt(0)?.toUpperCase() || '?'
 
@@ -17,7 +18,7 @@ export default function OutgoingCallScreen({ callerName, callType, status, avata
 
       <div style={styles.topStatus}>
         <span style={styles.pulseDot} />
-        {callType === 'video' ? `VIDEO CALL · ${label}` : label}
+               {isZoom ? `ZOOM CALL · ${label}` : callType === 'video' ? `VIDEO CALL · ${label}` : label}
       </div>
 
       <div style={styles.center}>
@@ -31,15 +32,11 @@ export default function OutgoingCallScreen({ callerName, callType, status, avata
           )}
         </div>
         <div style={styles.callerName}>{callerName}</div>
-        <div style={styles.subLabel}>MATTCHAT {callType === 'video' ? 'VIDEO' : 'VOICE'}</div>
+        <div style={styles.subLabel}>{isZoom ? 'MATTCHAT × ZOOM · START THE MEETING IN ZOOM' : `MATTCHAT ${callType === 'video' ? 'VIDEO' : 'VOICE'}`}</div>
       </div>
 
       <div style={styles.controlBar}>
         <button style={styles.pillBtn} disabled title="Audio output"><IconBluetooth size={19} /></button>
-        <button style={styles.pillBtn} disabled title="Mic"><IconMic size={19} /></button>
-        {callType === 'video' && (
-          <button style={styles.pillBtn} disabled title="Camera"><IconVideo size={19} /></button>
-        )}
         <button style={styles.endBtn} onClick={onCancel} title="Cancel call" aria-label="Cancel call">
           <IconPhone size={24} style={{ transform: 'rotate(135deg)' }} />
         </button>
