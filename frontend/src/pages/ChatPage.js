@@ -2770,10 +2770,10 @@ shareConversations={conversations.map(c => ({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 0' }}>
-        <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>AI Tasks</h3>
-        <button onClick={() => setShowTasksPage(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16 }}>
-          <IconX size={16} />
-        </button>
+        <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--dark-text, #ffffff)', margin: 0 }}>AI Tasks</h3>
+         <button onClick={() => setShowTasksPage(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16 }}>
+           <IconX size={16} />
+         </button>
       </div>
       <TasksPage userId={userId} session={session} />
     </div>
