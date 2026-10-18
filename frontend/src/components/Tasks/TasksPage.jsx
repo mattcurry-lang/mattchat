@@ -27,14 +27,14 @@ function RescheduleRow({ task, onDone }) {
         type="date"
         value={date}
         onChange={(e) => setDate(e.target.value)}
-        style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--text-primary)', fontSize: 11.5, fontFamily: 'inherit' }}
-      />
+        style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--dark-text, #ffffff)', fontSize: 11.5, fontFamily: 'inherit' }}
+       />
       <input
         type="time"
         value={time}
         onChange={(e) => setTime(e.target.value)}
-        style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--text-primary)', fontSize: 11.5, fontFamily: 'inherit' }}
-      />
+       style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--dark-text, #ffffff)', fontSize: 11.5, fontFamily: 'inherit' }}
+       />
       <button onClick={save} disabled={saving} style={{ background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 11, fontWeight: 700, padding: '6px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
         {saving ? '…' : 'Save'}
       </button>
@@ -358,7 +358,7 @@ export default function TasksPage({ userId, session }) {
       )}
 
       <section>
-        <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--dark-text, #ffffff)', marginBottom: 8 }}>
           Active ({active.length})
         </h3>
         {active.length === 0 ? (
