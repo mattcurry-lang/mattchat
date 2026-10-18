@@ -94,14 +94,14 @@ export default function SocialEmbedCard({ link }) {
         <div style={{ display: 'flex', alignItems: 'stretch' }}>
           <div style={{ width: 5, background: brand.color, flex: 'none' }} />
           <div style={{ padding: '10px 12px', flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 650, color: 'var(--text-primary, #f2eefc)' }}>
+            <div style={{ fontSize: 14, fontWeight: 650, color: 'var(--dark-text, #ffffff)' }}>
               {brand.name} {link.platform === 'tiktok' ? 'video' : 'post'}
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
               <button type="button" onClick={handlePlay} disabled={loading} style={{ ...btn, background: brand.color, color: '#fff', opacity: loading ? 0.7 : 1 }}>
                 {loading ? 'Loading…' : 'View here'}
               </button>
-              <button type="button" onClick={openExternal} style={{ ...btn, background: 'var(--chip, #241d3b)', color: 'var(--text-primary, #f2eefc)' }}>
+              <button type="button" onClick={openExternal} style={{ ...btn, background: 'var(--chip, #241d3b)', color: 'var(--dark-text, #ffffff)' }}>
                 Open in {brand.name}
               </button>
             </div>
