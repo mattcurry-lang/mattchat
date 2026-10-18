@@ -7,7 +7,7 @@
 //   Throw, or return { ok: false, error }, to record the run as failed.
 
 import { confirmTask, completeTask, pushTaskToCalendar, sendMessage } from '../supabase'
-import { sendEcoCard } from './cards'
+import { sendEcoCard, addCardToMyTasks } from './cards'
 
 const runners = {
   'task.confirm': ({ taskId }) => confirmTask(taskId),
@@ -16,6 +16,9 @@ const runners = {
   'message.send': ({ conversationId, text }, ctx) => sendMessage(conversationId, ctx.userId, text),
   'card.send_task': ({ conversationId, title, dueDate }, ctx) =>
     sendEcoCard(conversationId, ctx.userId, { kind: 'task', title, dueDate }),
+  // Creates a PENDING task (you confirm it yourself). messageId makes replays harmless.
+  'task.create': ({ title, dueDate, messageId, senderName }, ctx) =>
+    addCardToMyTasks(ctx.userId, { kind: 'task', title, dueDate }, { messageId: messageId || undefined, fromName: senderName || undefined }),
 }
 
 export function getActionRunner(actionId) {
