@@ -20,6 +20,9 @@ import { useCall } from '../hooks/useCall'
 import CallOverlay from '../components/CallOverlay'
 import IncomingCallModal from '../components/IncomingCallModal'
 import OutgoingCallScreen from '../components/OutgoingCallScreen'
+import ZoomLinkSheet, { ZoomGlyph } from '../components/ZoomLinkSheet'
+import ZoomInCallBar from '../components/ZoomInCallBar'
+import { isZoomUrl, getMyZoomLink, saveMyZoomLink } from '../lib/zoom'
 import TwoFactorModal from '../components/TwoFactorModal'
 import EmojiPicker from '../components/EmojiPicker'
 import { useRingtone } from '../hooks/useRingtone'
@@ -522,6 +525,7 @@ if (msg.content?.startsWith('call_log:') || msg.content?.startsWith('missed_call
     ? ` · ${Math.floor(duration / 60)}m ${duration % 60}s`
     : ''
   const isBad = status !== 'completed'
+  const zoomTag = msg.content.endsWith(':zoom') ? 'Zoom · ' : ''
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
@@ -533,7 +537,7 @@ if (msg.content?.startsWith('call_log:') || msg.content?.startsWith('missed_call
         borderRadius: 20, padding: '6px 14px',
         display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600,
       }}>
-        {icon} {label}{durLabel}
+                {icon} {zoomTag}{label}{durLabel}
         <span style={{ opacity: 0.6, fontWeight: 500 }}>· {formatMsgTime(msg.created_at)}</span>
       </div>
     </div>
@@ -1115,11 +1119,25 @@ function HeaderMoreMenu({ anchorRef, theme, onToggleTheme, heyCurryListening, on
     document.body
   )
 }
-function CallButtons({ onVoiceCall, onVideoCall, disabled }) {
+function CallButtons({ onVoiceCall, onVideoCall, onZoomCall, onEditZoom, disabled }) {
+  const pressTimer = useRef(null)
+  const startPress = () => { pressTimer.current = setTimeout(() => { pressTimer.current = null; onEditZoom?.() }, 600) }
+  const endPress = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; return true } return false }
   return (
     <>
       <button className="icon-btn dark" onClick={onVoiceCall} disabled={disabled} title="Voice call" style={{ opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}><IconPhone size={18} /></button>
       <button className="icon-btn dark" onClick={onVideoCall} disabled={disabled} title="Video call" style={{ opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}><IconVideo size={18} /></button>
+      {onZoomCall && (
+        <button
+          className="icon-btn dark" disabled={disabled}
+          title="Call on Zoom (hold or right-click to change your Zoom link)"
+          onPointerDown={startPress}
+          onPointerUp={(e) => { if (endPress()) onZoomCall() }}
+          onPointerLeave={endPress}
+          onContextMenu={(e) => { e.preventDefault(); endPress(); onEditZoom?.() }}
+          style={{ opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer', touchAction: 'manipulation' }}
+        ><ZoomGlyph size={20} /></button>
+      )}
     </>
   )
 }
@@ -1319,6 +1337,15 @@ const { isOnline, getLastSeenLabel, getPresenceStatus } = usePresence(userId)
 
   useRingtone(['calling', 'ringing'].includes(callStatus), 'ringback')
   useRingtone(callStatus === 'incoming', 'ringtone')
+  
+  // Zoom calls: first time asks for your Zoom link; after that it's one tap.
+  // The call starts synchronously inside the click so the browser lets Zoom open.
+  const [zoomSheet, setZoomSheet] = useState(null)   // { conversationId, name, edit? }
+  const handleZoomCall = (conversationId, name) => {
+    const link = getMyZoomLink(userId)
+    if (!link) { setZoomSheet({ conversationId, name }); return }
+    startZoomCall(link, conversationId)
+  }
   const { conversations, loading: convLoading, reload } = useConversations(userId)
   const publicExtras = usePublicProfiles([
   userId,
@@ -2175,6 +2202,7 @@ const handleSignOut = async () => {
           callerName={callConvo ? getConvoName(callConvo) : 'Unknown'}
           avatarUrl={callConvo ? getOtherUserAvatar(callConvo, userId) : null}
           callType={activeCall.callType}
+          provider={isZoomUrl(activeCall.roomUrl) ? 'zoom' : 'daily'}
           onAnswer={(muted) => { setStartMuted(muted); answerCall() }}
           onDecline={declineCall}
              userId={session?.user?.id}
@@ -2187,13 +2215,35 @@ const handleSignOut = async () => {
          callerName={callConvo ? getConvoName(callConvo) : (activeConvo ? getConvoName(activeConvo) : '')}
          avatarUrl={callConvo ? getOtherUserAvatar(callConvo, userId) : (activeConvo ? getOtherUserAvatar(activeConvo, userId) : null)}
         callType={activeCall?.callType}
+          provider={isZoomUrl(activeCall?.roomUrl) ? 'zoom' : 'daily'}
           status={callStatus}
           onCancel={endCall}
         />
       )}
 
       {/* ── IN-CALL OVERLAY ── */}
-      {(callStatus === 'connecting' || callStatus === 'in-call') && activeCall && (
+           {(callStatus === 'connecting' || callStatus === 'in-call') && activeCall && isZoomUrl(activeCall.roomUrl) && (
+        <ZoomInCallBar
+          roomUrl={activeCall.roomUrl}
+          callerName={callConvo ? getConvoName(callConvo) : ''}
+          onEnd={endCall}
+        />
+      )}
+      {zoomSheet && (
+        <ZoomLinkSheet
+          initialLink={getMyZoomLink(userId) || ''}
+          contactName={zoomSheet.name}
+          onClose={() => setZoomSheet(null)}
+          onSave={zoomSheet.edit ? (link) => { saveMyZoomLink(userId, link); setZoomSheet(null) } : undefined}
+          onSaveAndCall={(link) => {
+            const saved = saveMyZoomLink(userId, link)
+            const target = zoomSheet.conversationId
+            setZoomSheet(null)
+            if (saved) startZoomCall(saved, target)
+          }}
+        />
+      )}
+      {(callStatus === 'connecting' || callStatus === 'in-call') && activeCall && !isZoomUrl(activeCall.roomUrl) && (
         <CallOverlay
           roomUrl={activeCall.roomUrl}
           token={callToken}
@@ -3112,7 +3162,13 @@ onMessageContact={handleMessageContact}
               </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', flexShrink: 0, maxWidth: '100%' }}>
                 {callStatus === 'idle' && !isReadOnlyChat && (
-                  <CallButtons onVoiceCall={() => startCall('audio')} onVideoCall={() => startCall('video')} disabled={false} />
+                                   <CallButtons
+                    onVoiceCall={() => startCall('audio')}
+                    onVideoCall={() => startCall('video')}
+                    onZoomCall={() => handleZoomCall(activeConvo.id, getConvoName(activeConvo))}
+                    onEditZoom={() => setZoomSheet({ conversationId: activeConvo.id, name: getConvoName(activeConvo), edit: true })}
+                    disabled={false}
+                  />
                 )}
                 {callActive && (
 <button onClick={endCall} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 'var(--r-full)', padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: '#f87171' }}><IconPhoneOff size={13} /> End call</button>
