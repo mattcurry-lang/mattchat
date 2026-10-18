@@ -14,6 +14,12 @@ registerEcosystemApp({
   actions: [
     { id: 'task.confirm', label: 'Confirm a task', params: [{ key: 'taskId', label: 'Task', required: true }] },
     { id: 'task.complete', label: 'Mark a task complete', params: [{ key: 'taskId', label: 'Task', required: true }] },
+    { id: 'task.from_email', label: 'Add an email to my tasks (for me to confirm)',
+      params: [
+        { key: 'title', label: 'Task title', required: true },
+        { key: 'emailId', label: 'Source email' },
+        { key: 'senderName', label: 'Sender' },
+      ] },
     { id: 'task.create', label: 'Add a task to my list (for me to confirm)',
       params: [
         { key: 'title', label: 'Task title', required: true },
