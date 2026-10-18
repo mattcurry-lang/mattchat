@@ -7,6 +7,7 @@ registerEcosystemApp({
   firstParty: true,
   emits: [
     { type: 'message.received', label: 'A new message arrives', fields: ['conversationId', 'senderName', 'preview'] },
+    { type: 'card.received', label: 'A task card is shared with you', fields: ['conversationId', 'senderName', 'messageId', 'title', 'dueDate'] },
   ],
   actions: [
     { id: 'message.send', label: 'Send a message in a conversation',
