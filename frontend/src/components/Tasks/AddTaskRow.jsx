@@ -9,7 +9,7 @@ import { createManualTask } from '../../lib/manualTask'
 const field = {
   width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 12,
   border: '1px solid var(--border)', background: 'var(--bg-surface-1, #14141f)',
-  color: 'var(--text-primary, inherit)', fontSize: 15, fontFamily: 'inherit',
+  color: 'var(--dark-text, #ffffff)', colorScheme: 'dark', fontSize: 15, fontFamily: 'inherit',
 }
 const pill = (bg, ghost) => ({
   background: ghost ? 'none' : bg, border: ghost ? '1px solid var(--border)' : 'none',
