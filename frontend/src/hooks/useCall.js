@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { subscribeToChannel } from '../lib/realtimeManager'
+import { isZoomUrl } from '../lib/zoom'
 
 const FUNCTIONS_BASE = 'https://bqerkvywgxoioocbkxif.supabase.co/functions/v1'
 const MISSED_CALL_TIMEOUT_MS = 30000
@@ -58,7 +59,7 @@ export function useCall(userId, conversationId) {
     const { error } = await supabase.from('messages').insert({
       conversation_id: call.conversationId,
       sender_id: userId,
-      content: `call_log:${call.callType}:${status}:${durationSeconds}`,
+      content: `call_log:${call.callType}:${status}:${durationSeconds}${isZoomUrl(call.roomUrl) ? ':zoom' : ''}`,
       message_type: 'call_log',
     })
     if (error) console.error('logCallMessage insert failed:', error)
@@ -109,7 +110,7 @@ const checkForActiveCall = useCallback(() => {
           }
           callRef.current = incoming
           setActiveCall(incoming)
-          setCallStatus(call.status === 'answered' ? 'connecting' : 'incoming')
+          setCallStatus(call.status === 'answered' ? (isZoomUrl(call.room_url) ? 'in-call' : 'connecting') : 'incoming')
         })
     })
 }, [userId])
@@ -172,7 +173,8 @@ const checkForActiveCall = useCallback(() => {
 
       if (call.status === 'answered') {
         clearMissedTimer()
-        setCallStatus('connecting')
+        // Zoom calls have no "connecting" step on our side: the meeting is already open in Zoom
+        setCallStatus(isZoomUrl(callRef.current?.roomUrl) ? 'in-call' : 'connecting')
         return
       }
 
@@ -274,11 +276,89 @@ const checkForActiveCall = useCallback(() => {
     }
   }, [conversationId, userId, logCallMessage])
 
+    // ── Start a Zoom call ─────────────────────────────────────────────
+  const startZoomCall = useCallback(async (zoomLink, targetConversationId) => {
+    const targetId = targetConversationId || conversationId
+    if (!targetId || !isZoomUrl(zoomLink)) return false
+
+    window.open(zoomLink, '_blank', 'noopener,noreferrer')
+    setCallStatus('calling')
+    setCallError(null)
+
+    try {
+      const { data: row, error } = await supabase
+        .from('active_calls')
+        .insert({
+          conversation_id: targetId,
+          room_name: 'zoom',
+          room_url: zoomLink,
+          call_type: 'video',
+          initiated_by: userId,
+          status: 'ringing',
+        })
+        .select('id')
+        .single()
+      if (error) throw error
+
+      const call = {
+        id: row.id,
+        conversationId: targetId,
+        roomUrl: zoomLink,
+        roomName: 'zoom',
+        callType: 'video',
+        initiatedBy: userId,
+        status: 'ringing',
+      }
+      callRef.current = call
+      setActiveCall(call)
+      setCallToken(null)
+      setCallStatus('calling')
+
+      clearMissedTimer()
+      missedTimerRef.current = setTimeout(async () => {
+        if (callRef.current?.id !== call.id) return
+        const { data: current } = await supabase.from('active_calls').select('status').eq('id', call.id).single()
+        if (current?.status === 'ringing') {
+          await supabase.from('active_calls').update({ status: 'missed', ended_at: new Date().toISOString() }).eq('id', call.id)
+          await logCallMessage(call, 'missed', 0)
+        }
+        setCallStatus('missed')
+        setTimeout(() => {
+          setCallStatus('idle')
+          setActiveCall(null)
+          setCallToken(null)
+          callRef.current = null
+        }, 2500)
+      }, MISSED_CALL_TIMEOUT_MS)
+      return true
+    } catch (err) {
+      setCallError(err.message || 'Could not start the Zoom call')
+      setCallStatus('idle')
+      return false
+    }
+  }, [conversationId, userId, logCallMessage])
   // ── Answer an incoming call ───────────────────────────────────────
   const answerCall = useCallback(async () => {
     const call = callRef.current
     if (!call) return
     clearMissedTimer()
+
+    // Zoom call: open the meeting right now (we're still inside the Answer click, so the
+    // browser allows the window), then tell the caller we picked up.
+    if (isZoomUrl(call.roomUrl)) {
+      window.open(call.roomUrl, '_blank', 'noopener,noreferrer')
+      setCallError(null)
+      setCallToken(null)
+      setCallStatus('in-call')
+      if (call.id) {
+        await supabase
+          .from('active_calls')
+          .update({ status: 'answered', answered_at: new Date().toISOString() })
+          .eq('id', call.id)
+      }
+      return
+    }
+
     setCallStatus('connecting')
     setCallError(null)
 
@@ -369,5 +449,5 @@ const checkForActiveCall = useCallback(() => {
 
   useEffect(() => clearMissedTimer, [])
 
-  return { callStatus, activeCall, callToken, callError, startCall, answerCall, declineCall, endCall }
+  return { callStatus, activeCall, callToken, callError, startCall, startZoomCall, answerCall, declineCall, endCall }
 }
