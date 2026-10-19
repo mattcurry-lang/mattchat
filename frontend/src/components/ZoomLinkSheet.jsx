@@ -50,8 +50,22 @@ export default function ZoomLinkSheet({ initialLink = '', contactName, onSave, o
           </div>
         </div>
 
-        <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.55, margin: '14px 0 10px' }}>
-          Paste your <b style={{ color: C.text }}>Zoom Personal Meeting link</b> once. In Zoom: <b style={{ color: C.text }}>Meetings → Personal Room → Copy invitation link</b>.
+              <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.55, margin: '14px 0 10px' }}>
+          One quick setup: copy your <b style={{ color: C.text }}>Zoom Personal Link</b> and paste it below. Takes about 20 seconds.
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+          <button onClick={() => window.open('https://zoom.us/profile', '_blank', 'noopener,noreferrer')}
+            style={{ flex: 1, height: 40, borderRadius: 12, border: `1px solid ${C.line}`, background: C.surface, color: C.text, fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>
+            1 · Open my Zoom page
+          </button>
+          <button onClick={async () => { try { setValue(await navigator.clipboard.readText()) } catch { inputRef.current?.focus() } }}
+            style={{ flex: 1, height: 40, borderRadius: 12, border: `1px solid ${C.line}`, background: C.surface, color: C.text, fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>
+            2 · Paste copied link
+          </button>
+        </div>
+        <div style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.5, marginBottom: 10 }}>
+          On that page, copy the <b style={{ color: C.text }}>Personal Link</b> (or the invitation link under Personal Meeting ID). Not signed in? Zoom will ask you to log in first.
         </div>
 
         <input ref={inputRef} value={value} onChange={(e) => setValue(e.target.value)} placeholder="https://zoom.us/j/1234567890"
@@ -63,8 +77,7 @@ export default function ZoomLinkSheet({ initialLink = '', contactName, onSave, o
         </div>
 
         <div style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.5, margin: '8px 0 16px', background: C.surface, borderRadius: 12, padding: '10px 12px' }}>
-          Good to know: you start the meeting from your own Zoom account. Free Zoom accounts end each meeting after 40 minutes; paid accounts don’t have that limit.
-          The link stays on this device.
+                    Tip: paste the full link (not just the number), so nobody has to type a passcode. Free Zoom accounts end each meeting after 40 minutes; paid accounts don’t. The link stays on this device.
         </div>
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
