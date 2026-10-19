@@ -88,3 +88,20 @@ export async function addCardToMyTasks(userId, card, { messageId, fromName } = {
   if (error) throw error
   return { added: true, already: false }
 }
+
+// ── readable text for messages that might be cards ───────
+// Reply quotes, the reply bar and Copy would otherwise show raw JSON.
+// Detection is by content, so it works even if a caller doesn't pass message_type.
+export function messagePreviewText(message, max = 80) {
+  const content = message?.content
+  if (typeof content !== 'string') return ''
+  const card = parseEcoCard(content)
+  return (card ? `📌 ${card.title}` : content).slice(0, max)
+}
+
+export function messageCopyText(message) {
+  const content = message?.content
+  if (typeof content !== 'string') return ''
+  const card = parseEcoCard(content)
+  return card ? `📌 ${card.title}${card.dueDate ? ` (due ${card.dueDate})` : ''}` : content
+}
