@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { subscribeToChannel } from '../lib/realtimeManager'
-import { isZoomUrl } from '../lib/zoom'
+import { isZoomUrl, parseZoomLink } from '../lib/zoom'
 
 const FUNCTIONS_BASE = 'https://bqerkvywgxoioocbkxif.supabase.co/functions/v1'
 const MISSED_CALL_TIMEOUT_MS = 30000
@@ -29,6 +29,10 @@ async function fetchCallFn(path, body) {
   return res.json()
 }
 
+// Once the server says automatic Zoom rooms aren't configured, stop asking for the rest of this session.
+const ZOOM_AUTO_KEY = 'mattchat:zoom:autoUnavailable'
+const zoomRoomsUnavailable = () => { try { return sessionStorage.getItem(ZOOM_AUTO_KEY) === '1' } catch { return false } }
+const markZoomRoomsUnavailable = () => { try { sessionStorage.setItem(ZOOM_AUTO_KEY, '1') } catch { /* ignore */ } }
 export function useCall(userId, conversationId) {
   const [callStatus, setCallStatus] = useState('idle')
   const [activeCall, setActiveCall]   = useState(null)
@@ -276,14 +280,48 @@ const checkForActiveCall = useCallback(() => {
     }
   }, [conversationId, userId, logCallMessage])
 
-    // ── Start a Zoom call ─────────────────────────────────────────────
-  const startZoomCall = useCallback(async (zoomLink, targetConversationId) => {
+   // ── Start a Zoom call ─────────────────────────────────────────────
+  // 1) Asks the server for this chat's Zoom room (created automatically, nobody has to find a link).
+  // 2) If the server isn't set up for that, falls back to the caller's own saved Zoom link.
+  // Either way the caller lands in Zoom and the other person is rung through the normal call flow.
+  // Returns 'started' | 'needs-link' (ask the user for a link) | 'failed'.
+  const startZoomCall = useCallback(async (targetConversationId, fallbackLink) => {
     const targetId = targetConversationId || conversationId
-    if (!targetId || !isZoomUrl(zoomLink)) return false
+    if (!targetId) return 'failed'
 
-    window.open(zoomLink, '_blank', 'noopener,noreferrer')
+    // Open a blank tab RIGHT NOW (inside the click) so popup blockers allow it; we point it at Zoom
+    // as soon as we know the link. Without this the browser would block a window opened after a network call.
+    const win = window.open('about:blank', '_blank')
+    try { if (win) win.opener = null } catch { /* ignore */ }
+    const closeWin = () => { try { win?.close() } catch { /* ignore */ } }
+
     setCallStatus('calling')
     setCallError(null)
+
+    let zoomLink = null
+    let serverProblem = null
+    if (!zoomRoomsUnavailable()) {
+      try {
+        const data = await fetchCallFn('create-zoom-room', { conversationId: targetId })
+        if (data?.ok && isZoomUrl(data.joinUrl)) zoomLink = parseZoomLink(data.joinUrl)
+        else if (data?.code === 'not_configured' || data?.code === 'NOT_FOUND') markZoomRoomsUnavailable()   // not set up / not deployed yet -> use personal link
+        else serverProblem = data?.error || 'Zoom could not set up the call'
+      } catch (e) {
+        serverProblem = 'Could not reach the server'
+      }
+    }
+
+    if (!zoomLink && isZoomUrl(fallbackLink)) zoomLink = parseZoomLink(fallbackLink)
+
+    if (!zoomLink) {
+      closeWin()
+      setCallStatus('idle')
+      if (serverProblem) { setCallError(serverProblem); return 'failed' }
+      return 'needs-link'
+    }
+
+    if (win) win.location.href = zoomLink
+    else window.open(zoomLink, '_blank', 'noopener,noreferrer')
 
     try {
       const { data: row, error } = await supabase
@@ -330,11 +368,11 @@ const checkForActiveCall = useCallback(() => {
           callRef.current = null
         }, 2500)
       }, MISSED_CALL_TIMEOUT_MS)
-      return true
+      return 'started'
     } catch (err) {
       setCallError(err.message || 'Could not start the Zoom call')
       setCallStatus('idle')
-      return false
+      return 'failed'
     }
   }, [conversationId, userId, logCallMessage])
   // ── Answer an incoming call ───────────────────────────────────────
