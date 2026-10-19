@@ -18,6 +18,7 @@ export * from './registry'
 export * from './bus'
 export * from './flows'
 export { processEvent, catchUp } from './flowEngine'
+export * from './suggestions'
 
 // Optional console access for testing. Enable once with:
 //   localStorage.setItem('eco_debug', '1')   then reload
