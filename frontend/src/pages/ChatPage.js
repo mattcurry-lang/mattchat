@@ -1332,7 +1332,7 @@ const { isOnline, getLastSeenLabel, getPresenceStatus } = usePresence(userId)
   profile?.username
 )
 
-  const { callStatus, activeCall, callToken, callError, startCall, answerCall, declineCall, endCall } =
+  const { callStatus, activeCall, callToken, callError, startCall, startZoomCall, answerCall, declineCall, endCall } =
     useCall(userId, activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null)
 
   useRingtone(['calling', 'ringing'].includes(callStatus), 'ringback')
