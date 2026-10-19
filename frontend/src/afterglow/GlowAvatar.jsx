@@ -11,7 +11,7 @@ import './afterglow.css'
  *   slow comet arc = they posted a note
  *   small dot      = online right now
  */
-export default function GlowAvatar({ name, photoUrl, size = 48, hue = 258, warmth = 0.1, unread = 0, online = false, spark = false, children }) {
+export default function GlowAvatar({ name, photoUrl, size = 48, hue = 258, warmth = 0.1, unread = 0, online = false, spark = false, inner = null, children }) {
   const outer = size + 10
   return (
     <div
@@ -21,7 +21,7 @@ export default function GlowAvatar({ name, photoUrl, size = 48, hue = 258, warmt
     >
       <span className="ag-ring-arc" aria-hidden="true" />
       <div className="ag-ring-inner" style={{ width: size, height: size }}>
-        <Avatar name={name} size={size} online={false} photoUrl={photoUrl} />
+        {inner ?? <Avatar name={name} size={size} online={false} photoUrl={photoUrl} />}
       </div>
       {online && <span className="ag-dot" aria-label="Online" />}
       {children}

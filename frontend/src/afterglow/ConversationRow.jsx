@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react'
 import GlowAvatar from './GlowAvatar'
+import RowSheet from './RowSheet'
 import { convoHue, warmthOf, isNoteActive, freshNote } from './warmth'
 import { useMinuteTick } from './useAfterglow'
 import { IconStar, IconTrash } from '../components/Icons'
@@ -30,13 +31,14 @@ export default function ConversationRow({
     setFlash(true)
     setTimeout(() => setFlash(false), 1400)
   }
+  const [sheetOpen, setSheetOpen] = useState(false)
   const startPress = (e) => {
     if (e.pointerType === 'mouse') return
     press.current.fired = false
     press.current.timer = setTimeout(() => {
       press.current.fired = true
       try { navigator.vibrate?.(12) } catch {}
-      toggle()
+      setSheetOpen(true)
     }, 550)
   }
   const endPress = () => clearTimeout(press.current.timer)
@@ -52,6 +54,7 @@ export default function ConversationRow({
       }}
       onKeyDown={(e) => { if (e.key === 'Enter') onOpen?.() }}
       onPointerDown={startPress} onPointerUp={endPress} onPointerLeave={endPress} onPointerCancel={endPress}
+      onContextMenu={(e) => { e.preventDefault(); setSheetOpen(true) }}
     >
       <GlowAvatar name={name} photoUrl={photoUrl} hue={hue} warmth={warmth} unread={unread} online={online} spark={spark}>
         {avatarExtras}
@@ -84,6 +87,7 @@ export default function ConversationRow({
           </button>
         </div>
       </div>
+      <RowSheet open={sheetOpen} name={name} isClose={isClose} onClose={() => setSheetOpen(false)} onToggleClose={toggle} onDelete={onDelete} />
     </div>
   )
 }

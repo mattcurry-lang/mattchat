@@ -57,7 +57,9 @@ export default function ResumeHome({ chats = [], userName, tiles = [], onNewChat
             <GlowAvatar name={top.name} photoUrl={top.photoUrl} size={68} hue={hue} warmth={top.warmth} unread={top.unread} online={top.online} spark={false} />
             <div className="ag-resume-body">
               <div className="ag-resume-name">{top.name}</div>
-              <div className={`ag-resume-status${top.unread > 0 || top.typing ? ' hot' : ''}`}>{describe(top)}</div>
+              {(top.unread > 0 || top.typing || top.online || !top.preview) && (
+                <div className={`ag-resume-status${top.unread > 0 || top.typing ? ' hot' : ''}`}>{describe(top)}</div>
+              )}
               {top.preview && <div className="ag-resume-preview">{top.preview}</div>}
             </div>
             <span className="ag-resume-go">Continue<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></span>
