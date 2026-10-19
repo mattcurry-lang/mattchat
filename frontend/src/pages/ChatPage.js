@@ -1341,10 +1341,10 @@ const { isOnline, getLastSeenLabel, getPresenceStatus } = usePresence(userId)
   // Zoom calls: first time asks for your Zoom link; after that it's one tap.
   // The call starts synchronously inside the click so the browser lets Zoom open.
   const [zoomSheet, setZoomSheet] = useState(null)   // { conversationId, name, edit? }
-  const handleZoomCall = (conversationId, name) => {
-    const link = getMyZoomLink(userId)
-    if (!link) { setZoomSheet({ conversationId, name }); return }
-    startZoomCall(link, conversationId)
+  const handleZoomCall = async (conversationId, name) => {
+    // Tries the automatic room first; only asks for a link if automatic rooms aren't set up and none is saved.
+    const result = await startZoomCall(conversationId, getMyZoomLink(userId))
+    if (result === 'needs-link') setZoomSheet({ conversationId, name })
   }
   const { conversations, loading: convLoading, reload } = useConversations(userId)
   const publicExtras = usePublicProfiles([
@@ -2239,7 +2239,7 @@ const handleSignOut = async () => {
             const saved = saveMyZoomLink(userId, link)
             const target = zoomSheet.conversationId
             setZoomSheet(null)
-            if (saved) startZoomCall(saved, target)
+                       if (saved) startZoomCall(target, saved)
           }}
         />
       )}
