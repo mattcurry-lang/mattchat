@@ -14,7 +14,8 @@ import {
   getAllEcosystemApps, getEcosystemApp, getEventDefinition, getActionDefinition,
   listAllEvents, listAllActions, describeScopes,
   getConnections, connectApp, disconnectApp,
-  listFlows, createFlow, setFlowEnabled, deleteFlow, listRuns,
+  listFlows, createFlow, setFlowEnabled, deleteFlow, listRuns, parseSenderFilter,
+  loadSignals, buildSuggestions, flowsNeedingAttention, loadDismissed, dismissSuggestion, MIN_FAILED_RUNS,
 } from '../../lib/ecosystem'
 
 const APP_COLORS = { mattchat: '#7c3aed', tasks: '#0ea5e9', gmail: '#ea4335', google_calendar: '#1a73e8' }
@@ -40,6 +41,12 @@ const TEMPLATES = [
     actionParams: { title: '{{title}}', dueDate: '{{dueDate}}', messageId: '{{messageId}}', senderName: '{{senderName}}' },
   },
   {
+    id: 'email-task', title: 'Turn emails from a sender into tasks',
+    desc: 'New emails from the sender or domain you choose are added to your tasks as pending, for you to confirm. Only the sender and subject are used.',
+    triggerEvent: 'email.received', actionType: 'task.from_email', needsSender: true,
+    actionParams: { title: '{{subject}}', emailId: '{{emailId}}', senderName: '{{senderName}}' },
+  },
+  {
     id: 'announce-done', title: 'Tell a chat when I finish a task',
     desc: 'Posts a short note in the chat you choose.',
     triggerEvent: 'task.completed', actionType: 'message.send', needsChat: true,
@@ -48,6 +55,10 @@ const TEMPLATES = [
 ]
 
 // ── helpers ──────────────────────────────────────────────
+function senderLabel(filter) {
+  return filter?.senderEmail || filter?.senderDomain || ''
+}
+
 function timeAgo(iso) {
   const s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000))
   if (s < 60) return 'just now'
@@ -108,6 +119,7 @@ export default function EcosystemHub({ userId, conversations = [], onClose, onOp
   const [builder, setBuilder] = useState(false)
   const [consent, setConsent] = useState(null)      // { spec, apps, lines }
   const [pickChat, setPickChat] = useState(null)    // { template }
+  const [pickSender, setPickSender] = useState(null) // { template }
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -127,6 +139,15 @@ export default function EcosystemHub({ userId, conversations = [], onClose, onOp
   }, [userId])
 
   useEffect(() => { refresh() }, [refresh])
+
+  // Personal suggestions: simple rules over your own tasks and cards (see suggestions.js)
+  const [signals, setSignals] = useState(null)
+  const [dismissed, setDismissed] = useState(() => loadDismissed(userId))
+  useEffect(() => {
+    let live = true
+    loadSignals(userId).then((sg) => { if (live) setSignals(sg) }).catch(() => {})
+    return () => { live = false }
+  }, [userId])
 
   // Live updates while the Hub is open: runs appear as the engine works.
   useEffect(() => {
@@ -165,7 +186,12 @@ export default function EcosystemHub({ userId, conversations = [], onClose, onOp
     const adds = act.action.id === 'task.create'
     if (adds) lines.push(`Task cards shared in ${chatName(spec.triggerFilter?.conversationId)} will be added to your tasks as pending. Anyone in that chat can add tasks to your list this way, and you confirm each one`)
 
-    if (!missing.length && !sends && !adds) { commit(spec, []); return }
+    const emailTasks = act.action.id === 'task.from_email'
+    const from = senderLabel(spec.triggerFilter)
+    if (emailTasks) lines.push(`New emails from ${from} will be added to your tasks as pending, using the email's subject, and you confirm each one`)
+    if (sends && spec.triggerEvent === 'email.received') lines.push(`The sender and subject of new emails from ${from} will be posted in ${chatName(spec.actionParams.conversationId)}`)
+
+    if (!missing.length && !sends && !adds && !emailTasks) { commit(spec, []); return }
     setConsent({ spec, apps: missing, lines })
   }
 
@@ -195,10 +221,10 @@ export default function EcosystemHub({ userId, conversations = [], onClose, onOp
     }
   }
 
-  const turnOnTemplate = (tpl, conversationId) => {
+  const turnOnTemplate = (tpl, conversationId, senderFilter) => {
     requestFlow({
       name: tpl.title, triggerEvent: tpl.triggerEvent, actionType: tpl.actionType,
-      triggerFilter: tpl.filterChat && conversationId ? { conversationId } : {},
+      triggerFilter: senderFilter || (tpl.filterChat && conversationId ? { conversationId } : {}),
       actionParams: !tpl.filterChat && conversationId ? { ...tpl.actionParams, conversationId } : tpl.actionParams,
     })
   }
@@ -219,7 +245,10 @@ export default function EcosystemHub({ userId, conversations = [], onClose, onOp
   }
 
   const usedTemplateIds = new Set(flows.map((f) => `${f.trigger_event}|${f.action_type}`))
-  const suggestions = TEMPLATES.filter((t) => !usedTemplateIds.has(`${t.triggerEvent}|${t.actionType}`) || t.needsChat)
+  const personal = signals ? buildSuggestions({ signals, flows, conversations }).filter((sg) => !dismissed.has(sg.id)) : []
+  const attention = flowsNeedingAttention(flows, runs)
+  const personalTemplateIds = new Set(personal.map((sg) => sg.templateId))
+  const suggestions = TEMPLATES.filter((t) => (!usedTemplateIds.has(`${t.triggerEvent}|${t.actionType}`) || t.needsChat) && !personalTemplateIds.has(t.id))
 
   return (
     <div className="eh-root" style={{ zIndex: Z.panel }} role="dialog" aria-label="Ecosystem">
@@ -249,9 +278,49 @@ export default function EcosystemHub({ userId, conversations = [], onClose, onOp
         {/* ───────── FLOWS ───────── */}
         {!loading && tab === 'flows' && (
           <>
+            {attention.length > 0 && (
+              <section>
+                <h2 className="eh-h2">Needs attention</h2>
+                <ul className="eh-list">
+                  {attention.map(({ flow, lastRun }) => (
+                    <li key={flow.id} className="eh-card eh-col">
+                      <div className="eh-name">{flow.name}</div>
+                      <div className="eh-muted">Its last {MIN_FAILED_RUNS} runs didn’t finish. Latest: {describeRun(lastRun).text}</div>
+                      <div className="eh-row">
+                        <button type="button" className="eh-link" onClick={() => setTab('activity')}>See activity</button>
+                        <button type="button" className="eh-link eh-danger" onClick={() => toggleFlow(flow, false)}>Turn off</button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {personal.length > 0 && (
+              <section>
+                <h2 className="eh-h2">Suggested for you</h2>
+                <p className="eh-muted eh-pad">Based on how you use tasks and task cards. These never read your emails or message text.</p>
+                <ul className="eh-list">
+                  {personal.map((sg) => (
+                    <li key={sg.id} className="eh-card eh-col">
+                      <div className="eh-name">{sg.title}</div>
+                      <div className="eh-muted">{sg.reason}</div>
+                      <div className="eh-row">
+                        <button type="button" className="eh-link" onClick={() => setDismissed(dismissSuggestion(userId, sg.id))}>Not now</button>
+                        <button type="button" className="eh-btn" disabled={busy}
+                          onClick={() => turnOnTemplate(TEMPLATES.find((t) => t.id === sg.templateId), sg.conversationId)}>
+                          Turn on
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
             {suggestions.length > 0 && (
               <section>
-                <h2 className="eh-h2">Suggested</h2>
+                <h2 className="eh-h2">Ideas</h2>
                 <ul className="eh-list">
                   {suggestions.map((t) => {
                     const trig = getEventDefinition(t.triggerEvent); const act = getActionDefinition(t.actionType)
@@ -265,7 +334,7 @@ export default function EcosystemHub({ userId, conversations = [], onClose, onOp
                           <div className="eh-muted">{t.desc}</div>
                         </div>
                         <button type="button" className="eh-btn" disabled={busy}
-                          onClick={() => (t.needsChat ? setPickChat({ template: t }) : turnOnTemplate(t))}>
+                          onClick={() => (t.needsSender ? setPickSender({ template: t }) : t.needsChat ? setPickChat({ template: t }) : turnOnTemplate(t))}>
                           Turn on
                         </button>
                       </li>
@@ -294,7 +363,7 @@ export default function EcosystemHub({ userId, conversations = [], onClose, onOp
                           <div className="eh-name eh-grow">{f.name}</div>
                           <Switch on={f.enabled} label={`${f.name} on or off`} onChange={(v) => toggleFlow(f, v)} />
                         </div>
-                        <div className="eh-muted"><b>When</b> {when}{f.trigger_filter?.conversationId ? ` in ${chatName(f.trigger_filter.conversationId)}` : ''}</div>
+                        <div className="eh-muted"><b>When</b> {when}{f.trigger_filter?.conversationId ? ` in ${chatName(f.trigger_filter.conversationId)}` : ''}{senderLabel(f.trigger_filter) ? ` from ${senderLabel(f.trigger_filter)}` : ''}</div>
                         <div className="eh-muted"><b>Then</b> {then}{f.action_params?.conversationId ? ` in ${chatName(f.action_params.conversationId)}` : ''}</div>
                         <div className="eh-row">
                           <span className={`eh-chip ${lr ? `t-${lr.tone}` : 't-idle'}`}>{lr ? `${lr.text} · ${timeAgo(last.created_at)}` : 'Hasn’t run yet'}</span>
@@ -389,6 +458,12 @@ export default function EcosystemHub({ userId, conversations = [], onClose, onOp
         </Sheet>
       )}
 
+      {/* ───────── choose a sender ───────── */}
+      {pickSender && (
+        <SenderSheet onClose={() => setPickSender(null)}
+          onPick={(filter) => { const t = pickSender.template; setPickSender(null); turnOnTemplate(t, null, filter) }} />
+      )}
+
       {/* ───────── consent ───────── */}
       {consent && (
         <Sheet title="Allow this flow?" onClose={() => !busy && setConsent(null)}>
@@ -423,6 +498,28 @@ function Sheet({ title, onClose, children }) {
   )
 }
 
+function SenderSheet({ onClose, onPick }) {
+  const [value, setValue] = useState('')
+  const [error, setError] = useState('')
+  const submit = () => {
+    const filter = parseSenderFilter(value)
+    if (!filter) return setError('Enter an email address like igs@dkut.ac.ke, or a domain like dkut.ac.ke.')
+    onPick(filter)
+  }
+  return (
+    <Sheet title="Which sender?" onClose={onClose}>
+      <p className="eh-muted">Only new emails from this address or domain will be used. Nothing else in your inbox is touched.</p>
+      <input className="eh-input" aria-label="Sender or domain" placeholder="igs@dkut.ac.ke or dkut.ac.ke" value={value}
+        onChange={(e) => setValue(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submit() }} autoFocus />
+      {error && <p className="eh-error" role="alert">{error}</p>}
+      <div className="eh-actions">
+        <button type="button" className="eh-btn eh-ghost" onClick={onClose}>Cancel</button>
+        <button type="button" className="eh-btn" onClick={submit}>Continue</button>
+      </div>
+    </Sheet>
+  )
+}
+
 // ── flow builder: "When ___ then ___" ────────────────────
 function Builder({ conversations, onClose, onSubmit }) {
   const events = useMemo(() => listAllEvents(), [])
@@ -432,6 +529,7 @@ function Builder({ conversations, onClose, onSubmit }) {
   const [name, setName] = useState('')
   const [values, setValues] = useState({ text: '🤖 ' })
   const [filterChat, setFilterChat] = useState('')
+  const [senderText, setSenderText] = useState('')
   const [error, setError] = useState('')
 
   const trig = getEventDefinition(trigger)
@@ -441,6 +539,7 @@ function Builder({ conversations, onClose, onSubmit }) {
   const taskMismatch = needsTask && !fields.includes('taskId')
   const canFilterChat = fields.includes('conversationId')
   const mustFilterChat = trigger === 'card.received' && action === 'task.create'
+  const needsSender = fields.includes('senderEmail')
   // Inputs the trigger already provides (title, dueDate...) are filled in automatically.
   const autoKeys = (act?.action.params || []).filter((p) => !['taskId', 'conversationId', 'text'].includes(p.key) && fields.includes(p.key)).map((p) => p.key)
   const set = (k, v) => setValues((s) => ({ ...s, [k]: v }))
@@ -450,13 +549,15 @@ function Builder({ conversations, onClose, onSubmit }) {
     if (!trig || !act) return setError('Pick a trigger and an action.')
     if (taskMismatch) return setError('That action needs a task, but the trigger isn’t about a task.')
     if (mustFilterChat && !filterChat) return setError('Choose which chat these cards may come from.')
+    const senderFilter = needsSender ? parseSenderFilter(senderText) : null
+    if (needsSender && !senderFilter) return setError('Enter the sender’s email address (igs@dkut.ac.ke) or domain (dkut.ac.ke).')
     const actionParams = {}
     for (const p of act.action.params) {
       const v = p.key === 'taskId' ? '{{taskId}}' : autoKeys.includes(p.key) ? `{{${p.key}}}` : (values[p.key] || '').trim()
       if (p.required && !v) return setError(`Please fill in: ${p.label}`)
       if (v) actionParams[p.key] = v
     }
-    onSubmit({ name: name.trim(), triggerEvent: trigger, triggerFilter: canFilterChat && filterChat ? { conversationId: filterChat } : {}, actionType: action, actionParams })
+    onSubmit({ name: name.trim(), triggerEvent: trigger, triggerFilter: senderFilter || (canFilterChat && filterChat ? { conversationId: filterChat } : {}), actionType: action, actionParams })
   }
 
   return (
@@ -469,6 +570,11 @@ function Builder({ conversations, onClose, onSubmit }) {
           {events.map(({ app, event }) => <option key={event.type} value={event.type}>{app.name}: {event.label}</option>)}
         </select>
       </label>
+      {needsSender && (
+        <label className="eh-label">Only emails from this sender or domain
+          <input className="eh-input" value={senderText} placeholder="igs@dkut.ac.ke or dkut.ac.ke" onChange={(e) => setSenderText(e.target.value)} />
+        </label>
+      )}
       {canFilterChat && (
         <label className="eh-label">{mustFilterChat ? 'Only from this chat' : 'Only from this chat (optional)'}
           <select className="eh-input" value={filterChat} onChange={(e) => setFilterChat(e.target.value)}>
