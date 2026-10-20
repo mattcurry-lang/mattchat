@@ -49,7 +49,7 @@ import QuickActionsMenu from '../components/QuickActionsMenu'
 import AskCurry from '../components/Pulse/AskCurry'
 import MessageActionsMenu, { useMessageLongPress } from '../components/MessageActionsMenu'
 import SmartCollections, { useConvoTags, filterByCollection } from '../components/SmartCollections'
-import { ConversationRow, LensBar, LensEmpty, TimeRail, Capsule, ResumeHome, buildTrayItems, rankByWarmth, applyLens, convoHue, groupPosition, flashMessage, isAfterglowEnabled, useCloseCircle, useLensSwipe } from '../afterglow'
+import { ConversationRow, CurryRow, LensBar, LensEmpty, TimeRail, Capsule, ResumeHome, buildTrayItems, rankByWarmth, applyLens, convoHue, groupPosition, flashMessage, isAfterglowEnabled, useCloseCircle, useLensSwipe } from '../afterglow'
 import SmartReplyPreview, { useSmartReplyCache } from '../components/SmartReplyPreview'
 import RelationshipInsights from '../components/RelationshipInsights'
 import TodaysTimeline from '../components/TodaysTimeline'
@@ -2428,7 +2428,10 @@ const handleSignOut = async () => {
                 className={`contact-list${afterglowOn ? ' ag-list-enter' : ''}`}
                 {...(afterglowOn ? lensSwipe : {})}
               >
-                {listFilter === 'all' && (
+       {listFilter === 'all' && afterglowOn && (
+                  <CurryRow active={!!activeConvo?.isCurryAI} onOpen={() => setActiveConvo(CURRY_AI_CONTACT)} />
+                )}
+                {listFilter === 'all' && !afterglowOn && (
                   <div className={`contact ${activeConvo?.isCurryAI ? 'active' : ''}`} onClick={() => setActiveConvo(CURRY_AI_CONTACT)}>
 <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconSparkle size={20} style={{ color: '#fff' }} /></div>
                     <div className="contact-info">
