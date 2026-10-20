@@ -49,6 +49,7 @@ import QuickActionsMenu from '../components/QuickActionsMenu'
 import AskCurry from '../components/Pulse/AskCurry'
 import MessageActionsMenu, { useMessageLongPress } from '../components/MessageActionsMenu'
 import SmartCollections, { useConvoTags, filterByCollection } from '../components/SmartCollections'
+import SmartReplyPreview, { useSmartReplyCache } from '../components/SmartReplyPreview'
 import { ConversationRow, CurryRow, LensBar, LensEmpty, TimeRail, Capsule, ResumeHome, buildTrayItems, rankByWarmth, applyLens, convoHue, groupPosition, flashMessage, isAfterglowEnabled, useCloseCircle, useLensSwipe, useArrivals } from '../afterglow'
 import RelationshipInsights from '../components/RelationshipInsights'
 import TodaysTimeline from '../components/TodaysTimeline'
@@ -1389,6 +1390,7 @@ const listState = useConversationListState({
   activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
   userId
 )
+   const arrivals = useArrivals(messages, activeConvo?.id, msgLoading)
   const { readMap, deliveredMap } = useMessageStatus(
     messages,
     activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
