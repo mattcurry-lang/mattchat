@@ -25,7 +25,7 @@
 .ag-chat .msg-bubble a { color: hsl(var(--ag-h) 100% 86%); text-decoration: underline; text-underline-offset: 2px; }
 
 .ag-chat .msg-row.mine .msg-bubble {
-  background: linear-gradient(135deg, hsl(var(--ag-h) 62% 41%), hsl(calc(var(--ag-h) + 24) 66% 34%));
+  background: linear-gradient(135deg, hsl(var(--ag-h) 62% 31%), hsl(calc(var(--ag-h) + 24) 66% 27%));
   border-color: hsl(var(--ag-h) 90% 80% / 0.28);
   color: #fff;
   box-shadow: 0 6px 20px hsl(var(--ag-h) 70% 30% / 0.35), 0 1px 0 hsl(var(--ag-h) 100% 90% / 0.2) inset;
@@ -112,3 +112,25 @@
 @media (prefers-reduced-motion: reduce) {
   .ag-chat .msg-wrap.ag-jump-flash .msg-bubble { animation: none; }
 }
+
+/* ───────────── special message cards take the conversation's tint ─────────────
+   Voice, poll, task, media, location, contact, eco cards, music… are each styled
+   separately (mostly inline), but they all read these shared variables. Setting
+   them on the message row tints every card — present and future — at once.
+   The sender name, time and status don't read them, so they're unaffected. */
+.ag-chat .msg-row {
+  --bg-surface-1: hsl(var(--ag-h) 30% 15% / 0.94);
+  --bg-surface-2: hsl(var(--ag-h) 28% 22% / 0.78);
+  --surface-card: hsl(var(--ag-h) 40% 55% / 0.14);
+  --border: hsl(var(--ag-h) 50% 72% / 0.22);
+  --text-primary: #f3f1ff;
+  --text-secondary: rgba(255, 255, 255, 0.76);
+  --text-muted: rgba(255, 255, 255, 0.58);
+}
+
+/* ───────────── new messages arrive with a small spring ───────────── */
+@keyframes agArriveMine   { from { opacity: 0; transform: translate(16px, 12px) scale(0.95); } to { opacity: 1; transform: none; } }
+@keyframes agArriveTheirs { from { opacity: 0; transform: translate(-16px, 12px) scale(0.95); } to { opacity: 1; transform: none; } }
+.ag-chat .msg-wrap.ag-arrive.mine   { animation: agArriveMine 0.42s cubic-bezier(0.2, 0.9, 0.25, 1.12); }
+.ag-chat .msg-wrap.ag-arrive.theirs { animation: agArriveTheirs 0.42s cubic-bezier(0.2, 0.9, 0.25, 1.12); }
+@media (prefers-reduced-motion: reduce) { .ag-chat .msg-wrap.ag-arrive { animation: none; } }

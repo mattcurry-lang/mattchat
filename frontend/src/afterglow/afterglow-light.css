@@ -1,0 +1,55 @@
+/* ───────────────────────── Afterglow · light theme ─────────────────────────
+   Afterglow was drawn on dark. Anything that sits directly on the app's
+   background (not on dark glass) needs different colors in light mode, or it
+   disappears. Dark-glass surfaces — pebbles, capsule, tray, resume card, sheet —
+   are the same in both themes. Every color here is checked for contrast
+   (see the test in the repo notes): body text >= 4.5:1, large/bold >= 3:1. */
+
+/* ── chat list ── */
+[data-theme="light"] .ag-has-unread .ag-name-text,
+[data-theme="light"] .ag-row.active .contact-name { color: var(--dark-text); }
+[data-theme="light"] .ag-close-mark,
+[data-theme="light"] .ag-act.on { color: hsl(var(--ag-h) 62% 31%); }
+[data-theme="light"] .ag-act { color: var(--dark-text-2); }
+[data-theme="light"] .ag-act:hover { color: var(--dark-text); background: var(--chip-bg-hover); }
+[data-theme="light"] .ag-time.warm,
+[data-theme="light"] .ag-time.flash { color: hsl(var(--ag-h) 62% 30%); }
+[data-theme="light"] .ag-note { color: hsl(var(--ag-h) 55% 30%); }
+[data-theme="light"] .ag-note-tag { background: hsl(var(--ag-h) 70% 50% / 0.16); color: hsl(var(--ag-h) 60% 28%); }
+[data-theme="light"] .ag-curry-name { color: #6d28d9; }
+
+/* ── lens ── */
+[data-theme="light"] .ag-lens-track { background: var(--chip-bg); border-color: var(--dark-border); }
+[data-theme="light"] .ag-lens-btn { color: var(--dark-text-2); }
+[data-theme="light"] .ag-lens-btn.on { color: #fff; }
+[data-theme="light"] .ag-lens-pill { background: linear-gradient(135deg, #6d4fe8, #5557e6); box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35); }
+[data-theme="light"] .ag-lens-count { background: var(--chip-bg-hover); color: inherit; }
+[data-theme="light"] .ag-lens-btn.on .ag-lens-count { background: rgba(255, 255, 255, 0.25); color: #fff; }
+[data-theme="light"] .ag-more { background: var(--chip-bg); border-color: var(--dark-border); color: var(--dark-text-2); }
+[data-theme="light"] .ag-more:hover,
+[data-theme="light"] .ag-more.on { background: var(--chip-bg-hover); color: var(--dark-text); }
+
+/* ── chat room ── */
+[data-theme="light"] .ag-chat .msg-time { color: rgba(17, 24, 39, 0.7); }
+[data-theme="light"] .ag-chat .date-divider { color: rgba(17, 24, 39, 0.7); }
+[data-theme="light"] .ag-chat .date-divider::before,
+[data-theme="light"] .ag-chat .date-divider::after { background: linear-gradient(90deg, transparent, rgba(17, 24, 39, 0.2)); }
+[data-theme="light"] .ag-chat .msg-bubble { background: hsl(var(--ag-h) 32% 22% / 0.92); }
+[data-theme="light"] .ag-rail-line { background: rgba(17, 24, 39, 0.16); }
+[data-theme="light"] .ag-rail-tick { background: rgba(17, 24, 39, 0.38); }
+
+/* ── composer (dark glass in both themes; just make it a bit more solid on light) ── */
+[data-theme="light"] .ag-capsule-glass { background: rgba(24, 21, 44, 0.92); }
+
+/* ── desktop home ── */
+[data-theme="light"] .ag-home-hello b { color: hsl(var(--ag-h) 62% 36%); }
+[data-theme="light"] .ag-section-label { color: var(--dark-text-2); }
+[data-theme="light"] .ag-alive-name,
+[data-theme="light"] .ag-home-tile-label { color: var(--dark-text); }
+[data-theme="light"] .ag-home-tile-ico { background: var(--chip-bg); border-color: var(--dark-border); color: hsl(var(--ag-h) 60% 34%); }
+[data-theme="light"] .ag-home-tile:hover .ag-home-tile-ico { background: hsl(var(--ag-h) 70% 55% / 0.16); }
+[data-theme="light"] .ag-home-tile-badge { border-color: var(--dark-bg); }
+[data-theme="light"] .ag-resume { background: linear-gradient(135deg, hsl(var(--ag-h) 45% 24% / 0.94), hsl(calc(var(--ag-h) + 30) 40% 18% / 0.92)); }
+[data-theme="light"] .ag-resume-status { color: rgba(255, 255, 255, 0.82); }
+[data-theme="light"] .ag-resume-status.hot { color: hsl(var(--ag-h) 95% 84%); }
+[data-theme="light"] .ag-empty-orb { box-shadow: 0 0 24px rgba(139, 92, 246, 0.25); }
