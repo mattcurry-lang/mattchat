@@ -49,7 +49,7 @@ import QuickActionsMenu from '../components/QuickActionsMenu'
 import AskCurry from '../components/Pulse/AskCurry'
 import MessageActionsMenu, { useMessageLongPress } from '../components/MessageActionsMenu'
 import SmartCollections, { useConvoTags, filterByCollection } from '../components/SmartCollections'
-import { ConversationRow, CurryRow, LensBar, LensEmpty, TimeRail, Capsule, ResumeHome, buildTrayItems, rankByWarmth, applyLens, convoHue, groupPosition, flashMessage, isAfterglowEnabled, useCloseCircle, useLensSwipe } from '../afterglow'
+import { ConversationRow, LensBar, LensEmpty, TimeRail, Capsule, ResumeHome, buildTrayItems, rankByWarmth, applyLens, convoHue, groupPosition, flashMessage, isAfterglowEnabled, useCloseCircle, useLensSwipe, useArrivals } from '../afterglow'
 import SmartReplyPreview, { useSmartReplyCache } from '../components/SmartReplyPreview'
 import RelationshipInsights from '../components/RelationshipInsights'
 import TodaysTimeline from '../components/TodaysTimeline'
@@ -3314,7 +3314,7 @@ onCurryAssistant={() => setShowCurryAssistant(v => !v)}
                     {showDate && <DateDivider date={msg.created_at} />}
                     <div
                       ref={el => (msgRefs.current[msg.id] = el)}
-                      className={`msg-wrap ${wrapClass}${afterglowOn && wrapClass !== 'system' ? ' ' + groupPosition(prev, msg, visibleMessages[i + 1]) : ''}`}
+                                className={`msg-wrap ${wrapClass}${afterglowOn && wrapClass !== 'system' ? ' ' + groupPosition(prev, msg, visibleMessages[i + 1]) : ''}${afterglowOn && arrivals.has(msg.id) ? ' ag-arrive' : ''}`}
                       onContextMenu={e => {
                         if (!isCurryMsg) {
                           e.preventDefault()
