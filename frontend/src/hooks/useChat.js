@@ -11,6 +11,7 @@ import {
 } from '../services/MediaAssetService'
 import { uploadManager } from '../services/UploadManager'
 import { isOnlineNow } from '../lib/connectivity'
+import { getSetting } from '../lib/appearanceStore'
 import { cacheMessages, getCachedMessages, addToOutbox, getOutbox, flushOutbox, cacheConversations, getCachedConversations } from '../lib/offlineStore'
 
 const toQueuedBubble = (o) => ({
@@ -150,6 +151,7 @@ useEffect(() => {
             }))
           } else if (type === 'typing') {
             if (payload.user_id === currentUserId) return
+            if (!getSetting('typing')) return // my typing indicator is off: I don't see anyone's either
             setTyping(prev => {
               if (payload.is_typing) return prev.includes(payload.user_id) ? prev : [...prev, payload.user_id]
               return prev.filter(id => id !== payload.user_id)
@@ -563,6 +565,9 @@ if (!isOnlineNow()) { await queueIt(); return }
   }, [conversationId])
 
   const broadcastTyping = useCallback((isTyping) => {
+    // Typing indicator off: never announce that I'm typing. (Stopping is always allowed, so nothing gets stuck.)
+    if (isTyping && !getSetting('typing')) return
+
     if (channelKey) {
       getChannel(channelKey)?.send({
         type: 'broadcast', event: 'typing',
