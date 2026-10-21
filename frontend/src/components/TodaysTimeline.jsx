@@ -11,7 +11,7 @@ import { supabase } from '../lib/supabase'
 // covers things the brief card doesn't: unread count, conversations
 // active today, pending scheduled messages, and chats shared with Curry.
 
-export default function TodaysTimeline({ userId, totalUnread, conversations, sharedConvoIds }) {
+export default function TodaysTimeline({ userId, totalUnread, conversations, sharedConvoIds, inline = false }) {
   const [scheduledCount, setScheduledCount] = useState(0)
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
@@ -51,6 +51,45 @@ export default function TodaysTimeline({ userId, totalUnread, conversations, sha
   if (sharedConvoIds?.size > 0) items.push({ icon: '✨', text: `${sharedConvoIds.size} chat${sharedConvoIds.size === 1 ? '' : 's'} shared with Curry` })
 
   if (items.length === 0) return null
+
+    if (inline) {
+    // Header version: a normal icon button inside the glass action pill, with its count and a glass dropdown.
+    return (
+      <div ref={wrapRef} style={{ position: 'relative' }}>
+        <button
+          className={`mc-act${open ? ' is-active' : ''}`}
+          onClick={() => setOpen(v => !v)}
+          aria-label={`Today's Brief, ${items.length} update${items.length === 1 ? '' : 's'}`}
+          aria-expanded={open}
+          title="Today's Brief"
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <rect x="5" y="4" width="14" height="17" rx="3" /><path d="M9 4.5V3h6v1.5" /><path d="m9 13 2 2 4-4" />
+          </svg>
+          <span style={{
+            position: 'absolute', top: 1, right: 1, minWidth: 16, height: 16, padding: '0 4px', borderRadius: 999, boxSizing: 'border-box',
+            background: 'linear-gradient(135deg,#6c63ff,#f093fb)', color: '#fff', fontSize: 9.5, fontWeight: 800,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 0 2px var(--mc-cluster-bg, #1c1830)',
+          }}>{items.length}</span>
+        </button>
+        {open && (
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 10px)', right: -6, width: 250, zIndex: 60, padding: '12px 14px',
+            background: 'rgba(24,20,44,0.94)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 18,
+            WebkitBackdropFilter: 'blur(18px) saturate(170%)', backdropFilter: 'blur(18px) saturate(170%)',
+            boxShadow: '0 24px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12)', display: 'flex', flexDirection: 'column', gap: 8,
+          }}>
+            <div style={s.panelTitle}>Today's Brief</div>
+            <div style={s.list}>
+              {items.map((item, i) => (
+                <div key={i} style={s.item}><span style={s.itemIcon}>{item.icon}</span><span style={s.itemText}>{item.text}</span></div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div ref={wrapRef} style={s.wrap}>
