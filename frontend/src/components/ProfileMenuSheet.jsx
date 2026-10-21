@@ -227,11 +227,11 @@ const HYBRID_SECTIONS = [
     id: 'privacy', label: 'Privacy',
     items: [
       sel('lastSeen', <IconEye />, 'Last seen', 'Who can see when you were last active'),
-      sel('photoVis', <IconCamera size={16} />, 'Profile photo', 'Who can see your picture'),
-      sel('whoCanAdd', <IconUserPlus />, 'Who can add you', 'Control friend requests'),
+      { ...sel('photoVis', <IconCamera size={16} />, 'Profile photo', 'Not active yet. Needs private photo storage.'), badge: 'Soon' },
+      sel('whoCanAdd', <IconUserPlus />, 'Who can add you', 'Who can start a new chat with you'),
       tog('showOnline', <IconGlobe />, 'Show when I’m online', 'Turn off to appear offline everywhere'),
-      tog('readReceipts', <IconCheck />, 'Read receipts', 'Show when you’ve read a message'),
-      tog('typing', <IconBubble />, 'Typing indicator', 'Let people see when you’re typing'),
+      tog('readReceipts', <IconCheck />, 'Read receipts', 'Off hides yours, and you won’t see theirs'),
+      tog('typing', <IconBubble />, 'Typing indicator', 'Off hides yours, and you won’t see theirs'),
       nav('blocked', <IconBan />, 'Blocked people', 'Manage who can’t reach you'),
     ],
   },
@@ -1277,5 +1277,3 @@ const toastStyle = {
   maxWidth: 'calc(100vw - 32px)', padding: '10px 16px', borderRadius: 999, fontSize: 13, fontWeight: 650, textAlign: 'center',
   background: 'var(--dark-text)', color: 'var(--bg-surface-1, #0f0f1a)', boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
 }
-
- 
