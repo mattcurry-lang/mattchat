@@ -1,7 +1,7 @@
 import React from 'react'
 import { IconPhone, IconMic, IconBluetooth, IconVideo } from './Icons'
 
-export default function OutgoingCallScreen({ callerName, callType, status, avatarUrl, onCancel, provider = 'daily' }) {
+export default function OutgoingCallScreen({ callerName, callType, status, avatarUrl, onCancel, provider = 'daily', zoomUrl }) {
   const isZoom = provider === 'zoom'
   const label = status === 'ringing' ? 'RINGING' : 'CALLING'
   const initial = callerName?.charAt(0)?.toUpperCase() || '?'
@@ -36,7 +36,13 @@ export default function OutgoingCallScreen({ callerName, callType, status, avata
       </div>
 
       <div style={styles.controlBar}>
-        <button style={styles.pillBtn} disabled title="Audio output"><IconBluetooth size={19} /></button>
+                {isZoom && zoomUrl && (
+          <button onClick={() => window.open(zoomUrl, '_blank', 'noopener,noreferrer')}
+            style={{ ...styles.pillBtn, width: 'auto', padding: '0 20px', borderRadius: 999, cursor: 'pointer', color: '#fff', fontWeight: 700, fontSize: 13, background: 'rgba(45,140,255,0.25)', borderColor: 'rgba(45,140,255,0.6)' }}>
+            Open Zoom
+          </button>
+        )}
+        {!isZoom && <button style={styles.pillBtn} disabled title="Audio output"><IconBluetooth size={19} /></button>}
         <button style={styles.endBtn} onClick={onCancel} title="Cancel call" aria-label="Cancel call">
           <IconPhone size={24} style={{ transform: 'rotate(135deg)' }} />
         </button>
