@@ -143,7 +143,10 @@ export async function getOrCreateConversationByUserId(myUserId, otherUserId) {
       { conversation_id: newConvo.id, user_id: myUserId },
       { conversation_id: newConvo.id, user_id: otherUserId },
     ])
-  if (e4) throw e4
+  if (e4) {
+    await sb.from('conversations').delete().eq('id', newConvo.id) // best effort: don't leave an empty conversation behind
+    throw (e4.code === '42501' ? new Error("This person isn't accepting new chats from you.") : e4)
+  }
 
   return newConvo.id
 }
