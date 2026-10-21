@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { parseZoomLink } from '../lib/zoom'
+import { checkZoomServer } from '../hooks/useCall'
 
 const C = {
   bg: '#15121f', surface: 'rgba(255,255,255,0.06)', line: 'rgba(255,255,255,0.12)', text: '#f6f4ff',
@@ -17,9 +18,43 @@ export function ZoomGlyph({ size = 18 }) {
   )
 }
 
+function ServerReport({ d }) {
+  const rows = []
+  const bad = (t) => rows.push({ ok: false, t })
+  const good = (t) => rows.push({ ok: true, t })
+  if (d.deployed === false) {
+    bad(d.error || 'The create-zoom-room function is not deployed. Run: supabase functions deploy create-zoom-room')
+  } else {
+    const missing = Object.entries(d.secrets || {}).filter(([, v]) => !v).map(([k]) => k)
+    if (missing.length) bad(`Missing Supabase secrets: ${missing.join(', ')}`); else good('All four Zoom secrets are set')
+    if (d.table && !d.table.ok) bad(`The zoom_rooms table is missing. Run docs/zoom_rooms.sql (${d.table.error})`); else if (d.table) good('zoom_rooms table exists')
+    if (d.token) {
+      if (d.token.ok) good('Zoom accepted the app credentials'); else bad(`Zoom rejected the credentials: ${d.token.error}`)
+      if (d.token.ok && d.canCreateMeetings === false) bad('Your Zoom app has no “meeting write” scope. Add it under Scopes and re-activate the app.')
+      else if (d.token.ok) good('The app is allowed to create meetings')
+    }
+    if (d.error && !rows.some((r) => !r.ok)) bad(d.error)
+  }
+  const allGood = rows.length > 0 && rows.every((r) => r.ok)
+  return (
+    <div style={{ background: C.surface, borderRadius: 12, padding: '10px 12px', margin: '0 0 12px', fontSize: 12, lineHeight: 1.6 }}>
+      {rows.map((r, i) => (
+        <div key={i} style={{ color: r.ok ? C.ok : C.bad, display: 'flex', gap: 6 }}><span>{r.ok ? '✓' : '✗'}</span><span style={{ color: r.ok ? C.ok : C.text }}>{r.t}</span></div>
+      ))}
+      {allGood && <div style={{ color: C.text, marginTop: 4 }}>Automatic rooms are ready. Close this and tap the Zoom button again.</div>}
+    </div>
+  )
+}
+
+/**
+ * First-time setup (and "change my link") for Zoom calls.
+ * onSave(link) saves; onSaveAndCall(link) saves and starts the call in the same click,
+ * which keeps the browser from blocking the Zoom window.
+ */
 export default function ZoomLinkSheet({ initialLink = '', contactName, onSave, onSaveAndCall, onClose }) {
   const [value, setValue] = useState(initialLink)
   const inputRef = useRef(null)
+  const [diag, setDiag] = useState(null)       // null | 'checking' | result
   const clean = parseZoomLink(value)
   const touched = value.trim().length > 0
   const invalid = touched && !clean
@@ -50,7 +85,7 @@ export default function ZoomLinkSheet({ initialLink = '', contactName, onSave, o
           </div>
         </div>
 
-              <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.55, margin: '14px 0 10px' }}>
+        <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.55, margin: '14px 0 10px' }}>
           One quick setup: copy your <b style={{ color: C.text }}>Zoom Personal Link</b> and paste it below. Takes about 20 seconds.
         </div>
 
@@ -77,8 +112,14 @@ export default function ZoomLinkSheet({ initialLink = '', contactName, onSave, o
         </div>
 
         <div style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.5, margin: '8px 0 16px', background: C.surface, borderRadius: 12, padding: '10px 12px' }}>
-                    Tip: paste the full link (not just the number), so nobody has to type a passcode. Free Zoom accounts end each meeting after 40 minutes; paid accounts don’t. The link stays on this device.
+          Tip: paste the full link (not just the number), so nobody has to type a passcode. Free Zoom accounts end each meeting after 40 minutes; paid accounts don’t. The link stays on this device.
         </div>
+
+        <button onClick={async () => { setDiag('checking'); setDiag(await checkZoomServer()) }}
+          style={{ background: 'transparent', border: 'none', color: C.zoom, fontWeight: 700, fontSize: 12, cursor: 'pointer', padding: 0, marginBottom: 10, fontFamily: 'inherit' }}>
+          {diag === 'checking' ? 'Checking…' : 'Why isn’t this automatic? Check the server →'}
+        </button>
+        {diag && diag !== 'checking' && <ServerReport d={diag} />}
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           <button onClick={onClose} style={{ ...btn(false), cursor: 'pointer', opacity: 1, color: C.muted }}>Cancel</button>
