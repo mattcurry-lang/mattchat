@@ -273,9 +273,116 @@ export const hideConversationForUser = async (userId, conversationId) => {
   if (error) throw error
 }
 
+// ── One 1:1 conversation per pair of people ─────────────────────────────
+// Finding an existing chat and creating a new one used to be two separate steps with
+// nothing stopping them from running twice at once (a double tap, Enter + click, two
+// devices, both people starting a chat with each other). Each run saw "no chat yet" and
+// created its own, so the same person showed up twice.
+//
+// Three layers now stop that:
+//   1. calls for the same pair that overlap in this tab share ONE lookup/creation;
+//   2. every 1:1 conversation carries `direct_key` (both user ids, sorted) and the
+//      database only allows one conversation per key (docs/step_direct_chat_unique.sql),
+//      so even two tabs or two people racing can't make a second one;
+//   3. only real 1:1 conversations count as "existing" - a group you both belong to
+//      used to be returned by mistake.
+// Until that SQL is run the code falls back to the old behaviour (minus the group bug).
+const directKey = (a, b) => [a, b].sort().join(':')
+// "column direct_key doesn't exist" (SQL not run yet). Careful: the duplicate-key error (23505) also
+// names direct_key in its text, and must NOT be mistaken for this.
+const isMissingDirectKey = (err) => !!err && err.code !== '23505' && (err.code === '42703' || err.code === 'PGRST204')
+const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+const inFlightDirect = new Map() // pair key -> promise
+
+async function findDirectConversation(currentUserId, otherUserId, key) {
+  // Fast path: a conversation already tagged for this pair
+  const tagged = await supabase.from('conversations').select('id').eq('direct_key', key).maybeSingle()
+  if (!tagged.error && tagged.data) return { id: tagged.data.id, tagColumn: true }
+  const tagColumn = !isMissingDirectKey(tagged.error)
+
+  // Older chats (made before direct_key existed): any non-group conversation you share
+  const [{ data: myRows }, { data: theirRows }] = await Promise.all([
+    supabase.from('conversation_members').select('conversation_id').eq('user_id', currentUserId),
+    supabase.from('conversation_members').select('conversation_id').eq('user_id', otherUserId),
+  ])
+  const theirIds = new Set((theirRows || []).map((r) => r.conversation_id))
+  const sharedIds = (myRows || []).map((r) => r.conversation_id).filter((id) => theirIds.has(id))
+  if (!sharedIds.length) return { id: null, tagColumn }
+
+  const { data: convos } = await supabase
+    .from('conversations')
+    .select('id, last_message, updated_at')
+    .in('id', sharedIds)
+    .eq('is_group', false)
+  if (!convos || !convos.length) return { id: null, tagColumn }
+
+  // If duplicates already exist, land in the one with real history, then the most recent
+  convos.sort((x, y) => (!!y.last_message - !!x.last_message) || (new Date(y.updated_at) - new Date(x.updated_at)))
+  const pick = convos[0]
+  if (tagColumn) {
+    // Tag it so it is the canonical chat from now on (ignored if another one already holds the tag)
+    await supabase.from('conversations').update({ direct_key: key }).eq('id', pick.id).is('direct_key', null)
+  }
+  return { id: pick.id, tagColumn }
+}
+
+async function createOrFindDirectConversation(currentUserId, otherUserId) {
+  const key = directKey(currentUserId, otherUserId)
+
+  const found = await findDirectConversation(currentUserId, otherUserId, key)
+  if (found.id) {
+    // Whether or not you'd hidden/deleted it on your side, texting them again reopens that
+    // same thread - never a second one.
+    await unhideConversationForUser(currentUserId, found.id)
+    return found.id
+  }
+
+  const newId = crypto.randomUUID()
+  const base = { id: newId, is_group: false, updated_at: new Date().toISOString() }
+  let { error: convoError } = await supabase.from('conversations').insert(found.tagColumn ? { ...base, direct_key: key } : base)
+  if (convoError && isMissingDirectKey(convoError)) {
+    ;({ error: convoError } = await supabase.from('conversations').insert(base)) // SQL not run yet
+  }
+
+  if (convoError) {
+    if (convoError.code === '23505') {
+      // Someone (another tab, or the other person) created this chat a moment ago. We can only
+      // see it once its members are in, so give that a few tries.
+      for (let i = 0; i < 8; i++) {
+        await wait(250)
+        const again = await findDirectConversation(currentUserId, otherUserId, key)
+        if (again.id) { await unhideConversationForUser(currentUserId, again.id); return again.id }
+      }
+      throw new Error("Couldn't open that chat - please try again.")
+    }
+    throw convoError
+  }
+
+  const { error: memberError } = await supabase
+    .from('conversation_members')
+    .insert([
+      { conversation_id: newId, user_id: currentUserId },
+      { conversation_id: newId, user_id: otherUserId },
+    ])
+  if (memberError) {
+    await supabase.from('conversations').delete().eq('id', newId) // best effort: don't leave an empty conversation behind
+    throw friendlyAddError(memberError)
+  }
+  return newId
+}
+
+// Overlapping calls for the same pair share one run
+function openDirectConversation(currentUserId, otherUserId) {
+  const key = directKey(currentUserId, otherUserId)
+  if (inFlightDirect.has(key)) return inFlightDirect.get(key)
+  const run = createOrFindDirectConversation(currentUserId, otherUserId).finally(() => inFlightDirect.delete(key))
+  inFlightDirect.set(key, run)
+  return run
+}
+
 // Accepts EITHER a username or an email as `identifier`. Tries email
 // first when the input looks like one (contains "@"), then always
-// falls back to a case-insensitive username match — safe now that
+// falls back to a case-insensitive username match - safe now that
 // usernames are enforced unique regardless of case
 // (profiles_username_lower_key), so this can never resolve to the
 // wrong person.
@@ -298,43 +405,7 @@ export const getOrCreateConversation = async (currentUserId, identifier) => {
   if (!otherUser) throw new Error("Couldn't find anyone with that username or email")
   if (otherUser.id === currentUserId) throw new Error("That's you! Try a different username or email")
 
-  const { data: myConvos } = await supabase
-    .from('conversation_members')
-    .select('conversation_id')
-    .eq('user_id', currentUserId)
-  const { data: theirConvos } = await supabase
-    .from('conversation_members')
-    .select('conversation_id')
-    .eq('user_id', otherUser.id)
-
-  const myIds = (myConvos || []).map(r => r.conversation_id)
-  const theirIds = (theirConvos || []).map(r => r.conversation_id)
-  const shared = myIds.find(id => theirIds.includes(id))
-
-  if (shared) {
-    // A conversation with this person already exists. Whether or not
-    // you'd hidden/deleted it on your side, texting them again should
-    // just reopen that same thread — never create a second one.
-    await unhideConversationForUser(currentUserId, shared)
-    return shared
-  }
-
-  const newId = crypto.randomUUID()
-  const { error: convoError } = await supabase
-    .from('conversations')
-    .insert({ id: newId, is_group: false, updated_at: new Date().toISOString() })
-  if (convoError) throw convoError
-  const { error: memberError } = await supabase
-    .from('conversation_members')
-    .insert([
-      { conversation_id: newId, user_id: currentUserId },
-      { conversation_id: newId, user_id: otherUser.id }
-    ])
-  if (memberError) {
-    await supabase.from('conversations').delete().eq('id', newId) // best effort: don't leave an empty conversation behind
-    throw friendlyAddError(memberError)
-  }
-  return newId
+  return openDirectConversation(currentUserId, otherUser.id)
 }
 
 export async function uploadStatusMedia(file, userId) {
@@ -428,41 +499,7 @@ export async function getStatusReactions(statusId) {
 // username lookup just to get back to the same id.
 export async function getOrCreateConversationByUserId(currentUserId, otherUserId) {
   if (otherUserId === currentUserId) throw new Error("That's you!")
-
-  const { data: myConvos } = await supabase
-    .from('conversation_members')
-    .select('conversation_id')
-    .eq('user_id', currentUserId)
-  const { data: theirConvos } = await supabase
-    .from('conversation_members')
-    .select('conversation_id')
-    .eq('user_id', otherUserId)
-
-  const myIds = (myConvos || []).map(r => r.conversation_id)
-  const theirIds = (theirConvos || []).map(r => r.conversation_id)
-  const shared = myIds.find(id => theirIds.includes(id))
-
-  if (shared) {
-    await unhideConversationForUser(currentUserId, shared)
-    return shared
-  }
-
-  const newId = crypto.randomUUID()
-  const { error: convoError } = await supabase
-    .from('conversations')
-    .insert({ id: newId, is_group: false, updated_at: new Date().toISOString() })
-  if (convoError) throw convoError
-  const { error: memberError } = await supabase
-    .from('conversation_members')
-    .insert([
-      { conversation_id: newId, user_id: currentUserId },
-      { conversation_id: newId, user_id: otherUserId }
-    ])
-  if (memberError) {
-    await supabase.from('conversations').delete().eq('id', newId) // best effort: don't leave an empty conversation behind
-    throw friendlyAddError(memberError)
-  }
-  return newId
+  return openDirectConversation(currentUserId, otherUserId)
 }
 
 // Sends a status reply as a normal DM, tagged with a "status_reply:"
