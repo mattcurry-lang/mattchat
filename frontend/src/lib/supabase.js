@@ -255,6 +255,11 @@ const unhideConversationForUser = async (userId, conversationId) => {
     .eq('conversation_id', conversationId)
 }
 
+// The database refuses to add someone whose "Who can add you" setting excludes you (step4_privacy.sql).
+// That arrives as a row-level-security error, so give it a plain-English message.
+const NOT_ACCEPTING_CHATS = "This person isn't accepting new chats from you."
+const friendlyAddError = (err) => (err && err.code === '42501' ? new Error(NOT_ACCEPTING_CHATS) : err)
+
 // Hides a conversation for the given user only. This is what "delete
 // conversation" in the UI should call now instead of actually deleting
 // rows — the conversation, its messages, and anything tied to it
@@ -325,7 +330,10 @@ export const getOrCreateConversation = async (currentUserId, identifier) => {
       { conversation_id: newId, user_id: currentUserId },
       { conversation_id: newId, user_id: otherUser.id }
     ])
-  if (memberError) throw memberError
+  if (memberError) {
+    await supabase.from('conversations').delete().eq('id', newId) // best effort: don't leave an empty conversation behind
+    throw friendlyAddError(memberError)
+  }
   return newId
 }
 
@@ -450,7 +458,10 @@ export async function getOrCreateConversationByUserId(currentUserId, otherUserId
       { conversation_id: newId, user_id: currentUserId },
       { conversation_id: newId, user_id: otherUserId }
     ])
-  if (memberError) throw memberError
+  if (memberError) {
+    await supabase.from('conversations').delete().eq('id', newId) // best effort: don't leave an empty conversation behind
+    throw friendlyAddError(memberError)
+  }
   return newId
 }
 
