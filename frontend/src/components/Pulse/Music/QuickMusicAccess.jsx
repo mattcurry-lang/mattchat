@@ -11,7 +11,7 @@ const MOBILE_BREAKPOINT = 520
 const PANEL_WIDTH = 340
 const MARGIN = 10
 
-export default function QuickMusicAccess() {
+export default function QuickMusicAccess({ bare = false }) {
   const { currentTrack, isPlaying, playTrack, togglePlayPause, recentlyPlayed, likedTracks } = useMusicPlayer()
   const colors = useMusicColors()
   const [open, setOpen] = useState(false)
@@ -221,7 +221,8 @@ export default function QuickMusicAccess() {
         ref={btnRef}
         onClick={() => setOpen((o) => !o)}
         aria-label="Quick music access"
-        style={{
+               className={bare ? `mc-act${currentTrack ? ' is-active' : ''}` : undefined}
+        style={bare ? { padding: 0 } : {
           width: 36, height: 36, borderRadius: '50%', border: `1px solid ${colors.border}`,
           background: currentTrack ? 'linear-gradient(135deg, rgba(167,139,250,0.22), rgba(108,99,255,0.14))' : colors.surface2,
           color: currentTrack ? '#a78bfa' : colors.textSecondary,
@@ -230,7 +231,7 @@ export default function QuickMusicAccess() {
       >
         <IconMusic size={16} />
         {isPlaying && (
-          <span style={{ position: 'absolute', bottom: -1, right: -1, width: 9, height: 9, borderRadius: '50%', background: '#a78bfa', border: `2px solid ${colors.surface1}` }} />
+          <span style={{ position: 'absolute', bottom: -1, right: -1, width: 9, height: 9, borderRadius: '50%', background: '#a78bfa', border: bare ? '2px solid var(--mc-cluster-bg, #1c1830)' : `2px solid ${colors.surface1}` }} />
         )}
       </button>
 
