@@ -1216,6 +1216,8 @@ export default function ChatPage({ session }) {
   const [newContact, setNewContact]     = useState('')
    const [showWhatsApp, setShowWhatsApp] = useState(false)
   const [showNewChat, setShowNewChat]   = useState(false)
+  const [startingChat, setStartingChat] = useState(false)
+  const startingChatRef = useRef(false) // blocks a second submit in the same instant (Enter + click)
   const [inputText, setInputText]       = useState('')
   const [search, setSearch]             = useState('')
   const [showSearchBar, setShowSearchBar] = useState(false)
@@ -1809,6 +1811,9 @@ useEffect(() => {
   }
 const startNewChat = async (e) => {
   e.preventDefault()
+  if (startingChatRef.current) return
+  startingChatRef.current = true
+  setStartingChat(true)
   try {
     const convoId = await getOrCreateConversation(userId, newContact)
     await reload()
@@ -1822,6 +1827,7 @@ const startNewChat = async (e) => {
     setActiveTab('chats')
     setShowNewChat(false); setNewContact('')
   } catch (err) { playSound('warning'); alert(err.message) }
+  finally { startingChatRef.current = false; setStartingChat(false) }
 }
 const handleMessageContact = async (contactEmail) => {
   if (!contactEmail) return
@@ -2409,7 +2415,7 @@ const handleSignOut = async () => {
                 <form className="new-chat-form" onSubmit={startNewChat}>
                   <input type="text" value={newContact} onChange={e => setNewContact(e.target.value)} placeholder="Username or email" required autoFocus />
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <button type="submit" className="btn-primary" style={{ flex: 1 }}>Start chat</button>
+                    <button type="submit" className="btn-primary" style={{ flex: 1 }} disabled={startingChat}>{startingChat ? 'Starting…' : 'Start chat'}</button>
                     <button type="button" className="btn-ghost" onClick={() => setShowNewChat(false)}>Cancel</button>
                   </div>
                 </form>
