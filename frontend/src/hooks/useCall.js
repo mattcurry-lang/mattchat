@@ -33,6 +33,18 @@ async function fetchCallFn(path, body) {
 const ZOOM_AUTO_KEY = 'mattchat:zoom:autoUnavailable'
 const zoomRoomsUnavailable = () => { try { return sessionStorage.getItem(ZOOM_AUTO_KEY) === '1' } catch { return false } }
 const markZoomRoomsUnavailable = () => { try { sessionStorage.setItem(ZOOM_AUTO_KEY, '1') } catch { /* ignore */ } }
+
+/** Asks the server what's missing for automatic Zoom rooms (used by the Zoom setup sheet). */
+export async function checkZoomServer() {
+  try {
+    const data = await fetchCallFn('create-zoom-room', { diagnose: true })
+    if (data?.code === 'NOT_FOUND') return { deployed: false }
+    return { deployed: true, ...(data?.diagnose || {}), error: data?.ok ? undefined : data?.error }
+  } catch (e) {
+    return { deployed: false, error: 'Could not reach the server' }
+  }
+}
+
 export function useCall(userId, conversationId) {
   const [callStatus, setCallStatus] = useState('idle')
   const [activeCall, setActiveCall]   = useState(null)
@@ -320,9 +332,11 @@ const checkForActiveCall = useCallback(() => {
       return 'needs-link'
     }
 
-    if (win) win.location.href = zoomLink
-    else window.open(zoomLink, '_blank', 'noopener,noreferrer')
-
+      let opened = false
+    if (win) { win.location.href = zoomLink; opened = true }
+    else opened = Boolean(window.open(zoomLink, '_blank', 'noopener,noreferrer'))
+    // Don't fail the call — keep ringing — but say so, and the call screen has an "Open Zoom" button.
+    if (!opened) setCallError('Your browser blocked the Zoom window. Tap "Open Zoom" on the call screen, or allow pop-ups for this site.')
     try {
       const { data: row, error } = await supabase
         .from('active_calls')
