@@ -45,6 +45,7 @@ import CallsList from '../components/CallsList'
 import { useCallHistory } from '../hooks/useCallHistory'
 import NewCallModal from '../components/NewCallModal'
 import AICommandBar from '../components/AICommandBar'
+import AppHeader from '../components/AppHeader'
 import QuickActionsMenu from '../components/QuickActionsMenu'
 import AskCurry from '../components/Pulse/AskCurry'
 import MessageActionsMenu, { useMessageLongPress } from '../components/MessageActionsMenu'
@@ -113,7 +114,6 @@ import ProfileMenuSheet from '../components/ProfileMenuSheetConnected'
 import { PlaceholderIcons } from '../components/ProfileMenuSheet'
 import { getSetting, useMediaPolicy } from '../lib/appearanceStore'
 import CallsLandingPanel from '../components/CallsLandingPanel'
-import QuickMusicAccess from '../components/Pulse/Music/QuickMusicAccess'
 import RingtonePicker from '../components/Pulse/Music/RingtonePicker'
 import { RingtoneService } from '../lib/music/RingtoneService'
 import { useRecordPlays } from '../hooks/useListeningHistory'
@@ -2259,34 +2259,32 @@ const handleSignOut = async () => {
       {/* ── LIST / BROWSE SCREEN (hidden once a conversation is open) ── */}
       <div className="sidebar">
         <div className="top-header">
-<div className="top-header-brand">
-  <img src="/logo.png" alt="Mattchat" className="top-header-logo" {...tripleTapProps} />
-  <span className="top-header-name" {...tripleTapProps}>Mattchat</span>
-<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-  <QuickMusicAccess />
-  <div style={{ position: 'relative' }}>
-    <button
-      ref={headerMenuBtnRef}
-      className="top-header-search-btn"
-      onClick={() => setShowHeaderMenu(v => !v)}
-      title="More"
-      style={{ color: heyCurryListening ? '#a78bfa' : undefined, background: heyCurryListening ? 'rgba(167,139,250,0.15)' : undefined }}
-    >
-      <IconMoreVertical size={16} />
-    </button>
-   {showHeaderMenu && (
-      <HeaderMoreMenu
-        anchorRef={headerMenuBtnRef}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        heyCurryListening={heyCurryListening}
-        onToggleHeyCurry={() => (heyCurryListening ? stopHeyCurry() : startHeyCurry())}
-        onClose={() => setShowHeaderMenu(false)}
-      />
-    )}
-  </div>
-</div>
-</div>
+<AppHeader
+  logoProps={tripleTapProps}
+  menuBtnRef={headerMenuBtnRef}
+  menuOpen={showHeaderMenu}
+  onToggleMenu={() => setShowHeaderMenu(v => !v)}
+  curryListening={heyCurryListening}
+  menuNode={showHeaderMenu && (
+    <HeaderMoreMenu
+      anchorRef={headerMenuBtnRef}
+      theme={theme}
+      onToggleTheme={toggleTheme}
+      heyCurryListening={heyCurryListening}
+      onToggleHeyCurry={() => (heyCurryListening ? stopHeyCurry() : startHeyCurry())}
+      onClose={() => setShowHeaderMenu(false)}
+    />
+  )}
+  briefNode={activeTab === 'chats' && (
+    <TodaysTimeline
+      inline
+      userId={userId}
+      totalUnread={totalUnread}
+      conversations={conversations}
+      sharedConvoIds={sharedConvoIds}
+    />
+  )}
+/>
 {showWhatsApp && (
   <WhatsAppPage session={session} userId={userId} onClose={() => setShowWhatsApp(false)} />
 )}
@@ -2375,15 +2373,7 @@ const handleSignOut = async () => {
           )}
         </div>
 
-       {activeTab === 'chats' && (
-  <TodaysTimeline
-    userId={userId}
-    totalUnread={totalUnread}
-    conversations={conversations}
-    sharedConvoIds={sharedConvoIds}
-  />
-)}
-
+ 
         {/* ── LIST CARD ── */}
         <div className="list-card">
           {activeTab === 'chats' && (
