@@ -1,99 +1,13 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import PinterestTab from './PinterestTab'
+import { buildPack, searchEntries, withSkinTone } from './emojiSearch'
+import { computePlacement } from './pickerLayout'
 
-// ── Emoji Data ────────────────────────────────────────────────
-const EMOJI_CATEGORIES = [
-  {
-    id: 'recent', label: 'Recent', icon: '🕐',
-    emojis: [], // filled from localStorage
-  },
-  {
-    id: 'smileys', label: 'Smileys & People', icon: '😀',
-    emojis: [
-      '😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','😉','😊','😇','🥰','😍','🤩',
-      '😘','😗','😚','😙','🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐',
-      '🤨','😐','😑','😶','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒',
-      '🤕','🤢','🤧','🥵','🥶','🥴','😵','💫','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕',
-      '😟','🙁','☹️','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱',
-      '😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀','☠️','💩',
-      '🤡','👹','👺','👻','👽','👾','🤖','😺','😸','😹','😻','😼','😽','🙀','😿','😾',
-      '👋','🤚','🖐️','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆',
-      '🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','✍️',
-      '💅','🤳','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','🫀','🫁','🧠','🦷','🦴','👀',
-      '👁️','👅','👄','💋','🩸','👶','🧒','👦','👧','🧑','👱','👨','🧔','👩','🧓','👴','👵',
-    ],
-  },
-  {
-    id: 'animals', label: 'Animals & Nature', icon: '🐶',
-    emojis: [
-      '🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐻‍❄️','🐨','🐯','🦁','🐮','🐷','🐸','🐵',
-      '🙈','🙉','🙊','🐒','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄',
-      '🐝','🐛','🦋','🐌','🐞','🐜','🦟','🦗','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑',
-      '🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧',
-      '🦣','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🦬','🐃','🐂','🐄','🐎','🐖','🐏','🐑',
-      '🦙','🐐','🦌','🐕','🐩','🦮','🐈','🐓','🦃','🦤','🦚','🦜','🦩','🕊️','🐇','🦝',
-      '🌸','🌺','🌻','🌹','🌷','🌼','💐','🍀','🌿','🌱','🌲','🌳','🌴','🌵','🎋','🎍',
-    ],
-  },
-  {
-    id: 'food', label: 'Food & Drink', icon: '🍕',
-    emojis: [
-      '🍎','🍊','🍋','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑',
-      '🥦','🥬','🥒','🌶️','🫑','🧄','🧅','🥔','🍠','🥐','🥯','🍞','🥖','🥨','🧀','🥚',
-      '🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🌭','🍔','🍟','🍕','🫓','🥙','🧆','🌮',
-      '🌯','🫔','🥗','🥘','🫕','🍲','🍛','🍜','🍝','🍠','🍢','🍣','🍤','🍙','🍚','🍱',
-      '🥟','🦪','🍤','🍙','🍚','🍘','🍥','🥮','🍡','🧁','🍰','🎂','🍮','🍭','🍬','🍫',
-      '🍿','🍩','🍪','🌰','🥜','🍯','🧃','🥤','🧋','☕','🫖','🍵','🧉','🍺','🍻','🥂',
-      '🍷','🥃','🍸','🍹','🧊','🍾','🥄','🍴','🍽️','🥢','🧂',
-    ],
-  },
-  {
-    id: 'activity', label: 'Activities', icon: '⚽',
-    emojis: [
-      '⚽','🏀','🏈','⚾','🥎','🎾','🏐','🏉','🥏','🎱','🏓','🏸','🏒','🥍','🏑','🏏',
-      '🪃','🥅','⛳','🪁','🏹','🎣','🤿','🥊','🥋','🎽','🛹','🛼','🛷','⛸️','🥌','🎿',
-      '⛷️','🏂','🪂','🏋️','🤼','🤸','⛹️','🤺','🏇','🧘','🏄','🏊','🤽','🚣','🧗','🚵',
-      '🚴','🏆','🥇','🥈','🥉','🏅','🎖️','🏵️','🎗️','🎫','🎟️','🎪','🎭','🎨','🎬','🎤',
-      '🎧','🎼','🎹','🥁','🪘','🎷','🎺','🎸','🪕','🎻','🎲','♟️','🎯','🎳','🎮','🎰',
-      '🧩','🪅','🪆','♠️','♥️','♦️','♣️','🃏','🀄','🎴',
-    ],
-  },
-  {
-    id: 'travel', label: 'Travel & Places', icon: '✈️',
-    emojis: [
-      '🚗','🚕','🚙','🚌','🚎','🏎️','🚓','🚑','🚒','🚐','🛻','🚚','🚛','🚜','🦯','🦽',
-      '🦼','🛴','🚲','🛵','🏍️','🛺','🚨','🚔','🚍','🚘','🚖','🚡','🚠','🚟','🚃','🚋',
-      '🚞','🚝','🚄','🚅','🚈','🚂','🚆','🚇','🚊','🚉','✈️','🛫','🛬','🛩️','💺','🛰️',
-      '🚀','🛸','🚁','🛶','⛵','🚤','🛥️','🛳️','⛴️','🚢','⚓','🗺️','🗾','🧭','🏔️','⛰️',
-      '🌋','🗻','🏕️','🏖️','🏜️','🏝️','🏞️','🏟️','🏛️','🏗️','🏘️','🏚️','🏠','🏡','🏢','🏣',
-      '🏤','🏥','🏦','🏨','🏩','🏪','🏫','🏭','🏯','🏰','💒','🗼','🗽','⛪','🕌','🛕',
-      '🕍','⛩️','🕋','⛲','⛺','🌁','🌃','🏙️','🌄','🌅','🌆','🌇','🌉','♾️','🎠','🎡',
-    ],
-  },
-  {
-    id: 'objects', label: 'Objects', icon: '💡',
-    emojis: [
-      '💝','💘','💖','💗','💓','💞','💕','💟','❣️','💔','❤️','🧡','💛','💚','💙','💜',
-      '🖤','🤍','🤎','💯','💢','💥','💫','💦','💨','🕳️','💬','💭','💤','👓','🕶️','🥽',
-      '🌂','☂️','🧵','🪡','🧶','🪢','👑','👒','🎩','🧢','⛑️','📿','💄','💍','💎','📱',
-      '💻','⌨️','🖥️','🖨️','🖱️','🖲️','💾','💿','📀','🧮','📷','📸','📹','🎥','📽️','🎞️',
-      '📞','☎️','📟','📠','📺','📻','🧭','⏱️','⏲️','⏰','🕰️','⌛','⏳','📡','🔋','🔌',
-      '💡','🔦','🕯️','🪔','🧯','🛢️','💰','💴','💵','💶','💷','💸','💳','🪙','💹','📈',
-      '📉','📊','📋','📌','📍','✂️','🗃️','🗳️','🗄️','🗑️','🔒','🔓','🔏','🔐','🔑','🗝️',
-    ],
-  },
-  {
-    id: 'symbols', label: 'Symbols', icon: '❤️',
-    emojis: [
-      '❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','❤️‍🔥','❤️‍🩹','💯','✅','❎','🔴','🟠',
-      '🟡','🟢','🔵','🟣','⚫','⚪','🟤','🔶','🔷','🔸','🔹','🔺','🔻','💠','🔘','🔳',
-      '🔲','▪️','▫️','◾','◽','◼️','◻️','⬛','⬜','🟥','🟧','🟨','🟩','🟦','🟪','⭕',
-      '✖️','➕','➖','➗','♾️','💲','💱','‼️','⁉️','❓','❔','❕','❗','〰️','🔅','🔆',
-      '🎵','🎶','🔇','🔈','🔉','🔊','📣','📢','🔔','🔕','🃏','🎴','♀️','♂️','⚧️','✔️',
-      '☑️','🔃','🔄','🔙','🔚','🔛','🔜','🔝','🛐','⚛️','🕉️','✡️','☸️','☯️','✝️','☦️',
-    ],
-  },
-]
+// ── Emoji data comes from emojiPackData.js (generated by scripts/build-emoji-pack.mjs)
+const RECENT_KEY = 'mattchat_recent_emojis'
+const SKIN_KEY = 'mattchat_skin_tone'
+const SKIN_COLORS = ['#ffd83d', '#ffd6c4', '#e8b88a', '#c47e52', '#8d5524', '#4a2e1f'] // tone 0..5
 
 // ── Built-in Sticker Packs (using emoji combos rendered as styled stickers) ──
 const STICKER_PACKS = [
@@ -326,34 +240,75 @@ function GifGrid({ query, onSelect }) {
 
 // ── Main EmojiPicker ──────────────────────────────────────────
 export default function EmojiPicker({ onEmojiSelect, onStickerSelect, onGifSelect, onPinterestSelect, onClose, session }) {
-  const [tab, setTab] = useState('emoji')           // emoji | stickers | gifs
-  const [emojiCategory, setEmojiCategory] = useState('smileys')
+  const [tab, setTab] = useState('emoji')           // emoji | stickers | gifs | pinterest
+  const [emojiCategory, setEmojiCategory] = useState(0) // 'recent' or an index into pack.groups
   const [stickerPack, setStickerPack] = useState('love')
   const [search, setSearch] = useState('')
   const [gifQuery, setGifQuery] = useState('')
   const [gifCategory, setGifCategory] = useState('')
   const [recentEmojis, setRecentEmojis] = useState([])
-  const [skinTone, setSkinTone] = useState('') // '' | '🏻' | '🏼' | '🏽' | '🏾' | '🏿'
+  const [skinTone, setSkinTone] = useState(() => {
+    try { return Math.min(5, Math.max(0, parseInt(localStorage.getItem(SKIN_KEY) || '0', 10) || 0)) } catch { return 0 }
+  })
   const [showSkinTone, setShowSkinTone] = useState(false)
+  const [pack, setPack] = useState(null)
+  const [place, setPlace] = useState(null)
   const pickerRef = useRef(null)
   const searchRef = useRef(null)
+  const anchorRef = useRef(null) // invisible marker; its parent holds the emoji button
+
+  // The ~120 KB emoji pack loads the first time the picker opens, not with the page.
+  useEffect(() => {
+    let off = false
+    import('./emojiPackData').then((m) => { if (!off) setPack(buildPack(m)) }).catch(() => {})
+    return () => { off = true }
+  }, [])
 
   // Load recent emojis from localStorage
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('mattchat_recent_emojis') || '[]')
-      setRecentEmojis(saved)
-      EMOJI_CATEGORIES[0].emojis = saved
-    } catch {}
+    try { setRecentEmojis(JSON.parse(localStorage.getItem(RECENT_KEY) || '[]')) } catch {}
   }, [])
 
-  // Close on outside click
+  // Keep the panel fully on screen: measure the emoji button, then let computePlacement
+  // choose left/width/height. Re-measured when the window resizes or anything scrolls.
+  const anchorButton = () => {
+    const holder = anchorRef.current?.parentElement
+    return holder?.querySelector('button') || holder || null
+  }
+  const measure = useCallback(() => {
+    const el = anchorButton()
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    setPlace(computePlacement({
+      anchor: { top: r.top, bottom: r.bottom, left: r.left, right: r.right },
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+    }))
+  }, [])
+  useLayoutEffect(() => {
+    measure()
+    window.addEventListener('resize', measure)
+    window.addEventListener('scroll', measure, true)
+    return () => {
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('scroll', measure, true)
+    }
+  }, [measure])
+
+  // Close on outside click (a click on the emoji button itself is left to the button, so it can toggle) or Escape
   useEffect(() => {
     const handler = (e) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target)) onClose()
+      if (pickerRef.current && pickerRef.current.contains(e.target)) return
+      const btn = anchorButton()
+      if (btn && btn.contains(e.target)) return
+      onClose()
     }
+    const key = (e) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    document.addEventListener('keydown', key)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('keydown', key)
+    }
   }, [onClose])
 
   // Focus search when switching to GIFs
@@ -364,13 +319,18 @@ export default function EmojiPicker({ onEmojiSelect, onStickerSelect, onGifSelec
   const addToRecent = (emoji) => {
     const next = [emoji, ...recentEmojis.filter(e => e !== emoji)].slice(0, 32)
     setRecentEmojis(next)
-    EMOJI_CATEGORIES[0].emojis = next
-    try { localStorage.setItem('mattchat_recent_emojis', JSON.stringify(next)) } catch {}
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)) } catch {}
   }
 
   const handleEmojiClick = (emoji) => {
     addToRecent(emoji)
     onEmojiSelect(emoji)
+  }
+
+  const chooseSkinTone = (i) => {
+    setSkinTone(i)
+    setShowSkinTone(false)
+    try { localStorage.setItem(SKIN_KEY, String(i)) } catch {}
   }
 
   const handleStickerClick = (sticker) => {
@@ -382,21 +342,24 @@ export default function EmojiPicker({ onEmojiSelect, onStickerSelect, onGifSelec
     onClose()
   }
 
-  // Filter emojis by search
-  const getFilteredEmojis = () => {
-    if (!search.trim()) {
-      const cat = EMOJI_CATEGORIES.find(c => c.id === emojiCategory)
-      return cat?.emojis || []
-    }
-    // Search across all categories
-    return EMOJI_CATEGORIES.flatMap(c => c.emojis).filter(e => {
-      // Simple search - emoji itself or basic unicode search
-      return e.includes(search)
-    }).slice(0, 64)
-  }
+  // Category pills: Recent (when there is any) + the pack's nine groups
+  const categories = useMemo(() => {
+    const list = []
+    if (recentEmojis.length) list.push({ id: 'recent', label: 'Recent', icon: '🕐' })
+    if (pack) pack.groups.forEach((g, i) => list.push({ id: i, label: g.label, icon: g.icon }))
+    return list
+  }, [pack, recentEmojis.length])
 
-  const SKIN_TONES = ['', '🏻', '🏼', '🏽', '🏾', '🏿']
-  const SKIN_COLORS = ['#ffd83d', '#ffd6c4', '#e8b88a', '#c47e52', '#8d5524', '#4a2e1f']
+  // What the grid shows: search results, a category, or recents -> [{ key, char, label }]
+  const gridItems = useMemo(() => {
+    if (!pack) return []
+    const toItem = (e) => ({ key: e.char, char: withSkinTone(e, skinTone), label: e.label })
+    if (search.trim()) return searchEntries(pack.entries, search).map(toItem)
+    if (emojiCategory === 'recent') return recentEmojis.map((c, i) => ({ key: `${c}-${i}`, char: c, label: c }))
+    return (pack.byGroup[emojiCategory] || []).map(toItem)
+  }, [pack, search, emojiCategory, recentEmojis, skinTone])
+
+  const SKIN_TONES = [0, 1, 2, 3, 4, 5]
 
   const tabs = [
     { id: 'emoji', icon: '😀', label: 'Emoji' },
@@ -405,15 +368,18 @@ export default function EmojiPicker({ onEmojiSelect, onStickerSelect, onGifSelec
     { id: 'pinterest', icon: '📌', label: 'Pinterest' },
   ]
 
-  return (
+  if (!place) return <span ref={anchorRef} style={{ display: 'none' }} />
+
+  const panel = (
     <div
       ref={pickerRef}
       style={{
-        position: 'absolute',
-        bottom: 'calc(100% + 8px)',
-        left: 0,
-        width: 360,
-        maxHeight: 440,
+        position: 'fixed',
+        left: place.left,
+        width: place.width,
+        maxHeight: place.maxHeight,
+        ...(place.bottom !== undefined ? { bottom: place.bottom } : { top: place.top }),
+        transformOrigin: place.transformOrigin,
         background: '#1e1e2e',
         borderRadius: 18,
         border: '1px solid rgba(99,102,241,0.2)',
@@ -421,7 +387,7 @@ export default function EmojiPicker({ onEmojiSelect, onStickerSelect, onGifSelec
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        zIndex: 300,
+        zIndex: 1100,
         animation: 'pickerPop 0.2s cubic-bezier(0.34,1.56,0.64,1)',
       }}
     >
@@ -491,7 +457,7 @@ export default function EmojiPicker({ onEmojiSelect, onStickerSelect, onGifSelec
                 onClick={() => setShowSkinTone(v => !v)}
                 style={{
                   width: 34, height: 34, borderRadius: 10,
-                  background: SKIN_COLORS[SKIN_TONES.indexOf(skinTone)] || '#ffd83d',
+                  background: SKIN_COLORS[skinTone] || '#ffd83d',
                   border: '2px solid rgba(255,255,255,0.15)',
                   cursor: 'pointer', flexShrink: 0,
                 }}
@@ -505,14 +471,14 @@ export default function EmojiPicker({ onEmojiSelect, onStickerSelect, onGifSelec
                   border: '1px solid rgba(255,255,255,0.1)',
                   boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
                 }}>
-                  {SKIN_TONES.map((tone, i) => (
+                  {SKIN_TONES.map((i) => (
                     <button
                       key={i}
-                      onClick={() => { setSkinTone(tone); setShowSkinTone(false) }}
+                      onClick={() => chooseSkinTone(i)}
                       style={{
                         width: 24, height: 24, borderRadius: '50%',
                         background: SKIN_COLORS[i],
-                        border: skinTone === tone ? '2px solid #a78bfa' : '2px solid transparent',
+                        border: skinTone === i ? '2px solid #a78bfa' : '2px solid transparent',
                         cursor: 'pointer',
                       }}
                     />
@@ -528,8 +494,7 @@ export default function EmojiPicker({ onEmojiSelect, onStickerSelect, onGifSelec
               display: 'flex', gap: 4, padding: '0 10px 8px',
               overflowX: 'auto', flexShrink: 0,
             }}>
-              {EMOJI_CATEGORIES.map(cat => (
-                cat.id === 'recent' && recentEmojis.length === 0 ? null : (
+              {categories.map(cat => (
                   <button
                     key={cat.id}
                     onClick={() => setEmojiCategory(cat.id)}
@@ -544,7 +509,6 @@ export default function EmojiPicker({ onEmojiSelect, onStickerSelect, onGifSelec
                   >
                     {cat.icon}
                   </button>
-                )
               ))}
             </div>
           )}
@@ -554,7 +518,7 @@ export default function EmojiPicker({ onEmojiSelect, onStickerSelect, onGifSelec
             {!search && (
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', fontWeight: 700,
                 textTransform: 'uppercase', letterSpacing: '0.06em', padding: '4px 4px 6px' }}>
-                {EMOJI_CATEGORIES.find(c => c.id === emojiCategory)?.label}
+                {categories.find(c => c.id === emojiCategory)?.label}
               </div>
             )}
             <div style={{
@@ -562,26 +526,32 @@ export default function EmojiPicker({ onEmojiSelect, onStickerSelect, onGifSelec
               gridTemplateColumns: 'repeat(8, 1fr)',
               gap: 2,
             }}>
-              {getFilteredEmojis().map((emoji, i) => (
+              {gridItems.map((item) => (
                 <button
-                  key={`${emoji}-${i}`}
+                  key={item.key}
                   className="emoji-btn"
-                  onClick={() => handleEmojiClick(emoji)}
+                  onClick={() => handleEmojiClick(item.char)}
                   style={{
                     background: 'none', border: 'none', cursor: 'pointer',
                     fontSize: 24, padding: '5px 2px', borderRadius: 8,
                     lineHeight: 1, transition: 'all 0.1s',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}
-                  title={emoji}
+                  title={item.label}
                 >
-                  {emoji}
+                  {item.char}
                 </button>
               ))}
-              {getFilteredEmojis().length === 0 && search && (
+              {!pack && (
                 <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 20,
                   color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>
-                  No emoji found
+                  Loading emoji…
+                </div>
+              )}
+              {pack && gridItems.length === 0 && (
+                <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 20,
+                  color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>
+                  {search ? `No emoji found for “${search}”` : 'Nothing here yet'}
                 </div>
               )}
             </div>
@@ -655,13 +625,6 @@ export default function EmojiPicker({ onEmojiSelect, onStickerSelect, onGifSelec
                 fontFamily: 'inherit', boxSizing: 'border-box',
               }}
             />
-            {/* ── PINTEREST TAB ── */}
-      {tab === 'pinterest' && (
-        <PinterestTab
-          session={session}
-          onPinSelect={(pin) => { onPinterestSelect(pin); onClose() }}
-        />
-      )}
           </div>
 
           {/* Category chips */}
@@ -702,6 +665,21 @@ export default function EmojiPicker({ onEmojiSelect, onStickerSelect, onGifSelec
           </div>
         </>
       )}
+
+      {/* ── PINTEREST TAB ── */}
+      {tab === 'pinterest' && (
+        <PinterestTab
+          session={session}
+          onPinSelect={(pin) => { onPinterestSelect(pin); onClose() }}
+        />
+      )}
     </div>
+  )
+
+  return (
+    <>
+      <span ref={anchorRef} style={{ display: 'none' }} />
+      {createPortal(panel, document.body)}
+    </>
   )
 }
