@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { subscribeToChannel } from '../lib/realtimeManager'
+import { getSetting } from '../lib/appearanceStore'
 
 const TYPING_TTL_MS = 4000 // > the 1500ms stop-typing timeout in ChatPage, so it doesn't blink between keystrokes
 
@@ -53,6 +54,7 @@ export function useTypingStatus(userId, conversationIds) {
       .gt('updated_at', cutoff)
       .then(({ data, error }) => {
         if (error) { console.error('[useTypingStatus] initial load failed:', error); return }
+        if (!getSetting('typing')) return // my typing indicator is off: I don't see anyone's either
         ;(data || []).forEach(row => setRow(row.conversation_id, row.user_id))
       })
   }, [userId, idsKey, setRow])
@@ -72,6 +74,7 @@ export function useTypingStatus(userId, conversationIds) {
         onEvent: (type, payload) => {
           if (type === 'delete') { clearRow(payload.old.conversation_id); return }
           if (payload.new.user_id === userId) return
+          if (!getSetting('typing')) return
           setRow(payload.new.conversation_id, payload.new.user_id)
         },
         onResync: catchUp,
