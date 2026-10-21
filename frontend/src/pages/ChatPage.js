@@ -2217,6 +2217,7 @@ const handleSignOut = async () => {
          avatarUrl={callConvo ? getOtherUserAvatar(callConvo, userId) : (activeConvo ? getOtherUserAvatar(activeConvo, userId) : null)}
         callType={activeCall?.callType}
           provider={isZoomUrl(activeCall?.roomUrl) ? 'zoom' : 'daily'}
+          zoomUrl={isZoomUrl(activeCall?.roomUrl) ? activeCall.roomUrl : undefined}
           status={callStatus}
           onCancel={endCall}
         />
