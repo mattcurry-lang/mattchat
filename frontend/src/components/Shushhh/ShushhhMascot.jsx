@@ -61,8 +61,12 @@ export const MASCOT_ENTRANCE_SECONDS = ENTRANCE
 
 const STAR = 'M0 -7 L2 -2 L7 0 L2 2 L0 7 L-2 2 L-7 0 L-2 -2Z'
 
-export default function ShushhhMascot({ size = 140, mood = 'idle', onDone }) {
-  const reduce = useReducedMotion()
+export const DANCE_VERSION = 'afrobeats-groove v2'
+
+// forceMotion: play the animation even if the system says "reduce motion" (only used when the person taps to play it)
+export default function ShushhhMascot({ size = 140, mood = 'idle', onDone, forceMotion = false }) {
+  const systemReduce = useReducedMotion()
+  const reduce = systemReduce && !forceMotion
   const uid = useId().replace(/:/g, '')
 
   useEffect(() => {
@@ -70,10 +74,16 @@ export default function ShushhhMascot({ size = 140, mood = 'idle', onDone }) {
   }, [reduce, mood])  
 
   const animate = reduce ? undefined : mood
+  
+  // proof of which dance is running: look for this in the browser console (F12)
+  useEffect(() => {
+    if (mood === 'entrance') console.info(`[Shushhh] dance: ${DANCE_VERSION}${reduce ? ' (skipped: system reduce-motion is on)' : ''}`)
+  }, [mood, reduce])
 
   return (
     <motion.div
       variants={wrapV}
+            data-dance={DANCE_VERSION}
       initial={!reduce && mood === 'entrance' ? { x: '-60vw' } : undefined}
       animate={animate}
       onAnimationComplete={(d) => { if (d === 'entrance' || d === 'leaving') onDone?.(d) }}
