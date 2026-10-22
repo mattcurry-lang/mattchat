@@ -17,6 +17,10 @@ import '../styles/appearance.css'
 
 const STORAGE_KEY = 'mattchat:settings:v1'
 
+const deviceTimeZone = () => {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' } catch { return 'UTC' }
+}
+
 const osPrefersReducedMotion = () =>
   typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
@@ -36,6 +40,7 @@ export function getDefaults() {
     reduceMotion: osPrefersReducedMotion(), // start from the device's accessibility setting
     // notifications (step 5)
     dnd: false, quietHours: 'off', previews: true, mentionsOnly: false,
+    timezone: deviceTimeZone(), // quiet hours are evaluated in this zone, on the server and in the app
     // data
     dataSaver: false, autoDownload: 'wifi',
     // account
