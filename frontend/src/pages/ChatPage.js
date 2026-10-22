@@ -2915,7 +2915,12 @@ shareConversations={conversations.map(c => ({
  
           
  <QuickActionsMenu
-      hidden={!!activeConvo || showShorts || showDekutCurry || showProfileMenu || (afterglowOn && !isNarrowViewport && activeTab !== 'calls')}
+      mode={
+        (activeConvo || showShorts || showDekutCurry || showWhatsApp || showEmailWorkspace || showInsights || showNewChat || showNewCall || showCurryAssistant)
+          ? 'none'                                           // full-screen features: out of the way
+          : (activeTab === 'chats' && !showProfileMenu) ? 'full'   // the Home chat list: it belongs here
+          : 'peek'                                           // Calls / Pulse / Status / Profile: edge handle + shortcuts only
+      }
       onNewChat={() => (activeTab === 'calls' ? setShowNewCall(true) : setShowNewChat(true))}
       onOpenCurryAI={() => setActiveConvo(CURRY_AI_CONTACT)}
       onOpenDekutCurry={() => setShowDekutCurry(true)}
