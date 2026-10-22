@@ -1,152 +1,131 @@
-import { useEffect, useId } from 'react'
-import { motion, useReducedMotion } from 'framer-motion'
+// ShushhhChoreo.js — the mascot's dance-in, as plain data (no React), so it can be tested and previewed.
+//
+// "Afrobeats groove" entrance: an ORIGINAL routine in the spirit of today's viral Afrobeats dance
+// challenges (bounce on the beat, hip sway, cross-swinging arms, alternating arm pumps, a spin,
+// a freeze pose). It is not a move-for-move copy of any specific dance.
+//
+// 64 frames x 0.07s = 4.48s = 8 beats at ~107 BPM (one beat = 8 frames, half-beat = 4 frames).
+//
+//   A  (0-16)   GROOVE-WALK  slides in from the left, bouncing on every half-beat, arms swinging
+//   W  (16-28)  SWAY         big hip roll side to side, arms cross-swing, still bouncing
+//   P  (28-40)  PUMP         arms pump alternately every half-beat, hops, shoulder pops, vibration marks
+//   S  (40-52)  SPIN         a hop and a full turn, arms out (face hides while his back is to us)
+//   H  (52-58)  HIT          pop pose: both arms up in a V, sparkles
+//   D  (58-64)  SETTLE       arms drop, finger to lips: "shhh"   (the brand sign-off)
+//
+// Feet-ring "beat pulses" ripple out on the ground on every beat during W, P and S.
 
-// mood: 'entrance' (the Afrobeats groove dance-in, see ShushhhChoreo.js) | 'idle' | 'curious' | 'leaving'
-// onDone fires when 'entrance' or 'leaving' finishes (immediately if reduced motion).
-const pivot = (origin) => ({ transformBox: 'fill-box', transformOrigin: origin })
+export const STEP = 0.07
+export const N = 64
+export const ENTRANCE = N * STEP
 
-import { ENTRANCE, NORMAL, FRAMES } from './ShushhhChoreo'
+const A_END = 16, W_END = 28, P_END = 40, S_END = 52, H_END = 58
 
-const {
+export const NORMAL = 'M73 101 Q80 106 87 101'
+export const GRIN = 'M69 99 Q80 114 91 99'
+
+const frames = (fn) => Array.from({ length: N + 1 }, (_, i) => fn(i))
+const smooth = (t) => t * t * (3 - 2 * t)
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v))
+
+const phase = (i) => (i < A_END ? 'A' : i < W_END ? 'W' : i < P_END ? 'P' : i < S_END ? 'S' : i < H_END ? 'H' : 'D')
+
+const bounce = (i) => Math.abs(Math.sin((i * Math.PI) / 4))            // peaks every half-beat (4 frames)
+const swing = (i) => Math.sin((i * Math.PI) / 3)                         // walking arm swing
+const sway = (i) => Math.sin(((i - A_END) * Math.PI) / 3)                // hip roll, 6-frame period, 0 at the start
+const pump = (i) => (Math.sin(((i - W_END) * Math.PI) / 4 + 0.6) >= 0 ? 1 : -1) // flips every half-beat (4 frames)
+const spinU = (i) => clamp((i - P_END) / (S_END - 1 - P_END), 0, 1)      // 0..1 across the spin
+const spinCos = (i) => Math.cos(2 * Math.PI * smooth(spinU(i)))
+const ht = (i) => clamp(i - S_END, 0, 5)                                  // 0..5 inside the hit pose
+
+const POP = [1.16, 1.12, 1.08, 1.05, 1.02, 1]
+const POPY = [-16, -13, -9, -5, -2, 0]
+const HIT_ARM = [140, 140, 132, 124, 116, 112]
+const HIT_STAR_O = [1, 0.95, 0.8, 0.55, 0.3, 0]
+const HIT_STAR_S = [1.35, 1.2, 1, 0.85, 0.7, 0.5]
+
+// ── slide-in ──────────────────────────────────────────────────────────
+const wrapX = frames((i) => {
+  if (i >= A_END) return '0vw'
+  const t = i / A_END
+  return `${(-60 * (1 - smooth(t)) + 4 * Math.sin((i * Math.PI) / 2) * (1 - t)).toFixed(2)}vw`
+})
+
+// ── body ──────────────────────────────────────────────────────────────
+const bodyX = frames((i) => { const p = phase(i); if (p === 'W') return sway(i) * 11; if (p === 'P') return pump(i) * 4; return 0 })
+const bodyY = frames((i) => {
+  const p = phase(i)
+  if (p === 'A') return -13 * bounce(i)
+  if (p === 'W') return -9 * bounce(i)
+  if (p === 'P') return pump(i) > 0 ? -11 : 3
+  if (p === 'S') return -22 * Math.sin(Math.PI * spinU(i))
+  if (p === 'H') return POPY[ht(i)]
+  return 0
+})
+const bodyRot = frames((i) => {
+  const p = phase(i)
+  if (p === 'A') return (i >> 2) % 2 ? 7 : -7
+  if (p === 'W') return sway(i) * 10
+  if (p === 'P') return pump(i) * 7
+  return 0
+})
+const bodySkew = frames((i) => { const p = phase(i); if (p === 'W') return sway(i) * 8; if (p === 'P') return pump(i) * 8; return 0 })
+const bodySX = frames((i) => {
+  const p = phase(i)
+  if (p === 'S') { const c = spinCos(i); return (c < 0 ? -1 : 1) * Math.max(Math.abs(c), 0.22) }   // the turn (never paper-thin: he's a round little guy)
+  if (p === 'H') return 1 + (POP[ht(i)] - 1) * 0.6
+  return 1
+})
+const bodySY = frames((i) => {
+  const p = phase(i)
+  if (p === 'A') return 1 - 0.07 * (1 - bounce(i))
+  if (p === 'W') return 1 - 0.05 * (1 - bounce(i))
+  if (p === 'P') return pump(i) > 0 ? 1.04 : 0.94
+  if (p === 'S') return 1 + 0.05 * Math.sin(Math.PI * spinU(i))
+  if (p === 'H') return POP[ht(i)]
+  return 1
+})
+
+// ── limbs ─────────────────────────────────────────────────────────────
+const shoulderL = frames((i) => { const p = phase(i); if (p === 'W') return -sway(i) * 5; if (p === 'P') return -pump(i) * 8; if (p === 'H') return -8 * (1 - ht(i) / 5); return 0 })
+const shoulderR = frames((i) => { const p = phase(i); if (p === 'W') return sway(i) * 5; if (p === 'P') return pump(i) * 8; if (p === 'H') return -8 * (1 - ht(i) / 5); return 0 })
+
+// s = +1 for the left arm, -1 for the right arm
+const armAngle = (i, s) => {
+  const p = phase(i)
+  if (p === 'A') return 16 + s * 16 * swing(i)
+  if (p === 'W') return 42 + s * 34 * sway(i)                    // cross-swing
+  if (p === 'P') return pump(i) * s > 0 ? 128 : 28               // alternating pumps
+  if (p === 'S') return 60 + 20 * Math.sin(Math.PI * spinU(i))   // arms out wide
+  if (p === 'H') return HIT_ARM[ht(i)]
+  return HIT_ARM[5] * (1 - smooth(clamp((i - H_END) / (N - H_END), 0, 1)))   // settle to sides
+}
+const armL = frames((i) => armAngle(i, 1))
+const armR = frames((i) => -armAngle(i, -1))
+
+const legL = frames((i) => { const p = phase(i); if (p === 'A') return -6 * Math.max(0, swing(i)); if (p === 'W') return -5 * Math.max(0, sway(i)); if (p === 'P') return pump(i) > 0 ? -6 : 0; return 0 })
+const legR = frames((i) => { const p = phase(i); if (p === 'A') return -6 * Math.max(0, -swing(i)); if (p === 'W') return -5 * Math.max(0, -sway(i)); if (p === 'P') return pump(i) > 0 ? 0 : -6; return 0 })
+
+// ── face ──────────────────────────────────────────────────────────────
+const eyeX = frames((i) => { const p = phase(i); if (p === 'W') return sway(i) * 3; if (p === 'P') return pump(i) * 2; return 0 })
+const eyeSY = frames((i) => { const p = phase(i); if (p === 'H') return 0.45; if (p === 'W' || p === 'P') return 0.85; return 1 })
+const faceO = frames((i) => (phase(i) === 'S' ? clamp((spinCos(i) - 0.05) / 0.25, 0, 1) : 1))   // hidden while his back is to us
+const mouthD = frames((i) => { const p = phase(i); return p === 'A' || p === 'D' ? NORMAL : GRIN })
+const fingerO = frames((i) => (i >= H_END ? Math.min(1, (i - H_END) / 3) : 0))
+
+// ── effects ───────────────────────────────────────────────────────────
+const fxO = frames((i) => (phase(i) === 'P' ? (pump(i) > 0 ? 1 : 0.35) : 0))              // vibration marks
+const starO = frames((i) => (phase(i) === 'H' ? HIT_STAR_O[ht(i)] : 0))
+const starS = frames((i) => (phase(i) === 'H' ? HIT_STAR_S[ht(i)] : 0.5))
+const shadowS = frames((i) => clamp(1 + bodyY[i] / 60, 0.55, 1.1))                          // shadow shrinks as he jumps
+const beatP = (i) => (i % 8) / 8
+const ringActive = (i) => i >= A_END && i < S_END
+const ringS = frames((i) => (ringActive(i) ? 0.5 + 1.3 * beatP(i) : 0.5))
+const ringO = frames((i) => (ringActive(i) ? 0.5 * (1 - beatP(i)) : 0))                    // one ripple per beat
+
+export const FRAMES = {
   wrapX, bodyX, bodyY, bodyRot, bodySkew, bodySX, bodySY,
   shoulderL, shoulderR, armL, armR, legL, legR,
-  eyeX, eyeSY, faceO, mouthD, fingerO, fxO, starO, starS, shadowS, ringS, ringO,
-} = FRAMES
-
-const lin = { duration: ENTRANCE, ease: 'linear' }
-const loop = (d) => ({ duration: d, repeat: Infinity, ease: 'easeInOut' })
-
-const wrapV = {
-  entrance: { x: wrapX, opacity: 1, transition: lin },
-  idle: { x: '0vw', opacity: 1 },
-  curious: { x: '0vw', opacity: 1 },
-  leaving: { x: '0vw', opacity: [1, 1, 1, 0], transition: { duration: 1.3, times: [0, 0.3, 0.6, 1], ease: 'easeInOut' } },
-}
-const bodyV = {
-  entrance: { x: bodyX, y: bodyY, rotate: bodyRot, skewX: bodySkew, scaleX: bodySX, scaleY: bodySY, transition: lin },
-  idle: { x: 0, skewX: 0, rotate: 0, scaleX: 1, y: [0, -3, 0], scaleY: [1, 1.018, 1], transition: loop(3.4) },
-  curious: { x: 0, skewX: 0, scaleX: 1, scaleY: 1, y: [0, -2, 0], rotate: [0, -5, 0, 5, 0], transition: loop(4.2) },
-  leaving: { x: 0, skewX: 0, rotate: 0, scaleX: 1, scaleY: 1, y: [0, -4, 0, 12], scale: [1, 1, 1, 0.85], transition: { duration: 1.3, times: [0, 0.3, 0.6, 1], ease: 'easeInOut' } },
-}
-const shoulderLV = { entrance: { y: shoulderL, transition: lin }, idle: { y: 0 }, curious: { y: 0 }, leaving: { y: 0 } }
-const shoulderRV = { entrance: { y: shoulderR, transition: lin }, idle: { y: 0 }, curious: { y: 0 }, leaving: { y: 0 } }
-const armLV = { entrance: { rotate: armL, transition: lin }, idle: { rotate: [0, 2, 0], transition: loop(3.4) }, curious: { rotate: 0 }, leaving: { rotate: 0 } }
-const armRV = {
-  entrance: { rotate: armR, transition: lin },
-  idle: { rotate: [0, -2, 0], transition: loop(3.4) },
-  curious: { rotate: 0 },
-  leaving: { rotate: [0, -125, -145, -125, -145, -125, 0], transition: { duration: 1.2, ease: 'easeInOut' } },
-}
-const legLV = { entrance: { y: legL, transition: lin }, idle: { y: 0 }, curious: { y: 0 }, leaving: { y: 0 } }
-const legRV = { entrance: { y: legR, transition: lin }, idle: { y: 0 }, curious: { y: 0 }, leaving: { y: 0 } }
-const eyesV = {
-  entrance: { x: eyeX, scaleY: eyeSY, opacity: faceO, transition: lin },
-  idle: { x: 0, opacity: 1, scaleY: [1, 1, 0.1, 1, 1], transition: { duration: 4, repeat: Infinity, times: [0, 0.9, 0.94, 0.98, 1] } },
-  curious: { scaleY: 1, x: [0, 2, 0, -2, 0], transition: loop(4.2) },
-  leaving: { x: 0, scaleY: 1 },
-}
-const mouthV = { entrance: { d: mouthD, opacity: faceO, transition: lin }, idle: { d: NORMAL, opacity: 1 }, curious: { d: NORMAL, opacity: 1 }, leaving: { d: NORMAL, opacity: 1 } }
-const shadowV = { entrance: { scaleX: shadowS, transition: lin }, idle: { scaleX: 1 }, curious: { scaleX: 1 }, leaving: { scaleX: 1 } }
-const ringV = { entrance: { scale: ringS, opacity: ringO, transition: lin }, idle: { opacity: 0 }, curious: { opacity: 0 }, leaving: { opacity: 0 } }
-const fxV = { entrance: { opacity: fxO, transition: lin }, idle: { opacity: 0 }, curious: { opacity: 0 }, leaving: { opacity: 0 } }
-const starsV = { entrance: { opacity: starO, scale: starS, transition: lin }, idle: { opacity: 0 }, curious: { opacity: 0 }, leaving: { opacity: 0 } }
-const fingerV = {
-  entrance: { opacity: fingerO, transition: lin },
-  idle: { opacity: 0, transition: { duration: 0.3 } },
-  curious: { opacity: 0 },
-  leaving: { opacity: [0, 1, 1, 1], transition: { duration: 0.5 } },
-}
-
-export const MASCOT_ENTRANCE_SECONDS = ENTRANCE
-
-const STAR = 'M0 -7 L2 -2 L7 0 L2 2 L0 7 L-2 2 L-7 0 L-2 -2Z'
-
-export const DANCE_VERSION = 'afrobeats-groove v2'
-
-// forceMotion: play the animation even if the system says "reduce motion" (only used when the person taps to play it)
-export default function ShushhhMascot({ size = 140, mood = 'idle', onDone, forceMotion = false }) {
-  const systemReduce = useReducedMotion()
-  const reduce = systemReduce && !forceMotion
-  const uid = useId().replace(/:/g, '')
-
-  useEffect(() => {
-    if (reduce && (mood === 'entrance' || mood === 'leaving')) onDone?.(mood)
-  }, [reduce, mood])  
-
-  const animate = reduce ? undefined : mood
-  
-  // proof of which dance is running: look for this in the browser console (F12)
-  useEffect(() => {
-    if (mood === 'entrance') console.info(`[Shushhh] dance: ${DANCE_VERSION}${reduce ? ' (skipped: system reduce-motion is on)' : ''}`)
-  }, [mood, reduce])
-
-  return (
-    <motion.div
-      variants={wrapV}
-            data-dance={DANCE_VERSION}
-      initial={!reduce && mood === 'entrance' ? { x: '-60vw' } : undefined}
-      animate={animate}
-      onAnimationComplete={(d) => { if (d === 'entrance' || d === 'leaving') onDone?.(d) }}
-      style={{ display: 'inline-block', lineHeight: 0 }}
-    >
-      <svg width={size} height={size * 1.19} viewBox="0 0 160 190" role="img" aria-label="Shushhh mascot" style={{ overflow: 'visible' }}>
-        <defs>
-          <linearGradient id={`b${uid}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#a78bfa" />
-            <stop offset="1" stopColor="#5b21b6" />
-          </linearGradient>
-          <radialGradient id={`g${uid}`} cx="0.5" cy="0.5" r="0.5">
-            <stop offset="0" stopColor="#8b5cf6" stopOpacity="0.28" />
-            <stop offset="1" stopColor="#8b5cf6" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-
-        <ellipse cx="80" cy="95" rx="78" ry="82" fill={`url(#g${uid})`} />
-        {/* a ripple on the floor with every beat of the dance */}
-        <motion.ellipse variants={ringV} cx="80" cy="172" rx="34" ry="6" fill="none" stroke="#c4b5fd" strokeWidth="2" style={{ ...pivot('50% 50%'), opacity: 0 }} />
-        <motion.ellipse variants={shadowV} cx="80" cy="172" rx="34" ry="5" fill="rgba(139,92,246,0.25)" style={pivot('50% 50%')} />
-
-        {/* sparkles on each "hit" */}
-        <g transform="translate(22 30)"><motion.path d={STAR} variants={starsV} style={{ ...pivot('50% 50%'), opacity: 0 }} fill="#ddd6fe" /></g>
-        <g transform="translate(140 24)"><motion.path d={STAR} variants={starsV} style={{ ...pivot('50% 50%'), opacity: 0 }} fill="#c4b5fd" /></g>
-        <g transform="translate(80 8)"><motion.path d={STAR} variants={starsV} style={{ ...pivot('50% 50%'), opacity: 0 }} fill="#ede9fe" /></g>
-
-        <motion.g variants={bodyV} style={pivot('50% 100%')}>
-          {/* legs */}
-          <motion.rect variants={legLV} x="55" y="128" width="18" height="30" rx="9" fill="#5b21b6" />
-          <motion.rect variants={legRV} x="87" y="128" width="18" height="30" rx="9" fill="#5b21b6" />
-
-          {/* shoulders + arms (shoulders bob in opposite directions = the shimmy) */}
-          <motion.g variants={shoulderLV}>
-            <motion.rect variants={armLV} x="20" y="80" width="14" height="38" rx="7" fill="#7c3aed" style={pivot('50% 10%')} />
-            <circle cx="28" cy="87" r="8.5" fill="#8b5cf6" />
-          </motion.g>
-          <motion.g variants={shoulderRV}>
-            <motion.rect variants={armRV} x="126" y="80" width="14" height="38" rx="7" fill="#7c3aed" style={pivot('50% 10%')} />
-            <circle cx="132" cy="87" r="8.5" fill="#8b5cf6" />
-          </motion.g>
-
-          {/* body */}
-          <rect x="30" y="28" width="100" height="108" rx="46" fill={`url(#b${uid})`} />
-          <rect x="42" y="36" width="52" height="14" rx="7" fill="#fff" opacity="0.12" />
-
-          {/* vibration marks beside the shoulders while shimmying */}
-          <motion.g variants={fxV} style={{ opacity: 0 }} stroke="#c4b5fd" strokeWidth="2.4" strokeLinecap="round" fill="none">
-            <path d="M12 74 q-6 9 0 18" /><path d="M5 68 q-9 15 0 30" />
-            <path d="M148 74 q6 9 0 18" /><path d="M155 68 q9 15 0 30" />
-          </motion.g>
-
-          {/* face */}
-          <motion.g variants={eyesV} style={pivot('50% 50%')}>
-            <ellipse cx="62" cy="76" rx="6.5" ry="8.5" fill="#1a1033" />
-            <ellipse cx="98" cy="76" rx="6.5" ry="8.5" fill="#1a1033" />
-            <circle cx="64" cy="72.5" r="2" fill="#fff" opacity="0.9" />
-            <circle cx="100" cy="72.5" r="2" fill="#fff" opacity="0.9" />
-          </motion.g>
-          <motion.path variants={mouthV} d={NORMAL} stroke="#1a1033" strokeWidth="2.6" strokeLinecap="round" fill="none" />
-          <motion.rect variants={fingerV} style={{ opacity: 0 }} x="76.5" y="88" width="7" height="26" rx="3.5" fill="#ddd6fe" />
-        </motion.g>
-      </svg>
-    </motion.div>
-  )
+  eyeX, eyeSY, faceO, mouthD, fingerO,
+  fxO, starO, starS, shadowS, ringS, ringO,
 }
