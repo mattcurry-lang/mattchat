@@ -52,24 +52,24 @@ const wrapX = frames((i) => {
 })
 
 // ── body ──────────────────────────────────────────────────────────────
-const bodyX = frames((i) => { const p = phase(i); if (p === 'W') return sway(i) * 8; if (p === 'P') return pump(i) * 2.5; return 0 })
+const bodyX = frames((i) => { const p = phase(i); if (p === 'W') return sway(i) * 11; if (p === 'P') return pump(i) * 4; return 0 })
 const bodyY = frames((i) => {
   const p = phase(i)
-  if (p === 'A') return -9 * bounce(i)
-  if (p === 'W') return -6 * bounce(i)
-  if (p === 'P') return pump(i) > 0 ? -7 : 2
-  if (p === 'S') return -16 * Math.sin(Math.PI * spinU(i))
+  if (p === 'A') return -13 * bounce(i)
+  if (p === 'W') return -9 * bounce(i)
+  if (p === 'P') return pump(i) > 0 ? -11 : 3
+  if (p === 'S') return -22 * Math.sin(Math.PI * spinU(i))
   if (p === 'H') return POPY[ht(i)]
   return 0
 })
 const bodyRot = frames((i) => {
   const p = phase(i)
-  if (p === 'A') return (i >> 2) % 2 ? 5 : -5
-  if (p === 'W') return sway(i) * 7
-  if (p === 'P') return pump(i) * 5
+  if (p === 'A') return (i >> 2) % 2 ? 7 : -7
+  if (p === 'W') return sway(i) * 10
+  if (p === 'P') return pump(i) * 7
   return 0
 })
-const bodySkew = frames((i) => { const p = phase(i); if (p === 'W') return sway(i) * 6; if (p === 'P') return pump(i) * 6; return 0 })
+const bodySkew = frames((i) => { const p = phase(i); if (p === 'W') return sway(i) * 8; if (p === 'P') return pump(i) * 8; return 0 })
 const bodySX = frames((i) => {
   const p = phase(i)
   if (p === 'S') { const c = spinCos(i); return (c < 0 ? -1 : 1) * Math.max(Math.abs(c), 0.22) }   // the turn (never paper-thin: he's a round little guy)
@@ -94,7 +94,7 @@ const shoulderR = frames((i) => { const p = phase(i); if (p === 'W') return sway
 const armAngle = (i, s) => {
   const p = phase(i)
   if (p === 'A') return 16 + s * 16 * swing(i)
-  if (p === 'W') return 38 + s * 26 * sway(i)                    // cross-swing
+  if (p === 'W') return 42 + s * 34 * sway(i)                    // cross-swing
   if (p === 'P') return pump(i) * s > 0 ? 128 : 28               // alternating pumps
   if (p === 'S') return 60 + 20 * Math.sin(Math.PI * spinU(i))   // arms out wide
   if (p === 'H') return HIT_ARM[ht(i)]
