@@ -12,6 +12,7 @@ import {
 import { uploadManager } from '../services/UploadManager'
 import { isOnlineNow } from '../lib/connectivity'
 import { getSetting } from '../lib/appearanceStore'
+import { notifyDecision } from '../lib/notifyPolicy'
 import { cacheMessages, getCachedMessages, addToOutbox, getOutbox, flushOutbox, cacheConversations, getCachedConversations } from '../lib/offlineStore'
 
 const toQueuedBubble = (o) => ({
@@ -20,7 +21,10 @@ const toQueuedBubble = (o) => ({
   profiles: null, _optimistic: true, _status: 'queued',
 })
 
-export function useChat(conversationId, currentUserId) {
+// options: { isGroup, myUsername } so the sound can follow "Mentions only in groups"
+export function useChat(conversationId, currentUserId, options = {}) {
+  const optionsRef = useRef(options)
+  optionsRef.current = options
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
   const [typing, setTyping] = useState([])
@@ -119,7 +123,15 @@ useEffect(() => {
               .single()
             if (!msgWithProfile) return
 
-            if (msgWithProfile.sender_id !== currentUserId) playSound('pulse')
+            if (msgWithProfile.sender_id !== currentUserId) {
+              // Do not disturb, quiet hours and mentions-only silence the sound (calls are not affected)
+              const o = optionsRef.current
+              const decision = notifyDecision({
+                settings: { dnd: getSetting('dnd'), quietHours: getSetting('quietHours'), mentionsOnly: getSetting('mentionsOnly'), timezone: getSetting('timezone') },
+                isGroup: !!o.isGroup, text: msgWithProfile.content, myUsername: o.myUsername,
+              })
+              if (decision.alert) playSound('pulse')
+            }
 
             setMessages(prev => {
               if (msgWithProfile.sender_id === currentUserId && msgWithProfile.message_type === 'text') {
