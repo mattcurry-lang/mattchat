@@ -68,6 +68,8 @@ export default function ShushhhExperience({ me, incoming = null, skipIntro = fal
   const [declining, setDeclining] = useState(false)
   const [confirmLeave, setConfirmLeave] = useState(false)
   const [introDone, setIntroDone] = useState(false)
+    const [danceKey, setDanceKey] = useState(0)          // bump = replay the dance from the start
+  const [forceDance, setForceDance] = useState(false)    // the person tapped to play it, even if the system says reduce motion
   const [inviteState, setInviteState] = useState('idle')
   const [inviteErr, setInviteErr] = useState('')
   const [waitedLong, setWaitedLong] = useState(false)
@@ -243,7 +245,8 @@ export default function ShushhhExperience({ me, incoming = null, skipIntro = fal
   }
 
   const name = peer?.username || 'them'
-  const showText = introDone || reduce
+  const showText = introDone || (reduce && !forceDance)
+  const replayDance = () => { setForceDance(true); setIntroDone(false); setDanceKey((k) => k + 1) }
   const canType = !room.peerLeft && room.conn === 'ready'
 
   const statusText =
@@ -265,7 +268,7 @@ export default function ShushhhExperience({ me, incoming = null, skipIntro = fal
         {stage === 'intro' && (
           <div style={center}>
             {!incoming && <button style={closeFloat} onClick={finalize} aria-label="Close"><IconX /></button>}
-            <ShushhhMascot size={168} mood={introDone ? 'idle' : 'entrance'} onDone={() => setIntroDone(true)} />
+                        <div onClick={replayDance} title="Tap to replay the dance" style={{ cursor: 'pointer', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>               <ShushhhMascot key={danceKey} size={168} mood={introDone ? 'idle' : 'entrance'} forceMotion={forceDance} onDone={() => setIntroDone(true)} />             </div>             {reduce && !forceDance && (               <button style={ghostBtn} onClick={replayDance}>Animations are off on this device. Tap to see him dance</button>             )}
             <AnimatePresence>
               {showText && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} style={{ textAlign: 'center' }}>
