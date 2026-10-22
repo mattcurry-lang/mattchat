@@ -45,7 +45,6 @@ import CallsList from '../components/CallsList'
 import { useCallHistory } from '../hooks/useCallHistory'
 import NewCallModal from '../components/NewCallModal'
 import AICommandBar from '../components/AICommandBar'
-import AppHeader from '../components/AppHeader'
 import QuickActionsMenu from '../components/QuickActionsMenu'
 import AskCurry from '../components/Pulse/AskCurry'
 import MessageActionsMenu, { useMessageLongPress } from '../components/MessageActionsMenu'
@@ -114,6 +113,7 @@ import ProfileMenuSheet from '../components/ProfileMenuSheetConnected'
 import { PlaceholderIcons } from '../components/ProfileMenuSheet'
 import { getSetting, useMediaPolicy } from '../lib/appearanceStore'
 import CallsLandingPanel from '../components/CallsLandingPanel'
+import QuickMusicAccess from '../components/Pulse/Music/QuickMusicAccess'
 import RingtonePicker from '../components/Pulse/Music/RingtonePicker'
 import { RingtoneService } from '../lib/music/RingtoneService'
 import { useRecordPlays } from '../hooks/useListeningHistory'
@@ -1216,8 +1216,6 @@ export default function ChatPage({ session }) {
   const [newContact, setNewContact]     = useState('')
    const [showWhatsApp, setShowWhatsApp] = useState(false)
   const [showNewChat, setShowNewChat]   = useState(false)
-  const [startingChat, setStartingChat] = useState(false)
-  const startingChatRef = useRef(false) // blocks a second submit in the same instant (Enter + click)
   const [inputText, setInputText]       = useState('')
   const [search, setSearch]             = useState('')
   const [showSearchBar, setShowSearchBar] = useState(false)
@@ -1390,7 +1388,8 @@ const listState = useConversationListState({
   broadcastTyping,
 } = useChat(
   activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
-  userId
+  userId,
+  { isGroup: !!activeConvo?.is_group, myUsername: profile?.username }
 )
    const arrivals = useArrivals(messages, activeConvo?.id, msgLoading)
   const { readMap, deliveredMap } = useMessageStatus(
@@ -1811,9 +1810,6 @@ useEffect(() => {
   }
 const startNewChat = async (e) => {
   e.preventDefault()
-  if (startingChatRef.current) return
-  startingChatRef.current = true
-  setStartingChat(true)
   try {
     const convoId = await getOrCreateConversation(userId, newContact)
     await reload()
@@ -1827,7 +1823,6 @@ const startNewChat = async (e) => {
     setActiveTab('chats')
     setShowNewChat(false); setNewContact('')
   } catch (err) { playSound('warning'); alert(err.message) }
-  finally { startingChatRef.current = false; setStartingChat(false) }
 }
 const handleMessageContact = async (contactEmail) => {
   if (!contactEmail) return
@@ -2223,7 +2218,6 @@ const handleSignOut = async () => {
          avatarUrl={callConvo ? getOtherUserAvatar(callConvo, userId) : (activeConvo ? getOtherUserAvatar(activeConvo, userId) : null)}
         callType={activeCall?.callType}
           provider={isZoomUrl(activeCall?.roomUrl) ? 'zoom' : 'daily'}
-          zoomUrl={isZoomUrl(activeCall?.roomUrl) ? activeCall.roomUrl : undefined}
           status={callStatus}
           onCancel={endCall}
         />
@@ -2266,32 +2260,34 @@ const handleSignOut = async () => {
       {/* ── LIST / BROWSE SCREEN (hidden once a conversation is open) ── */}
       <div className="sidebar">
         <div className="top-header">
-<AppHeader
-  logoProps={tripleTapProps}
-  menuBtnRef={headerMenuBtnRef}
-  menuOpen={showHeaderMenu}
-  onToggleMenu={() => setShowHeaderMenu(v => !v)}
-  curryListening={heyCurryListening}
-  menuNode={showHeaderMenu && (
-    <HeaderMoreMenu
-      anchorRef={headerMenuBtnRef}
-      theme={theme}
-      onToggleTheme={toggleTheme}
-      heyCurryListening={heyCurryListening}
-      onToggleHeyCurry={() => (heyCurryListening ? stopHeyCurry() : startHeyCurry())}
-      onClose={() => setShowHeaderMenu(false)}
-    />
-  )}
-  briefNode={activeTab === 'chats' && (
-    <TodaysTimeline
-      inline
-      userId={userId}
-      totalUnread={totalUnread}
-      conversations={conversations}
-      sharedConvoIds={sharedConvoIds}
-    />
-  )}
-/>
+<div className="top-header-brand">
+  <img src="/logo.png" alt="Mattchat" className="top-header-logo" {...tripleTapProps} />
+  <span className="top-header-name" {...tripleTapProps}>Mattchat</span>
+<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+  <QuickMusicAccess />
+  <div style={{ position: 'relative' }}>
+    <button
+      ref={headerMenuBtnRef}
+      className="top-header-search-btn"
+      onClick={() => setShowHeaderMenu(v => !v)}
+      title="More"
+      style={{ color: heyCurryListening ? '#a78bfa' : undefined, background: heyCurryListening ? 'rgba(167,139,250,0.15)' : undefined }}
+    >
+      <IconMoreVertical size={16} />
+    </button>
+   {showHeaderMenu && (
+      <HeaderMoreMenu
+        anchorRef={headerMenuBtnRef}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        heyCurryListening={heyCurryListening}
+        onToggleHeyCurry={() => (heyCurryListening ? stopHeyCurry() : startHeyCurry())}
+        onClose={() => setShowHeaderMenu(false)}
+      />
+    )}
+  </div>
+</div>
+</div>
 {showWhatsApp && (
   <WhatsAppPage session={session} userId={userId} onClose={() => setShowWhatsApp(false)} />
 )}
@@ -2380,7 +2376,15 @@ const handleSignOut = async () => {
           )}
         </div>
 
- 
+       {activeTab === 'chats' && (
+  <TodaysTimeline
+    userId={userId}
+    totalUnread={totalUnread}
+    conversations={conversations}
+    sharedConvoIds={sharedConvoIds}
+  />
+)}
+
         {/* ── LIST CARD ── */}
         <div className="list-card">
           {activeTab === 'chats' && (
@@ -2415,7 +2419,7 @@ const handleSignOut = async () => {
                 <form className="new-chat-form" onSubmit={startNewChat}>
                   <input type="text" value={newContact} onChange={e => setNewContact(e.target.value)} placeholder="Username or email" required autoFocus />
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <button type="submit" className="btn-primary" style={{ flex: 1 }} disabled={startingChat}>{startingChat ? 'Starting…' : 'Start chat'}</button>
+                    <button type="submit" className="btn-primary" style={{ flex: 1 }}>Start chat</button>
                     <button type="button" className="btn-ghost" onClick={() => setShowNewChat(false)}>Cancel</button>
                   </div>
                 </form>
@@ -2915,7 +2919,7 @@ shareConversations={conversations.map(c => ({
  
           
  <QuickActionsMenu
-      mode={
+         mode={
         (activeConvo || showShorts || showDekutCurry || showWhatsApp || showEmailWorkspace || showInsights || showNewChat || showNewCall || showCurryAssistant)
           ? 'none'                                           // full-screen features: out of the way
           : (activeTab === 'chats' && !showProfileMenu) ? 'full'   // the Home chat list: it belongs here
