@@ -187,7 +187,7 @@ const PICKERS = {
   chatTheme: { title: 'Chat theme', options: [{ value: 'default', label: 'Default' }, { value: 'midnight', label: 'Midnight' }, { value: 'aurora', label: 'Aurora' }, { value: 'sunset', label: 'Sunset' }, { value: 'forest', label: 'Forest' }] },
   bubbleStyle: { title: 'Bubble style', options: [{ value: 'soft', label: 'Soft', desc: 'Rounded and friendly' }, { value: 'classic', label: 'Classic' }, { value: 'sharp', label: 'Sharp', desc: 'Squared corners' }] },
   fontSize: { title: 'Text size', options: [{ value: 'small', label: 'Small' }, { value: 'medium', label: 'Medium' }, { value: 'large', label: 'Large' }] },
-  quietHours: { title: 'Quiet hours', options: [{ value: 'off', label: 'Off' }, { value: 'night', label: '10 pm to 7 am', desc: 'Sleep' }, { value: 'class', label: '8 am to 5 pm', desc: 'Class hours' }] },
+  quietHours: { title: 'Quiet hours', options: [{ value: 'off', label: 'Off' }, { value: 'night', label: '10 pm to 7 am', desc: 'Sleep' }, { value: 'class', label: '8 am to 5 pm', desc: 'Class hours, Mon to Fri' }] },
   autoDownload: { title: 'Auto-download media', options: [{ value: 'wifi', label: 'Wi-Fi only' }, { value: 'both', label: 'Wi-Fi and mobile data' }, { value: 'never', label: 'Never' }] },
   language: { title: 'App language', options: [{ value: 'en', label: 'English' }, { value: 'sw', label: 'Kiswahili' }, { value: 'fr', label: 'Français' }] },
 }
@@ -270,12 +270,12 @@ const HYBRID_SECTIONS = [
   {
     id: 'notifications', label: 'Notifications and focus',
     items: [
-      tog('dnd', <IconBell />, 'Do not disturb', 'Pause all alerts until you turn it off'),
-      sel('quietHours', <IconMoon />, 'Quiet hours', 'Mute alerts on a schedule'),
-      nav('focus', <IconFocus />, 'Focus modes', 'Study, Sleep, Work — each with its own allowed people'),
-      tog('previews', <IconBubble />, 'Message previews', 'Show message text in notifications'),
+      tog('dnd', <IconBell />, 'Do not disturb', 'Silences message alerts and sounds. Calls still ring'),
+      sel('quietHours', <IconMoon />, 'Quiet hours', 'Mute message alerts on a schedule'),
+      nav('focus', <IconFocus />, 'Focus modes', 'Coming soon: Study, Sleep and Work, each with its own allowed people', { badge: 'Soon' }),
+      tog('previews', <IconBubble />, 'Message previews', 'Off shows “New message” instead of the text in push notifications'),
       tog('mentionsOnly', <IconAt />, 'Mentions only in groups', 'Only alert me when someone @mentions me'),
-      nav('sounds', <IconVolume />, 'Sounds and vibration', 'Tones for messages and calls'),
+      nav('sounds', <IconVolume />, 'Sounds and vibration', 'Coming soon: tones for messages and calls', { badge: 'Soon' }),
     ],
   },
   {
