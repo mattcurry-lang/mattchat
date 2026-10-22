@@ -26,6 +26,14 @@ export default function ProfileMenuSheetConnected(props) {
     if (ready && userId) hydrate(userId, features)
   }, [ready, userId, features])
 
+  // Quiet hours are evaluated on the server, so it needs to know my current time zone (it changes when I travel).
+  useEffect(() => {
+    if (!ready || !userId) return
+    let tz
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone } catch { return }
+    if (tz && features.timezone !== tz) { setSettings({ timezone: tz }); onFeatureChange('timezone', tz) }
+  }, [ready, userId, features.timezone, onFeatureChange])
+
   // What the sheet should show before the user touches anything.
   const initialFeatures = useMemo(() => ({ ...getDefaults(), ...features }), [features])
 
