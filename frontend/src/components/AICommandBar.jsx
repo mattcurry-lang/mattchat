@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { callCurryAI } from './CurryAI'
 import { IconSparkle, IconMic, IconMail, IconCloudSun, IconX } from './Icons'
+import { useVoiceDictation } from '../hooks/useVoiceDictation'
+import VoiceOrbCanvas from './VoiceOrbCanvas'
+
+export default function AICommandBar({ session, value, onSearchChange, onOpenCurry, hasLocalMatches, onVoiceActiveChange }) {
 
 const HINTS = [
   'Ask Curry anything…',
@@ -77,7 +81,13 @@ export default function AICommandBar({ session, value, onSearchChange, onOpenCur
     }
     setAsking(false)
   }
-
+const voice = useVoiceDictation({
+  onResult: (text) => askCurry(text),      // hands-free, same path the prompt chips use
+  onActiveChange: onVoiceActiveChange,
+})
+const orbState = voice.requesting ? 'requesting' : voice.listening ? 'listening'
+  : voice.processing ? 'processing' : voice.error ? 'error' : 'idle'
+  
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault()
@@ -129,7 +139,10 @@ export default function AICommandBar({ session, value, onSearchChange, onOpenCur
           ) : (
             <>
               {!focused && <kbd className="mc-kbd" aria-hidden>{kbd}</kbd>}
-              <button className="mc-ico" onClick={onOpenCurry} aria-label="Open Curry" title="Open Curry"><IconMic size={14} /></button>
+             <button className="mc-ico"
+  onClick={() => (voice.listening ? voice.stop() : voice.supported ? voice.start() : onOpenCurry?.())}
+  aria-label={voice.listening ? 'Stop listening' : 'Speak to Curry'}
+  title={voice.listening ? 'Done' : 'Speak to Curry'}><IconMic size={14} /></button>
             </>
           )}
         </div>
@@ -147,7 +160,16 @@ export default function AICommandBar({ session, value, onSearchChange, onOpenCur
           </div>
         </div>
       )}
-
+{(voice.busy || voice.error) && (
+  <div className="mc-panel mc-voice" onMouseDown={(e) => e.preventDefault()}>
+    <VoiceOrbCanvas state={orbState} speaking={voice.speechDetected}
+      getLevels={voice.getLevels} getVolume={voice.getVolume} size={150} />
+    <div>{voice.error ? voice.error.message : voice.requesting ? 'Allow the microphone…'
+      : voice.listening ? 'Listening…' : 'Thinking…'}</div>
+    <button className="mc-continue" onClick={voice.error ? voice.clearError : voice.cancel}>
+      {voice.error ? 'Dismiss' : 'Cancel'}</button>
+  </div>
+)}
       {value.trim() && !answer && !asking && (
         <div className="mc-quick">
           {QUICK_CHIPS.map(({ icon: Icon, label, fill }) => (
