@@ -4,7 +4,7 @@ import { IconSparkle, IconMic, IconMail, IconCloudSun, IconX } from './Icons'
 import { useVoiceDictation } from '../hooks/useVoiceDictation'
 import VoiceOrbCanvas from './VoiceOrbCanvas'
 
-export default function AICommandBar({ session, value, onSearchChange, onOpenCurry, hasLocalMatches, onVoiceActiveChange }) {
+
 
 const HINTS = [
   'Ask Curry anything…',
@@ -31,8 +31,7 @@ const QUICK_CHIPS = [
 
 const isMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent || '')
 const prefersReducedMotion = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-
-export default function AICommandBar({ session, value, onSearchChange, onOpenCurry, hasLocalMatches }) {
+export default function AICommandBar({ session, value, onSearchChange, onOpenCurry, hasLocalMatches, onVoiceActiveChange }) {
   const [asking, setAsking] = useState(false)
   const [answer, setAnswer] = useState('')
   const [asked, setAsked] = useState('')
