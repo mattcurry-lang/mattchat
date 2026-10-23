@@ -1341,6 +1341,7 @@ const { isOnline, getLastSeenLabel, getPresenceStatus } = usePresence(userId)
   // Zoom calls: first time asks for your Zoom link; after that it's one tap.
   // The call starts synchronously inside the click so the browser lets Zoom open.
   const [zoomSheet, setZoomSheet] = useState(null)   // { conversationId, name, edit? }
+    const isMobileLayout = useIsMobile()               // same 640px breakpoint the CSS uses for the desktop layout
   const handleZoomCall = async (conversationId, name) => {
     // Tries the automatic room first; only asks for a link if automatic rooms aren't set up and none is saved.
     const result = await startZoomCall(conversationId, getMyZoomLink(userId))
@@ -2922,7 +2923,7 @@ shareConversations={conversations.map(c => ({
          mode={
         (activeConvo || showShorts || showDekutCurry || showWhatsApp || showEmailWorkspace || showInsights || showNewChat || showNewCall || showCurryAssistant)
           ? 'none'                                           // full-screen features: out of the way
-          : (activeTab === 'chats' && !showProfileMenu) ? 'full'   // the Home chat list: it belongs here
+                   : (activeTab === 'chats' && !showProfileMenu) ? (isMobileLayout ? 'full' : 'none')   // Home: full pill on phones; NONE on desktop (it has its own layout)   // the Home chat list: it belongs here
           : 'peek'                                           // Calls / Pulse / Status / Profile: edge handle + shortcuts only
       }
       onNewChat={() => (activeTab === 'calls' ? setShowNewCall(true) : setShowNewChat(true))}
