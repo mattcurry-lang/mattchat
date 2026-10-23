@@ -1451,6 +1451,14 @@ const unreadStatusCount = statusGroups.filter(g => !g.allViewed).length
   // is what was causing the mic indicator to flicker on/off.
   const { listening: heyCurryListening, startListening: startHeyCurry, stopListening: stopHeyCurry } =
     useHeyCurry(onHeyCurryActivated, { autoStart: false })
+  const heyCurryRef = useRef({})
+heyCurryRef.current = { listening: heyCurryListening, start: startHeyCurry, stop: stopHeyCurry }
+const wasHeyCurryOn = useRef(false)
+const handleVoiceActive = useCallback((active) => {
+  const h = heyCurryRef.current
+  if (active) { wasHeyCurryOn.current = h.listening; if (h.listening) h.stop() }
+  else if (wasHeyCurryOn.current) { wasHeyCurryOn.current = false; h.start() }
+}, [])
   const bindLongPress = useMessageLongPress((message, x, y) => setMessageMenu({ message, x, y }))
 
 useEffect(() => {
