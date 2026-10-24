@@ -1,37 +1,51 @@
-import React, { useState, useEffect } from 'react'
+// src/components/YouTubeCard.jsx
+// The YouTube card shown inside a chat bubble.
+//
+// Same props and behaviour as before (play, watch together, AI summary and notes,
+// chapters that jump to a time, flashcards, quiz, ask-about-this-video). New:
+//   * the picture appears instantly (no waiting for YouTube's details), then sharpens
+//   * a soft glow taken from the picture, a glass play button, one consistent icon set
+//   * readable text on your dark chat (the old card used a dark-grey text colour)
+//   * a summary that can fail without leaving an empty box, and safe links only
+
+import React, { useEffect, useRef, useState } from 'react'
 import { fetchYouTubeOEmbed } from '../lib/youtube'
 import { analyzeYouTubeVideo, askYouTubeVideo } from '../lib/supabase'
 import FlashcardDeck from './FlashcardDeck'
 import QuizRunner from './QuizRunner'
+import { useYouTubeThumb } from '../hooks/useYouTubeThumb'
+import { timestampToSeconds, safeHttpUrl, watchUrl, avatarGradient, initialOf } from '../lib/youtubeThumb'
+import { ensureYouTubeStyles } from './youtube/youtubeStyles'
+import { PlayIcon, SparkIcon, UsersIcon, ExternalIcon } from './youtube/ytIcons'
 
-const CREDIBILITY_COLORS = {
-  high: '#4ade80',
-  moderate: '#fbbf24',
-  low: '#f87171',
-  unclear: 'var(--text-muted)',
-}
+ensureYouTubeStyles()
 
-// "MM:SS" or "H:MM:SS" -> seconds, for seeking the player
-function timestampToSeconds(ts) {
-  if (!ts) return 0
-  const parts = ts.split(':').map(Number)
-  if (parts.some(isNaN)) return 0
-  return parts.reduceRight((acc, val, i, arr) => acc + val * Math.pow(60, arr.length - 1 - i), 0)
+const CREDIBILITY_COLORS = { high: '#4ade80', moderate: '#fbbf24', low: '#fb7185', unclear: '#9a94bd' }
+
+function linkLabel(href) {
+  try { const u = new URL(href); return u.hostname.replace(/^www\./, '') + (u.pathname.length > 1 ? u.pathname : '') } catch { return href }
 }
 
 export default function YouTubeCard({ videoId, onPlay, onWatchTogether, session }) {
+  const { src } = useYouTubeThumb(videoId)
   const [meta, setMeta] = useState(null)
   const [failed, setFailed] = useState(false)
   const [showAI, setShowAI] = useState(false)
   const [analysis, setAnalysis] = useState(null)
   const [analyzing, setAnalyzing] = useState(false)
+  const [analysisError, setAnalysisError] = useState(false)
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState(null)
   const [asking, setAsking] = useState(false)
   const [activeDeck, setActiveDeck] = useState(null) // 'flashcards' | 'quiz' | null
+  const alive = useRef(true)
+
+  useEffect(() => () => { alive.current = false }, [])
 
   useEffect(() => {
     let cancelled = false
+    setMeta(null)
+    setFailed(false)
     fetchYouTubeOEmbed(videoId).then((data) => {
       if (cancelled) return
       if (data) setMeta(data)
@@ -40,17 +54,26 @@ export default function YouTubeCard({ videoId, onPlay, onWatchTogether, session 
     return () => { cancelled = true }
   }, [videoId])
 
-  const handleSummarize = async () => {
-    setShowAI(true)
-    if (analysis) return
+  const runAnalysis = async () => {
     setAnalyzing(true)
+    setAnalysisError(false)
     try {
       const res = await analyzeYouTubeVideo(session, videoId)
-      if (res.ok) setAnalysis(res.analysis)
+      if (!alive.current) return
+      if (res && res.ok) setAnalysis(res.analysis)
+      else setAnalysisError(true)
     } catch (e) {
       console.error('Video analysis failed:', e)
+      if (alive.current) setAnalysisError(true)
     }
-    setAnalyzing(false)
+    if (alive.current) setAnalyzing(false)
+  }
+
+  const handleSummarize = () => {
+    if (showAI) { setShowAI(false); return }
+    setShowAI(true)
+    if (analysis || analyzing) return
+    runAnalysis()
   }
 
   const handleAsk = async () => {
@@ -59,177 +82,167 @@ export default function YouTubeCard({ videoId, onPlay, onWatchTogether, session 
     setAnswer(null)
     try {
       const res = await askYouTubeVideo(session, videoId, question)
-      setAnswer(res.ok ? res.answer : "Couldn't get an answer.")
+      if (alive.current) setAnswer(res.ok ? res.answer : "Couldn't get an answer.")
     } catch {
-      setAnswer("Couldn't get an answer.")
+      if (alive.current) setAnswer("Couldn't get an answer.")
     }
-    setAsking(false)
+    if (alive.current) setAsking(false)
   }
 
-  // Passes a start-time in seconds as a second arg. Harmless if the
-  // parent's onPlay handler ignores extra args — but for the player to
-  // actually seek there, YouTubePlayer needs the startSeconds prop
-  // (added below) threaded through from wherever onPlay is handled.
-  const jumpTo = (timestamp) => {
-    onPlay(videoId, timestampToSeconds(timestamp))
-  }
+  const play = () => onPlay?.(videoId)
+  // Passes a start time in seconds as the second argument (YouTubePlayer's startSeconds).
+  const jumpTo = (timestamp) => onPlay?.(videoId, timestampToSeconds(timestamp))
 
-  if (failed) {
-    return (
-      <a href={`https://www.youtube.com/watch?v=${videoId}`} target="_blank" rel="noopener noreferrer" style={{ color: '#a78bfa', fontSize: 13 }}>
-        youtube.com/watch?v={videoId}
-      </a>
-    )
-  }
-
-  if (!meta) {
-    return (
-      <div style={{ width: 280, height: 158, borderRadius: 12, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
-        Loading preview…
-      </div>
-    )
-  }
-
+  const title = meta?.title || ''
   const hasFlashcards = analysis?.flashcards?.length > 0
   const hasQuiz = analysis?.quiz?.length > 0
-  const credColor = CREDIBILITY_COLORS[analysis?.credibility] || 'var(--text-muted)'
+  const credColor = CREDIBILITY_COLORS[analysis?.credibility] || CREDIBILITY_COLORS.unclear
+  const links = (analysis?.extracted_links || []).map(safeHttpUrl).filter(Boolean)
 
   return (
-    <div style={{ width: 280 }}>
-      <button
-        onClick={() => onPlay(videoId)}
-        style={{ display: 'block', width: '100%', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--bg-surface-2)', cursor: 'pointer', padding: 0, textAlign: 'left', fontFamily: 'inherit' }}
-      >
-        <div style={{ position: 'relative' }}>
-          <img src={meta.thumbnailUrl} alt={meta.title} style={{ width: '100%', display: 'block', aspectRatio: '16/9', objectFit: 'cover' }} />
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.15)' }}>
-            <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(239,68,68,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
+    <div className="mc-yt mc-ytc" style={{ width: 'min(300px, 100%)' }}>
+      <div className="mc-ytc-glow" aria-hidden="true" style={{ backgroundImage: src ? `url(${src})` : 'none' }} />
+      <div className="mc-ytc-card">
+        <button type="button" className="mc-ytc-media" onClick={play} aria-label={title ? `Play video: ${title}` : 'Play video'}>
+          {src && <img className="mc-yt-img" src={src} alt="" loading="lazy" decoding="async" />}
+          <span className="mc-yt-scrim" />
+          <span className="mc-yt-chip">YouTube</span>
+          <span className="mc-yt-play"><PlayIcon size={22} /></span>
+        </button>
+
+        <div className="mc-ytc-body">
+          {meta ? (
+            <>
+              <button type="button" className="mc-ytc-title" onClick={play}>{meta.title}</button>
+              <div className="mc-ytc-channel">
+                <span className="mc-yt-avatar" style={{ background: avatarGradient(meta.authorName) }} aria-hidden="true">{initialOf(meta.authorName)}</span>
+                <span>{meta.authorName}</span>
+              </div>
+            </>
+          ) : failed ? (
+            <>
+              <div className="mc-ytc-title" style={{ cursor: 'default' }}>YouTube video</div>
+              <div className="mc-ytc-channel">Details aren’t available for this video.</div>
+            </>
+          ) : (
+            <div aria-busy="true" aria-label="Loading video details">
+              <div className="mc-yt-skel" style={{ height: 13, width: '92%' }} />
+              <div className="mc-yt-skel" style={{ height: 13, width: '64%', marginTop: 7 }} />
+              <div className="mc-yt-skel" style={{ height: 11, width: '38%', marginTop: 10 }} />
+            </div>
+          )}
+        </div>
+
+        <div className="mc-ytc-actions">
+          <button type="button" className="mc-yt-btn mc-yt-btn--primary" onClick={play}>
+            <PlayIcon size={13} /> Play
+          </button>
+          <button type="button" className="mc-yt-btn mc-yt-btn--violet" onClick={handleSummarize} aria-expanded={showAI}>
+            <SparkIcon /> {showAI ? 'Hide summary' : 'AI summary'}
+          </button>
+          {onWatchTogether && (
+            <button type="button" className="mc-yt-btn" onClick={() => onWatchTogether(videoId, meta?.title || 'YouTube video', meta?.thumbnailUrl || src)}>
+              <UsersIcon /> Watch together
+            </button>
+          )}
+          <a className="mc-yt-link" href={watchUrl(videoId)} target="_blank" rel="noopener noreferrer">
+            Open on YouTube <ExternalIcon />
+          </a>
+        </div>
+
+        <div className="mc-ytc-panel" data-open={showAI ? 'true' : 'false'}>
+          <div>
+            <div className="mc-ytc-panel-in" aria-live="polite">
+              {analyzing && (
+                <div aria-busy="true">
+                  <div className="mc-yt-note">Watching the video…</div>
+                  <div className="mc-yt-skel" style={{ height: 12, width: '90%', marginTop: 10 }} />
+                  <div className="mc-yt-skel" style={{ height: 12, width: '76%', marginTop: 7 }} />
+                  <div className="mc-yt-skel" style={{ height: 12, width: '58%', marginTop: 7 }} />
+                </div>
+              )}
+
+              {!analyzing && analysisError && (
+                <div>
+                  <div className="mc-yt-err">Couldn’t analyze this video right now.</div>
+                  <button type="button" className="mc-yt-btn" style={{ marginTop: 8 }} onClick={runAnalysis}>Try again</button>
+                </div>
+              )}
+
+              {!analyzing && analysis && (
+                <>
+                  <div className="mc-yt-top">
+                    <div className="mc-yt-sum">{analysis.concise_summary}</div>
+                    {analysis.credibility && (
+                      <span className="mc-yt-badge" style={{ color: credColor }} title={analysis.credibility_note || ''}>
+                        {analysis.credibility}
+                      </span>
+                    )}
+                  </div>
+
+                  {analysis.key_highlights?.length > 0 && (
+                    <div>
+                      <div className="mc-yt-h">Highlights</div>
+                      {analysis.key_highlights.map((h, i) => (
+                        <button key={i} type="button" className="mc-yt-row" onClick={() => jumpTo(h.timestamp)}>
+                          <span className="mc-yt-ts">{h.timestamp}</span><span>{h.note}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {analysis.chapters?.length > 0 && (
+                    <div>
+                      <div className="mc-yt-h">Chapters</div>
+                      {analysis.chapters.map((c, i) => (
+                        <button key={i} type="button" className="mc-yt-row" onClick={() => jumpTo(c.timestamp)}>
+                          <span className="mc-yt-ts">{c.timestamp}</span><span>{c.title}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {links.length > 0 && (
+                    <div>
+                      <div className="mc-yt-h">Links & resources</div>
+                      {links.map((href, i) => (
+                        <a key={i} className="mc-yt-a" href={href} target="_blank" rel="noopener noreferrer">{linkLabel(href)}</a>
+                      ))}
+                    </div>
+                  )}
+
+                  {(hasFlashcards || hasQuiz) && (
+                    <div className="mc-yt-decks">
+                      {hasFlashcards && <button type="button" className="mc-yt-btn mc-yt-btn--violet" onClick={() => setActiveDeck('flashcards')}>{analysis.flashcards.length} flashcards</button>}
+                      {hasQuiz && <button type="button" className="mc-yt-btn mc-yt-btn--violet" onClick={() => setActiveDeck('quiz')}>{analysis.quiz.length}-question quiz</button>}
+                    </div>
+                  )}
+
+                  {analysis.study_notes && (
+                    <details className="mc-yt-notes">
+                      <summary>Study notes</summary>
+                      <div>{analysis.study_notes}</div>
+                    </details>
+                  )}
+
+                  <div className="mc-yt-ask">
+                    <input
+                      className="mc-yt-input" value={question} aria-label="Ask about this video"
+                      onChange={(e) => setQuestion(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAsk()}
+                      placeholder="Ask about this video…"
+                    />
+                    <button type="button" className="mc-yt-btn mc-yt-btn--primary" onClick={handleAsk} disabled={asking}>{asking ? '…' : 'Ask'}</button>
+                  </div>
+                  {answer && <div className="mc-yt-answer">{answer}</div>}
+                </>
+              )}
             </div>
           </div>
         </div>
-        <div style={{ padding: '10px 12px' }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-            {meta.title}
-          </div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 3 }}>{meta.authorName}</div>
-        </div>
-      </button>
+      </div>
 
-      <button onClick={handleSummarize} style={{ marginTop: 6, background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, color: '#c4b5fd', fontSize: 11.5, fontWeight: 700, padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}>
-        ✨ AI Summary & Notes
-      </button>
-
-      {onWatchTogether && (
-  <button onClick={() => onWatchTogether(videoId, meta.title, meta.thumbnailUrl)} style={{ marginTop: 6, background: 'rgba(102,126,234,0.15)', border: '1px solid rgba(102,126,234,0.4)', borderRadius: 10, color: '#a5b4fc', fontSize: 11.5, fontWeight: 700, padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}>
-    🎬 Watch Together
-  </button>
-)}
-
-      {showAI && (
-        <div style={{ marginTop: 8, background: 'var(--bg-surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {analyzing ? (
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Watching video…</div>
-          ) : analysis ? (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                <div style={{ fontSize: 12.5, color: 'var(--text-primary)', fontWeight: 600, flex: 1 }}>{analysis.concise_summary}</div>
-                {analysis.credibility && (
-                  <div
-                    title={analysis.credibility_note || ''}
-                    style={{ fontSize: 10, fontWeight: 800, color: credColor, border: `1px solid ${credColor}55`, borderRadius: 6, padding: '2px 6px', whiteSpace: 'nowrap', textTransform: 'uppercase' }}
-                  >
-                    {analysis.credibility}
-                  </div>
-                )}
-              </div>
-
-              {analysis.key_highlights?.length > 0 && (
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 3 }}>Highlights</div>
-                  {analysis.key_highlights.map((h, i) => (
-                    <button
-                      key={i}
-                      onClick={() => jumpTo(h.timestamp)}
-                      style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '2px 0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11.5, color: 'var(--text-secondary)' }}
-                    >
-                      <span style={{ color: '#a78bfa', fontWeight: 700 }}>{h.timestamp}</span> — {h.note}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {analysis.chapters?.length > 0 && (
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 3 }}>Chapters</div>
-                  {analysis.chapters.map((c, i) => (
-                    <button
-                      key={i}
-                      onClick={() => jumpTo(c.timestamp)}
-                      style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '2px 0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11.5, color: 'var(--text-secondary)' }}
-                    >
-                      <span style={{ color: '#a78bfa', fontWeight: 700 }}>{c.timestamp}</span> — {c.title}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {analysis.extracted_links?.length > 0 && (
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 3 }}>Links & resources</div>
-                  {analysis.extracted_links.map((link, i) => (
-                    <a key={i} href={link} target="_blank" rel="noopener noreferrer" style={{ display: 'block', fontSize: 11.5, color: '#a78bfa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {link}
-                    </a>
-                  ))}
-                </div>
-              )}
-
-              {(hasFlashcards || hasQuiz) && (
-                <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
-                  {hasFlashcards && (
-                    <button onClick={() => setActiveDeck('flashcards')} style={{ flex: 1, background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 8, color: '#c4b5fd', fontSize: 11, fontWeight: 700, padding: '6px 8px', cursor: 'pointer', fontFamily: 'inherit' }}>
-                      🗂 {analysis.flashcards.length} cards
-                    </button>
-                  )}
-                  {hasQuiz && (
-                    <button onClick={() => setActiveDeck('quiz')} style={{ flex: 1, background: 'rgba(240,147,251,0.1)', border: '1px solid rgba(240,147,251,0.25)', borderRadius: 8, color: '#f0abfc', fontSize: 11, fontWeight: 700, padding: '6px 8px', cursor: 'pointer', fontFamily: 'inherit' }}>
-                      ✅ {analysis.quiz.length}-Q quiz
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {analysis.study_notes && (
-                <details style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
-                  <summary style={{ cursor: 'pointer', color: '#a78bfa', fontWeight: 700 }}>Study notes</summary>
-                  <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{analysis.study_notes}</div>
-                </details>
-              )}
-
-              <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                <input
-                  value={question} onChange={(e) => setQuestion(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAsk()}
-                  placeholder="Ask about this video…"
-                  style={{ flex: 1, background: 'var(--bg-surface-1)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', color: 'var(--text-primary)', fontSize: 12, fontFamily: 'inherit' }}
-                />
-                <button onClick={handleAsk} disabled={asking} style={{ background: 'linear-gradient(135deg,#667eea,#764ba2)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 11.5, fontWeight: 700, padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit' }}>
-                  {asking ? '…' : 'Ask'}
-                </button>
-              </div>
-              {answer && <div style={{ fontSize: 12, color: 'var(--text-primary)', background: 'rgba(167,139,250,0.08)', borderRadius: 8, padding: 8 }}>{answer}</div>}
-            </>
-          ) : null}
-        </div>
-      )}
-
-      {activeDeck === 'flashcards' && (
-        <FlashcardDeck cards={analysis.flashcards} title={meta.title} onClose={() => setActiveDeck(null)} />
-      )}
-      {activeDeck === 'quiz' && (
-        <QuizRunner questions={analysis.quiz} title={meta.title} onClose={() => setActiveDeck(null)} />
-      )}
+      {activeDeck === 'flashcards' && analysis && <FlashcardDeck cards={analysis.flashcards} title={title} onClose={() => setActiveDeck(null)} />}
+      {activeDeck === 'quiz' && analysis && <QuizRunner questions={analysis.quiz} title={title} onClose={() => setActiveDeck(null)} />}
     </div>
   )
 }
