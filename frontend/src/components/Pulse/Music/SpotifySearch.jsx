@@ -101,7 +101,7 @@ function SectionTitle({ children, colors }) {
   return <h3 style={{ fontSize: 18, fontWeight: 800, color: colors.textPrimary, margin: '0 0 10px', letterSpacing: -0.3 }}>{children}</h3>
 }
 
-function SongRow({ track, queue, colors, onPlayed }) {
+function SongRow({ track, colors, onPlayed }) {
   const { currentTrack, isPlaying, playTrack } = useMusicPlayer()
   const [hover, setHover] = useState(false)
   const isCurrent = currentTrack?.id === track.id
@@ -115,7 +115,7 @@ function SongRow({ track, queue, colors, onPlayed }) {
     >
       {/* the download menu stays a sibling of this button, so tapping it never starts playback */}
       <button
-        onClick={() => { playTrack(track, queue); onPlayed?.() }}
+        onClick={() => { playTrack(track, null, { origin: 'search' }); onPlayed?.() }}
         style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, padding: '6px 4px', background: 'transparent', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}
       >
         <div style={{ position: 'relative', width: 44, height: 44, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: colors.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -140,13 +140,13 @@ function SongRow({ track, queue, colors, onPlayed }) {
   )
 }
 
-function TopResult({ track, queue, colors, isMobile, onPlayed }) {
+function TopResult({ track, colors, isMobile, onPlayed }) {
   const { currentTrack, isPlaying, playTrack } = useMusicPlayer()
   const [hover, setHover] = useState(false)
   const isCurrent = currentTrack?.id === track.id
   return (
     <button
-      onClick={() => { playTrack(track, queue); onPlayed?.() }}
+      onClick={() => { playTrack(track, null, { origin: 'search' }); onPlayed?.() }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 12, width: '100%', padding: 20, border: 'none', borderRadius: 12, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', background: hover ? 'rgba(255,255,255,0.09)' : colors.surface2, transition: 'background 0.15s' }}
