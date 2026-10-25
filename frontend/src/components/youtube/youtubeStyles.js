@@ -132,6 +132,34 @@ const CSS = `
 .mc-ytp-empty .ico{width:60px; height:60px; border-radius:50%; display:grid; place-items:center; background:rgba(255,255,255,.06); border:1px solid var(--yt-line); color:var(--yt-violet)}
 .mc-ytp-more{align-self:center; margin-top:8px}
 
+/* ── Search pop-up inside a chat ───────────────────────── */
+.mc-ytm-overlay{position:fixed; inset:0; z-index:950; display:flex; align-items:center; justify-content:center; padding:16px; background:rgba(6,5,14,.66); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); animation:mc-ytm-fade .18s ease-out}
+.mc-ytm-panel{position:relative; width:min(780px,100%); height:min(86vh,780px); overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; background:#13111c; border:1px solid rgba(255,255,255,.1); border-radius:24px; box-shadow:0 30px 80px -20px rgba(0,0,0,.85); animation:mc-ytm-pop .22s cubic-bezier(.2,.9,.3,1.1)}
+.mc-ytp-head--modal .mc-ytp-back{order:2; margin-left:auto}
+@media (max-width:640px){
+  .mc-ytm-overlay{align-items:flex-end; padding:0}
+  .mc-ytm-panel{width:100%; height:92vh; border-radius:24px 24px 0 0; padding-bottom:env(safe-area-inset-bottom,0px)}
+}
+@supports (height:1dvh){ @media (max-width:640px){ .mc-ytm-panel{height:92dvh} } }
+@keyframes mc-ytm-fade{from{opacity:0}to{opacity:1}}
+@keyframes mc-ytm-pop{from{opacity:0; transform:translateY(14px) scale(.98)}to{opacity:1; transform:none}}
+@media (prefers-reduced-motion:reduce){ .mc-ytm-overlay,.mc-ytm-panel{animation:none} }
+
+/* ── Video player opened from a chat ───────────────────── */
+.mc-ytv-backdrop{position:fixed; inset:0; z-index:599; background:rgba(8,7,16,.94); overflow:hidden}
+.mc-ytv-glow{position:absolute; inset:-60px; background-size:cover; background-position:center; filter:blur(70px) saturate(1.6); opacity:.38; pointer-events:none}
+.mc-ytv-frame{position:fixed; z-index:600; background:#000; overflow:hidden; aspect-ratio:16/9}
+.mc-ytv-frame--full{top:50%; left:50%; transform:translate(-50%,-50%); width:min(92vw,900px); border-radius:18px; box-shadow:0 30px 80px -20px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.08)}
+.mc-ytv-frame--mini{bottom:90px; right:16px; width:240px; border-radius:16px; box-shadow:0 14px 38px -10px rgba(0,0,0,.65),0 0 0 1px rgba(255,255,255,.12)}
+.mc-ytv-bar{position:fixed; z-index:601; display:flex; gap:8px}
+.mc-ytv-bar--full{top:calc(env(safe-area-inset-top,0px) + 12px); right:16px}
+.mc-ytv-bar--mini{bottom:calc(90px + 135px + 8px); right:16px; width:240px; justify-content:flex-end}
+.mc-ytv-btn{display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 13px; border-radius:999px; border:1px solid rgba(255,255,255,.16); background:rgba(27,25,48,.72); -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px); color:#f4f1ff; font-size:12.5px; font-weight:650; transition:background .2s,transform .15s}
+.mc-ytv-btn:hover{background:rgba(255,255,255,.18)}
+.mc-ytv-btn:active{transform:scale(.96)}
+.mc-ytv-btn--icon{width:34px; padding:0; justify-content:center}
+.mc-ytv-btn--bad:hover{background:rgba(251,113,133,.32)}
+
 @media (prefers-reduced-motion:reduce){
   .mc-yt *,.mc-yt *::before,.mc-yt *::after{animation:none!important; transition:none!important}
 }
