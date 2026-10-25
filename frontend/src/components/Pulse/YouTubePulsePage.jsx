@@ -70,7 +70,9 @@ function SkeletonCard() {
   )
 }
 
-export default function YouTubePulsePage({ session, userId, onSelectVideo, onClose }) {
+// modal: set when shown as a pop-up (the chat's "Search YouTube"): focuses the search box, shows a close (X)
+// instead of a back arrow, and puts it on the right. subtitle: optional line under the title.
+export default function YouTubePulsePage({ session, userId, onSelectVideo, onClose, modal = false, subtitle }) {
   const [query, setQuery] = useState('')
   const [term, setTerm] = useState('')                 // what the visible results are for
   const [results, setResults] = useState([])
@@ -159,13 +161,13 @@ export default function YouTubePulsePage({ session, userId, onSelectVideo, onClo
 
   return (
     <div className="mc-yt mc-ytp">
-      <div className="mc-ytp-head">
+      <div className={`mc-ytp-head${modal ? ' mc-ytp-head--modal' : ''}`}>
         {onClose && (
-          <button type="button" className="mc-ytp-back" onClick={onClose} aria-label="Back"><BackIcon /></button>
+          <button type="button" className="mc-ytp-back" onClick={onClose} aria-label={modal ? 'Close' : 'Back'}>{modal ? <CloseIcon size={18} /> : <BackIcon />}</button>
         )}
         <div>
           <h2 className="mc-ytp-title">YouTube</h2>
-          <p className="mc-ytp-sub">Find something to watch or share</p>
+          <p className="mc-ytp-sub">{subtitle || 'Find something to watch or share'}</p>
         </div>
       </div>
 
@@ -173,7 +175,7 @@ export default function YouTubePulsePage({ session, userId, onSelectVideo, onClo
         <SearchIcon />
         <input
           value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search videos…"
-          aria-label="Search videos" enterKeyHint="search" autoComplete="off"
+          aria-label="Search videos" enterKeyHint="search" autoComplete="off" autoFocus={modal}
         />
         {query && (
           <button type="button" className="mc-ytp-clear" onClick={clearSearch} aria-label="Clear search"><CloseIcon /></button>
