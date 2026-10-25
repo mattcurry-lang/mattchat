@@ -85,3 +85,27 @@ export function avatarGradient(name) {
   return `linear-gradient(135deg, hsl(${h} 70% 55%), hsl(${(h + 50) % 360} 70% 42%))`
 }
 export const initialOf = (name) => (String(name || '?').trim()[0] || '?').toUpperCase()
+
+// YouTube's search results hand titles and channel names back HTML-escaped
+// ("Rock &amp; Roll", "Don&#39;t Stop"). React would print those characters literally, so
+// turn them back into real text. Pure string work (no DOM / innerHTML), and it decodes ONE
+// level only, so "&amp;lt;" correctly becomes "&lt;" rather than "<".
+const NAMED_ENTITIES = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00A0',
+  hellip: '\u2026', ndash: '\u2013', mdash: '\u2014', lsquo: '\u2018', rsquo: '\u2019',
+  ldquo: '\u201C', rdquo: '\u201D', laquo: '\u00AB', raquo: '\u00BB', middot: '\u00B7',
+  bull: '\u2022', copy: '\u00A9', reg: '\u00AE', trade: '\u2122', times: '\u00D7', deg: '\u00B0',
+}
+export function decodeEntities(value) {
+  if (value == null) return ''
+  return String(value).replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);/gi, (match, body) => {
+    if (body[0] === '#') {
+      const code = body[1] === 'x' || body[1] === 'X' ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10)
+      // only real, printable code points; anything odd is left exactly as it came
+      if (!Number.isFinite(code) || code < 32 || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) return match
+      return String.fromCodePoint(code)
+    }
+    const named = NAMED_ENTITIES[body.toLowerCase()]
+    return named === undefined ? match : named
+  })
+}
