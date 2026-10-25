@@ -28,6 +28,12 @@ export const ClockIcon = ({ size = 15 }) => (
 export const BackIcon = ({ size = 20 }) => (
   <svg {...base} width={size} height={size} strokeWidth={2.2}><path d="M15 5l-7 7 7 7" /></svg>
 )
+export const MinimizeIcon = ({ size = 15 }) => (
+  <svg {...base} width={size} height={size}><rect x="3" y="4" width="18" height="16" rx="3" /><rect x="12" y="12" width="7" height="5" rx="1.4" fill="currentColor" stroke="none" /></svg>
+)
+export const ExpandIcon = ({ size = 15 }) => (
+  <svg {...base} width={size} height={size}><path d="M14 4h6v6M20 4l-7 7" /><path d="M10 20H4v-6M4 20l7-7" /></svg>
+)
 export const FilmIcon = ({ size = 26 }) => (
   <svg {...base} width={size} height={size} strokeWidth={1.8}><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M10 9.5v5l4.2-2.5z" fill="currentColor" stroke="none" /></svg>
 )
