@@ -1390,7 +1390,8 @@ const listState = useConversationListState({
   broadcastTyping,
 } = useChat(
   activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
-  userId
+  userId,
+  { isGroup: !!activeConvo?.is_group, myUsername: profile?.username }
 )
    const arrivals = useArrivals(messages, activeConvo?.id, msgLoading)
   const { readMap, deliveredMap } = useMessageStatus(
