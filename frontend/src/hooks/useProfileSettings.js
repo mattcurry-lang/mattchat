@@ -29,9 +29,8 @@ const SETTING_KEYS = new Set([
   'chatTheme', 'bubbleStyle', 'fontSize', 'autoplayMotion',
   'dnd', 'quietHours', 'previews', 'mentionsOnly',
   'dataSaver', 'autoDownload',
-  'language', 'reduceMotion',
+  'language', 'reduceMotion', 'timezone',
 ])
-
 const PROFILE_COLUMNS =
   'bio, theme, status_emoji, status_text, status_expires_at, note_text, note_expires_at'
 
