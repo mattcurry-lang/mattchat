@@ -83,7 +83,7 @@ import AISettingsModal from '../components/AISettingsModal'
 import { extractYouTubeId } from '../lib/youtube'
 import YouTubeCard from '../components/YouTubeCard'
 import SocialEmbedCard from '../components/SocialEmbedCard'
-import { extractSocialLink } from '../lib/socialLinks'
+import { extractSocialLink, shortSocialUrl } from '../lib/socialLinks'
 import YouTubePlayer from '../components/YouTubePlayer'
 import { useWatchTogether } from '../hooks/useWatchTogether'
 import WatchTogetherPlayer from '../components/WatchTogetherPlayer'
@@ -836,7 +836,8 @@ const socialLink = youtubeId ? null : extractSocialLink(msg.content)
                 </div>
               )}
               {msg.is_email && <span className="email-tag">📧 via email</span>}
-              {msg.content}
+              {/* a message that is ONLY a TikTok/Instagram link shows a tidy label; the card below carries the link */}
+              {socialLink && msg.content.trim() === socialLink.url ? <span title={msg.content}>{shortSocialUrl(socialLink.url)}</span> : msg.content}
             </div>
             {socialLink && <SocialEmbedCard link={socialLink} />}
           </>
