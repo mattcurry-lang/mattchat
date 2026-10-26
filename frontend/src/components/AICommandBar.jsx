@@ -1,10 +1,14 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, lazy, Suspense } from 'react'
 import { callCurryAI } from './CurryAI'
-import { IconSparkle, IconMic, IconMail, IconCloudSun, IconX } from './Icons'
+import { IconSparkle, IconMic, IconMail, IconCloudSun, IconX, IconChevronLeft } from './Icons'
 import { useVoiceDictation } from '../hooks/useVoiceDictation'
 import VoiceOrbCanvas from './VoiceOrbCanvas'
+import { detectWeatherIntent } from './Weather/weatherLogic'
+import { useIsMobile, useSearchMode } from './commandBar/useSearchMode'
+import './commandBar/commandbar-extra.css'
 
-
+// The weather card (canvas, icons, charts) is only downloaded the first time someone asks about the weather.
+const WeatherCard = lazy(() => import('./Weather/WeatherCard'))
 
 const HINTS = [
   'Ask Curry anything…',
@@ -19,25 +23,69 @@ const HINTS = [
 const PROMPTS = [
   { icon: IconSparkle, label: 'Summarize my unread chats', mode: 'ask', text: 'Summarize my unread chats' },
   { icon: IconCloudSun, label: 'Weather today', mode: 'ask', text: 'What is the weather today?' },
+  { icon: IconCloudSun, label: 'Weather in…', mode: 'fill', text: 'Weather in ' },
   { icon: IconMail, label: 'Draft an email…', mode: 'fill', text: 'Draft an email to ' },
   { icon: IconMic, label: 'Remind me to…', mode: 'fill', text: 'Remind me to ' },
 ]
 
+// shown under the bar once you've typed something
 const QUICK_CHIPS = [
-  { icon: IconMic, label: 'Voice', fill: 'voice' },
+  { icon: IconMic, label: 'Voice', action: 'voice' },
   { icon: IconMail, label: 'Email', fill: 'email' },
-  { icon: IconCloudSun, label: 'Weather', fill: 'weather' },
+  { icon: IconCloudSun, label: 'Weather', action: 'weather' },
 ]
 
 const isMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent || '')
 const prefersReducedMotion = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
 export default function AICommandBar({ session, value, onSearchChange, onOpenCurry, hasLocalMatches, onVoiceActiveChange }) {
   const [asking, setAsking] = useState(false)
   const [answer, setAnswer] = useState('')
   const [asked, setAsked] = useState('')
   const [focused, setFocused] = useState(false)
   const [hintIdx, setHintIdx] = useState(0)
+  const [weatherReq, setWeatherReq] = useState(null) // { place, nonce } while the weather card is open
+  const [searchOpen, setSearchOpen] = useState(false) // phone full-screen search
+  const [voiceHint, setVoiceHint] = useState(false)
   const inputRef = useRef(null)
+  const wrapRef = useRef(null)
+  const isMobile = useIsMobile()
+
+  // Speaking fills the SEARCH BAR (so you can see it and edit it), then you press Enter or → to send it.
+  const voice = useVoiceDictation({
+    onResult: (text) => {
+      onSearchChange(text)
+      setVoiceHint(true)
+      if (isMobile) setSearchOpen(true)
+      setTimeout(() => inputRef.current?.focus(), 60)
+    },
+    onActiveChange: onVoiceActiveChange, // lets the page pause "Hey Curry" while we use the mic
+  })
+  const voiceOn = voice.busy || !!voice.error
+  const orbState = voice.requesting ? 'requesting' : voice.listening ? 'listening' : voice.processing ? 'processing' : voice.error ? 'error' : 'idle'
+
+  const searchMode = isMobile && searchOpen
+  const panelOn = !!(answer || asking || weatherReq || voiceOn)
+  useSearchMode(searchMode, panelOn)
+
+  // latest values for callbacks that outlive a render
+  const live = useRef({})
+  live.current = { value, answer, asking, weatherReq, voiceOn }
+
+  const exitSearch = () => {
+    voice.cancel()
+    onSearchChange('')
+    setAnswer(''); setAsked(''); setWeatherReq(null); setVoiceHint(false); setSearchOpen(false)
+    inputRef.current?.blur()
+  }
+  const exitRef = useRef(exitSearch)
+  exitRef.current = exitSearch
+
+  // tapping the bar and then tapping away with nothing going on closes search mode
+  const maybeCloseSearch = () => setTimeout(() => {
+    const s = live.current
+    if (!s.value.trim() && !s.answer && !s.asking && !s.weatherReq && !s.voiceOn && document.activeElement !== inputRef.current) setSearchOpen(false)
+  }, 150)
 
   // clearing the box dismisses the answer (only when the TEXT changes, so a chip-asked answer survives)
   useEffect(() => { if (value === '') setAnswer('') }, [value])
@@ -60,15 +108,46 @@ export default function AICommandBar({ session, value, onSearchChange, onOpenCur
       } else if (e.key === '/' && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault()
         inputRef.current?.focus()
+      } else if (e.key === 'Escape') {
+        const s = live.current
+        if (s.voiceOn) voice.cancel()
+        else if (s.weatherReq) setWeatherReq(null)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // on a phone, opening a chat from the results ends search mode so the chat isn't hidden behind it
+  useEffect(() => {
+    if (!searchMode) return undefined
+    const onClick = (e) => { if (e.target.closest && e.target.closest('.sidebar .contact-list .contact')) setTimeout(() => exitRef.current(), 0) }
+    document.addEventListener('click', onClick)
+    return () => document.removeEventListener('click', onClick)
+  }, [searchMode])
+
+  // on desktop the weather card floats under the bar: click anywhere else to dismiss it
+  useEffect(() => {
+    if (!weatherReq || isMobile) return undefined
+    const onDown = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setWeatherReq(null) }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [weatherReq, isMobile])
+
+  function openWeather(place, q) {
+    setAnswer(''); setAsked(q || ''); setVoiceHint(false)
+    setWeatherReq({ place: place || null, nonce: Date.now() })
+    if (isMobile) setSearchOpen(true)
+    inputRef.current?.blur()
+  }
 
   async function askCurry(text) {
     const q = (text ?? value ?? '').trim()
     if (!q || asking) return
+    const intent = detectWeatherIntent(q)
+    if (intent.isWeather) { openWeather(intent.place, q); return } // weather gets a real card, not a chat reply
+    setWeatherReq(null); setVoiceHint(false)
     setAsking(true)
     setAnswer('')
     setAsked(q)
@@ -80,51 +159,77 @@ export default function AICommandBar({ session, value, onSearchChange, onOpenCur
     }
     setAsking(false)
   }
-const voice = useVoiceDictation({
-  onResult: (text) => askCurry(text),      // hands-free, same path the prompt chips use
-  onActiveChange: onVoiceActiveChange,
-})
-const orbState = voice.requesting ? 'requesting' : voice.listening ? 'listening'
-  : voice.processing ? 'processing' : voice.error ? 'error' : 'idle'
-  
+
+  // the mic: listen right here (never jumps to the Curry chat)
+  const onMic = () => {
+    if (voice.listening) { voice.stop(); return }
+    if (voice.busy) { voice.cancel(); return }
+    setVoiceHint(false); setWeatherReq(null); setAnswer('')
+    if (isMobile) setSearchOpen(true)
+    voice.start()
+  }
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault()
-      if (!hasLocalMatches) askCurry()
+      const intent = detectWeatherIntent(value)
+      if (intent.isWeather && intent.strong) openWeather(intent.place, value.trim())
+      else if (!hasLocalMatches) askCurry()
     }
-    if (e.key === 'Escape') { setAnswer(''); inputRef.current?.blur() }
+    if (e.key === 'Escape') {
+      voice.cancel(); setAnswer(''); setWeatherReq(null); setVoiceHint(false)
+      if (isMobile) exitSearch(); else inputRef.current?.blur()
+    }
   }
 
   const runPrompt = (p) => {
     if (p.mode === 'ask') { askCurry(p.text); inputRef.current?.blur() }
     else { onSearchChange(p.text); inputRef.current?.focus() }
   }
+  const runChip = (c) => {
+    if (c.action === 'voice') onMic()
+    else if (c.action === 'weather') openWeather(null, 'Weather')
+    else { onSearchChange(`${c.fill} `); inputRef.current?.focus() }
+  }
 
-  const showPanel = focused && !value.trim() && !answer && !asking
+  const showPanel = focused && !value.trim() && !answer && !asking && !voiceOn && !weatherReq
   const kbd = isMac() ? '⌘ K' : 'Ctrl K'
+  const statusText = voice.error ? voice.error.message
+    : voice.requesting ? 'Allow the microphone'
+    : voice.listening ? (voice.speechDetected ? 'Got it, keep going…' : 'Go ahead, I’m listening')
+    : 'Turning that into text…'
+  const subText = voice.error ? '' : voice.requesting ? 'Your browser will ask once.'
+    : voice.listening ? 'Tap Done when you’ve finished, or just stop talking.'
+    : 'It will appear in the search bar so you can edit it.'
 
   return (
-    <div className="mc-bar-wrap" role="search">
-      <div className={`mc-bar${focused ? ' is-focused' : ''}${asking ? ' is-asking' : ''}`}>
+    <div className="mc-bar-wrap" role="search" ref={wrapRef}>
+      <div className={`mc-bar${focused ? ' is-focused' : ''}${asking ? ' is-asking' : ''}${voice.listening ? ' is-listening' : ''}`}>
         <div className="mc-bar-in">
+          {isMobile && (
+            <button className="mc-back" onClick={exitSearch} aria-label="Close search"><IconChevronLeft size={18} /></button>
+          )}
           <span className="mc-orb" aria-hidden><IconSparkle size={13} /></span>
 
           <div className="mc-field">
             <input
               ref={inputRef}
               value={value}
-              onChange={(e) => onSearchChange(e.target.value)}
+              onChange={(e) => { setVoiceHint(false); onSearchChange(e.target.value) }}
               onKeyDown={handleKeyDown}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
+              onFocus={() => { setFocused(true); if (isMobile) setSearchOpen(true) }}
+              onBlur={() => { setFocused(false); maybeCloseSearch() }}
               aria-label="Search chats or ask Curry"
               autoComplete="off"
               spellCheck={false}
+              enterKeyHint="search"
             />
             {!value && (
-              focused
-                ? <span className="mc-ph" aria-hidden>Search chats or ask Curry…</span>
-                : <span key={hintIdx} className="mc-ph mc-ph-rot" aria-hidden>{HINTS[hintIdx]}</span>
+              voice.listening
+                ? <span className="mc-ph" aria-hidden>Listening…</span>
+                : focused
+                  ? <span className="mc-ph" aria-hidden>Search chats or ask Curry…</span>
+                  : <span key={hintIdx} className="mc-ph mc-ph-rot" aria-hidden>{HINTS[hintIdx]}</span>
             )}
           </div>
 
@@ -132,20 +237,27 @@ const orbState = voice.requesting ? 'requesting' : voice.listening ? 'listening'
             <span className="mc-dots" aria-label="Curry is thinking"><i /><i /><i /></span>
           ) : value.trim() ? (
             <>
-              <button className="mc-ico" onClick={() => onSearchChange('')} aria-label="Clear" title="Clear"><IconX size={12} /></button>
+              <button className="mc-ico" onClick={() => { setVoiceHint(false); onSearchChange('') }} aria-label="Clear" title="Clear"><IconX size={12} /></button>
               <button className="mc-ico mc-go" onClick={() => askCurry()} aria-label="Ask Curry" title="Ask Curry (Enter)">→</button>
             </>
           ) : (
             <>
-              {!focused && <kbd className="mc-kbd" aria-hidden>{kbd}</kbd>}
-             <button className="mc-ico"
-  onClick={() => (voice.listening ? voice.stop() : voice.supported ? voice.start() : onOpenCurry?.())}
-  aria-label={voice.listening ? 'Stop listening' : 'Speak to Curry'}
-  title={voice.listening ? 'Done' : 'Speak to Curry'}><IconMic size={14} /></button>
+              {!focused && !voice.busy && <kbd className="mc-kbd" aria-hidden>{kbd}</kbd>}
+              <button
+                className={`mc-ico mc-mic${voice.busy ? ' is-live' : ''}`}
+                onClick={onMic}
+                aria-label={voice.listening ? 'Stop listening' : voice.busy ? 'Cancel voice input' : 'Speak your search'}
+                aria-pressed={voice.busy}
+                title={voice.listening ? 'Done' : voice.busy ? 'Cancel' : 'Speak your search'}
+              ><IconMic size={14} /></button>
             </>
           )}
         </div>
       </div>
+
+      {voiceHint && value.trim() && !asking && !answer && !weatherReq && !voiceOn && (
+        <div className="mc-hint" role="status">Here’s what I heard — edit it if you like, then press <kbd>Enter</kbd> or → to ask.</div>
+      )}
 
       {showPanel && (
         <div className="mc-panel" onMouseDown={(e) => e.preventDefault()}>
@@ -159,23 +271,46 @@ const orbState = voice.requesting ? 'requesting' : voice.listening ? 'listening'
           </div>
         </div>
       )}
-{(voice.busy || voice.error) && (
-  <div className="mc-panel mc-voice" onMouseDown={(e) => e.preventDefault()}>
-    <VoiceOrbCanvas state={orbState} speaking={voice.speechDetected}
-      getLevels={voice.getLevels} getVolume={voice.getVolume} size={150} />
-    <div>{voice.error ? voice.error.message : voice.requesting ? 'Allow the microphone…'
-      : voice.listening ? 'Listening…' : 'Thinking…'}</div>
-    <button className="mc-continue" onClick={voice.error ? voice.clearError : voice.cancel}>
-      {voice.error ? 'Dismiss' : 'Cancel'}</button>
-  </div>
-)}
-      {value.trim() && !answer && !asking && (
+
+      {voiceOn && (
+        <div className={`mc-panel mc-voice${voice.listening ? ' is-listening' : ''}${voice.speechDetected ? ' is-hearing' : ''}`} role="status" aria-live="polite" onMouseDown={(e) => e.preventDefault()}>
+          <div className="mc-voice-stage">
+            <i className="mc-ring" /><i className="mc-ring" /><i className="mc-ring" />
+            <VoiceOrbCanvas state={orbState} speaking={voice.speechDetected} getLevels={voice.getLevels} getVolume={voice.getVolume} size={170} />
+          </div>
+          <div className="mc-voice-status">{statusText}</div>
+          <div className="mc-voice-sub">{subText}</div>
+          <div className="mc-voice-actions">
+            {voice.error ? (
+              <>
+                <button className="mc-vbtn" onClick={voice.clearError}>Dismiss</button>
+                <button className="mc-vbtn primary" onClick={() => { voice.clearError(); voice.start() }}>Try again</button>
+              </>
+            ) : (
+              <>
+                {voice.listening && <button className="mc-vbtn primary" onClick={voice.stop}>Done</button>}
+                <button className="mc-vbtn" onClick={voice.cancel}>Cancel</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {value.trim() && !answer && !asking && !weatherReq && !voiceOn && (
         <div className="mc-quick">
-          {QUICK_CHIPS.map(({ icon: Icon, label, fill }) => (
-            <button key={label} className="mc-chip mc-chip-sm" onClick={() => { onSearchChange(fill + ' '); inputRef.current?.focus() }}>
-              <Icon size={11} /> {label}
+          {QUICK_CHIPS.map((c) => (
+            <button key={c.label} className="mc-chip mc-chip-sm" onClick={() => runChip(c)}>
+              <c.icon size={11} /> {c.label}
             </button>
           ))}
+        </div>
+      )}
+
+      {weatherReq && (
+        <div className="mc-weather">
+          <Suspense fallback={<div className="mc-weather-skel" />}>
+            <WeatherCard placeQuery={weatherReq.place} nonce={weatherReq.nonce} onClose={() => setWeatherReq(null)} />
+          </Suspense>
         </div>
       )}
 
