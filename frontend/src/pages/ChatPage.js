@@ -2924,8 +2924,13 @@ shareConversations={conversations.map(c => ({
  
           
  <QuickActionsMenu
-      hidden={!!activeConvo || showShorts || showDekutCurry || showProfileMenu || (afterglowOn && !isNarrowViewport && activeTab !== 'calls')}
-      onNewChat={() => (activeTab === 'calls' ? setShowNewCall(true) : setShowNewChat(true))}
+ // Quick actions belong to the chat list only: not on Calls / Pulse / Status, not inside a conversation.
+      // (On desktop with Afterglow on, the home screen shows its own shortcuts instead of this pill.)
+      hidden={activeTab !== 'chats' || !!activeConvo || showShorts || showDekutCurry || showProfileMenu || (afterglowOn && !isNarrowViewport)}
+      onNewChat={() => setShowNewChat(true)}
+       onOpenCurryAI={() => setActiveConvo(CURRY_AI_CONTACT)}
+       onOpenDekutCurry={() => setShowDekutCurry(true)}
+       dekutBadge={dekutHasNudge}
       onOpenCurryAI={() => setActiveConvo(CURRY_AI_CONTACT)}
       onOpenDekutCurry={() => setShowDekutCurry(true)}
       dekutBadge={dekutHasNudge}
