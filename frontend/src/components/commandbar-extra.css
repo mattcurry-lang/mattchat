@@ -1,0 +1,64 @@
+/* ───────────── AI command bar: voice, weather, and phone search mode ───────────── */
+
+/* the mic lights up while it listens */
+.mc-mic { position: relative; }
+.mc-mic.is-live { color: #fff; background: linear-gradient(135deg, #6c63ff, #f093fb); box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.55); animation: mcMicPulse 1.6s ease-out infinite; }
+@keyframes mcMicPulse { 0% { box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.55); } 100% { box-shadow: 0 0 0 12px rgba(167, 139, 250, 0); } }
+.mc-bar.is-listening { animation-duration: 1.6s; background: conic-gradient(from var(--mc-ang), #f093fb, #a78bfa, #5eead4, #6c63ff, #f093fb); box-shadow: 0 0 0 4px rgba(240, 147, 251, 0.14), 0 12px 38px rgba(167, 139, 250, 0.45); }
+
+/* the voice stage: a big glowing orb on glass */
+.mc-voice { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 20px 16px 16px; overflow: hidden; }
+.mc-voice::before { content: ''; position: absolute; inset: -30% -10% auto; height: 80%; background: radial-gradient(closest-side, rgba(167, 139, 250, 0.38), transparent); filter: blur(10px); pointer-events: none; }
+.mc-voice-stage { position: relative; width: 170px; height: 170px; display: grid; place-items: center; margin-bottom: 4px; }
+.mc-voice-stage canvas { position: relative; z-index: 1; }
+.mc-ring { position: absolute; inset: 14px; border-radius: 50%; border: 1.5px solid rgba(167, 139, 250, 0.55); opacity: 0; }
+.mc-voice.is-listening .mc-ring { animation: mcRing 2.6s ease-out infinite; }
+.mc-voice.is-listening .mc-ring:nth-child(2) { animation-delay: 0.85s; } .mc-voice.is-listening .mc-ring:nth-child(3) { animation-delay: 1.7s; }
+.mc-voice.is-hearing .mc-ring { border-color: rgba(94, 234, 212, 0.75); }
+@keyframes mcRing { 0% { transform: scale(0.7); opacity: 0.8; } 100% { transform: scale(1.45); opacity: 0; } }
+.mc-voice-status { position: relative; z-index: 1; font-size: 16px; font-weight: 800; color: var(--mc-ink); letter-spacing: -0.2px; }
+.mc-voice-sub { position: relative; z-index: 1; font-size: 12.5px; color: var(--mc-mute); max-width: 280px; line-height: 1.45; min-height: 18px; }
+.mc-voice-actions { position: relative; z-index: 1; display: flex; gap: 8px; margin-top: 10px; }
+.mc-vbtn { padding: 9px 18px; border-radius: 999px; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 800; color: var(--mc-ink); background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.16); transition: background 0.15s, transform 0.12s; }
+.mc-vbtn:hover { background: rgba(255, 255, 255, 0.16); } .mc-vbtn:active { transform: scale(0.96); }
+.mc-vbtn.primary { color: #fff; background: linear-gradient(135deg, #6c63ff, #a78bfa); border-color: transparent; box-shadow: 0 6px 18px rgba(108, 99, 255, 0.45); }
+.mc-vbtn:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; }
+
+/* "I heard you — edit it if you like" */
+.mc-hint { margin: 8px 6px 0; padding: 8px 12px; border-radius: 14px; font-size: 12.5px; color: var(--mc-ink); background: rgba(167, 139, 250, 0.16); border: 1px solid rgba(167, 139, 250, 0.35); animation: curryFadeIn 0.2s ease; display: flex; align-items: center; gap: 8px; }
+.mc-hint kbd { font-family: inherit; font-weight: 800; padding: 1px 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.12); }
+
+/* weather result: floats under the bar on desktop, fills the screen in phone search mode */
+.mc-weather { position: absolute; left: 0; right: 0; top: calc(100% + 10px); z-index: 60; max-height: calc(100vh - 230px); overflow-y: auto; overscroll-behavior: contain; border-radius: 28px; scrollbar-width: thin; animation: mc-pop 0.25s cubic-bezier(0.2, 0.9, 0.3, 1); }
+.mc-weather-skel { height: 220px; border-radius: 28px; background: linear-gradient(135deg, #1a63d1, #4aa3f0); opacity: 0.6; animation: mc-shimmer 1.3s linear infinite; background-size: 400px 100%; }
+
+/* back arrow replaces the sparkle orb in search mode */
+.mc-back { width: 28px; height: 28px; flex-shrink: 0; display: none; place-items: center; border: none; border-radius: 50%; cursor: pointer; padding: 0; color: var(--mc-ink); background: transparent; }
+.mc-back:hover { background: rgba(167, 139, 250, 0.18); }
+
+/* ───────────── phone search mode ───────────── */
+@media (max-width: 639px) {
+  html[data-ag-search="on"] .sidebar {
+    position: fixed; left: 0; right: 0; top: var(--ag-vv-top, 0px); height: var(--ag-vv-h, 100dvh); width: 100%; max-width: none;
+    z-index: 700; background: var(--dark-bg, #0f0e17); display: flex; flex-direction: column; overflow: hidden;
+  }
+  /* the header keeps only the search bar */
+  html[data-ag-search="on"] .sidebar .top-header > *:not(:has(.mc-bar-wrap)) { display: none !important; }
+  html[data-ag-search="on"] .sidebar .top-header { flex: 0 0 auto; padding-top: calc(env(safe-area-inset-top, 0px) + 8px); padding-bottom: 4px; }
+  html[data-ag-search="on"] .bottom-nav { display: none !important; }
+  html[data-ag-search="on"] .sidebar .list-card { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  html[data-ag-search="on"] .sidebar .contact-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-bottom: 12px; overscroll-behavior: contain; -webkit-mask-image: none; mask-image: none; }
+  html[data-ag-search="on"] .mc-back { display: grid; }
+  html[data-ag-search="on"] .mc-orb { display: none; }
+  html[data-ag-search="on"] .mc-bar-wrap { z-index: 5; }
+  /* panels stop floating over the results and become part of the page */
+  html[data-ag-search="on"] .mc-panel:not(.mc-voice) { position: static; margin-top: 8px; box-shadow: none; }
+  html[data-ag-search="on"] .mc-weather { position: static; max-height: none; margin-top: 8px; border-radius: 24px; }
+  /* answer / weather / voice take the whole screen; the chat list steps aside */
+  html[data-ag-search="on"][data-ag-panel="on"] .sidebar .list-card { display: none !important; }
+  html[data-ag-search="on"][data-ag-panel="on"] .sidebar .top-header { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+}
+@media (prefers-reduced-motion: reduce) { .mc-mic.is-live, .mc-voice.is-listening .mc-ring, .mc-weather, .mc-weather-skel { animation: none; } }
+[data-theme="light"] .mc-voice::before { background: radial-gradient(closest-side, rgba(108, 99, 255, 0.22), transparent); }
+[data-theme="light"] .mc-vbtn { background: rgba(108, 99, 255, 0.08); border-color: rgba(108, 99, 255, 0.22); }
+[data-theme="light"] .mc-hint { background: rgba(108, 99, 255, 0.1); border-color: rgba(108, 99, 255, 0.28); }
