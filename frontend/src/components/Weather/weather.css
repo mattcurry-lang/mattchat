@@ -1,0 +1,142 @@
+/* ───────────────────────── Weather card ─────────────────────────
+   Frosted-glass panels over a sky that changes with the weather and the time of day.
+   Panel tint (rgba(6,12,30,.38)) was chosen by computing white-text contrast on all 22 sky gradients. */
+.wx-card {
+  --glass: rgba(6, 12, 30, 0.38); --glass-line: rgba(255, 255, 255, 0.16); --ink: #fff; --ink-2: rgba(255, 255, 255, 0.86);
+  position: relative; width: 100%; max-width: 560px; margin: 0 auto; padding: 10px 12px 14px; border-radius: 28px; color: var(--ink);
+  font-family: inherit; overflow: hidden; isolation: isolate; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.2); transition: background 0.8s ease;
+  animation: wxCardIn 0.5s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+.wx-card * { box-sizing: border-box; }
+.wx-card button { font-family: inherit; color: inherit; }
+@keyframes wxCardIn { from { opacity: 0; transform: translateY(14px) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes wxRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes wxSpin { to { transform: rotate(360deg); } }
+@keyframes wxFall { 0% { transform: translateY(-3px); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateY(8px); opacity: 0; } }
+@keyframes wxFlicker { 0%, 100% { opacity: 1; } 45% { opacity: 1; } 50% { opacity: 0.35; } 55% { opacity: 1; } 70% { opacity: 0.6; } }
+@keyframes wxShimmer { 0% { background-position: -300px 0; } 100% { background-position: 300px 0; } }
+@keyframes wxPing { 0% { transform: scale(0.6); opacity: 0.7; } 100% { transform: scale(2.1); opacity: 0; } }
+@keyframes wxGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes wxDraw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes wxBarIn { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.wx-spin { animation: wxSpin 18s linear infinite; } .wx-fall { animation: wxFall 1.1s ease-in infinite; } .wx-flicker { animation: wxFlicker 2.4s ease-in-out infinite; }
+.wx-icon { display: block; flex-shrink: 0; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.25)); }
+
+/* places bar */
+.wx-places { position: relative; z-index: 3; display: flex; align-items: center; gap: 8px; padding: 2px 2px 8px; }
+.wx-chips { flex: 1; min-width: 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px; }
+.wx-chips::-webkit-scrollbar { display: none; }
+.wx-chip { display: inline-flex; align-items: center; flex-shrink: 0; border-radius: 999px; background: var(--glass); border: 1px solid var(--glass-line); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); transition: background 0.2s, transform 0.15s; }
+.wx-chip > button { display: inline-flex; align-items: center; gap: 5px; border: none; background: none; cursor: pointer; padding: 7px 11px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+.wx-chip em { font-style: normal; font-weight: 800; opacity: 0.92; padding-left: 5px; border-left: 1px solid var(--glass-line); }
+.wx-chip.on { background: rgba(255, 255, 255, 0.92); }
+.wx-chip.on, .wx-chip.on * { color: #0b1630; text-shadow: none; }
+.wx-chip:hover { transform: translateY(-1px); }
+.wx-chip .wx-chip-x { padding: 7px 8px 7px 0; opacity: 0.6; } .wx-chip .wx-chip-x:hover { opacity: 1; }
+.wx-chip-add { padding: 0; } .wx-chip-add > span { font-size: 12.5px; font-weight: 700; } .wx-chip-add { gap: 5px; padding: 7px 12px; cursor: pointer; color: inherit; }
+.wx-x { width: 32px; height: 32px; flex-shrink: 0; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--glass-line); background: var(--glass); cursor: pointer; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); transition: background 0.15s, transform 0.15s; }
+.wx-x:hover { background: rgba(255, 255, 255, 0.22); } .wx-x:active { transform: scale(0.92); } .wx-x.spin svg { animation: wxSpin 0.9s linear infinite; }
+.wx-pill { height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--glass-line); background: var(--glass); cursor: pointer; font-size: 12.5px; font-weight: 800; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.wx-pill:hover { background: rgba(255, 255, 255, 0.22); }
+.wx-card :focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+/* search */
+.wx-search { position: relative; z-index: 4; margin: 0 2px 10px; }
+.wx-search-in { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 16px; background: var(--glass); border: 1px solid var(--glass-line); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.wx-search-in input { flex: 1; min-width: 0; background: none; border: none; outline: none; color: #fff; font-size: 15px; font-family: inherit; }
+.wx-search-in input::placeholder { color: rgba(255, 255, 255, 0.7); }
+.wx-spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.35); border-top-color: #fff; animation: wxSpin 0.7s linear infinite; }
+.wx-search .wx-x { width: 24px; height: 24px; border: none; background: transparent; }
+.wx-results { list-style: none; margin: 6px 0 0; padding: 6px; border-radius: 16px; background: rgba(8, 14, 34, 0.86); border: 1px solid var(--glass-line); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); max-height: 240px; overflow-y: auto; }
+.wx-results button { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; padding: 9px 10px; border: none; border-radius: 11px; background: none; cursor: pointer; }
+.wx-results button:hover { background: rgba(255, 255, 255, 0.12); }
+.wx-flag { font-size: 20px; } .wx-res-name { display: flex; flex-direction: column; min-width: 0; } .wx-res-name small { opacity: 0.78; font-size: 11.5px; } .wx-res-empty { padding: 10px; font-size: 13px; opacity: 0.85; }
+
+/* hero */
+.wx-hero { position: relative; padding: 8px 8px 12px; min-height: 280px; animation: wxRise 0.55s cubic-bezier(0.2, 0.9, 0.25, 1) both; animation-delay: calc(var(--i, 0) * 70ms); }
+.wx-scene { position: absolute; inset: -12px -12px 0; width: calc(100% + 24px); height: calc(100% + 12px); z-index: 0; pointer-events: none; -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
+.wx-hero-top, .wx-hero-main, .wx-updated { position: relative; z-index: 1; }
+.wx-hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.wx-place { display: flex; flex-direction: column; min-width: 0; } .wx-place b { font-size: 19px; display: inline-flex; align-items: center; gap: 5px; letter-spacing: -0.2px; } .wx-place span { font-size: 12.5px; opacity: 0.9; }
+.wx-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.wx-hero-main { padding: 18px 2px 6px; }
+.wx-temp { font-size: 92px; line-height: 0.95; font-weight: 300; letter-spacing: -4px; display: flex; align-items: flex-start; font-variant-numeric: tabular-nums; }
+.wx-temp sup { font-size: 48px; font-weight: 300; margin: 6px 0 0 2px; letter-spacing: 0; }
+.wx-cond { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 20px; font-weight: 700; }
+.wx-hilo { margin-top: 6px; font-size: 14px; font-weight: 600; opacity: 0.95; }
+.wx-updated { margin-top: 10px; font-size: 11.5px; opacity: 0.85; }
+
+/* glass panels */
+.wx-panel { position: relative; margin-top: 10px; padding: 12px 14px 14px; border-radius: 22px; background: var(--glass); border: 1px solid var(--glass-line); backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14); animation: wxRise 0.55s cubic-bezier(0.2, 0.9, 0.25, 1) both; animation-delay: calc(var(--i, 1) * 70ms); }
+.wx-panel-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; opacity: 0.95; margin-bottom: 10px; }
+.wx-curry p { margin: 6px 0 0; font-size: 14.5px; line-height: 1.5; color: var(--ink-2); }
+.wx-curry-h { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; }
+.wx-spark-ic { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: linear-gradient(135deg, #6c63ff, #f093fb); font-size: 11px; }
+.wx-tips { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 7px; }
+.wx-tips li { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border-radius: 999px; font-size: 12.5px; font-weight: 600; background: rgba(255, 255, 255, 0.13); border: 1px solid var(--glass-line); }
+
+/* segmented control */
+.wx-seg { display: inline-flex; padding: 3px; border-radius: 999px; background: rgba(0, 0, 0, 0.22); border: 1px solid var(--glass-line); }
+.wx-seg button { border: none; background: none; cursor: pointer; padding: 5px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 800; letter-spacing: 0.2px; text-transform: none; opacity: 0.85; transition: background 0.2s, color 0.2s; }
+.wx-seg button.on { background: rgba(255, 255, 255, 0.95); color: #0b1630; text-shadow: none; opacity: 1; }
+
+/* hourly */
+.wx-strip { overflow-x: auto; scrollbar-width: none; margin: 0 -6px; padding: 0 6px; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+.wx-strip::-webkit-scrollbar { display: none; }
+.wx-strip-in { position: relative; height: 134px; } /* 2 pad + 18 label + 34 icon + 54 chart + 24 value */
+.wx-spark { position: absolute; left: 0; top: 54px; pointer-events: none; overflow: visible; } /* = 2 + 18 + 34, the rows above it */
+.wx-spark-line { stroke-dasharray: 1; animation: wxDraw 0.9s ease both; }
+.wx-bar-grow { transform-box: fill-box; transform-origin: bottom; animation: wxGrow 0.6s cubic-bezier(0.2, 0.9, 0.25, 1) both; }
+.wx-hr { position: absolute; top: 0; display: flex; flex-direction: column; align-items: center; gap: 0; padding-top: 2px; }
+.wx-hr-t { height: 18px; line-height: 18px; font-size: 12px; font-weight: 700; opacity: 0.92; }
+.wx-hr-ic { height: 34px; display: flex; align-items: center; justify-content: center; } .wx-hr.now .wx-hr-t { opacity: 1; text-decoration: underline; text-underline-offset: 4px; }
+.wx-hr-gap { display: block; width: 1px; } .wx-hr-v { height: 24px; line-height: 24px; font-size: 14.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* daily */
+.wx-day { display: grid; grid-template-columns: 46px 30px 34px 36px 1fr 36px; align-items: center; gap: 6px; padding: 7px 0; border-top: 1px solid rgba(255, 255, 255, 0.12); font-size: 14.5px; font-weight: 700; animation: wxRise 0.45s cubic-bezier(0.2, 0.9, 0.25, 1) both; animation-delay: calc(0.3s + var(--d, 0) * 45ms); }
+.wx-day:first-of-type { border-top: none; } .wx-day-rain { font-size: 11.5px; font-weight: 800; color: #b9e2ff; text-align: center; } .wx-day-lo { text-align: right; opacity: 0.85; } .wx-day-hi { text-align: left; }
+.wx-range { position: relative; height: 6px; border-radius: 3px; background: rgba(0, 0, 0, 0.26); }
+.wx-range i { position: absolute; top: 0; bottom: 0; border-radius: 3px; transform-origin: left; animation: wxBarIn 0.7s cubic-bezier(0.2, 0.9, 0.25, 1) both; animation-delay: calc(0.4s + var(--d, 0) * 45ms); }
+.wx-range b { position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35); }
+
+/* tiles */
+.wx-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.wx-tile { padding: 12px 14px 14px; border-radius: 22px; background: var(--glass); border: 1px solid var(--glass-line); backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14); animation: wxRise 0.55s cubic-bezier(0.2, 0.9, 0.25, 1) both; animation-delay: calc(var(--i, 5) * 60ms); min-width: 0; }
+.wx-tile.wide { grid-column: 1 / -1; }
+.wx-tile-h { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 800; letter-spacing: 0.7px; text-transform: uppercase; margin-bottom: 8px; opacity: 0.95; }
+.wx-big { display: block; font-size: 30px; font-weight: 600; letter-spacing: -0.5px; line-height: 1.1; font-variant-numeric: tabular-nums; } .wx-big small { font-size: 13px; font-weight: 700; opacity: 0.9; letter-spacing: 0; }
+.wx-tile p { margin: 6px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--ink-2); }
+.wx-scale { position: relative; height: 6px; border-radius: 3px; margin-top: 8px; }
+.wx-scale.uv { background: linear-gradient(90deg, #4ade80, #facc15 35%, #fb923c 60%, #f87171 80%, #c084fc); }
+.wx-scale.aqi { background: linear-gradient(90deg, #4ade80, #facc15 20%, #fb923c 40%, #f87171 60%, #c084fc 80%, #e11d48); }
+.wx-scale span { position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.4); transition: left 0.8s cubic-bezier(0.2, 0.9, 0.25, 1); }
+.wx-wind { display: flex; align-items: center; gap: 10px; } .wx-needle { transition: transform 1s cubic-bezier(0.2, 0.9, 0.25, 1); }
+.wx-sun { display: flex; align-items: center; gap: 14px; } .wx-sun-t { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; } .wx-sun-t small { display: block; font-size: 11px; opacity: 0.85; } .wx-sun-t b { font-size: 17px; } .wx-sun-t p { grid-column: 1 / -1; margin: 2px 0 0; }
+
+/* states */
+.wx-state { position: relative; z-index: 1; text-align: center; padding: 26px 16px 20px; }
+.wx-state h3 { margin: 14px 0 8px; font-size: 20px; letter-spacing: -0.2px; } .wx-state p { margin: 0 auto; max-width: 400px; font-size: 14px; line-height: 1.55; color: var(--ink-2); }
+.wx-state-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 18px; }
+.wx-btn { padding: 11px 18px; border-radius: 999px; border: 1px solid var(--glass-line); background: rgba(255, 255, 255, 0.14); cursor: pointer; font-size: 14px; font-weight: 800; display: inline-flex; align-items: center; gap: 7px; transition: transform 0.15s, background 0.2s; }
+.wx-btn:hover { background: rgba(255, 255, 255, 0.24); } .wx-btn:active { transform: scale(0.96); } .wx-btn:disabled { opacity: 0.7; cursor: default; }
+.wx-btn-primary { background: #fff; color: #0b1630; text-shadow: none; border-color: #fff; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28); } .wx-btn-primary:hover { background: #f1f5ff; }
+.wx-fine { display: block; margin-top: 14px; font-size: 12px; opacity: 0.85; }
+.wx-pin-orb { position: relative; width: 74px; height: 74px; margin: 6px auto 0; display: grid; place-items: center; }
+.wx-pin-orb span { position: relative; z-index: 1; width: 58px; height: 58px; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(135deg, #ffffff, #cfe4ff); color: #1a63d1; box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3); text-shadow: none; }
+.wx-pin-orb i { position: absolute; inset: 8px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.6); animation: wxPing 2.4s ease-out infinite; } .wx-pin-orb i:nth-child(2) { animation-delay: 0.8s; } .wx-pin-orb i:nth-child(3) { animation-delay: 1.6s; }
+.wx-pin-off span { background: rgba(255, 255, 255, 0.22); color: #fff; }
+
+/* skeleton */
+.wx-skel i, .wx-skel-block { display: block; border-radius: 10px; background: linear-gradient(90deg, rgba(255, 255, 255, 0.1) 25%, rgba(255, 255, 255, 0.28) 50%, rgba(255, 255, 255, 0.1) 75%); background-size: 600px 100%; animation: wxShimmer 1.4s linear infinite; }
+.wx-skel-hero { display: flex; flex-direction: column; gap: 12px; padding: 22px 8px 18px; } .wx-skel-hero i { height: 18px; }
+.wx-skel-row { display: flex; gap: 8px; padding: 6px 2px 14px; } .wx-skel-row i { flex: 1; height: 86px; border-radius: 16px; } .wx-skel-block { height: 120px; border-radius: 22px; margin-top: 10px; }
+
+.wx-foot { text-align: center; padding: 14px 0 2px; font-size: 11.5px; } .wx-foot a { color: rgba(255, 255, 255, 0.92); text-decoration: underline; text-underline-offset: 3px; }
+
+@media (max-width: 420px) { .wx-temp { font-size: 80px; } .wx-tiles { gap: 8px; } .wx-big { font-size: 26px; } .wx-day { grid-template-columns: 42px 28px 30px 32px 1fr 32px; gap: 4px; } }
+@media (prefers-reduced-motion: reduce) {
+  .wx-card, .wx-hero, .wx-panel, .wx-tile, .wx-day, .wx-range i, .wx-spark-line, .wx-bar-grow, .wx-spin, .wx-fall, .wx-flicker, .wx-pin-orb i, .wx-skel i, .wx-skel-block { animation: none !important; }
+  .wx-needle, .wx-scale span { transition: none; }
+}
