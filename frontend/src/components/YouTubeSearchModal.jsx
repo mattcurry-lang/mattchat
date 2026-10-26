@@ -8,8 +8,10 @@
 // the bottom-left corner. It is now centred on desktop and a bottom sheet on phones.
 
 import React, { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import YouTubePulsePage from './Pulse/YouTubePulsePage'
 import { ensureYouTubeStyles } from './youtube/youtubeStyles'
+
 
 ensureYouTubeStyles()
 
@@ -20,7 +22,7 @@ export default function YouTubeSearchModal({ session, onClose, onSelectVideo }) 
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  return (
+ return createPortal(
     <div className="mc-ytm-overlay" onClick={onClose} role="presentation">
       <div className="mc-ytm-panel" role="dialog" aria-modal="true" aria-label="Search YouTube" onClick={(e) => e.stopPropagation()}>
         <YouTubePulsePage
@@ -32,6 +34,7 @@ export default function YouTubeSearchModal({ session, onClose, onSelectVideo }) 
           subtitle="Pick a video to share in this chat"
         />
       </div>
-    </div>
-  )
+     </div>,
+    document.body
+   )
 }
