@@ -116,7 +116,7 @@ export default function AICommandBar({ session, value, onSearchChange, onOpenCur
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [])
 
   // on a phone, opening a chat from the results ends search mode so the chat isn't hidden behind it
