@@ -3,11 +3,17 @@
 // embed pages. Nothing loads until the user taps, so scrolling stays fast and
 // the message list never jumps because of a late-loading iframe.
 //
+// TikTok: plays through TikTok's official player (tiktok.com/player/v1/<id>). The older
+// /embed/v2/<id> page now answers many sites with "overload-protect triggered" (HTTP 503/429).
+// The player tells the page when it is ready, so a video that does not start is caught: it retries
+// once by itself, then shows a clear "couldn't load" panel with Try again / Open in TikTok instead of
+// TikTok's raw error text.
+//
 // Look: one tappable card - a brand-coloured badge, what it is ("Instagram reel"),
 // who made it when the link says so, and a play button. Tap anywhere on it to watch
 // here; the small arrow opens the real app. Props are unchanged: { link }.
 
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 const BRAND = {
   tiktok: { name: 'TikTok', color: '#fe2c55', width: 325, height: 575 },
@@ -35,8 +41,12 @@ const CSS = `
 .mc-soc-bar-title{flex:1; min-width:0; font-size:13.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .mc-soc-pill{border:0; border-radius:999px; padding:6px 12px; font:inherit; font-size:12.5px; font-weight:650; color:#fff; background:rgba(255,255,255,.1); cursor:pointer; transition:background .15s ease}
 .mc-soc-pill:hover{background:rgba(255,255,255,.2)}
+.mc-soc-pill--icon{width:32px; height:32px; padding:0; display:grid; place-items:center}
 .mc-soc-pill--brand{background:var(--c)}
 .mc-soc-pill--brand:hover{filter:brightness(1.1); background:var(--c)}
+.mc-soc-state{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:20px; text-align:center; background:#0b0b12; color:rgba(245,245,250,.85); font-size:13px}
+.mc-soc-state strong{font-size:14.5px; color:#fff}
+.mc-soc-state-actions{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:4px}
 .mc-soc-spin{animation:mc-soc-spin .8s linear infinite}
 @keyframes mc-soc-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.mc-soc-spin{animation:none}.mc-soc-main{transition:none}}
@@ -94,6 +104,100 @@ const OpenIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 17 17 7" /><path d="M8 7h9v9" /></svg>
 )
 
+// How long a working TikTok player takes to say hello once its page has loaded, and how long we
+// wait for a page that never loads at all.
+const TT_GRACE_MS = 4500
+const TT_NEVER_MS = 9000
+const TT_PLAYER_AUTORETRIES = 1
+
+const CloseIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+)
+
+function isTikTokOrigin(origin) {
+  try { return /(^|\.)tiktok\.com$/i.test(new URL(origin).hostname) } catch { return false }
+}
+
+// TikTok's official player. `status`: loading (hidden behind a spinner) -> ready | failed.
+function TikTokPlayer({ id, height, onOpen }) {
+  const frameRef = useRef(null)
+  const [attempt, setAttempt] = useState(0)        // each attempt is a brand-new iframe
+  const [status, setStatus] = useState('loading')
+
+  useEffect(() => {
+    let settled = false
+    let timer = null
+    const ok = () => { if (settled) return; settled = true; clearTimeout(timer); setStatus('ready') }
+    const fail = () => {
+      if (settled) return
+      settled = true; clearTimeout(timer)
+      if (attempt < TT_PLAYER_AUTORETRIES) setAttempt((a) => a + 1)   // one quiet retry first
+      else setStatus('failed')
+    }
+    const onMessage = (e) => {
+      const win = frameRef.current && frameRef.current.contentWindow
+      if (!win || e.source !== win || !isTikTokOrigin(e.origin)) return
+      let d = e.data
+      if (typeof d === 'string') { try { d = JSON.parse(d) } catch { return } }
+      if (!d || d['x-tiktok-player'] !== true) return
+      if (d.type === 'onPlayerError') {
+        const code = typeof d.value === 'number' ? d.value : d.value && d.value.code
+        if (code === 3002) ok()            // autoplay was blocked: the player itself is fine
+        else fail()
+      } else {
+        ok()                               // onPlayerReady / onStateChange / ...: it is alive
+      }
+    }
+    const frame = frameRef.current
+    const onLoad = () => { clearTimeout(timer); if (!settled) timer = setTimeout(fail, TT_GRACE_MS) }
+    window.addEventListener('message', onMessage)
+    if (frame) frame.addEventListener('load', onLoad)
+    timer = setTimeout(fail, TT_NEVER_MS)
+    return () => {
+      settled = true
+      clearTimeout(timer)
+      window.removeEventListener('message', onMessage)
+      if (frame) frame.removeEventListener('load', onLoad)
+    }
+  }, [attempt])
+
+  const retry = () => { setStatus('loading'); setAttempt((a) => a + 1) }
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height, background: '#000' }}>
+      {status !== 'failed' && (
+        <iframe
+          key={attempt}
+          ref={frameRef}
+          title="TikTok video"
+          src={`https://www.tiktok.com/player/v1/${id}?music_info=1&description=1`}
+          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+          allowFullScreen
+          referrerPolicy="strict-origin-when-cross-origin"
+          sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0, background: '#000', visibility: status === 'ready' ? 'visible' : 'hidden' }}
+        />
+      )}
+      {status === 'loading' && (
+        <div className="mc-soc-state" role="status">
+          <SpinnerIcon />
+          <span>Loading video…</span>
+        </div>
+      )}
+      {status === 'failed' && (
+        <div className="mc-soc-state" role="alert">
+          <strong>Couldn’t load this video here</strong>
+          <span>TikTok is busy or isn’t allowing it to play in chat right now.</span>
+          <div className="mc-soc-state-actions">
+            <button type="button" className="mc-soc-pill" onClick={retry}>Try again</button>
+            <button type="button" className="mc-soc-pill mc-soc-pill--brand" onClick={onOpen}>Open in TikTok</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function titleFor(link) {
   if (link.platform === 'tiktok') return 'TikTok video'
   if (link.kind === 'reel') return 'Instagram reel'
@@ -123,12 +227,8 @@ export default function SocialEmbedCard({ link }) {
 
   if (!brand) return null
 
-  const src =
-    link.platform === 'instagram'
-      ? link.embedUrl
-      : tiktokId
-        ? `https://www.tiktok.com/embed/v2/${tiktokId}`
-        : null
+  // Instagram: its embed page. TikTok: we just need the video id (TikTokPlayer builds the player URL).
+  const canEmbed = link.platform === 'instagram' ? Boolean(link.embedUrl) : Boolean(tiktokId)
 
   const title = titleFor(link)
   const openExternal = () => window.open(link.url, '_blank', 'noopener,noreferrer')
@@ -152,23 +252,27 @@ export default function SocialEmbedCard({ link }) {
 
   const rootStyle = { '--c': brand.color }
 
-  if (open && src) {
+  if (open && canEmbed) {
     return (
       <div className={`mc-soc mc-soc--${link.platform}`} style={{ ...rootStyle, width: `min(${brand.width}px, 100%)` }}>
         <div className="mc-soc-bar">
           <Badge platform={link.platform} size={28} />
           <span className="mc-soc-bar-title">{title}</span>
-          <button type="button" className="mc-soc-pill" onClick={() => setOpen(false)}>Close</button>
-          <button type="button" className="mc-soc-pill mc-soc-pill--brand" onClick={openExternal}>Open in {brand.name}</button>
+          <button type="button" className="mc-soc-pill mc-soc-pill--icon" onClick={() => setOpen(false)} aria-label="Close" title="Close"><CloseIcon /></button>
+          <button type="button" className="mc-soc-pill mc-soc-pill--brand" onClick={openExternal} aria-label={`Open in ${brand.name}`} title={`Open in ${brand.name}`}>Open ↗</button>
         </div>
-        <iframe
-          title={`${brand.name} post`}
-          src={src}
-          loading="lazy"
-          allowFullScreen
-          sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation"
-          style={{ display: 'block', width: '100%', height: brand.height, border: 0, background: '#fff' }}
-        />
+        {link.platform === 'tiktok' ? (
+          <TikTokPlayer id={tiktokId} height={brand.height} onOpen={openExternal} />
+        ) : (
+          <iframe
+            title={`${brand.name} post`}
+            src={link.embedUrl}
+            loading="lazy"
+            allowFullScreen
+            sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation"
+            style={{ display: 'block', width: '100%', height: brand.height, border: 0, background: '#fff' }}
+          />
+        )}
       </div>
     )
   }
