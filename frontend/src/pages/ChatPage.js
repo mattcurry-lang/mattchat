@@ -1111,7 +1111,7 @@ const HM_CSS = `
   }
 `
 
-function HeaderMoreMenu({ anchorRef, theme, onToggleTheme, heyCurryListening, onToggleHeyCurry, onClose }) {
+function HeaderMoreMenu({ anchorRef, theme, onToggleTheme, heyCurryListening, heyCurryError, onToggleHeyCurry, onClose }) {
   const [pos, setPos] = useState(null)
   const [hint, setHint] = useState('')
   const menuRef = useRef(null)
@@ -1160,7 +1160,13 @@ function HeaderMoreMenu({ anchorRef, theme, onToggleTheme, heyCurryListening, on
     // If it was asked to start but still isn't listening a moment later, say so.
     if (turningOn) setTimeout(() => { if (!listeningRef.current) setHint(MIC_HINT) }, 1500)
   }
-
+  const errorText =
+    heyCurryError === 'not-allowed' || heyCurryError === 'service-not-allowed'
+      ? 'Microphone access is blocked. Allow it for this site in your browser settings, then try again.'
+    : heyCurryError === 'audio-capture' ? 'No microphone was found.'
+    : heyCurryError === 'network' ? 'Speech recognition needs an internet connection.'
+    : heyCurryError ? "Couldn't start listening. Please try again."
+    : ''
   if (!pos) return null
 
   const sub = !speechSupported
@@ -1194,8 +1200,7 @@ function HeaderMoreMenu({ anchorRef, theme, onToggleTheme, heyCurryListening, on
           <span className="hm-row-sub">{sub}</span>
         </span>
         <span className={`hm-switch ${heyCurryListening ? 'on' : ''}`}><span /></span>
-      </button>
-      {hint && <div className="hm-hint">{hint}</div>}
+      </button>      {(errorText || hint) && <div className="hm-hint">{errorText || hint}</div>} {hint && <div className="hm-hint">{hint}</div>}
     </div>,
     document.body
   )
@@ -1526,13 +1531,17 @@ const unreadStatusCount = statusGroups.filter(g => !g.allViewed).length
   )
   const callConvo = activeCall ? getConvoById(activeCall.conversationId) : null
 
-  const onHeyCurryActivated = useCallback(() => { playSound('echo'); setActiveConvo(CURRY_AI_CONTACT) }, [])
+ const onHeyCurryActivated = useCallback((afterWake) => {
+  playSound('echo')
+  if (afterWake) setCurryPrefill(afterWake) // "Hey Curry, what's the weather" → asks it straight away
+  setActiveConvo(CURRY_AI_CONTACT)
+}, [])
   // autoStart: false — "hey curry" listening is now an explicit
   // opt-in (see the mic toggle button in the header) instead of
   // running in the background from the moment the app loads, which
   // is what was causing the mic indicator to flicker on/off.
-  const { listening: heyCurryListening, startListening: startHeyCurry, stopListening: stopHeyCurry } =
-    useHeyCurry(onHeyCurryActivated, { autoStart: false })
+  const { listening: heyCurryListening, startListening: startHeyCurry, stopListening: stopHeyCurry, error: heyCurryError } =
+  useHeyCurry(onHeyCurryActivated, { autoStart: false })
   const heyCurryRef = useRef({})
 heyCurryRef.current = { listening: heyCurryListening, start: startHeyCurry, stop: stopHeyCurry }
 const wasHeyCurryOn = useRef(false)
@@ -2368,6 +2377,7 @@ const handleSignOut = async () => {
       theme={theme}
       onToggleTheme={toggleTheme}
       heyCurryListening={heyCurryListening}
+heyCurryError={heyCurryError}
       onToggleHeyCurry={() => (heyCurryListening ? stopHeyCurry() : startHeyCurry())}
       onClose={() => setShowHeaderMenu(false)}
     />
