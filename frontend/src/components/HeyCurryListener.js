@@ -1,86 +1,133 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 
-// Continuous browser SpeechRecognition doesn't actually stay open
-// forever — it auto-ends after a period of silence / time limit, and
-// restarting it re-requests the microphone every time. That's what
-// was causing the mic indicator to flicker on/off repeatedly,
-// especially on mobile where these sessions end much more
-// aggressively than on desktop.
+// "Hey Curry" wake word using the browser's SpeechRecognition.
 //
-// Fix: this hook no longer starts listening on its own. It exposes
-// `listening` + `start`/`stop` so the UI can turn it on explicitly
-// (e.g. a toggle in settings or a mic icon the user taps), and it
-// only restarts on its own WHILE the user has explicitly left it on
-// — stop() fully kills it, so the mic goes fully quiet the moment
-// they turn it off instead of quietly resurrecting itself a second
-// later.
+// Notes on how it behaves:
+// - It never starts on its own unless autoStart is true; the UI turns it on.
+// - Browsers end continuous recognition on their own after a while, so while
+//   the user has it ON we restart it — but only ever ONE recognizer at a time.
+// - Fatal problems (mic blocked, no mic) stop it and are reported through
+//   `error`, instead of retrying forever.
+// - We only react to FINAL results, so the text after the wake word is the
+//   complete phrase, and one phrase can only trigger once.
+// - onActivated receives whatever was said after "hey curry" ('' if nothing).
+
+const WAKE = /\bhey[,.]?\s+(curry|currie|kerry|cory|carry|kari|cari|curri|curie)\b/i
+const FATAL = new Set(['not-allowed', 'service-not-allowed', 'audio-capture', 'language-not-supported'])
+
 export function useHeyCurry(onActivated, { autoStart = false } = {}) {
   const [active, setActive] = useState(false)
   const [listening, setListening] = useState(false)
+  const [error, setError] = useState(null)
   const recognitionRef = useRef(null)
   const restartTimer = useRef(null)
   const wantsListeningRef = useRef(autoStart)
+  const lastErrorRef = useRef(null)
+  const onActivatedRef = useRef(onActivated)
+  onActivatedRef.current = onActivated // always call the latest handler
+
+  const supported =
+    typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition)
 
   const startListening = useCallback(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SR) return
+    if (!SR) { setError('unsupported'); return }
 
     wantsListeningRef.current = true
+    lastErrorRef.current = null
+    setError(null)
+    clearTimeout(restartTimer.current)
+    try { recognitionRef.current?.abort() } catch { /* nothing running */ }
+
+    function schedule(ms) {
+      clearTimeout(restartTimer.current)
+      restartTimer.current = setTimeout(run, ms)
+    }
 
     function run() {
       if (!wantsListeningRef.current) return
+
+      let recognition
       try {
-        const recognition = new SR()
-        recognition.continuous = true
-        recognition.interimResults = true
-        recognition.lang = 'en-US'
-        recognition.onresult = (e) => {
-          for (let i = e.resultIndex; i < e.results.length; i++) {
-            const transcript = e.results[i][0].transcript.toLowerCase().trim()
-            if (
-              transcript.includes('hey curry') ||
-              transcript.includes('hey kerry') ||
-              transcript.includes('hey cory')
-            ) {
-              const afterWake = transcript
-                .replace(/hey curry|hey kerry|hey cory/gi, '')
-                .trim()
-              setActive(true)
-              onActivated(afterWake)
-              recognition.stop()
-            }
-          }
-        }
-        recognition.onend = () => {
-          setListening(false)
-          // Only auto-restart while the user still wants it on —
-          // this is the difference that stops the "silently comes
-          // back on" behavior once someone turns it off.
-          if (wantsListeningRef.current) {
-            restartTimer.current = setTimeout(run, 1000)
-          }
-        }
-        recognition.onerror = (e) => {
-          if (e.error !== 'no-speech' && wantsListeningRef.current) {
-            restartTimer.current = setTimeout(run, 3000)
-          }
-        }
-        recognition.start()
-        setListening(true)
-        recognitionRef.current = recognition
+        recognition = new SR()
       } catch (e) {
-        // Fail silently if browser doesn't support it
+        wantsListeningRef.current = false
+        setListening(false)
+        setError('start-failed')
+        return
+      }
+
+      let handled = false
+      recognition.continuous = true
+      recognition.interimResults = true
+      recognition.lang = 'en-US'
+
+      recognition.onstart = () => { lastErrorRef.current = null; setError(null) }
+
+      recognition.onresult = (e) => {
+        if (handled) return
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const result = e.results[i]
+          if (!result.isFinal) continue
+          const transcript = result[0].transcript.trim()
+          const m = transcript.match(WAKE)
+          if (!m) continue
+          handled = true
+          const afterWake = transcript
+            .slice(m.index + m[0].length)
+            .replace(/^[\s,.:;!?-]+/, '')
+            .trim()
+          setActive(true)
+          try { onActivatedRef.current?.(afterWake) } catch (err) { console.error('Hey Curry handler failed:', err) }
+          try { recognition.stop() } catch { /* already stopping */ }
+          break
+        }
+      }
+
+      recognition.onerror = (e) => {
+        lastErrorRef.current = e.error
+        if (FATAL.has(e.error)) {
+          // Retrying can't fix these — stop and tell the UI.
+          wantsListeningRef.current = false
+          clearTimeout(restartTimer.current)
+          setError(e.error)
+        } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+          setError(e.error) // transient, e.g. 'network'
+        }
+        // Restarting is handled in onend (it always fires after an error).
+      }
+
+      recognition.onend = () => {
+        // Ignore the end of a recognizer we replaced or stopped on purpose.
+        if (recognitionRef.current !== recognition) return
+        recognitionRef.current = null
+        setListening(false)
+        if (wantsListeningRef.current) {
+          schedule(lastErrorRef.current === 'network' ? 3000 : 1000)
+        }
+      }
+
+      try {
+        recognition.start()
+        recognitionRef.current = recognition
+        setListening(true)
+      } catch (e) {
+        // e.g. InvalidStateError if the browser hasn't released the previous one yet
+        if (wantsListeningRef.current) schedule(1000)
       }
     }
+
     run()
-  }, [onActivated])
+  }, [])
 
   const stopListening = useCallback(() => {
     wantsListeningRef.current = false
     clearTimeout(restartTimer.current)
-    recognitionRef.current?.stop()
-    recognitionRef.current = null
+    const r = recognitionRef.current
+    recognitionRef.current = null // so its onend is ignored
+    try { r?.stop() } catch { /* nothing running */ }
     setListening(false)
+    setError(null)
   }, [])
 
   useEffect(() => {
@@ -88,9 +135,11 @@ export function useHeyCurry(onActivated, { autoStart = false } = {}) {
     return () => {
       wantsListeningRef.current = false
       clearTimeout(restartTimer.current)
-      recognitionRef.current?.stop()
+      const r = recognitionRef.current
+      recognitionRef.current = null
+      try { r?.stop() } catch { /* nothing running */ }
     }
   }, [])
 
-  return { active, setActive, listening, startListening, stopListening }
+  return { active, setActive, listening, supported, error, startListening, stopListening }
 }
