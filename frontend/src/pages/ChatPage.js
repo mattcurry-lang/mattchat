@@ -3128,24 +3128,17 @@ onMessageContact={handleMessageContact}
 
       {/* ── CHAT AREA ── */}
       {activeConvo && (
-        activeConvo.isCurryAI ? (
-          <div className="chat-area" style={{ background: 'linear-gradient(180deg,#0f0f1a 0%,#1a1a2e 100%)' }}>
-            <div className="chat-header">
-              <button className="back-btn" onClick={() => setActiveConvo(null)}>←</button>
-             <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconSparkle size={16} style={{ color: '#fff' }} /></div>
-             <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="chat-header-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconSparkle size={13} /> Curry AI</div>
-                <div className="chat-header-sub" style={{ color: '#a78bfa' }}>Always learning, always here</div>
-              </div>
-            </div>
-           <CurryAIChat
-  session={session}
-  onOpenConversation={openConversationById}
-  initialMessage={curryPrefill}
-  onInitialMessageSent={() => setCurryPrefill(null)}
-/>
-          </div>
- ) : (
+activeConvo.isCurryAI ? (
+  <div className="chat-area" style={{ background: '#0b0b16' }}>
+    <CurryAIChat
+      session={session}
+      onBack={() => setActiveConvo(null)}
+      onOpenConversation={openConversationById}
+      initialMessage={curryPrefill}
+      onInitialMessageSent={() => setCurryPrefill(null)}
+    />
+  </div>
+) : (
   <div className="chat-area">
     {/* Header */}
 
