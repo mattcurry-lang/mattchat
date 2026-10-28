@@ -433,7 +433,10 @@ export default function CurryAIChat({ session, onBack, onOpenConversation, initi
   useEffect(() => {
     try { localStorage.setItem('curry_voice_replies', voiceOn ? '1' : '0') } catch { /* ignore */ }
   }, [voiceOn])
-
+useEffect(() => {
+  onVoiceActive?.(voiceMode)
+  return () => onVoiceActive?.(false)
+}, [voiceMode])
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages, loading, voiceMode])
@@ -469,8 +472,8 @@ export default function CurryAIChat({ session, onBack, onOpenConversation, initi
 
   // Auto-sends a prefilled question once history has settled.
   useEffect(() => {
-    if (!historyLoaded || !initialMessage) return
-    if (sentInitialRef.current === initialMessage) return
+   if (!historyLoaded) return
+if (!initialMessage) { sentInitialRef.current = null; return }
     sentInitialRef.current = initialMessage
     sendMessage(initialMessage)
     onInitialMessageSent?.()
