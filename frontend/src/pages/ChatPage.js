@@ -1055,67 +1055,147 @@ function ChangeUsernameModal({ userId, currentUsername, onSaved, onClose }) {
     </div>
   )
 }
+const hmIcon = { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }
+const HmSun = () => (
+  <svg {...hmIcon}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></svg>
+)
+const HmMoon = () => (
+  <svg {...hmIcon}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
+)
+const HmMic = () => (
+  <svg {...hmIcon}><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="22" /></svg>
+)
+
+const HM_CSS = `
+  .hm-menu { position:fixed; z-index:2000; width:280px; padding:12px; border-radius:18px; box-sizing:border-box;
+    background:var(--bg-surface-1,#14141f); color:var(--text-primary,#f2f0f8);
+    border:1px solid var(--border,rgba(167,139,250,.18)); box-shadow:0 18px 48px rgba(0,0,0,.35);
+    animation:hmPop .16s ease; }
+  @keyframes hmPop { from { opacity:0; transform:translateY(-4px) scale(.98); } to { opacity:1; transform:none; } }
+  .hm-label { font-size:10.5px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--text-muted,#9d97b5); margin:2px 4px 8px; }
+  .hm-sep { height:1px; background:var(--border,rgba(255,255,255,.08)); margin:12px -2px; }
+
+  .hm-seg { position:relative; display:grid; grid-template-columns:1fr 1fr; padding:3px; border-radius:12px;
+    background:var(--bg-surface-2,rgba(255,255,255,.06)); border:1px solid var(--border,transparent); }
+  .hm-seg-pill { position:absolute; top:3px; bottom:3px; left:3px; width:calc(50% - 3px); border-radius:9px;
+    background:linear-gradient(135deg,#667eea,#764ba2); box-shadow:0 4px 12px rgba(102,126,234,.4);
+    transition:transform .22s cubic-bezier(.22,1,.36,1); }
+  .hm-seg-btn { position:relative; z-index:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:8px 0;
+    border:none; border-radius:9px; background:none; font:inherit; font-size:13px; font-weight:700;
+    color:var(--text-secondary,#c9c4dd); cursor:pointer; transition:color .2s; }
+  .hm-seg-btn.on { color:#fff; }
+
+  .hm-row { display:flex; align-items:center; gap:12px; width:100%; padding:8px 6px; border:none; border-radius:12px; background:none;
+    font:inherit; color:inherit; text-align:left; cursor:pointer; transition:background .15s; }
+  .hm-row:hover:not(:disabled) { background:var(--bg-surface-2,rgba(255,255,255,.06)); }
+  .hm-row:disabled { opacity:.5; cursor:default; }
+  .hm-row-icon { width:32px; height:32px; border-radius:10px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(167,139,250,.14); color:#a78bfa; }
+  .hm-row-text { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+  .hm-row-title { font-size:13.5px; font-weight:700; }
+  .hm-row-sub { font-size:11.5px; color:var(--text-muted,#9d97b5); line-height:1.35; }
+
+  .hm-switch { position:relative; width:38px; height:22px; border-radius:999px; flex-shrink:0; background:rgba(127,127,127,.35); transition:background .2s; }
+  .hm-switch > span { position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:#fff;
+    box-shadow:0 1px 3px rgba(0,0,0,.35); transition:transform .2s cubic-bezier(.22,1,.36,1); }
+  .hm-switch.on { background:#7c6cf0; }
+  .hm-switch.on > span { transform:translateX(16px); }
+
+  .hm-hint { margin:8px 4px 0; padding:8px 10px; border-radius:10px; font-size:11.5px; line-height:1.45;
+    color:#fbbf24; background:rgba(251,191,36,.1); border:1px solid rgba(251,191,36,.25); }
+
+  .hm-seg-btn:focus-visible, .hm-row:focus-visible { outline:2px solid #a78bfa; outline-offset:2px; }
+  @media (prefers-reduced-motion: reduce) {
+    .hm-menu { animation:none; }
+    .hm-seg-pill, .hm-seg-btn, .hm-switch, .hm-switch > span { transition:none; }
+  }
+`
+
 function HeaderMoreMenu({ anchorRef, theme, onToggleTheme, heyCurryListening, onToggleHeyCurry, onClose }) {
   const [pos, setPos] = useState(null)
+  const [hint, setHint] = useState('')
   const menuRef = useRef(null)
+  const listeningRef = useRef(heyCurryListening)
+  listeningRef.current = heyCurryListening // always the latest value, even inside timeouts
+
+  const isDark = theme === 'dark'
+  const speechSupported = typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition)
 
   useEffect(() => {
     const rect = anchorRef.current?.getBoundingClientRect()
     if (!rect) return
-    const MENU_WIDTH = 230
+    const MENU_WIDTH = 280
     const left = Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8)
     setPos({ top: rect.bottom + 6, left: Math.max(8, left) })
   }, [anchorRef])
 
   useEffect(() => {
-    const handler = (e) => {
+    const onDown = (e) => {
       if (menuRef.current?.contains(e.target)) return
       if (anchorRef.current?.contains(e.target)) return
       onClose()
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
   }, [onClose, anchorRef])
+
+  const setTheme = (wantDark) => { if (wantDark !== isDark) onToggleTheme() }
+
+  const MIC_HINT = "Couldn't start listening. Allow microphone access for this site, then try again."
+  const toggleHeyCurry = async () => {
+    setHint('')
+    const turningOn = !listeningRef.current
+    try {
+      await onToggleHeyCurry()
+    } catch (e) {
+      console.error('Hey Curry toggle failed:', e)
+      setHint(MIC_HINT)
+      return
+    }
+    // If it was asked to start but still isn't listening a moment later, say so.
+    if (turningOn) setTimeout(() => { if (!listeningRef.current) setHint(MIC_HINT) }, 1500)
+  }
 
   if (!pos) return null
 
+  const sub = !speechSupported
+    ? 'Not supported in this browser'
+    : heyCurryListening
+    ? 'Listening — say “Hey Curry” to open Curry'
+    : 'Say it to open Curry hands-free'
+
   return createPortal(
-    <div
-      ref={menuRef}
-      style={{
-        position: 'fixed', top: pos.top, left: pos.left, zIndex: 2000,
-        background: 'rgba(24,22,34,0.98)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
-        border: '1px solid rgba(167,139,250,0.18)', borderRadius: 14,
-        boxShadow: '0 12px 32px rgba(0,0,0,0.4)', overflow: 'hidden', minWidth: 230,
-      }}
-    >
-      <button
-        onClick={() => { onToggleTheme(); onClose() }}
-        style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, color: '#f2f0f8', textAlign: 'left' }}
-      >
-        <span style={{ width: 20, textAlign: 'center' }}>{theme === 'dark' ? '☀️' : '🌙'}</span>
-        {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-      </button>
-      <button
-        onClick={() => { onToggleHeyCurry(); onClose() }}
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
-          padding: '11px 16px', background: 'none', border: 'none', borderTop: '1px solid rgba(167,139,250,0.1)',
-          cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, color: '#f2f0f8', textAlign: 'left',
-        }}
-      >
-        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ width: 20, textAlign: 'center' }}>🎙️</span>
-          "Hey Curry" listening
+    <div ref={menuRef} className="hm-menu" role="dialog" aria-label="Quick settings" style={{ top: pos.top, left: pos.left }}>
+      <style>{HM_CSS}</style>
+
+      <div className="hm-label">Appearance</div>
+      <div className="hm-seg" role="radiogroup" aria-label="Theme">
+        <div className="hm-seg-pill" style={{ transform: isDark ? 'translateX(100%)' : 'translateX(0)' }} />
+        <button className={`hm-seg-btn ${!isDark ? 'on' : ''}`} role="radio" aria-checked={!isDark} onClick={() => setTheme(false)}>
+          <HmSun /> Light
+        </button>
+        <button className={`hm-seg-btn ${isDark ? 'on' : ''}`} role="radio" aria-checked={isDark} onClick={() => setTheme(true)}>
+          <HmMoon /> Dark
+        </button>
+      </div>
+
+      <div className="hm-sep" />
+
+      <div className="hm-label">Voice</div>
+      <button className="hm-row" role="switch" aria-checked={!!heyCurryListening} disabled={!speechSupported} onClick={toggleHeyCurry}>
+        <span className="hm-row-icon"><HmMic /></span>
+        <span className="hm-row-text">
+          <span className="hm-row-title">“Hey Curry”</span>
+          <span className="hm-row-sub">{sub}</span>
         </span>
-        <span style={{
-          fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-          color: heyCurryListening ? '#a78bfa' : '#6b6580',
-          background: heyCurryListening ? 'rgba(167,139,250,0.15)' : 'rgba(255,255,255,0.05)',
-        }}>
-          {heyCurryListening ? 'On' : 'Off'}
-        </span>
+        <span className={`hm-switch ${heyCurryListening ? 'on' : ''}`}><span /></span>
       </button>
+      {hint && <div className="hm-hint">{hint}</div>}
     </div>,
     document.body
   )
