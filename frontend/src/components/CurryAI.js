@@ -413,7 +413,7 @@ const STARTERS = [
 ]
 
 // ── Main Curry AI Chat ────────────────────────────────────────
-export default function CurryAIChat({ session, onBack, onOpenConversation, initialMessage, onInitialMessageSent }) {
+export default function CurryAIChat({ session, onBack, onOpenConversation, initialMessage, onInitialMessageSent, onVoiceActive }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
