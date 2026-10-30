@@ -1,36 +1,77 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import './ChatCards.css'
+
+const MIN_OPTIONS = 2
+const MAX_OPTIONS = 6
+
+const CloseIcon = () => (
+  <svg className="cc-ico" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M4 4l8 8M12 4l-8 8" />
+  </svg>
+)
+
+const PlusIcon = () => (
+  <svg className="cc-ico" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M8 3v10M3 8h10" />
+  </svg>
+)
 
 export default function PollCreator({ conversationId, senderId, onSent, onCancel }) {
+  const uid = useRef(0)
+  const mk = (text = '') => ({ id: ++uid.current, text })
+
   const [question, setQuestion] = useState('')
-  const [options, setOptions] = useState(['', ''])
+  const [options, setOptions] = useState(() => [mk(), mk()])
   const [allowsMultiple, setAllowsMultiple] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
 
-  const updateOption = (i, val) => {
-    const next = [...options]
-    next[i] = val
-    setOptions(next)
-  }
+  // focus management: set an id, the effect focuses that row once it exists
+  const inputRefs = useRef({})
+  const [focusId, setFocusId] = useState(null)
+  useEffect(() => {
+    if (focusId == null) return
+    inputRefs.current[focusId]?.focus()
+    setFocusId(null)
+  }, [focusId])
+
+  const updateOption = (id, text) =>
+    setOptions(os => os.map(o => (o.id === id ? { ...o, text } : o)))
 
   const addOption = () => {
-    if (options.length < 6) setOptions([...options, ''])
+    if (options.length >= MAX_OPTIONS) return
+    const o = mk()
+    setOptions([...options, o])
+    setFocusId(o.id)
   }
 
-  const removeOption = (i) => {
-    if (options.length <= 2) return
-    setOptions(options.filter((_, idx) => idx !== i))
+  const removeOption = (id) => {
+    if (options.length <= MIN_OPTIONS) return
+    setOptions(options.filter(o => o.id !== id))
   }
 
-  const canSend = question.trim() && options.filter(o => o.trim()).length >= 2
+  const handleKeyDown = (e, i) => {
+    const opt = options[i]
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      if (i < options.length - 1) setFocusId(options[i + 1].id)
+      else if (opt.text.trim()) addOption()
+    } else if (e.key === 'Backspace' && !opt.text && options.length > MIN_OPTIONS) {
+      e.preventDefault()
+      setFocusId(options[i > 0 ? i - 1 : 1].id)
+      removeOption(opt.id)
+    }
+  }
+
+  const canSend = question.trim() && options.filter(o => o.text.trim()).length >= 2
 
   const send = async () => {
-    if (!canSend) return
+    if (!canSend || sending) return
     setSending(true)
     setError(null)
     try {
-      const validOptions = options.map(o => o.trim()).filter(Boolean)
+      const validOptions = options.map(o => o.text.trim()).filter(Boolean)
 
       // 1. insert poll
       const { data: poll, error: pollErr } = await supabase
@@ -66,110 +107,98 @@ export default function PollCreator({ conversationId, senderId, onSent, onCancel
       onSent && onSent(msg)
     } catch (err) {
       console.error(err)
-      setError('Failed to create poll. Try again.')
+      setError("Couldn't create the poll. Try again.")
       setSending(false)
     }
   }
 
   return (
-    <div style={s.wrap}>
-      <div style={s.header}>
-        <span style={s.title}>📊 New Poll</span>
-        <button style={s.closeBtn} onClick={onCancel}>✕</button>
+    <div
+      className="cc cc-sheet"
+      role="dialog"
+      aria-label="New poll"
+      onKeyDown={e => { if (e.key === 'Escape') onCancel && onCancel() }}
+    >
+      <div className="cc-head">
+        <span className="cc-head-title">New poll</span>
+        <button type="button" className="cc-close" onClick={onCancel} aria-label="Close">
+          <CloseIcon />
+        </button>
       </div>
 
-      {error && <p style={s.error}>{error}</p>}
+      {error && <p className="cc-error" role="alert">{error}</p>}
 
       <input
-        style={s.questionInput}
-        placeholder="Ask a question…"
+        className="cc-main"
+        placeholder="Ask a question"
         value={question}
         onChange={e => setQuestion(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            inputRefs.current[options[0].id]?.focus()
+          }
+        }}
         maxLength={200}
         autoFocus
       />
 
-      <div style={s.optionsLabel}>Options</div>
-      {options.map((opt, i) => (
-        <div key={i} style={s.optRow}>
-          <input
-            style={s.optInput}
-            placeholder={`Option ${i + 1}`}
-            value={opt}
-            onChange={e => updateOption(i, e.target.value)}
-            maxLength={100}
-          />
-          {options.length > 2 && (
-            <button style={s.removeBtn} onClick={() => removeOption(i)}>✕</button>
-          )}
-        </div>
-      ))}
+      <div className="cc-rows">
+        {options.map((opt, i) => (
+          <div key={opt.id} className="cc-row">
+            {/* circle for pick-one, square for pick-many: previews how voting will look */}
+            <span className={`cc-dot${allowsMultiple ? ' is-multi' : ''}`} />
+            <input
+              ref={el => { inputRefs.current[opt.id] = el }}
+              className="cc-input"
+              placeholder={`Option ${i + 1}`}
+              value={opt.text}
+              onChange={e => updateOption(opt.id, e.target.value)}
+              onKeyDown={e => handleKeyDown(e, i)}
+              maxLength={100}
+            />
+            {options.length > MIN_OPTIONS && (
+              <button
+                type="button"
+                className="cc-rm"
+                onClick={() => removeOption(opt.id)}
+                aria-label="Remove option"
+              >
+                <CloseIcon />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
 
-      {options.length < 6 && (
-        <button style={s.addOptBtn} onClick={addOption}>+ Add option</button>
+      {options.length < MAX_OPTIONS && (
+        <button type="button" className="cc-add" onClick={addOption}>
+          <PlusIcon /> Add option
+        </button>
       )}
 
-      <label style={s.multiLabel}>
-        <input
-          type="checkbox"
-          checked={allowsMultiple}
-          onChange={e => setAllowsMultiple(e.target.checked)}
-          style={{ marginRight: 8 }}
-        />
-        Allow multiple choices
-      </label>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={allowsMultiple}
+        className="cc-switch"
+        onClick={() => setAllowsMultiple(v => !v)}
+      >
+        <span>Allow multiple answers</span>
+        <span className="cc-track" />
+      </button>
 
-      <div style={s.footer}>
-        <button style={s.cancelBtn} onClick={onCancel}>Cancel</button>
+      <div className="cc-foot">
+        <button type="button" className="cc-btn cc-btn-ghost" onClick={onCancel}>Cancel</button>
         <button
-          style={{ ...s.sendBtn, opacity: canSend ? 1 : 0.4 }}
+          type="button"
+          className="cc-btn cc-btn-primary"
           onClick={send}
           disabled={!canSend || sending}
         >
-          {sending ? 'Creating…' : 'Create Poll'}
+          {sending ? 'Creating…' : 'Create poll'}
         </button>
       </div>
     </div>
   )
-}
-
-const s = {
-  wrap: {
-    position: 'absolute', bottom: '100%', left: 0, right: 0,
-    background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: 16, padding: 16, marginBottom: 8,
-    boxShadow: '0 -4px 24px rgba(0,0,0,0.4)', zIndex: 100,
-  },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  title: { fontSize: 15, fontWeight: 600, color: '#fff' },
-  closeBtn: { background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 16 },
-  questionInput: {
-    width: '100%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: 10, padding: '10px 12px', color: '#fff', fontSize: 14,
-    outline: 'none', marginBottom: 12, boxSizing: 'border-box',
-  },
-  optionsLabel: { fontSize: 12, color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' },
-  optRow: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 },
-  optInput: {
-    flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: 8, padding: '8px 12px', color: '#fff', fontSize: 13, outline: 'none',
-  },
-  removeBtn: { background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 14, flexShrink: 0 },
-  addOptBtn: {
-    background: 'none', border: '1px dashed rgba(124,111,247,0.4)',
-    borderRadius: 8, color: '#7C6FF7', padding: '6px 12px',
-    fontSize: 13, cursor: 'pointer', width: '100%', marginBottom: 12,
-  },
-  multiLabel: { display: 'flex', alignItems: 'center', fontSize: 13, color: '#aaa', marginBottom: 16, cursor: 'pointer' },
-  footer: { display: 'flex', gap: 8 },
-  cancelBtn: {
-    flex: 1, background: 'rgba(255,255,255,0.06)', border: 'none',
-    borderRadius: 10, padding: '10px', color: '#aaa', fontSize: 14, cursor: 'pointer',
-  },
-  sendBtn: {
-    flex: 2, background: '#7C6FF7', border: 'none',
-    borderRadius: 10, padding: '10px', color: '#fff', fontSize: 14,
-    fontWeight: 600, cursor: 'pointer',
-  },
-  error: { color: '#ef4444', fontSize: 12, marginBottom: 8 },
 }
