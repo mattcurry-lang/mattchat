@@ -221,7 +221,12 @@ export function useAudioPlayer(src, knownDuration = 0) {
     a.onplay = () => setPlaying(true)
     a.onpause = () => setPlaying(false)
     a.onended = () => { cancelAnimationFrame(rafRef.current); setPlaying(false); setProgress(0); setTime(0) }
-    a.onerror = () => { setFailed(true); setPlaying(false) }
+    a.onerror = () => {
+      // MediaError codes: 1 aborted, 2 network, 3 decode, 4 source not supported / file not reachable
+      console.error('voice note failed to load:', { code: a.error?.code, message: a.error?.message, src })
+      setFailed(true)
+      setPlaying(false)
+    }
     audioRef.current = a
     return a
   }
@@ -236,7 +241,8 @@ export function useAudioPlayer(src, knownDuration = 0) {
       setFailed(false)
       await a.play()
       rafRef.current = requestAnimationFrame(tick)
-    } catch {
+    } catch (err) {
+      console.error('voice note play() failed:', err)
       setFailed(true)
       setPlaying(false)
     }
