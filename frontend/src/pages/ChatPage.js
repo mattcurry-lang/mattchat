@@ -3710,16 +3710,18 @@ _onMessageContact: (contactEmail) => handleMessageContact(contactEmail),
               )}
             </div>
             )}
-      {showScheduler && (
-              <ScheduleMessageModal
-                conversationId={activeConvo.id}
-                senderId={userId}
-                onClose={(success) => {
-                  setShowScheduler(false)
-                  if (success) { playSound('spark'); alert('Message scheduled ✓'); setHasScheduled(true) }
-                }}
-              />
-            )}
+   {showScheduler && (
+  <ScheduleMessageModal
+    conversationId={activeConvo.id}
+    senderId={userId}
+    initialText={inputText}
+    recipientName={getConvoName(activeConvo)}
+    onClose={(success) => {
+      setShowScheduler(false)
+      if (success) { playSound('spark'); setInputText(''); setHasScheduled(true) }
+    }}
+  />
+)}
             {showScheduledList && (
               <ScheduledMessagesList conversationId={activeConvo.id} currentUserId={userId} onClose={() => setShowScheduledList(false)} />
             )}
