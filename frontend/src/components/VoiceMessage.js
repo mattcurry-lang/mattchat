@@ -1,10 +1,8 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo } from 'react'
 import './VoiceNotes.css'
 import { Icon, VoiceWave, useAudioPlayer, fmt, seededPeaks, normalizePeaks } from './voiceShared'
 
 export default function VoiceMessage({ message, isMe }) {
-  const [showTranscript, setShowTranscript] = useState(false)
-
   // real waveform if the recorder stored one (audio_waveform), otherwise a stable one from the message id
   const peaks = useMemo(
     () => normalizePeaks(message.audio_waveform) || seededPeaks(String(message.id || ''), 40),
@@ -13,10 +11,7 @@ export default function VoiceMessage({ message, isMe }) {
 
   const player = useAudioPlayer(message.audio_url, Number(message.audio_duration) || 0)
 
-  const hasTranscript = !!message.transcript
-  const transcribing =
-    !hasTranscript && (message.transcript_status === 'pending' || message.transcript_status === 'processing')
-  const active = player.playing || player.progress > 0
+  const active = player.playing || player.current > 0
   const shown = active ? player.current : player.duration
 
   return (
@@ -49,31 +44,6 @@ export default function VoiceMessage({ message, isMe }) {
       </div>
 
       {player.failed && <div className="vn-fail" role="alert">Can't play this voice note.</div>}
-
-      {hasTranscript && (
-        <>
-          <button
-            type="button"
-            className="vn-txbtn"
-            onClick={() => setShowTranscript(v => !v)}
-            aria-expanded={showTranscript}
-          >
-            <Icon name="lines" size={14} />
-            Transcript
-            <Icon name="chevron" size={14} className="chev" />
-          </button>
-          <div className={`vn-tx${showTranscript ? ' is-open' : ''}`}>
-            <div><p>{message.transcript}</p></div>
-          </div>
-        </>
-      )}
-
-      {transcribing && (
-        <div className="vn-decode" role="status">
-          <span className="vn-spinner" />
-          <span className="vn-shimmer">Transcribing…</span>
-        </div>
-      )}
     </div>
   )
 }
