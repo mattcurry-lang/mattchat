@@ -130,6 +130,8 @@ import { useFlowRunner } from '../hooks/useFlowRunner'
 import EcosystemHub from '../components/Ecosystem/EcosystemHub'
 import EcoCardMessage from '../components/Ecosystem/EcoCardMessage'
 import { parseEcoCard } from '../lib/ecosystem/cards'
+import SendLaterMenu, { useSendLongPress, ScheduleToast } from '../components/SendLaterMenu'
+import { formatWhen } from '../lib/scheduleTime'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -1551,7 +1553,39 @@ const handleVoiceActive = useCallback((active) => {
   else if (wasHeyCurryOn.current) { wasHeyCurryOn.current = false; h.start() }
 }, [])
   const bindLongPress = useMessageLongPress((message, x, y) => setMessageMenu({ message, x, y }))
+const [sendLater, setSendLater] = useState(null) // { rect } | null
+const [scheduleToast, setScheduleToast] = useState('')
+const toastTimer = useRef(null)
 
+// Only offer "send later" when there's a normal message typed (not an empty box or a "hey curry" ask).
+const canScheduleFromComposer = !!inputText.trim() && !CURRY_TRIGGER.test(inputText.trim())
+const sendHold = useSendLongPress((rect) => { if (canScheduleFromComposer) setSendLater({ rect }) })
+
+const scheduleFromMenu = async (when) => {
+  const text = inputText.trim()
+  setSendLater(null)
+  if (!text || !activeConvo?.id) return
+  const { error } = await supabase.from('scheduled_messages').insert({
+    conversation_id: activeConvo.id,
+    sender_id: userId,
+    content: text,
+    scheduled_for: when.toISOString(),
+    status: 'pending',
+  })
+  if (error) {
+    console.error('scheduleFromMenu failed:', error)
+    playSound('warning')
+    alert("Couldn't schedule that. Please try again.")
+    return
+  }
+  playSound('spark')
+  setInputText('')
+  setHasScheduled(true)
+  setScheduleToast(`Scheduled for ${getConvoName(activeConvo)} · ${formatWhen(when)}`)
+  clearTimeout(toastTimer.current)
+  toastTimer.current = setTimeout(() => setScheduleToast(''), 3500)
+}
+  
 useEffect(() => {
   const unsubscribe = listenForNotificationActions((action, data) => {
     if (data.type === 'call' && action === 'answer') {
@@ -1825,6 +1859,7 @@ useEffect(() => {
     setHasScheduled(false); setShowEmojiPicker(false); setShowInsights(false)
     setCoachSuggestion(null);setReplyingTo(null)
    setForwardingMessage(null)
+    setSendLater(null)
     return () => { if (activeConvo?.id) removeReactionChannel(activeConvo.id) }
   }, [activeConvo])
 
@@ -3544,9 +3579,10 @@ _onMessageContact: (contactEmail) => handleMessageContact(contactEmail),
               </div>
             ) : (
             <div
-              className={`input-area${afterglowOn ? ' ag-composer' : ''}`}
-              style={{ flexDirection: 'column', alignItems: 'stretch', padding: 0, ...(afterglowOn ? { '--ag-h': convoHue(activeConvo?.id) } : null) }}
-            >
+  className={`input-area${afterglowOn ? ' ag-composer' : ''}`}
+  style={{ flexDirection: 'column', alignItems: 'stretch', padding: 0, ...(afterglowOn ? { '--ag-h': convoHue(activeConvo?.id) } : null) }}
+  {...sendHold}
+>
               {replyingTo && (
                 <div className="reply-preview-bar">
                   <div className="reply-preview-content">
@@ -3710,6 +3746,15 @@ _onMessageContact: (contactEmail) => handleMessageContact(contactEmail),
               )}
             </div>
             )}
+{sendLater && (
+  <SendLaterMenu
+    anchorRect={sendLater.rect}
+    onPick={scheduleFromMenu}
+    onCustom={() => { setSendLater(null); setShowScheduler(true) }}
+    onClose={() => setSendLater(null)}
+  />
+)}
+{scheduleToast && <ScheduleToast text={scheduleToast} />}
    {showScheduler && (
   <ScheduleMessageModal
     conversationId={activeConvo.id}
