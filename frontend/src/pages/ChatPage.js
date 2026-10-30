@@ -51,7 +51,7 @@ import AskCurry from '../components/Pulse/AskCurry'
 import MessageActionsMenu, { useMessageLongPress } from '../components/MessageActionsMenu'
 import SmartCollections, { useConvoTags, filterByCollection } from '../components/SmartCollections'
 import SmartReplyPreview, { useSmartReplyCache } from '../components/SmartReplyPreview'
-import { ConversationRow, CurryRow, LensBar, LensEmpty, TimeRail, Capsule, ResumeHome, buildTrayItems, rankByWarmth, applyLens, convoHue, groupPosition, flashMessage, isAfterglowEnabled, useCloseCircle, useLensSwipe, useArrivals } from '../afterglow'
+import { ConversationRow, CurryRow, LensBar, LensEmpty, TimeRail, Capsule, ResumeHome, buildTrayItems, rankByWarmth, applyLens, convoHue, groupPosition, flashMessage, isAfterglowEnabled, useCloseCircle, useLensSwipe, useArrivals, CallEventCard, CallPreview, analyzeCalls } from '../afterglow'
 import RelationshipInsights from '../components/RelationshipInsights'
 import TodaysTimeline from '../components/TodaysTimeline'
 import { useTheme } from '../hooks/useTheme'
@@ -508,6 +508,7 @@ function MessageBubble({ msg, isMe, isRead, isDelivered, session }) {
     )
   }
 if (msg.content?.startsWith('call_log:') || msg.content?.startsWith('missed_call:')) {
+  if (isAfterglowEnabled()) return <CallEventCard msg={msg} timeLabel={formatMsgTime(msg.created_at)} />
   let callType, status, duration = 0
   if (msg.content.startsWith('call_log:')) {
     [, callType, status, duration] = msg.content.split(':')
@@ -1245,7 +1246,7 @@ function getOtherUserIsAdmin(convo, myUserId) {
   return other?.profiles?.is_admin || false
 }
 
-function LastMessagePreview({ content }) {
+function LastMessagePreview({ content, meId }) {
   const row = (icon, text) => (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{icon}{text}</span>
   )
@@ -1255,7 +1256,7 @@ function LastMessagePreview({ content }) {
   if (content.startsWith('gif:')) return row(<IconFilm size={11} />, 'GIF')
   if (content.startsWith('pinterest:')) return row('📌', 'Pin')
   if (content.startsWith('drawing:')) return row('🎨', 'Drawing')
-  if (content.startsWith('call_log:') || content.startsWith('missed_call:')) return row(<IconPhone size={11} />, 'Call')
+if (content.startsWith('call_log:') || content.startsWith('missed_call:')) return isAfterglowEnabled() ? <CallPreview content={content} meId={meId} /> : row(<IconPhone size={11} />, 'Call')
   if (content.startsWith('short:')) return row(<IconFilm size={11} />, 'Short')
   if (content.startsWith('{')) {
     try {
@@ -2312,7 +2313,7 @@ const headerTint = otherUserId && isOnline(otherUserId)
         </div>
       )
     }
-    return <div className="contact-preview"><LastMessagePreview content={c.last_message} /></div>
+return <div className="contact-preview"><LastMessagePreview content={c.last_message} meId={userId} /></div>
   }
 // Warmest conversations first, shaped for the desktop home (Afterglow).
   const buildHomeChats = () =>
@@ -2648,7 +2649,7 @@ heyCurryError={heyCurryError}
   </div>
 ) : (
 <div className="contact-preview">
-  <LastMessagePreview content={c.last_message} />
+<LastMessagePreview content={c.last_message} meId={userId} />
 </div>
           )}
         </div>
@@ -3433,7 +3434,7 @@ onCurryAssistant={() => setShowCurryAssistant(v => !v)}
             >
               {afterglowOn && <TimeRail scrollerRef={messagesScrollRef} version={messages.length} />}
               {msgLoading && <div className="loading-state">Loading messages…</div>}
-              {(() => { const visibleMessages = messages.filter(m => !hiddenMsgIds.has(m.id)); return visibleMessages.map((msg, i) => {
+                {(() => { const callInfo = afterglowOn ? analyzeCalls(messages, userId, { history: callHistory }) : null; const visibleMessages = messages.filter(m => !hiddenMsgIds.has(m.id) && !(callInfo && callInfo.hidden.has(m.id))); return visibleMessages.map((msg, i) => {
                 const prev = visibleMessages[i - 1]
                 const showDate = !prev || new Date(msg.created_at).toDateString() !== new Date(prev.created_at).toDateString()
                 const isMissedCall = msg.content?.startsWith('missed_call:') || msg.content?.startsWith('call_log:')
@@ -3471,6 +3472,11 @@ onCurryAssistant={() => setShowCurryAssistant(v => !v)}
   msg={{
     ...msg,
     _currentUserId: userId,
+     // calls in chat (Afterglow): context + actions for the call card
+    _callCtx: isMissedCall ? { history: callHistory, otherName: getConvoName(activeConvo), isGroup: !!activeConvo?.is_group, burst: callInfo?.bursts.get(msg.id), resolved: callInfo?.resolved.get(msg.id), fmt: formatMsgTime } : null,
+    _onCallBack: (callType, zoom) => (zoom ? handleZoomCall(activeConvo.id, getConvoName(activeConvo)) : startCall(callType, activeConvo.id)),
+    _onCallVoiceNote: () => setShowVoice(true),
+    _onCallQuickReply: (text) => quickSendReply(activeConvo, text),
     _onOpenTasks: () => setShowTasksPage(true),
     _quotedMessage: msg.reply_to_message_id ? findMessageById(msg.reply_to_message_id) : null,
     _onJumpToMessage: (id) => flashMessage(msgRefs.current[id]),
