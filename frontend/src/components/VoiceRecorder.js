@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import './VoiceNotes.css'
 import { Icon, VoiceWave, useAudioPlayer, fmt, fmtMs, resamplePeaks } from './voiceShared'
+import { VOICE_FX, processVoice } from './voiceFx'
 
 /*
   Hybrid recording:
@@ -26,7 +27,8 @@ const pickMime = () =>
   typeof MediaRecorder === 'undefined'
     ? ''
     : MIME_CANDIDATES.find(t => MediaRecorder.isTypeSupported(t)) || ''
-const extFor = (type) => (type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm')
+const extFor = (type) =>
+  type.includes('wav') ? 'wav' : type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm'
 
 export default function VoiceRecorder({ conversationId, senderId, onSent, onCancel }) {
   const [stage, setStage] = useState('idle') // idle | recording | preview | sending
@@ -38,6 +40,8 @@ export default function VoiceRecorder({ conversationId, senderId, onSent, onCanc
   const [durationSec, setDurationSec] = useState(0)
   const [previewPeaks, setPreviewPeaks] = useState([])
   const [notice, setNotice] = useState(null)
+  const [fx, setFx] = useState('original')   // selected voice
+  const [fxBusy, setFxBusy] = useState(null) // voice being rendered right now
 
   // logic lives in refs so window-level gesture listeners never see stale state
   const stageRef = useRef('idle')
@@ -69,8 +73,21 @@ export default function VoiceRecorder({ conversationId, senderId, onSent, onCanc
   const canvasRef = useRef(null)
   const stripRef = useRef(null)
   const colorsRef = useRef({ brand: '#7c6ff7', signal: '#38e1ff' })
+  const origRef = useRef(null)         // the untouched recording { blob, secs, peaks }
+  const fxCacheRef = useRef(new Map()) // voice id -> rendered { blob, secs, peaks }
+  const fxJobRef = useRef(0)           // bumps on reset so late results are ignored
+  const autoplayRef = useRef(false)
 
   const player = useAudioPlayer(audioUrl, durationSec)
+
+  // after picking a voice, play it straight away so people hear the change
+  useEffect(() => {
+    if (autoplayRef.current && audioUrl) {
+      autoplayRef.current = false
+      player.toggle()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [audioUrl])
 
   useEffect(() => {
     mountedRef.current = true
@@ -360,11 +377,17 @@ export default function VoiceRecorder({ conversationId, senderId, onSent, onCanc
       sendBlob(blob, secs, peaks)
       return
     }
+    origRef.current = { blob, secs, peaks }
     setBlob(blob, secs, peaks)
     go('preview')
   }
 
   function resetToIdle() {
+    fxJobRef.current++
+    origRef.current = null
+    fxCacheRef.current.clear()
+    setFx('original')
+    setFxBusy(null)
     clearAudio()
     setModeBoth('hold')
     setDrag(0)
@@ -382,6 +405,36 @@ export default function VoiceRecorder({ conversationId, senderId, onSent, onCanc
     releaseMedia()
     resetToIdle()
     propsRef.current.onCancel && propsRef.current.onCancel()
+  }
+
+  /* ── voice changer ─────────────────────────────────────────── */
+  function showVersion(id, out) {
+    autoplayRef.current = true
+    setBlob(out.blob, out.secs, out.peaks)
+    setFx(id)
+  }
+
+  async function applyFx(id) {
+    const orig = origRef.current
+    if (!orig || fxBusy || id === fx) return
+    if (id === 'original') { showVersion(id, orig); return }
+    const cached = fxCacheRef.current.get(id)
+    if (cached) { showVersion(id, cached); return }
+
+    const job = fxJobRef.current
+    setFxBusy(id)
+    setNotice(null)
+    try {
+      const out = await processVoice(orig.blob, id)
+      if (!mountedRef.current || job !== fxJobRef.current) return
+      fxCacheRef.current.set(id, out)
+      showVersion(id, out)
+    } catch (err) {
+      console.error('voice changer failed:', err)
+      if (mountedRef.current && job === fxJobRef.current) flash("Couldn't change the voice. Try another one.")
+    } finally {
+      if (mountedRef.current && job === fxJobRef.current) setFxBusy(null)
+    }
   }
 
   /* ── send ──────────────────────────────────────────────────── */
@@ -430,6 +483,7 @@ export default function VoiceRecorder({ conversationId, senderId, onSent, onCanc
       if (!mountedRef.current) return
       // keep the recording so nothing is lost: back to preview with a retry
       if (!urlRef.current) setBlob(blob, secs, peaks)
+      if (!origRef.current) origRef.current = { blob, secs, peaks }
       go('preview')
       flash("Couldn't send. Check your connection and try again.")
     }
@@ -512,6 +566,22 @@ export default function VoiceRecorder({ conversationId, senderId, onSent, onCanc
   return (
     <div className="vn vn-strip is-preview">
       {toast}
+      <div className="vn-fx" role="radiogroup" aria-label="Voice changer" aria-busy={!!fxBusy}>
+        {VOICE_FX.map(v => (
+          <button
+            key={v.id}
+            type="button"
+            role="radio"
+            aria-checked={fx === v.id}
+            className={`vn-chip${fx === v.id ? ' is-on' : ''}`}
+            disabled={!!fxBusy && fxBusy !== v.id}
+            onClick={() => applyFx(v.id)}
+          >
+            {fxBusy === v.id && <span className="vn-spinner is-sm" />}
+            {v.label}
+          </button>
+        ))}
+      </div>
       <button type="button" className="vn-icon-btn is-danger" onClick={() => discard()} aria-label="Discard recording">
         <Icon name="trash" />
       </button>
@@ -530,6 +600,7 @@ export default function VoiceRecorder({ conversationId, senderId, onSent, onCanc
         type="button"
         className="vn-orb"
         onClick={() => sendBlob(audioBlob, durationSec, previewPeaks)}
+        disabled={!!fxBusy}
         aria-label="Send voice note"
       >
         <Icon name="send" />
