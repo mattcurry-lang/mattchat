@@ -86,7 +86,7 @@ export default function VoiceRecorder({ conversationId, senderId, onSent, onCanc
       autoplayRef.current = false
       player.toggle()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  
   }, [audioUrl])
 
   useEffect(() => {
