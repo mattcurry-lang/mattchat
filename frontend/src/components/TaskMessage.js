@@ -1,6 +1,21 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { subscribeToChannel } from '../lib/realtimeManager'
+import './ChatCards.css'
+
+const RING = 2 * Math.PI * 15
+
+const Check = () => (
+  <svg className="cc-tick" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M3 8.5l3.2 3.2L13 4.5" />
+  </svg>
+)
+
+const Plus = () => (
+  <svg className="cc-ico" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M8 3v10M3 8h10" />
+  </svg>
+)
 
 export default function TaskMessage({ message, currentUserId }) {
   const [list, setList] = useState(null)
@@ -10,13 +25,15 @@ export default function TaskMessage({ message, currentUserId }) {
   const [newTask, setNewTask] = useState('')
   const [adding, setAdding] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
+  const addInputRef = useRef(null)
+  const addBusy = useRef(false)
 
   useEffect(() => {
     if (!message.task_list_id) return
     loadList()
 
     // realtime: update tasks live when anyone checks/adds
- const unsubscribe = subscribeToChannel(
+    const unsubscribe = subscribeToChannel(
       `task-list:${message.task_list_id}`,
       (channel, emit) => channel.on('postgres_changes', {
         event: '*', schema: 'public', table: 'tasks',
@@ -24,11 +41,11 @@ export default function TaskMessage({ message, currentUserId }) {
       }, (payload) => emit('change', payload)),
       { onEvent: loadTasks, onResync: loadList }
     )
-   return unsubscribe
+    return unsubscribe
   }, [message.task_list_id])
 
   const loadList = async () => {
-   setError(false)
+    setError(false)
     try {
       const { data, error: listErr } = await supabase
         .from('task_lists').select('*').eq('id', message.task_list_id).single()
@@ -43,7 +60,7 @@ export default function TaskMessage({ message, currentUserId }) {
   }
 
   const loadTasks = async () => {
-  const { data, error: tasksErr } = await supabase
+    const { data, error: tasksErr } = await supabase
       .from('tasks')
       .select('*, created_by_profile:profiles!tasks_created_by_fkey(username), assigned_profile:profiles!tasks_assigned_to_fkey(username)')
       .eq('task_list_id', message.task_list_id)
@@ -52,29 +69,37 @@ export default function TaskMessage({ message, currentUserId }) {
     setTasks(data || [])
   }
 
+  // optimistic: the check lands instantly, then we sync with the server
   const toggleTask = async (task) => {
     const completed = !task.completed
-    await supabase.from('tasks').update({
+    setTasks(prev => prev.map(t => (t.id === task.id ? { ...t, completed } : t)))
+    const { error: updErr } = await supabase.from('tasks').update({
       completed,
       completed_by: completed ? currentUserId : null,
       completed_at: completed ? new Date().toISOString() : null,
     }).eq('id', task.id)
-    await loadTasks()
+    if (updErr) console.error('toggleTask failed:', updErr)
+    await loadTasks() // also reverts the optimistic change if the update failed
   }
 
+  // the add row stays open so people can add several tasks in a row
   const addTask = async () => {
-    if (!newTask.trim()) return
+    const text = newTask.trim()
+    if (!text || addBusy.current) return
+    addBusy.current = true
     setAdding(true)
-    await supabase.from('tasks').insert({
+    const { error: insErr } = await supabase.from('tasks').insert({
       task_list_id: message.task_list_id,
       created_by: currentUserId,
-      text: newTask.trim(),
+      text,
       position: tasks.length,
     })
-    setNewTask('')
+    if (insErr) console.error('addTask failed:', insErr)
+    else setNewTask('')
+    addBusy.current = false
     setAdding(false)
-    setShowAdd(false)
     await loadTasks()
+    addInputRef.current?.focus()
   }
 
   const handleKeyDown = (e) => {
@@ -82,117 +107,100 @@ export default function TaskMessage({ message, currentUserId }) {
     if (e.key === 'Escape') { setShowAdd(false); setNewTask('') }
   }
 
-  if (loading) return <div style={s.loading}>Loading tasks…</div>
-  if (error) {
-   return (
-      <div style={s.wrap}>
-        <div style={s.errorText}>Couldn't load this task list.</div>
-        <button style={s.retryBtn} onClick={() => { setLoading(true); loadList() }}>Retry</button>
+  if (loading) {
+    return (
+      <div className="cc cc-card" aria-busy="true">
+        <div className="cc-skel" style={{ width: '55%', marginBottom: 14 }} />
+        <div className="cc-skel" style={{ width: '90%', marginBottom: 10 }} />
+        <div className="cc-skel" style={{ width: '70%' }} />
       </div>
     )
   }
+
+  if (error) {
+    return (
+      <div className="cc cc-card">
+        <div className="cc-errtext">Couldn't load this task list.</div>
+        <button type="button" className="cc-retry" onClick={() => { setLoading(true); loadList() }}>
+          Try again
+        </button>
+      </div>
+    )
+  }
+
   if (!list) return null
 
   const done = tasks.filter(t => t.completed).length
   const total = tasks.length
+  const allDone = total > 0 && done === total
+  const subtitle = total === 0 ? 'No tasks yet' : allDone ? 'All done' : `${done} of ${total} done`
 
   return (
-    <div style={s.wrap}>
-      {/* header */}
-      <div style={s.header}>
-        <span style={s.listTitle}>{list.title}</span>
-        <span style={s.progress}>{done}/{total}</span>
-      </div>
-
-      {/* progress bar */}
-      {total > 0 && (
-        <div style={s.track}>
-          <div style={{ ...s.fill, width: `${(done / total) * 100}%` }} />
+    <div className="cc cc-card">
+      <div className="tl-head">
+        <div className="tl-head-text">
+          <div className="tl-title">{list.title}</div>
+          <div className={`tl-sub${allDone ? ' is-done' : ''}`}>{subtitle}</div>
         </div>
-      )}
-
-      {/* tasks */}
-      <div style={s.taskList}>
-        {tasks.map(task => (
-          <div key={task.id} style={s.taskRow} onClick={() => toggleTask(task)}>
-            <div style={{ ...s.check, ...(task.completed ? s.checkDone : {}) }}>
-              {task.completed && '✓'}
-            </div>
-            <span style={{ ...s.taskText, ...(task.completed ? s.taskDone : {}) }}>
-              {task.text}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* add task inline */}
-      {showAdd ? (
-        <div style={s.addRow}>
-          <input
-            style={s.addInput}
-            placeholder="New task…"
-            value={newTask}
-            onChange={e => setNewTask(e.target.value)}
-            onKeyDown={handleKeyDown}
-            autoFocus
-            disabled={adding}
+        <svg className="tl-ring" viewBox="0 0 36 36" aria-hidden="true">
+          <circle className="tl-ring-bg" cx="18" cy="18" r="15" fill="none" strokeWidth="3.5" />
+          <circle
+            className="tl-ring-fg"
+            cx="18" cy="18" r="15" fill="none" strokeWidth="3.5" strokeLinecap="round"
+            strokeDasharray={RING}
+            strokeDashoffset={RING * (1 - (total ? done / total : 0))}
+            transform="rotate(-90 18 18)"
+            style={{ opacity: done ? 1 : 0 }}
           />
-          <button style={s.addConfirm} onClick={addTask} disabled={adding || !newTask.trim()}>
-            {adding ? '…' : '↵'}
-          </button>
-        </div>
-      ) : (
-        <button style={s.addBtn} onClick={() => setShowAdd(true)}>+ Add task</button>
-      )}
+          {allDone && <path className="tl-ring-check" d="M12 18.5l4 4 8-9" />}
+        </svg>
+      </div>
 
-      {total > 0 && done === total && (
-        <div style={s.allDone}>🎉 All done!</div>
-      )}
+      <div className="tl-list">
+        {tasks.map(task => (
+          <button
+            key={task.id}
+            type="button"
+            role="checkbox"
+            aria-checked={!!task.completed}
+            className="tl-line tl-row"
+            onClick={() => toggleTask(task)}
+          >
+            <span className={`tl-box${task.completed ? ' is-done' : ''}`}><Check /></span>
+            <span className={`tl-text${task.completed ? ' is-done' : ''}`}>{task.text}</span>
+            {task.assigned_profile?.username && (
+              <span className="tl-who">@{task.assigned_profile.username}</span>
+            )}
+          </button>
+        ))}
+
+        {showAdd ? (
+          <div className="tl-line tl-addrow">
+            <span className="tl-plus"><Plus /></span>
+            <input
+              ref={addInputRef}
+              className="tl-addinput"
+              placeholder="New task"
+              value={newTask}
+              onChange={e => setNewTask(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={() => { if (!newTask.trim() && !addBusy.current) setShowAdd(false) }}
+              maxLength={200}
+              autoFocus
+            />
+            {newTask.trim() && (
+              <button type="button" className="tl-addgo" onClick={addTask} disabled={adding}>
+                {adding ? '…' : 'Add'}
+              </button>
+            )}
+          </div>
+        ) : (
+          <button type="button" className="tl-line tl-add" onClick={() => setShowAdd(true)}>
+            <span className="tl-plus"><Plus /></span>
+            Add task
+          </button>
+        )}
+      </div>
     </div>
   )
-}
-
-const s = {
-  wrap: {
-    background: 'var(--bg-surface-2)', border: '1px solid var(--border)', borderRadius: 16, padding: '14px 16px',
-    maxWidth: 300, minWidth: 220,
-  },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  listTitle: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' },
-progress: { fontSize: 12, color: 'var(--text-muted)', background: 'rgba(255,255,255,0.07)', padding: '2px 8px', borderRadius: 99 },
-  track: { height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, marginBottom: 12, overflow: 'hidden' },
-fill: { height: '100%', background: 'var(--brand)', borderRadius: 2, transition: 'width 0.3s ease' },
-  taskList: { display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 10 },
-  taskRow: {
-    display: 'flex', alignItems: 'center', gap: 10,
-    padding: '7px 4px', cursor: 'pointer', borderRadius: 8,
-    transition: 'background 0.1s',
-  },
-  check: {
-    width: 18, height: 18, borderRadius: 5,
-    border: '1.5px solid rgba(255,255,255,0.2)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 11, color: '#fff', flexShrink: 0, transition: 'all 0.15s',
-  },
- checkDone: { background: 'var(--brand)', borderColor: 'var(--brand)' },
-  taskText: { fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.4, transition: 'all 0.15s' },
- taskDone: { color: 'var(--text-muted)', textDecoration: 'line-through' },
-  addRow: { display: 'flex', gap: 6, marginTop: 4 },
-  addInput: {
-    flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(124,111,247,0.4)',
-    borderRadius: 8, padding: '7px 10px', color: '#fff', fontSize: 13, outline: 'none',
-  },
-  addConfirm: {
-    background: 'var(--brand)', border: 'none', borderRadius: 8,
-    color: '#fff', padding: '7px 12px', cursor: 'pointer', fontSize: 14,
-  },
-  addBtn: {
-   background: 'none', border: 'none', color: 'var(--brand)',
-    fontSize: 12, cursor: 'pointer', padding: '4px 0',
-    textAlign: 'left',
-  },
- allDone: { fontSize: 12, color: 'var(--brand)', marginTop: 6, textAlign: 'center' },
- loading: { color: 'var(--text-muted)', fontSize: 13, padding: 12 },
-  errorText: { color: '#f87171', fontSize: 12.5, marginBottom: 8 },
- retryBtn: { background: 'var(--brand-soft)', border: '1px solid var(--brand)', borderRadius: 8, color: 'var(--brand)', fontSize: 12.5, fontWeight: 700, padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit' },
 }
