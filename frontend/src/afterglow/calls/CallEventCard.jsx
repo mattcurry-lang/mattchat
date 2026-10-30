@@ -32,7 +32,7 @@ export default function CallEventCard({ msg, timeLabel }) {
     const matched = matchCall(msg, parsed, ctx.history)
     const dir = directionOf(parsed, { meId, senderId: msg.sender_id, matched })
     return { parsed, dir, d: describeCall(parsed, dir, { name: ctx.otherName, isGroup: ctx.isGroup }) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [msg.content, msg.created_at, msg.sender_id, meId, ctx.history, ctx.otherName, ctx.isGroup])
   if (!view) return null
 
