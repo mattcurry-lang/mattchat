@@ -1,0 +1,66 @@
+/* ───────────────────────── Afterglow · calls in chat ─────────────────────────
+   Tone colours were checked for contrast on every conversation hue, in both themes
+   (card text >= 4.5:1; list previews use a darker shade in light theme). */
+
+.ag-glyph { position: relative; display: inline-flex; flex-shrink: 0; }
+.ag-glyph-arrow { position: absolute; right: -4px; bottom: -4px; background: var(--ag-glyph-bg, rgba(15, 14, 23, 0.9)); border-radius: 50%; padding: 1px; box-sizing: content-box; }
+
+/* ── the card (dark glass in both themes, like the message pebbles) ── */
+.ag-call-wrap { display: flex; justify-content: center; width: 100%; padding: 4px 0; }
+.ag-call {
+  --tone: #aab4c8; --ag-glyph-bg: hsl(var(--ag-h, 258) 30% 15%);
+  position: relative; width: min(340px, 100%); border-radius: 20px; padding: 10px 12px 12px; text-align: left;
+  color: #f3f1ff; text-shadow: none; background: hsl(var(--ag-h, 258) 30% 15% / 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.14); border: 1px solid color-mix(in srgb, var(--tone) 38%, transparent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  animation: agCallIn 0.4s cubic-bezier(0.2, 0.9, 0.25, 1.1) both;
+}
+.ag-call.tone-bad { --tone: #fc8396; } .ag-call.tone-ok { --tone: #5eead4; } .ag-call.tone-warn { --tone: #fbbf24; } .ag-call.tone-muted { --tone: #aab4c8; }
+@keyframes agCallIn { from { opacity: 0; transform: translateY(10px) scale(0.97); } to { opacity: 1; transform: none; } }
+
+.ag-call-main { display: flex; align-items: center; gap: 11px; cursor: pointer; border-radius: 14px; }
+.ag-call-main:focus-visible, .ag-call-btn:focus-visible, .ag-call-chip:focus-visible { outline: 2px solid var(--tone); outline-offset: 2px; }
+.ag-call-ic {
+  position: relative; width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center;
+  color: var(--tone); background: rgba(255, 255, 255, 0.08); background: color-mix(in srgb, var(--tone) 18%, transparent);
+}
+/* a missed call you haven't dealt with pulses gently until you do */
+.ag-call.needs .ag-call-ic::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid var(--tone); opacity: 0; animation: agCallPing 2.4s ease-out infinite; }
+@keyframes agCallPing { 0% { transform: scale(0.85); opacity: 0.7; } 100% { transform: scale(1.35); opacity: 0; } }
+.ag-call-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ag-call-title { font-size: 14.5px; font-weight: 800; letter-spacing: -0.1px; color: var(--tone); display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.ag-call-count { font-size: 12px; padding: 1px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); color: #f3f1ff; }
+.ag-call-badge { font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; padding: 2px 7px; border-radius: 6px; color: #f3f1ff; background: rgba(255, 255, 255, 0.12); }
+.ag-call-sub { font-size: 12.5px; color: rgba(255, 255, 255, 0.72); line-height: 1.35; }
+.ag-call-chev { color: rgba(255, 255, 255, 0.55); transition: transform 0.2s ease; flex-shrink: 0; }
+.ag-call.open .ag-call-chev { transform: rotate(180deg); }
+
+.ag-call-more { margin: 8px 0 0 51px; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, 0.06); font-size: 12.5px; animation: agCallIn 0.2s ease both; }
+.ag-call-more dl { margin: 0; display: grid; gap: 4px; } .ag-call-more dl div { display: flex; justify-content: space-between; gap: 12px; }
+.ag-call-more dt { color: rgba(255, 255, 255, 0.72); } .ag-call-more dd { margin: 0; font-weight: 700; text-align: right; }
+.ag-call-times { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; } .ag-call-times li { padding: 3px 9px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); font-weight: 700; }
+
+.ag-call-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin: 10px 0 0 51px; }
+.ag-call-btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border-radius: 999px; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 800;
+  color: #f3f1ff; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.18); transition: background 0.15s, transform 0.12s;
+}
+.ag-call-btn:hover { background: rgba(255, 255, 255, 0.16); } .ag-call-btn:active { transform: scale(0.96); }
+.ag-call-btn.primary { color: #0b0a14; background: var(--tone); border-color: transparent; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3); }
+.ag-call-btn.primary:hover { filter: brightness(1.08); background: var(--tone); }
+.ag-call-btn.ghost { background: transparent; }
+.ag-call-done { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 700; color: #5eead4; }
+.ag-call-quick { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0 0 51px; }
+.ag-call-chip { padding: 6px 11px; border-radius: 999px; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 700; color: #f3f1ff; background: transparent; border: 1px dashed rgba(255, 255, 255, 0.3); transition: background 0.15s, border-color 0.15s; }
+.ag-call-chip:hover { background: rgba(255, 255, 255, 0.1); border-color: var(--tone); }
+.ag-call.is-resolved { opacity: 0.92; }
+
+/* ── the line in the chat list ── */
+.ag-call-prev { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; max-width: 100%; }
+.ag-call-prev.tone-bad { color: #fc8396; } .ag-call-prev.tone-ok { color: #5eead4; } .ag-call-prev.tone-warn { color: #fbbf24; } .ag-call-prev.tone-muted { color: #aab4c8; }
+.ag-call-prev .ag-glyph-arrow { display: none; }
+[data-theme="light"] .ag-call-prev.tone-bad { color: #be123c; } [data-theme="light"] .ag-call-prev.tone-ok { color: #0f766e; }
+[data-theme="light"] .ag-call-prev.tone-warn { color: #b45309; } [data-theme="light"] .ag-call-prev.tone-muted { color: #475569; }
+
+@media (max-width: 380px) { .ag-call-actions, .ag-call-quick, .ag-call-more { margin-left: 0; } }
+@media (prefers-reduced-motion: reduce) { .ag-call, .ag-call-more, .ag-call.needs .ag-call-ic::after { animation: none; } }
