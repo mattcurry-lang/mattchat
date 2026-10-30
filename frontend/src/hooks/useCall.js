@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { subscribeToChannel } from '../lib/realtimeManager'
 import { isZoomUrl, parseZoomLink } from '../lib/zoom'
+import { buildCallLogContent } from '../afterglow/calls/callEvents'
 
 const FUNCTIONS_BASE = 'https://bqerkvywgxoioocbkxif.supabase.co/functions/v1'
 const MISSED_CALL_TIMEOUT_MS = 30000
@@ -75,7 +76,9 @@ export function useCall(userId, conversationId) {
     const { error } = await supabase.from('messages').insert({
       conversation_id: call.conversationId,
       sender_id: userId,
-      content: `call_log:${call.callType}:${status}:${durationSeconds}${isZoomUrl(call.roomUrl) ? ':zoom' : ''}`,
+     // `by=` records who PLACED the call: this row is written by whoever ends it, so without it the chat can't
+      // tell "you called" from "they called".
+      content: buildCallLogContent({ callType: call.callType, status, durationSeconds, isZoom: isZoomUrl(call.roomUrl), initiatedBy: call.initiatedBy }),
       message_type: 'call_log',
     })
     if (error) console.error('logCallMessage insert failed:', error)
@@ -486,8 +489,8 @@ const checkForActiveCall = useCallback(() => {
       } else if (current) {
         // Caller cancelled before anyone answered (and before the 30s
         // missed-call timeout fired). Previously this logged nothing —
-        // log it as missed so it's not silently dropped.
-        await logCallMessage(call, 'missed', 0)
+       // log it (as 'cancelled', so the caller sees "You cancelled" and the other person sees a missed call).
+       await logCallMessage(call, 'cancelled', 0)
       }
     }
     setCallStatus('ended')
