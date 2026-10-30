@@ -89,7 +89,7 @@ export function saveLastScheduleTime(t) {
   try { localStorage.setItem(LAST_KEY, t) } catch { /* ignore */ }
 }
 
-const SCHEDULE_CSS = `
+const SCHEDULE_CSS = 
   .sch-overlay { position:fixed; inset:0; z-index:3000; display:flex; align-items:center; justify-content:center; padding:16px; background:rgba(8,8,16,.6); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); animation:schFade .18s ease; }
   .sch-sheet { position:relative; width:100%; max-width:440px; max-height:calc(100vh - 32px); max-height:calc(100dvh - 32px); overflow-y:auto; box-sizing:border-box; padding:18px; border-radius:22px; background:var(--bg-surface-1,#14141f); color:var(--text-primary,#f2f0f8); border:1px solid var(--border,rgba(167,139,250,.18)); box-shadow:0 24px 64px rgba(0,0,0,.45); animation:schPop .2s cubic-bezier(.22,1,.36,1); }
   @media (max-width:640px) {
