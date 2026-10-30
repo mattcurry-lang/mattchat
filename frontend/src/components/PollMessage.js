@@ -1,15 +1,22 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { subscribeToChannel } from '../lib/realtimeManager'
+import './ChatCards.css'
+
+const Check = () => (
+  <svg className="cc-tick" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M3 8.5l3.2 3.2L13 4.5" />
+  </svg>
+)
 
 export default function PollMessage({ message, currentUserId }) {
   const [poll, setPoll] = useState(null)
   const [options, setOptions] = useState([])
   const [votes, setVotes] = useState([]) // all votes for this poll
   const [myVotes, setMyVotes] = useState([]) // option ids I voted for
-  const [voting, setVoting] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const voting = useRef(false)
 
   const loadVotes = useCallback(async () => {
     if (!message.poll_id) return
@@ -72,52 +79,74 @@ export default function PollMessage({ message, currentUserId }) {
     return () => unsubscribe?.()
   }, [message.poll_id, loadPoll, loadVotes])
 
+  // optimistic: the vote shows instantly, then we sync with the server
   const vote = async (optionId) => {
-    if (voting) return
-    const isExpired = poll?.ends_at && new Date(poll.ends_at) < new Date()
-    if (isExpired) return
+    if (voting.current || !poll) return
+    if (poll.ends_at && new Date(poll.ends_at) < new Date()) return
 
-    setVoting(true)
+    voting.current = true
+    const mine = (v) => v.user_id === currentUserId
+    const alreadyVoted = myVotes.includes(optionId)
+
+    let next
+    if (alreadyVoted) {
+      next = votes.filter((v) => !(mine(v) && v.option_id === optionId))
+    } else {
+      const base = poll.allows_multiple ? votes : votes.filter((v) => !mine(v))
+      next = [...base, { id: `tmp-${optionId}`, poll_id: message.poll_id, option_id: optionId, user_id: currentUserId }]
+    }
+    setVotes(next)
+    setMyVotes(next.filter(mine).map((v) => v.option_id))
+
     try {
-      const alreadyVoted = myVotes.includes(optionId)
-
       if (alreadyVoted) {
         // unvote
-        await supabase
+        const { error: delErr } = await supabase
           .from('poll_votes')
           .delete()
           .eq('poll_id', message.poll_id)
           .eq('option_id', optionId)
           .eq('user_id', currentUserId)
+        if (delErr) throw delErr
       } else {
         if (!poll.allows_multiple) {
           // single choice: remove previous vote first
-          await supabase
+          const { error: clearErr } = await supabase
             .from('poll_votes')
             .delete()
             .eq('poll_id', message.poll_id)
             .eq('user_id', currentUserId)
+          if (clearErr) throw clearErr
         }
         // cast vote
-        await supabase
+        const { error: insErr } = await supabase
           .from('poll_votes')
           .insert({ poll_id: message.poll_id, option_id: optionId, user_id: currentUserId })
+        if (insErr) throw insErr
       }
-      await loadVotes()
     } catch (err) {
       console.error('Vote failed:', err)
     }
-    setVoting(false)
+    await loadVotes() // reconciles with the server, and reverts the optimistic vote on failure
+    voting.current = false
   }
 
-  if (loading) return <div style={s.loading}>Loading poll…</div>
+  if (loading) {
+    return (
+      <div className="cc cc-card" aria-busy="true">
+        <div className="cc-skel" style={{ width: '70%', marginBottom: 14 }} />
+        <div className="cc-skel" style={{ height: 44, borderRadius: 12, marginBottom: 8 }} />
+        <div className="cc-skel" style={{ height: 44, borderRadius: 12 }} />
+      </div>
+    )
+  }
 
   if (error) {
     return (
-      <div style={s.wrap}>
-        <div style={s.errorText}>Couldn't load this poll.</div>
-        <button style={s.retryBtn} onClick={() => { setLoading(true); loadPoll() }}>
-          Retry
+      <div className="cc cc-card">
+        <div className="cc-errtext">Couldn't load this poll.</div>
+        <button type="button" className="cc-retry" onClick={() => { setLoading(true); loadPoll() }}>
+          Try again
         </button>
       </div>
     )
@@ -125,98 +154,46 @@ export default function PollMessage({ message, currentUserId }) {
 
   if (!poll) return null
 
-  const totalVotes = votes.length
-  const isExpired = poll.ends_at && new Date(poll.ends_at) < new Date()
+  const isExpired = !!(poll.ends_at && new Date(poll.ends_at) < new Date())
+  // percentages are out of people who voted, so multi-choice polls read naturally
+  const voters = new Set(votes.map((v) => v.user_id)).size
+  const hint = isExpired ? 'Voting closed' : poll.allows_multiple ? 'Choose one or more' : 'Choose one'
 
   return (
-    <div style={s.wrap}>
-      {/* question */}
-      <div style={s.question}>{poll.question}</div>
+    <div className="cc cc-card">
+      <div className="pl-q">{poll.question}</div>
+      <div className="pl-hint">{hint}</div>
 
-      {poll.allows_multiple && <div style={s.hint}>Select all that apply</div>}
+      <div className="pl-opts">
+        {options.map((opt) => {
+          const optVotes = votes.filter((v) => v.option_id === opt.id).length
+          const pct = voters > 0 ? Math.round((optVotes / voters) * 100) : 0
+          const voted = myVotes.includes(opt.id)
 
-      {/* options */}
-      {options.map((opt) => {
-        const optVotes = votes.filter((v) => v.option_id === opt.id).length
-        const pct = totalVotes > 0 ? Math.round((optVotes / totalVotes) * 100) : 0
-        const voted = myVotes.includes(opt.id)
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              className={`pl-opt${voted ? ' is-voted' : ''}`}
+              onClick={() => vote(opt.id)}
+              disabled={isExpired}
+              aria-pressed={voted}
+              title={`${optVotes} ${optVotes === 1 ? 'vote' : 'votes'}`}
+            >
+              <span className="pl-fill" style={{ width: `${pct}%` }} />
+              <span className="pl-inner">
+                <span className={`pl-mark${poll.allows_multiple ? ' is-multi' : ''}`}><Check /></span>
+                <span className="pl-label">{opt.text}</span>
+                {voters > 0 && <span className="pl-pct">{pct}%</span>}
+              </span>
+            </button>
+          )
+        })}
+      </div>
 
-        return (
-          <button
-            key={opt.id}
-            style={{ ...s.option, ...(voted ? s.optionVoted : {}) }}
-            onClick={() => vote(opt.id)}
-            disabled={voting || isExpired}
-          >
-            <div style={s.optionTop}>
-              <span style={s.optionText}>{opt.text}</span>
-              <span style={s.optionPct}>{pct}%</span>
-            </div>
-            {/* progress bar */}
-            <div style={s.track}>
-              <div style={{ ...s.fill, width: `${pct}%`, background: voted ? 'var(--brand)' : 'rgba(255,255,255,0.2)' }} />
-            </div>
-            <div style={s.optionVotes}>
-              {optVotes} {optVotes === 1 ? 'vote' : 'votes'}
-            </div>
-          </button>
-        )
-      })}
-
-      {/* footer */}
-      <div style={s.footer}>
-        <span>
-          {totalVotes} total vote{totalVotes !== 1 ? 's' : ''}
-        </span>
-        {isExpired && <span style={{ color: '#ef4444' }}>• Ended</span>}
-        {poll.allows_multiple && !isExpired && <span>• Multiple choice</span>}
+      <div className="pl-foot">
+        {voters === 0 ? 'Be the first to vote' : `${voters} ${voters === 1 ? 'person' : 'people'} voted`}
       </div>
     </div>
   )
-}
-
-const s = {
-  wrap: {
-    background: 'var(--bg-surface-2)',
-    border: '1px solid var(--border)',
-    borderRadius: 16,
-    padding: '14px 16px',
-    maxWidth: 300,
-    minWidth: 220,
-  },
-  question: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4, lineHeight: 1.4 },
-  hint: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 },
-  option: {
-    display: 'block',
-    width: '100%',
-    background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: 10,
-    padding: '10px 12px',
-    marginBottom: 8,
-    cursor: 'pointer',
-    textAlign: 'left',
-    transition: 'border-color 0.15s',
-  },
-  optionVoted: { borderColor: 'var(--brand)', background: 'var(--brand-soft)' },
-  optionTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  optionText: { fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 },
-  optionPct: { fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 },
-  track: { height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden', marginBottom: 4 },
-  fill: { height: '100%', borderRadius: 2, transition: 'width 0.3s ease' },
-  optionVotes: { fontSize: 11, color: 'var(--text-muted)' },
-  footer: { display: 'flex', gap: 8, fontSize: 11, color: 'var(--text-muted)', marginTop: 4, flexWrap: 'wrap' },
-  loading: { color: 'var(--text-muted)', fontSize: 13, padding: 12 },
-  errorText: { color: '#f87171', fontSize: 12.5, marginBottom: 8 },
-  retryBtn: {
-    background: 'var(--brand-soft)',
-    border: '1px solid var(--brand)',
-    borderRadius: 8,
-    color: 'var(--brand)',
-    fontSize: 12.5,
-    fontWeight: 700,
-    padding: '6px 12px',
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-  },
 }
