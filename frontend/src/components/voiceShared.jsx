@@ -169,6 +169,7 @@ export function useAudioPlayer(src, knownDuration = 0) {
   const rateRef = useRef(1)
   const [playing, setPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [time, setTime] = useState(0)
   const [duration, setDuration] = useState(knownDuration)
   const [rate, setRate] = useState(1)
   const [failed, setFailed] = useState(false)
@@ -188,6 +189,7 @@ export function useAudioPlayer(src, knownDuration = 0) {
   useEffect(() => {
     setPlaying(false)
     setProgress(0)
+    setTime(0)
     setFailed(false)
     return () => {
       cancelAnimationFrame(rafRef.current)
@@ -204,6 +206,7 @@ export function useAudioPlayer(src, knownDuration = 0) {
     if (!a) return
     const total = totalOf(a)
     setProgress(total ? Math.min(1, a.currentTime / total) : 0)
+    setTime(a.currentTime)
     if (!a.paused) rafRef.current = requestAnimationFrame(tick)
   }
 
@@ -217,7 +220,7 @@ export function useAudioPlayer(src, knownDuration = 0) {
     }
     a.onplay = () => setPlaying(true)
     a.onpause = () => setPlaying(false)
-    a.onended = () => { cancelAnimationFrame(rafRef.current); setPlaying(false); setProgress(0) }
+    a.onended = () => { cancelAnimationFrame(rafRef.current); setPlaying(false); setProgress(0); setTime(0) }
     a.onerror = () => { setFailed(true); setPlaying(false) }
     audioRef.current = a
     return a
@@ -246,6 +249,7 @@ export function useAudioPlayer(src, knownDuration = 0) {
     if (!total) return
     a.currentTime = pct * total
     setProgress(pct)
+    setTime(pct * total)
   }
 
   const cycleRate = () => {
@@ -255,5 +259,5 @@ export function useAudioPlayer(src, knownDuration = 0) {
     if (audioRef.current) audioRef.current.playbackRate = next
   }
 
-  return { playing, progress, duration, current: progress * duration, rate, failed, toggle, seek, cycleRate }
+  return { playing, progress, duration, current: time, rate, failed, toggle, seek, cycleRate }
 }
