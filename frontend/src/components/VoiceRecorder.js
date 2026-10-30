@@ -86,7 +86,7 @@ export default function VoiceRecorder({ conversationId, senderId, onSent, onCanc
       autoplayRef.current = false
       player.toggle()
     }
- 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audioUrl])
 
   useEffect(() => {
@@ -460,7 +460,6 @@ export default function VoiceRecorder({ conversationId, senderId, onSent, onCanc
         message_type: 'voice',
         audio_url: publicUrl,
         audio_duration: secs,
-        transcript_status: 'pending',
       }
       if (SAVE_WAVEFORM) row.audio_waveform = peaks.map(p => Math.round(p * 100))
 
@@ -470,11 +469,6 @@ export default function VoiceRecorder({ conversationId, senderId, onSent, onCanc
         .select()
         .single()
       if (msgErr) throw msgErr
-
-      // Trigger transcription (fire and forget)
-      supabase.functions.invoke('transcribe-voice-note', {
-        body: { messageId: msg.id, audioUrl: publicUrl },
-      }).catch(() => {})
 
       if (mountedRef.current) resetToIdle()
       done && done(msg)
