@@ -1,42 +1,95 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import './ChatCards.css'
+
+const MAX_TASKS = 10
+
+const CloseIcon = () => (
+  <svg className="cc-ico" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M4 4l8 8M12 4l-8 8" />
+  </svg>
+)
+
+const PlusIcon = () => (
+  <svg className="cc-ico" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M8 3v10M3 8h10" />
+  </svg>
+)
 
 export default function TaskCreator({ conversationId, senderId, onSent, onCancel }) {
+  const uid = useRef(0)
+  const mk = (text = '') => ({ id: ++uid.current, text })
+
   const [title, setTitle] = useState('')
-  const [tasks, setTasks] = useState(['', ''])
+  const [tasks, setTasks] = useState(() => [mk(), mk()])
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
 
-  const updateTask = (i, val) => {
-    const next = [...tasks]
-    next[i] = val
-    setTasks(next)
-  }
+  // focus management: set an id, the effect focuses that row once it exists
+  const inputRefs = useRef({})
+  const [focusId, setFocusId] = useState(null)
+  useEffect(() => {
+    if (focusId == null) return
+    inputRefs.current[focusId]?.focus()
+    setFocusId(null)
+  }, [focusId])
+
+  const updateTask = (id, text) =>
+    setTasks(ts => ts.map(t => (t.id === id ? { ...t, text } : t)))
 
   const addTask = () => {
-    if (tasks.length < 10) setTasks([...tasks, ''])
+    if (tasks.length >= MAX_TASKS) return
+    const t = mk()
+    setTasks([...tasks, t])
+    setFocusId(t.id)
   }
 
-  const removeTask = (i) => {
+  const removeTask = (id) => {
     if (tasks.length <= 1) return
-    setTasks(tasks.filter((_, idx) => idx !== i))
+    setTasks(tasks.filter(t => t.id !== id))
   }
 
   const handleKeyDown = (e, i) => {
+    const task = tasks[i]
     if (e.key === 'Enter') {
       e.preventDefault()
-      if (i === tasks.length - 1) addTask()
+      if (i < tasks.length - 1) setFocusId(tasks[i + 1].id)
+      else if (task.text.trim()) addTask()
+    } else if (e.key === 'Backspace' && !task.text && tasks.length > 1) {
+      e.preventDefault()
+      setFocusId(tasks[i > 0 ? i - 1 : 1].id)
+      removeTask(task.id)
     }
   }
 
-  const canSend = title.trim() && tasks.filter(t => t.trim()).length >= 1
+  // pasting a multi-line list (even with "- " or "1." bullets) becomes one task per line
+  const handlePaste = (e, i) => {
+    const raw = e.clipboardData.getData('text')
+    if (!/\r?\n/.test(raw.trim())) return
+    const lines = raw
+      .split(/\r?\n/)
+      .map(l => l.replace(/^\s*(?:[-*•]|\d+[.)]|\[[ xX]?\])\s*/, '').trim().slice(0, 200))
+      .filter(Boolean)
+    if (!lines.length) return
+    e.preventDefault()
+
+    const replaceCurrent = !tasks[i].text.trim()
+    const start = replaceCurrent ? i : i + 1
+    const next = [...tasks]
+    next.splice(start, replaceCurrent ? 1 : 0, ...lines.map(mk))
+    const capped = next.slice(0, MAX_TASKS)
+    setTasks(capped)
+    setFocusId(capped[Math.min(start + lines.length - 1, capped.length - 1)].id)
+  }
+
+  const canSend = title.trim() && tasks.some(t => t.text.trim())
 
   const send = async () => {
-    if (!canSend) return
+    if (!canSend || sending) return
     setSending(true)
     setError(null)
     try {
-      const validTasks = tasks.map(t => t.trim()).filter(Boolean)
+      const validTasks = tasks.map(t => t.text.trim()).filter(Boolean)
 
       // 1. create task list
       const { data: list, error: listErr } = await supabase
@@ -72,102 +125,87 @@ export default function TaskCreator({ conversationId, senderId, onSent, onCancel
       onSent && onSent(msg)
     } catch (err) {
       console.error(err)
-      setError('Failed to create task list. Try again.')
+      setError("Couldn't create the list. Try again.")
       setSending(false)
     }
   }
 
   return (
-    <div style={s.wrap}>
-      <div style={s.header}>
-        <span style={s.title}>✅ New Task List</span>
-        <button style={s.closeBtn} onClick={onCancel}>✕</button>
+    <div
+      className="cc cc-sheet"
+      role="dialog"
+      aria-label="New task list"
+      onKeyDown={e => { if (e.key === 'Escape') onCancel && onCancel() }}
+    >
+      <div className="cc-head">
+        <span className="cc-head-title">New task list</span>
+        <button type="button" className="cc-close" onClick={onCancel} aria-label="Close">
+          <CloseIcon />
+        </button>
       </div>
 
-      {error && <p style={s.error}>{error}</p>}
+      {error && <p className="cc-error" role="alert">{error}</p>}
 
       <input
-        style={s.titleInput}
-        placeholder="List title e.g. 'Project tasks', 'Shopping'"
+        className="cc-main"
+        placeholder="Name your list"
         value={title}
         onChange={e => setTitle(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            inputRefs.current[tasks[0].id]?.focus()
+          }
+        }}
         maxLength={100}
         autoFocus
       />
 
-      <div style={s.label}>Tasks</div>
-      {tasks.map((task, i) => (
-        <div key={i} style={s.taskRow}>
-          <span style={s.checkbox}>○</span>
-          <input
-            style={s.taskInput}
-            placeholder={`Task ${i + 1}`}
-            value={task}
-            onChange={e => updateTask(i, e.target.value)}
-            onKeyDown={e => handleKeyDown(e, i)}
-            maxLength={200}
-          />
-          {tasks.length > 1 && (
-            <button style={s.removeBtn} onClick={() => removeTask(i)}>✕</button>
-          )}
-        </div>
-      ))}
+      <div className="cc-rows">
+        {tasks.map((task, i) => (
+          <div key={task.id} className="cc-row">
+            <span className="cc-dot" />
+            <input
+              ref={el => { inputRefs.current[task.id] = el }}
+              className="cc-input"
+              placeholder={i === 0 ? 'What needs doing?' : 'Next task'}
+              value={task.text}
+              onChange={e => updateTask(task.id, e.target.value)}
+              onKeyDown={e => handleKeyDown(e, i)}
+              onPaste={e => handlePaste(e, i)}
+              maxLength={200}
+            />
+            {tasks.length > 1 && (
+              <button
+                type="button"
+                className="cc-rm"
+                onClick={() => removeTask(task.id)}
+                aria-label="Remove task"
+              >
+                <CloseIcon />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
 
-      {tasks.length < 10 && (
-        <button style={s.addBtn} onClick={addTask}>+ Add task</button>
+      {tasks.length < MAX_TASKS && (
+        <button type="button" className="cc-add" onClick={addTask}>
+          <PlusIcon /> Add task
+        </button>
       )}
 
-      <div style={s.footer}>
-        <button style={s.cancelBtn} onClick={onCancel}>Cancel</button>
+      <div className="cc-foot">
+        <button type="button" className="cc-btn cc-btn-ghost" onClick={onCancel}>Cancel</button>
         <button
-          style={{ ...s.sendBtn, opacity: canSend ? 1 : 0.4 }}
+          type="button"
+          className="cc-btn cc-btn-primary"
           onClick={send}
           disabled={!canSend || sending}
         >
-          {sending ? 'Creating…' : 'Create List'}
+          {sending ? 'Creating…' : 'Create list'}
         </button>
       </div>
     </div>
   )
-}
-
-const s = {
-  wrap: {
-    position: 'absolute', bottom: '100%', left: 0, right: 0,
-    background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: 16, padding: 16, marginBottom: 8,
-    boxShadow: '0 -4px 24px rgba(0,0,0,0.4)', zIndex: 100,
-  },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  title: { fontSize: 15, fontWeight: 600, color: '#fff' },
-  closeBtn: { background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 16 },
-  titleInput: {
-    width: '100%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: 10, padding: '10px 12px', color: '#fff', fontSize: 14,
-    outline: 'none', marginBottom: 12, boxSizing: 'border-box',
-  },
-  label: { fontSize: 12, color: '#888', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' },
-  taskRow: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 },
-  checkbox: { color: '#555', fontSize: 16, flexShrink: 0 },
-  taskInput: {
-    flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: 8, padding: '8px 12px', color: '#fff', fontSize: 13, outline: 'none',
-  },
-  removeBtn: { background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 13, flexShrink: 0 },
-  addBtn: {
-    background: 'none', border: '1px dashed rgba(124,111,247,0.4)',
-    borderRadius: 8, color: '#7C6FF7', padding: '6px 12px',
-    fontSize: 13, cursor: 'pointer', width: '100%', marginBottom: 12,
-  },
-  footer: { display: 'flex', gap: 8, marginTop: 4 },
-  cancelBtn: {
-    flex: 1, background: 'rgba(255,255,255,0.06)', border: 'none',
-    borderRadius: 10, padding: 10, color: '#aaa', fontSize: 14, cursor: 'pointer',
-  },
-  sendBtn: {
-    flex: 2, background: '#7C6FF7', border: 'none',
-    borderRadius: 10, padding: 10, color: '#fff', fontSize: 14,
-    fontWeight: 600, cursor: 'pointer',
-  },
-  error: { color: '#ef4444', fontSize: 12, marginBottom: 8 },
 }
