@@ -73,7 +73,7 @@ export function useMessageSaves(userId, { pollMs = 20000, now = () => Date.now()
   const byMessage = useMemo(() => new Map(saves.map((s) => [s.message_id, s])), [saves])
   const due = useMemo(
     () => saves.filter((s) => s.remind_at && !s.reminded_at && new Date(s.remind_at).getTime() <= now()),
-    [saves, tick, now] // eslint-disable-line react-hooks/exhaustive-deps
+    [saves, tick, now]  
   )
 
   useEffect(() => {                                   // one browser notification per due reminder (only if the person allowed it)
