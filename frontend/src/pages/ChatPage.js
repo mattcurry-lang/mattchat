@@ -136,7 +136,7 @@ import { formatWhen } from '../lib/scheduleTime'
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
 const CURRY_TRIGGER = /^hey\s+curry[,:]?\s*/i
-const VOICE_PREVIEW = ' Voice note'
+const VOICE_PREVIEW_RE = /^Voice note( \(\d+:\d{2}\))?$/
 const CATCH_UP_THRESHOLD = 8       // unread messages before offering a summary
 const AUTO_CONTEXT_GAP_DAYS = 2    // quiet period before showing "last spoke" context
 
@@ -1257,7 +1257,7 @@ function LastMessagePreview({ content, meId }) {
   if (content.startsWith('gif:')) return row(<IconFilm size={11} />, 'GIF')
   if (content.startsWith('pinterest:')) return row('📌', 'Pin')
   if (content.startsWith('drawing:')) return row('🎨', 'Drawing')
-if (content.startsWith(VOICE_PREVIEW)) return row(<IconMic size={11} />, content.slice(2).trim())
+if (VOICE_PREVIEW_RE.test(content)) return row(<IconMic size={11} />, content)
 if (content.startsWith('call_log:') || content.startsWith('missed_call:')) return isAfterglowEnabled() ? <CallPreview content={content} meId={meId} /> : row(<IconPhone size={11} />, 'Call')
   if (content.startsWith('short:')) return row(<IconFilm size={11} />, 'Short')
   if (content.startsWith('{')) {
@@ -1996,19 +1996,20 @@ const handleMessageContact = async (contactEmail) => {
   // reliably — it doesn't depend on a Supabase trigger existing, and
   // it also nudges useConversations' realtime UPDATE listener so every
   // connected client re-sorts, not just this one.
-  const bumpConversationActivity = async (previewText) => {
-    if (!activeConvo?.id || activeConvo.isCurryAI) return
-    await supabase
-      .from('conversations')
-      .update({ updated_at: new Date().toISOString(), last_message: previewText })
-      .eq('id', activeConvo.id)
-    reload()
-  }
+const bumpConversationActivity = async (previewText) => {
+  if (!activeConvo?.id || activeConvo.isCurryAI) return
+  const { error } = await supabase
+    .from('conversations')
+    .update({ updated_at: new Date().toISOString(), last_message: previewText })
+    .eq('id', activeConvo.id)
+  if (error) console.error('bumpConversationActivity failed:', error)
+  reload()
+}
 const handleVoiceSent = (msg) => {
   setShowVoice(false)
   const secs = Math.round(Number(msg?.audio_duration) || 0)
   const len = secs ? ` (${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')})` : ''
-  bumpConversationActivity(`${VOICE_PREVIEW}${len}`)
+  bumpConversationActivity(`Voice note${len}`)
 }
   // Conversation Coach (Phase 3) — fires AFTER a plain message has
   // already been sent, purely advisory, never blocking. Skips very
