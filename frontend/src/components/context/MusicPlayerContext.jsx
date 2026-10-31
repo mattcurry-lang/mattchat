@@ -573,6 +573,7 @@ useEffect(() => {
     isPlaying,
     currentTime,
     duration,
+     playbackRate,
     onPlay: () => { if (!isPlaying) togglePlayPause() },
     onPause: () => { if (isPlaying) togglePlayPause() },
     onNext: playNext,
