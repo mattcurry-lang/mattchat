@@ -211,7 +211,7 @@ export default function MessageActionsMenu({
     setDraft(message?.content || '')
     openedAt.current = Date.now()
     if (message && isSheet && typeof navigator !== 'undefined' && navigator.vibrate) { try { navigator.vibrate(8) } catch { /* ignore */ } }
-  }, [messageId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [messageId])  
 
   useEffect(() => {                                 // which emoji have I already used on this message?
     let alive = true
@@ -234,14 +234,14 @@ export default function MessageActionsMenu({
     if (!message || !position || isSheet || !menuRef.current) return
     const r = menuRef.current.getBoundingClientRect()
     setPos(placeMenu({ x: position.x, y: position.y, w: r.width, h: r.height, vw: window.innerWidth, vh: window.innerHeight }))
-  }, [messageId, position?.x, position?.y, view, isSheet, result]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [messageId, position?.x, position?.y, view, isSheet, result])  
 
   useEffect(() => {                                 // keyboard users land on the first action
     if (!message || !menuRef.current) return
     const active = document.activeElement
     if (active && menuRef.current.contains(active) && /^(INPUT|TEXTAREA)$/.test(active.tagName)) return   // the search / edit box already has the cursor
     const first = menuRef.current.querySelector('[data-nav]'); if (first && !isSheet) first.focus({ preventScroll: true })
-  }, [messageId, view, isSheet]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [messageId, view, isSheet])  
 
   const text = message?.content || ''
   const hasText = text.trim().length > 0
