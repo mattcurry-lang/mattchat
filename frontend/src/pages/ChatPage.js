@@ -1943,7 +1943,7 @@ useEffect(() => {
   useEffect(() => {
     const id = pendingJumpRef.current
     if (id && msgRefs.current[id]) { pendingJumpRef.current = null; setTimeout(() => scrollToMessage(id), 60) }
-  }, [messages]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [messages])  
 
   // Opens a conversation and immediately clears its unread badge —
   // the actual "mark as read" DB write still happens via
