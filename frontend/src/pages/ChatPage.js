@@ -3747,7 +3747,7 @@ _onMessageContact: (contactEmail) => handleMessageContact(contactEmail),
                 )}
 
                 {showVoice ? (
-                  <VoiceRecorder conversationId={activeConvo.id} senderId={userId} onSent={() => setShowVoice(false)} onCancel={() => setShowVoice(false)} />
+                  <VoiceRecorder conversationId={activeConvo.id} senderId={userId} onSent={handleVoiceSent} onCancel={() => setShowVoice(false)} />
                 ) : (
                   <>
                     <button className="attach-btn" onClick={() => setShowVoice(true)} title="Voice note"><IconMic size={19} /></button>
