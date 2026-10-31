@@ -195,8 +195,12 @@ export const getConversations = async (userId) => {
   return data
 }
 
+// The message list. `edited_at` (the "edited" label) only exists once docs/step_message_saves.sql has been run;
+// until then we quietly ask without it, so loading chats never breaks.
+let messagesHaveEditedAt = true
+
 export const getMessages = async (conversationId) => {
-  const { data, error } = await supabase
+  const run = (withEditedAt) => supabase
     .from('messages')
     .select(`
       id,
@@ -215,12 +219,19 @@ export const getMessages = async (conversationId) => {
       reply_to_message_id,
       forwarded,
       deleted_for_everyone,
+      ${withEditedAt ? 'edited_at,' : ''}
       created_at,
      profiles!messages_sender_id_fkey(username, avatar_url, is_admin),
       media_assets(*)
     `)
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true })
+
+  let { data, error } = await run(messagesHaveEditedAt)
+  if (error && messagesHaveEditedAt && (error.code === '42703' || error.code === 'PGRST204' || /edited_at/i.test(error.message || ''))) {
+    messagesHaveEditedAt = false
+    ;({ data, error } = await run(false))
+  }
   if (error) {
     console.error('getMessages error:', error)
     return []
