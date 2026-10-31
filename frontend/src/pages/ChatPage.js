@@ -33,7 +33,7 @@ import BottomNav from '../components/BottomNav'
 import {
   IconPhone, IconVideo, IconPhoneOff, IconSparkle, IconMoreVertical, IconSmile, IconMic, IconPlus, IconStatus,
   IconChart, IconCheckSquare, IconClock, IconSearch, IconMail, IconShield, IconLogOut, IconInbox, IconPin,
-  IconMessageSquare, IconHistory, IconX, IconFolder, IconSettings, IconBell, IconCamera, IconFilm, IconTrash,
+   IconMessageSquare, IconHistory, IconX, IconFolder, IconSettings, IconBell, IconStar, IconCamera, IconFilm, IconTrash,
   IconBrush, IconMusic, IconVerified
 } from '../components/Icons'
 import { ReactableMessage } from '../components/MessageReactions'
@@ -84,6 +84,8 @@ import { extractYouTubeId } from '../lib/youtube'
 import YouTubeCard from '../components/YouTubeCard'
 import SocialEmbedCard from '../components/SocialEmbedCard'
 import { extractSocialLink, shortSocialUrl } from '../lib/socialLinks'
+import { useMessageSaves } from '../lib/messageSaves'
+import SavedMessagesSheet, { ReminderToast } from '../components/SavedMessagesSheet'
 import YouTubePlayer from '../components/YouTubePlayer'
 import { useWatchTogether } from '../hooks/useWatchTogether'
 import WatchTogetherPlayer from '../components/WatchTogetherPlayer'
@@ -846,7 +848,7 @@ const socialLink = youtubeId ? null : extractSocialLink(msg.content)
             {socialLink && <SocialEmbedCard link={socialLink} />}
           </>
         )}
-              <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+               <div className="msg-time">{formatMsgTime(msg.created_at)}{msg.edited_at ? ' · edited' : ''}</div>
         <MessageStatus isMe={isMe} isRead={isRead} isDelivered={isDelivered} queued={msg._status === 'queued'} />
       </div>
     </div>
@@ -886,7 +888,7 @@ function useIsMobile(breakpoint = 640) {
 function ThreeDotMenu({
   anchorRef, onDraw, onPoll, onTask, onSchedule, onViewScheduled,
   onSearch, onSearchYouTube, onShare, onCurryAssistant, curryAssistantActive,
-  onInsights, insightsActive, onClose,
+ onInsights, insightsActive, onSaved, onClose,
 }) {
   const [pos, setPos] = useState(null)
   const menuRef = useRef(null)
@@ -1332,6 +1334,9 @@ export default function ChatPage({ session }) {
   const [showMusicSettings, setShowMusicSettings]   = useState(false)
   const [showChangeUsername, setShowChangeUsername] = useState(false)
   const [showInsights, setShowInsights]             = useState(false) 
+  const messageSaves = useMessageSaves(userId)           // starred messages + reminders (see lib/messageSaves.js)
+  const [showSaved, setShowSaved] = useState(false)
+  const pendingJumpRef = useRef(null)
   const [hasScheduled, setHasScheduled]             = useState(false)
   const [showEmojiPicker, setShowEmojiPicker]       = useState(false)
   const [activeTab, setActiveTab]                   = useState('chats')
@@ -1927,6 +1932,18 @@ useEffect(() => {
   }
 
   const scrollToMessage = (msgId) => { msgRefs.current[msgId]?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
+  // Open a saved / reminded message: scroll to it if its chat is already open, otherwise open the chat and scroll once it has loaded
+  const openSavedMessage = (save) => {
+    if (activeConvo?.id === save.conversation_id) { scrollToMessage(save.message_id); return }
+    const conv = conversations.find((c) => c.id === save.conversation_id)
+    if (!conv) return
+    pendingJumpRef.current = save.message_id
+    openConvo(conv)
+  }
+  useEffect(() => {
+    const id = pendingJumpRef.current
+    if (id && msgRefs.current[id]) { pendingJumpRef.current = null; setTimeout(() => scrollToMessage(id), 60) }
+  }, [messages]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Opens a conversation and immediately clears its unread badge —
   // the actual "mark as read" DB write still happens via
@@ -3345,6 +3362,7 @@ onCurryAssistant={() => setShowCurryAssistant(v => !v)}
   curryAssistantActive={showCurryAssistant}
   onInsights={() => setShowInsights(v => !v)}
   insightsActive={showInsights}
+onSaved={() => { setShowSaved(true); setShowThreeDot(false) }}
   onClose={() => setShowThreeDot(false)}
 />
                   )}
@@ -3539,6 +3557,7 @@ _onMessageContact: (contactEmail) => handleMessageContact(contactEmail),
                 session={session}
                 message={messageMenu.message}
                 currentUserId={userId}
+               saves={messageSaves}
                 position={{
                   x: messageMenu.x,
                   y: messageMenu.y,
@@ -3559,6 +3578,9 @@ _onMessageContact: (contactEmail) => handleMessageContact(contactEmail),
                 }}
               />
             )}
+
+                   <SavedMessagesSheet open={showSaved} userId={userId} saves={messageSaves} onClose={() => setShowSaved(false)} onOpenMessage={openSavedMessage} />
+          <ReminderToast due={messageSaves.due} onOpen={openSavedMessage} onDismiss={messageSaves.dismissDue} />
             {showInsights && (
               <RelationshipInsights
                 messages={messages}
