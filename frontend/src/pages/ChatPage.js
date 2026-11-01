@@ -124,7 +124,9 @@ import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import ConnectionBanner from '../components/ConnectionBanner'
 import { useConnectionStatus } from '../lib/connectivity'
 import usePublicProfiles from '../hooks/usePublicProfiles'
-import { StatusBadge, StatusLine, NotesRail } from '../components/ProfileFlair'
+import { StatusBadge, StatusLine } from '../components/ProfileFlair'
+import PresenceRail from '../components/PresenceRail'
+import { quoteReply } from '../lib/presence'
 import ShushhhExperience from '../components/Shushhh/ShushhhExperience'
 import useShushhhShortcut from '../hooks/useShushhhShortcut'
 import '../lib/ecosystem'
@@ -1449,6 +1451,23 @@ const { isOnline, getLastSeenLabel, getPresenceStatus } = usePresence(userId)
   userId,
   ...conversations.flatMap(c => (c.conversation_members || []).map(m => m.user_id)),
 ])
+
+  
+  // ── Presence rail: save my note / reply to a friend's note ──
+  // Saves note (+ optional vibe status) straight onto my profile row; everyone's rail updates in realtime.
+  const saveMyNote = async (patch) => {
+    const { error } = await supabase.from('profiles').update(patch).eq('id', userId)
+    return !error
+  }
+  // A reply/reaction is a normal chat message that quotes the note, so it shows up in the chat like any other.
+  const replyToNote = async (convo, text, noteText) => {
+    const content = quoteReply(noteText, text)
+    const { error } = await supabase.from('messages').insert({ conversation_id: convo.id, sender_id: userId, content, message_type: 'text' })
+    if (error) return false
+    await supabase.from('conversations').update({ updated_at: new Date().toISOString(), last_message: content }).eq('id', convo.id)
+    reload()
+    return true
+  }
   const globalWatchInvite = useGlobalWatchInvites(userId, conversations.map(c => c.id))
 
 const getMemberName = (convoId, uid) => {
@@ -2476,18 +2495,50 @@ heyCurryError={heyCurryError}
           {/* ── STORY / QUICK-CONTACT RAIL ── */}
         {activeTab === 'chats' && (
   <>
-  <NotesRail
-  conversations={conversations}
-  userId={userId}
-  extras={publicExtras}
-  getOtherId={getOtherUserId}
-  getAvatar={getOtherUserAvatar}
-  getName={getConvoName}
-  myName={profile?.username}
-  myAvatar={profile?.avatar_url}
-  onOpenConversation={openConvo}
-  onEditMyNote={() => setShowProfileMenu(true)}
-/>
+  <PresenceRail
+    conversations={conversations}
+    userId={userId}
+    extras={publicExtras}
+    getOtherId={getOtherUserId}
+    getAvatar={getOtherUserAvatar}
+    getName={getConvoName}
+    me={{
+      name: profile?.username,
+      avatarUrl: profile?.avatar_url,
+      badge: (profileLoaded && profile?.is_admin) ? (
+        <div style={{ position: 'absolute', top: -2, right: -2, zIndex: 2 }}><VerifiedBadge size={18} /></div>
+      ) : null,
+    }}
+    myStatuses={myStatuses}
+    statusGroups={statusGroups}
+    onOpenStory={openViewer}
+    onAddStatus={() => setShowAddStatus(true)}
+    onOpenConversation={openConvo}
+    onSaveNote={saveMyNote}
+    onReplyToNote={replyToNote}
+    trailing={igQuick.status === 'connected' && (
+      <div className="pr-item" role="listitem">
+        <div className="pr-bubble-slot" />
+        <button className="pr-avatar story-item" onClick={() => setShowInstagramFull(true)} title={`@${igQuick.account?.username}`} aria-label="Open Instagram">
+          <div
+            style={{
+              width: 58, height: 58, borderRadius: '50%',
+              background: 'linear-gradient(135deg,#f58529,#dd2a7b,#8134af,#515bd4)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 13, boxSizing: 'border-box',
+            }}
+          >
+            <svg viewBox="0 0 640 640" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="60" y="60" width="520" height="520" rx="140" stroke="white" strokeWidth="52" fill="none" />
+              <circle cx="320" cy="320" r="110" stroke="white" strokeWidth="52" fill="none" />
+              <circle cx="478" cy="170" r="28" fill="white" />
+            </svg>
+          </div>
+        </button>
+        <span className="pr-name">Instagram</span>
+      </div>
+    )}
+  />
             <div className="story-rail">
               <button className="story-item" onClick={() => openViewer('mine')} title="My status">
                 <div className="story-avatar-wrap" style={{ position: 'relative' }}>
