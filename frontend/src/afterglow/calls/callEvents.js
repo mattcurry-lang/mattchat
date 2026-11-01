@@ -184,3 +184,63 @@ export function callPreview(content, meId) {
   if (d.id === 'declined-by-me') return { icon: kind, tone: 'muted', dir, text: 'You declined' }
   return { icon: kind, tone: 'warn', dir, text: 'Declined' }
 }
+
+// ───────────────────────── calls drawn from CALL HISTORY ─────────────────────────
+// The chat used to depend on a call_log row being INSERTED into `messages` when a call ended. That insert can be
+// refused by the database (row-level security, a message_type check) and then no call ever shows in the chat —
+// while the Calls tab, which reads `active_calls`, works fine. So the thread now also draws calls straight from
+// the call history that is already loaded. These "events" look like messages to the list, but they have no row in
+// `messages` (they're flagged `_synthetic`), so nothing may try to pin, react to, reply to or delete them.
+
+export const isZoomRoom = (url) => typeof url === 'string' && /zoom\.(us|com)/i.test(url)
+
+/** Map an active_calls row to a call-log status, or null while the call is still ringing / in progress. */
+export function statusFromCall(c) {
+  if (!c) return null
+  if (c.status === 'declined') return 'declined'
+  if (c.status === 'missed') return 'missed'
+  if (c.status === 'ended') return c.answered_at ? 'completed' : 'cancelled' // ended before anyone picked up = the caller hung up
+  return null
+}
+
+export function callEventsFromHistory(history, conversationId) {
+  const out = []
+  for (const c of history || []) {
+    if (!c || c.conversation_id !== conversationId) continue
+    const status = statusFromCall(c)
+    if (!status) continue
+    // null/undefined mean "not recorded" (Number(null) would wrongly be 0), so work it out from the timestamps
+    let seconds = c.duration_seconds == null || c.duration_seconds === '' ? NaN : Number(c.duration_seconds)
+    if (!Number.isFinite(seconds) || seconds < 0) seconds = c.answered_at && c.ended_at ? Math.max(0, Math.round((Date.parse(c.ended_at) - Date.parse(c.answered_at)) / 1000)) : 0
+    if (status !== 'completed') seconds = 0
+    out.push({
+      id: `call:${c.id}`, _synthetic: true, _callId: c.id,
+      conversation_id: c.conversation_id, sender_id: c.initiated_by, message_type: 'call_log',
+      content: buildCallLogContent({ callType: c.call_type || 'audio', status, durationSeconds: seconds, isZoom: isZoomRoom(c.room_url), initiatedBy: c.initiated_by }),
+      created_at: (status === 'completed' ? c.ended_at : null) || c.created_at,
+    })
+  }
+  return out
+}
+
+/**
+ * The thread's messages plus its calls, in time order. A call_log row that duplicates a call from the history is
+ * dropped (the history version knows exactly who called whom); a call_log row with no match is kept, so nothing
+ * that was ever logged disappears.
+ */
+export function mergeCallEvents(messages, history, conversationId) {
+  const list = Array.isArray(messages) ? messages : []
+  if (!history || !history.length || !conversationId) return list
+  const events = callEventsFromHistory(history, conversationId)
+  if (!events.length) return list
+  const scoped = history.filter((c) => c && c.conversation_id === conversationId)
+  const kept = list.filter((m) => {
+    const p = parseCallLog(m && m.content)
+    return !p || !matchCall(m, p, scoped)
+  })
+  const stamp = (m) => Date.parse(m.created_at) || 0
+  return [...kept, ...events]
+    .map((m, i) => ({ m, i, t: stamp(m) }))
+    .sort((a, b) => a.t - b.t || a.i - b.i)
+    .map((x) => x.m)
+}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState } from 'react'
 import CallGlyph from './CallGlyph'
 import { parseCallLog, matchCall, directionOf, describeCall, formatCallDuration, QUICK_REPLIES } from './callEvents'
 import './afterglow-calls.css'
@@ -26,14 +26,14 @@ export default function CallEventCard({ msg, timeLabel }) {
   const ctx = msg._callCtx || {}
   const fmt = ctx.fmt || defaultFmt
 
-  const view = useMemo(() => {
+  // Cheap to compute, and ChatPage hands us a new `msg` object on every render, so memoising would save nothing.
+  const view = (() => {
     const parsed = parseCallLog(msg.content)
     if (!parsed) return null
     const matched = matchCall(msg, parsed, ctx.history)
     const dir = directionOf(parsed, { meId, senderId: msg.sender_id, matched })
     return { parsed, dir, d: describeCall(parsed, dir, { name: ctx.otherName, isGroup: ctx.isGroup }) }
-   
-  }, [msg.content, msg.created_at, msg.sender_id, meId, ctx.history, ctx.otherName, ctx.isGroup])
+  })()
   if (!view) return null
 
   const { parsed, dir, d } = view
