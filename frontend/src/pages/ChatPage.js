@@ -2538,46 +2538,7 @@ heyCurryError={heyCurryError}
         <span className="pr-name">Instagram</span>
       </div>
     )}
-  />
-                  )}
-                  <button
-                    className="status-add-badge"
-                    onClick={(e) => { e.stopPropagation(); setShowAddStatus(true) }}
-                    title="Add status"
-                  >
-                    <IconPlus size={11} />
-                  </button>
-                </div>
-                <span className="story-label">My status</span>
-              </button>
-{igQuick.status === 'connected' && (
-  <button className="story-item" onClick={() => setShowInstagramFull(true)} title={`@${igQuick.account?.username}`}>
-    <div
-      style={{
-        width: 58, height: 58, borderRadius: '50%',
-        background: 'linear-gradient(135deg,#f58529,#dd2a7b,#8134af,#515bd4)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 13, boxSizing: 'border-box',
-      }}
-    >
-      <svg viewBox="0 0 640 640" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="60" y="60" width="520" height="520" rx="140" stroke="white" strokeWidth="52" fill="none" />
-        <circle cx="320" cy="320" r="110" stroke="white" strokeWidth="52" fill="none" />
-        <circle cx="478" cy="170" r="28" fill="white" />
-      </svg>
-    </div>
-    <span className="story-label">Instagram</span>
-  </button>
-)}
-              {statusGroups.map(group => (
-                <button key={group.userId} className="story-item" onClick={() => openViewer(group.userId)} title={group.profile.username}>
-                  <StatusRing size={58} hasStatus viewed={group.allViewed}>
-                    <Avatar name={group.profile.username} size={52} />
-                  </StatusRing>
-                                   <span className="story-label">{(group.profile.username || 'Unknown').split(' ')[0]}</span>
-                </button>
-              ))}
-            </div>
+  /> 
             </>
           )}
         </div>
