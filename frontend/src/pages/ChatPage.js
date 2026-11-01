@@ -51,7 +51,7 @@ import AskCurry from '../components/Pulse/AskCurry'
 import MessageActionsMenu, { useMessageLongPress } from '../components/MessageActionsMenu'
 import SmartCollections, { useConvoTags, filterByCollection } from '../components/SmartCollections'
 import SmartReplyPreview, { useSmartReplyCache } from '../components/SmartReplyPreview'
-import { ConversationRow, CurryRow, LensBar, LensEmpty, TimeRail, Capsule, ResumeHome, buildTrayItems, rankByWarmth, applyLens, convoHue, groupPosition, flashMessage, isAfterglowEnabled, useCloseCircle, useLensSwipe, useArrivals, CallEventCard, CallPreview, analyzeCalls } from '../afterglow'
+import { ConversationRow, CurryRow, LensBar, LensEmpty, TimeRail, Capsule, ResumeHome, buildTrayItems, rankByWarmth, applyLens, convoHue, groupPosition, flashMessage, isAfterglowEnabled, useCloseCircle, useLensSwipe, useArrivals, CallEventCard, CallPreview, analyzeCalls, mergeCallEvents } from '../afterglow'
 import RelationshipInsights from '../components/RelationshipInsights'
 import TodaysTimeline from '../components/TodaysTimeline'
 import { useTheme } from '../hooks/useTheme'
@@ -3462,11 +3462,12 @@ onSaved={() => { setShowSaved(true); setShowThreeDot(false) }}
             >
               {afterglowOn && <TimeRail scrollerRef={messagesScrollRef} version={messages.length} />}
               {msgLoading && <div className="loading-state">Loading messages…</div>}
-                {(() => { const callInfo = afterglowOn ? analyzeCalls(messages, userId, { history: callHistory }) : null; const visibleMessages = messages.filter(m => !hiddenMsgIds.has(m.id) && !(callInfo && callInfo.hidden.has(m.id))); return visibleMessages.map((msg, i) => {
+                {(() => { const threadMessages = afterglowOn ? mergeCallEvents(messages, callHistory, activeConvo?.id) : messages; const callInfo = afterglowOn ? analyzeCalls(threadMessages, userId, { history: callHistory }) : null; const visibleMessages = threadMessages.filter(m => !hiddenMsgIds.has(m.id) && !(callInfo && callInfo.hidden.has(m.id))); return visibleMessages.map((msg, i) => {
                 const prev = visibleMessages[i - 1]
                 const showDate = !prev || new Date(msg.created_at).toDateString() !== new Date(prev.created_at).toDateString()
                 const isMissedCall = msg.content?.startsWith('missed_call:') || msg.content?.startsWith('call_log:')
                 const isCurryMsg = msg.message_type === 'curry'
+                  const isSynthCall = !!msg._synthetic // a call drawn from call history: it has no row in `messages`
                 const isMine = msg.sender_id === userId
                 const wrapClass = (isMissedCall || isCurryMsg) ? 'system' : (isMine ? 'mine' : 'theirs')
                 return (
@@ -3476,17 +3477,29 @@ onSaved={() => { setShowSaved(true); setShowThreeDot(false) }}
                       ref={el => (msgRefs.current[msg.id] = el)}
                                 className={`msg-wrap ${wrapClass}${afterglowOn && wrapClass !== 'system' ? ' ' + groupPosition(prev, msg, visibleMessages[i + 1]) : ''}${afterglowOn && arrivals.has(msg.id) ? ' ag-arrive' : ''}`}
                       onContextMenu={e => {
-                        if (!isCurryMsg) {
+                        if (!isCurryMsg && !isSynthCall) {
                           e.preventDefault()
                           pinMessage(msg.id)
                         }
                       }}
-                      title={isCurryMsg ? undefined : 'Right-click to pin'}
-                      {...(!isCurryMsg ? bindLongPress(msg) : {})}
+                     title={isCurryMsg || isSynthCall ? undefined : 'Right-click to pin'}
+                     {...(!isCurryMsg && !isSynthCall ? bindLongPress(msg) : {})}
                     >
                       {isCurryMsg ? (
                          <MessageBubble msg={msg} isMe={false} isRead={false} isDelivered={false} session={session} />
  
+                                            ) : isSynthCall ? (
+                         <MessageBubble
+                           msg={{
+                             ...msg,
+                             _currentUserId: userId,
+                             _callCtx: { history: callHistory, otherName: getConvoName(activeConvo), isGroup: !!activeConvo?.is_group, burst: callInfo?.bursts.get(msg.id), resolved: callInfo?.resolved.get(msg.id), fmt: formatMsgTime },
+                             _onCallBack: (callType, zoom) => (zoom ? handleZoomCall(activeConvo.id, getConvoName(activeConvo)) : startCall(callType, activeConvo.id)),
+                             _onCallVoiceNote: () => setShowVoice(true),
+                             _onCallQuickReply: (text) => quickSendReply(activeConvo, text),
+                           }}
+                           isMe={false} isRead={false} isDelivered={false} session={session}
+                         />
                       ) : (
                         
                         <SwipeableMessage msg={msg} onReply={isReadOnlyChat ? () => {} : setReplyingTo}>
