@@ -2539,16 +2539,6 @@ heyCurryError={heyCurryError}
       </div>
     )}
   />
-            <div className="story-rail">
-              <button className="story-item" onClick={() => openViewer('mine')} title="My status">
-                <div className="story-avatar-wrap" style={{ position: 'relative' }}>
-                  <StatusRing size={58} hasStatus={myStatuses.length > 0} viewed>
-                    <Avatar name={profile?.username || 'You'} size={52} photoUrl={profile?.avatar_url} />
-                  </StatusRing>
-                  {profileLoaded && profile?.is_admin && (
-                    <div style={{ position: 'absolute', top: -2, right: -2, zIndex: 2 }}>
-                      <VerifiedBadge size={18} />
-                    </div>
                   )}
                   <button
                     className="status-add-badge"
