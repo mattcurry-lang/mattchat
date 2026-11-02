@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import MemoryVault from './MemoryVault'
+import { parseMediaRequest } from '../lib/curryMedia'
+import { buildMediaReply } from '../lib/curryMediaFlow'
+import CurryMedia from './CurryMedia'
 import {
   IconSparkle, IconX, IconMic, IconSend, IconTrash, IconFolder, IconMusic, IconFilm, IconBook, IconHeart,
   IconGlobe, IconMessageSquare, IconWand, IconLock, IconHourglass, IconAlertTriangle,
@@ -413,7 +416,7 @@ const STARTERS = [
 ]
 
 // ── Main Curry AI Chat ────────────────────────────────────────
-export default function CurryAIChat({ session, onBack, onOpenConversation, initialMessage, onInitialMessageSent, onVoiceActive }) {
+export default function CurryAIChat({ session, onBack, onOpenConversation, initialMessage, onInitialMessageSent, onVoiceActive, onPlayYouTube }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -506,6 +509,20 @@ if (!initialMessage) { sentInitialRef.current = null; return }
     setMessages(prev => (retry ? prev.filter(m => !m.error) : [...prev, { role: 'user', content: userMsg }]))
     setLoading(true)
 
+      // "give me a luh kel song" / "show me a video of ...": find it and show playable cards,
+   // because the language model can't play audio. Everything else goes to Curry as before.
+    const mediaRequest = parseMediaRequest(userMsg)
+    if (mediaRequest) {
+      const mediaReply = await buildMediaReply(mediaRequest, { session, userText: userMsg })
+      setMessages(prev => [...prev, mediaReply])
+      setLoading(false)
+      if (mediaReply.speak && voiceOn) {
+        try { await speakWithElevenLabs(mediaReply.content, session) } catch (e) { console.error('TTS failed:', e) }
+      }
+      return
+    }
+
+    
     let reply = null
     try {
       const data = await callCurryAI('chat', { message: userMsg }, session)
@@ -643,6 +660,7 @@ if (!initialMessage) { sentInitialRef.current = null; return }
               <div key={i} className="cy-row">
                 <div style={{ minWidth: 0 }}>
                   <div className={`cy-ai ${msg.error ? 'error' : ''}`}>{msg.content}</div>
+            {msg.media && <CurryMedia media={msg.media} onPlayYouTube={onPlayYouTube} />}
                   {msg.error ? (
                     <button className="cy-retry" onClick={() => sendMessage(msg.retryText, { retry: true })}>Try again</button>
                   ) : (
