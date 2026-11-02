@@ -3289,6 +3289,7 @@ activeConvo.isCurryAI ? (
       onOpenConversation={openConversationById}
       initialMessage={curryPrefill}
       onInitialMessageSent={() => setCurryPrefill(null)}
+         onPlayYouTube={(videoId, startSeconds) => setYoutubePlayer({ videoId, mini: false, startSeconds })}
     />
   </div>
 ) : (
