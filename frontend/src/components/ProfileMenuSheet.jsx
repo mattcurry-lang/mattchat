@@ -6,6 +6,8 @@ import AvatarViewer from './AvatarViewer'
 import { IconSearch, IconLogOut, IconCamera } from './Icons'
 import { shushhhBusy } from './Shushhh/useShushhhRoom'
 import ShushhhExperience from './Shushhh/ShushhhExperience'
+import FocusSheet from './FocusSheet'
+import { DEFAULT_FOCUS, describeFocus } from '../lib/focus'
  
 
  
@@ -165,6 +167,7 @@ const DEFAULTS = {
   dataSaver: false, autoDownload: 'wifi',
   // account
   language: 'en', reduceMotion: false,
+  focus: DEFAULT_FOCUS,
 }
 
 const PICKERS = {
@@ -272,7 +275,10 @@ const HYBRID_SECTIONS = [
     items: [
       tog('dnd', <IconBell />, 'Do not disturb', 'Silences message alerts and sounds. Calls still ring'),
       sel('quietHours', <IconMoon />, 'Quiet hours', 'Mute message alerts on a schedule'),
-      nav('focus', <IconFocus />, 'Focus modes', 'Coming soon: Study, Sleep and Work, each with its own allowed people', { badge: 'Soon' }),
+      nav('focus', <IconFocus />, 'Focus modes', 'Quiet everyone except the people you choose', {
+        getSubtitle: (vals) => { const d = describeFocus(vals.focus); return d.on ? `${d.title.replace(' is on', '')} ${d.detail}` : 'Quiet everyone except the people you choose' },
+        getBadge: (vals) => (describeFocus(vals.focus).on ? 'On' : null),
+      }),
       tog('previews', <IconBubble />, 'Message previews', 'Off shows “New message” instead of the text in push notifications'),
       tog('mentionsOnly', <IconAt />, 'Mentions only in groups', 'Only alert me when someone @mentions me'),
       nav('sounds', <IconVolume />, 'Sounds and vibration', 'Coming soon: tones for messages and calls', { badge: 'Soon' }),
@@ -366,6 +372,7 @@ export default function ProfileMenuSheet({
   onAction,            // (id, item) => void
   shareUrl,
   badges: badgesProp,
+  contacts = [],       // [{ id, name, avatarUrl }] people you chat with, for Focus modes
   onAvatarClick,
   onSignOut,
 }) {
@@ -710,7 +717,7 @@ export default function ProfileMenuSheet({
                           reduce={reduce}
                           onPick={(key) => setSheet({ type: 'picker', key })}
                           onToggle={(key) => setVal(key, !vals[key])}
-                          onNav={(it) => (it.onClick ? it.onClick() : go(it.id, it))}
+                          onNav={(it) => (it.onClick ? it.onClick() : it.id === 'focus' ? setSheet({ type: 'focus' }) : go(it.id, it))}
                         />
                       ))}
                     </motion.div>
@@ -757,6 +764,12 @@ export default function ProfileMenuSheet({
               )
             })}
           </div>
+        )}
+      </BottomSheet>
+
+      <BottomSheet open={isOpen && sheet?.type === 'focus'} title="Focus modes" onClose={() => setSheet(null)} reduce={reduce}>
+        {sheet?.type === 'focus' && (
+          <FocusSheet focus={vals.focus} contacts={contacts} onChange={(next) => setVal('focus', next)} />
         )}
       </BottomSheet>
 
@@ -931,9 +944,9 @@ function Row({ item, last, vals, storage, reduce, onPick, onToggle, onNav }) {
       {iconEl}
       <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
         <span style={{ ...rowLabelStyle, color: danger ? '#f87171' : 'var(--dark-text)' }}>{item.label}</span>
-        {item.subtitle && <span style={rowSubtitleStyle}>{item.subtitle}</span>}
+        {(item.getSubtitle ? item.getSubtitle(vals) : item.subtitle) && <span style={rowSubtitleStyle}>{item.getSubtitle ? item.getSubtitle(vals) : item.subtitle}</span>}
       </span>
-      {item.badge && <span style={rowBadgeStyle}>{item.badge}</span>}
+      {(item.getBadge ? item.getBadge(vals) : item.badge) && <span style={rowBadgeStyle}>{item.getBadge ? item.getBadge(vals) : item.badge}</span>}
       {type === 'toggle' && <Switch on={!!vals[item.key]} />}
       {type === 'select' && <span style={rowValueStyle}>{optionLabel(item.key, vals[item.key])}</span>}
       {type !== 'toggle' && <IconChevron size={14} />}
