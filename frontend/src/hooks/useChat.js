@@ -127,8 +127,8 @@ useEffect(() => {
               // Do not disturb, quiet hours and mentions-only silence the sound (calls are not affected)
               const o = optionsRef.current
               const decision = notifyDecision({
-                settings: { dnd: getSetting('dnd'), quietHours: getSetting('quietHours'), mentionsOnly: getSetting('mentionsOnly'), timezone: getSetting('timezone') },
-                isGroup: !!o.isGroup, text: msgWithProfile.content, myUsername: o.myUsername,
+                settings: { dnd: getSetting('dnd'), focus: getSetting('focus'), quietHours: getSetting('quietHours'), mentionsOnly: getSetting('mentionsOnly'), timezone: getSetting('timezone') },
+                isGroup: !!o.isGroup, text: msgWithProfile.content, myUsername: o.myUsername, senderId: msgWithProfile.sender_id,
               })
               if (decision.alert) playSound('pulse')
             }
