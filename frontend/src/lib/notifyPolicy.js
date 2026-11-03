@@ -1,4 +1,6 @@
 // Decides whether an incoming message should make a sound or alert.
+import { isSilenced, isAllowedThrough } from './focus'
+
 // Pure functions, no React, no DOM: the same rules are mirrored in the database
 // (notification_plan() in step5_notifications.sql) for push notifications, and tested against each other.
 
@@ -32,17 +34,22 @@ export function mentionsUser(text, username) {
 }
 
 /*
- * settings: { dnd, quietHours, mentionsOnly, previews, timezone }  (missing values mean the defaults)
+ * settings: { dnd, focus, quietHours, mentionsOnly, previews, timezone }  (missing values mean the defaults)
  * Returns { alert, reason, preview }
  *   alert   false = stay quiet (no sound, no push)
- *   reason  'dnd' | 'quiet_hours' | 'mentions_only' | null
+ *   reason  'dnd' | 'focus' | 'quiet_hours' | 'mentions_only' | null
+ * Order: do not disturb, then Focus (people on the list get through, even during quiet hours), then quiet hours,
+ * then mentions-only.
  *   preview whether notifications may show the message text
  * Calls are not covered: they keep ringing.
  */
-export function notifyDecision({ settings = {}, now = new Date(), isGroup = false, text = '', myUsername = '' } = {}) {
+export function notifyDecision({ settings = {}, now = new Date(), isGroup = false, text = '', myUsername = '', senderId = null } = {}) {
   const preview = settings.previews !== false
   if (settings.dnd === true) return { alert: false, reason: 'dnd', preview }
-  if (inQuietHours(settings.quietHours, localClock(now, settings.timezone))) return { alert: false, reason: 'quiet_hours', preview }
+  const nowMs = now.getTime()
+  if (isSilenced(settings.focus, senderId, nowMs)) return { alert: false, reason: 'focus', preview }
+  const viaFocus = isAllowedThrough(settings.focus, senderId, nowMs)
+  if (!viaFocus && inQuietHours(settings.quietHours, localClock(now, settings.timezone))) return { alert: false, reason: 'quiet_hours', preview }
   if (isGroup && settings.mentionsOnly === true && !mentionsUser(text, myUsername)) return { alert: false, reason: 'mentions_only', preview }
   return { alert: true, reason: null, preview }
 }
