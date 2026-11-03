@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { DEFAULT_FOCUS } from './focus'
 import '../styles/appearance.css'
 
 /*
@@ -40,6 +41,7 @@ export function getDefaults() {
     reduceMotion: osPrefersReducedMotion(), // start from the device's accessibility setting
     // notifications (step 5)
     dnd: false, quietHours: 'off', previews: true, mentionsOnly: false,
+    focus: { ...DEFAULT_FOCUS }, // Focus modes: which one is on, until when, and who may reach you
     timezone: deviceTimeZone(), // quiet hours are evaluated in this zone, on the server and in the app
     // data
     dataSaver: false, autoDownload: 'wifi',
