@@ -2798,6 +2798,10 @@ shareConversations={conversations.map(c => ({
     profile={profile}
     badge={profileLoaded && profile?.is_admin ? <VerifiedBadge size={18} /> : null}
     email={session.user.email}
+    contacts={conversations
+      .filter(c => !c.is_group && !c.isCurryAI)
+      .map(c => ({ id: getOtherUserId(c, userId), name: getConvoName(c), avatarUrl: getOtherUserAvatar(c, userId) }))
+      .filter(c => c.id)}
     stats={{
       chatsCount: conversations.length,
       sharedWithCurryCount: sharedConvoIds.size,
