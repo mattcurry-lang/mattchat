@@ -1,11 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 
 /* ────────────────────────────────────────────────────────────────────────
    MATH ENGINE
-   A small hand-written tokenizer + recursive-descent parser. No eval().
-   Supports: + - * / % ^ ! ( ) implicit multiplication, decimals,
-   unary minus, sin/cos/tan/asin/acos/atan/log/ln/sqrt/cbrt/abs, π, e.
-   DEG mode converts trig input to radians and inverse-trig output to degrees.
    ──────────────────────────────────────────────────────────────────────── */
 
 const FUNC_NAMES = new Set(['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'log', 'ln', 'sqrt', 'cbrt', 'abs'])
@@ -48,20 +45,20 @@ function applyFunction(name, arg, degMode) {
     case 'cos': return Math.cos(toRad(arg))
     case 'tan': return Math.tan(toRad(arg))
     case 'asin':
-      if (arg < -1 || arg > 1) throw new Error('sin\u207B\u00B9 needs a value between -1 and 1')
+      if (arg < -1 || arg > 1) throw new Error('sin\u207B\u00B9 needs value between -1 and 1')
       return toDeg(Math.asin(arg))
     case 'acos':
-      if (arg < -1 || arg > 1) throw new Error('cos\u207B\u00B9 needs a value between -1 and 1')
+      if (arg < -1 || arg > 1) throw new Error('cos\u207B\u00B9 needs value between -1 and 1')
       return toDeg(Math.acos(arg))
     case 'atan': return toDeg(Math.atan(arg))
     case 'log':
-      if (arg <= 0) throw new Error('log needs a positive number')
+      if (arg <= 0) throw new Error('log needs positive number')
       return Math.log10(arg)
     case 'ln':
-      if (arg <= 0) throw new Error('ln needs a positive number')
+      if (arg <= 0) throw new Error('ln needs positive number')
       return Math.log(arg)
     case 'sqrt':
-      if (arg < 0) throw new Error('Can\u2019t take the square root of a negative number')
+      if (arg < 0) throw new Error('Can\u2019t square root negative')
       return Math.sqrt(arg)
     case 'cbrt': return Math.cbrt(arg)
     case 'abs': return Math.abs(arg)
@@ -77,7 +74,7 @@ function evaluateExpression(expr, degMode) {
   const next = () => tokens[pos++]
   const expectOp = (v) => {
     const t = next()
-    if (!t || t.type !== 'op' || t.value !== v) throw new Error('Syntax error — check your parentheses')
+    if (!t || t.type !== 'op' || t.value !== v) throw new Error('Syntax error')
   }
   const canStartFactor = (t) => {
     if (!t) return false
@@ -104,13 +101,12 @@ function evaluateExpression(expr, degMode) {
         const op = next().value
         const rhs = parsePower()
         if (op === '/') {
-          if (rhs === 0) throw new Error('Can\u2019t divide by zero')
+          if (rhs === 0) throw new Error('Division by zero')
           val = val / rhs
         } else {
           val = val * rhs
         }
       } else if (canStartFactor(t)) {
-        // implicit multiplication, e.g. 2(3+4) or 3π
         const rhs = parsePower()
         val = val * rhs
       } else break
@@ -122,7 +118,7 @@ function evaluateExpression(expr, degMode) {
     const base = parseUnary()
     if (peek() && peek().type === 'op' && peek().value === '^') {
       next()
-      const exp = parsePower() // right-associative
+      const exp = parsePower()
       return Math.pow(base, exp)
     }
     return base
@@ -141,8 +137,8 @@ function evaluateExpression(expr, degMode) {
     while (peek() && peek().type === 'op' && (peek().value === '!' || peek().value === '%')) {
       const op = next().value
       if (op === '!') {
-        if (val < 0 || !Number.isInteger(val)) throw new Error('Factorial needs a non-negative whole number')
-        if (val > 170) throw new Error('That factorial is too large')
+        if (val < 0 || !Number.isInteger(val)) throw new Error('Factorial needs whole number')
+        if (val > 170) throw new Error('Number too large')
         let f = 1
         for (let k = 2; k <= val; k++) f *= k
         val = f
@@ -155,7 +151,7 @@ function evaluateExpression(expr, degMode) {
 
   function parsePrimary() {
     const t = peek()
-    if (!t) throw new Error('Expression ended unexpectedly')
+    if (!t) throw new Error('Unexpected end')
     if (t.type === 'num') { next(); return t.value }
     if (t.type === 'op' && t.value === '(') {
       next()
@@ -178,8 +174,8 @@ function evaluateExpression(expr, degMode) {
   }
 
   const result = parseExpr()
-  if (pos !== tokens.length) throw new Error('Syntax error — check your expression')
-  if (!Number.isFinite(result)) throw new Error('That expression doesn\u2019t produce a real number')
+  if (pos !== tokens.length) throw new Error('Syntax error')
+  if (!Number.isFinite(result)) throw new Error('Not a real number')
   return result
 }
 
@@ -205,7 +201,7 @@ function formatResult(n) {
 }
 
 /* ────────────────────────────────────────────────────────────────────────
-   HISTORY (localStorage, per-user)
+   STORAGE & PALETTE
    ──────────────────────────────────────────────────────────────────────── */
 
 const historyKey = (userId) => `mattchat_calc_history_${userId || 'guest'}`
@@ -222,40 +218,22 @@ function loadHistory(userId) {
 function saveHistory(userId, list) {
   try {
     localStorage.setItem(historyKey(userId), JSON.stringify(list.slice(0, 50)))
-  } catch {
-    // storage unavailable — fail silently, history just won't persist
-  }
+  } catch {}
 }
-
-/* ────────────────────────────────────────────────────────────────────────
-   COLORS
-   The calculator is a deliberately self-contained dark surface — like the
-   camera or calculator app on a phone, it doesn't flip with system light
-   mode. That's also what fixes the illegible-text bug from before: every
-   color here is chosen against this exact background, instead of
-   inheriting a text color meant for whatever the rest of Mattchat is doing.
-   ──────────────────────────────────────────────────────────────────────── */
 
 const C = {
-  bg: '#0c0c16',
-  panel: '#15151f',
-  key: '#1b1b28',
-  keyPress: '#232333',
-  border: 'rgba(255,255,255,0.07)',
-  textPrimary: '#f4f3f8',
-  textSecondary: '#9a9aab',
-  textMuted: '#67677a',
-  accent: '#a78bfa',
-  accentSoft: 'rgba(167,139,250,0.16)',
-  accentBorder: 'rgba(167,139,250,0.35)',
-  accentText: '#d6c9ff',
-  danger: '#f87171',
+  bg: '#0f0e17',
+  displayBg: '#151421',
+  keyNum: '#1f1e2e',
+  keyUtil: '#28263d',
+  keyOp: '#6c63ff',
+  keyEquals: 'linear-gradient(135deg, #7c73ff, #5848c2)',
+  textPrimary: '#ffffff',
+  textSecondary: '#a5a3bc',
+  textMuted: '#6e6c88',
+  border: 'rgba(255,255,255,0.06)',
+  danger: '#ff6b6b',
 }
-
-/* ────────────────────────────────────────────────────────────────────────
-   ICON — an original Mattchat calculator mark (display bar + key grid,
-   with the "=" key picked out), used here and in the Mattchat Tools card.
-   ──────────────────────────────────────────────────────────────────────── */
 
 export function CalculatorGlyph({ size = 18, color = '#fff' }) {
   return (
@@ -270,10 +248,6 @@ export function CalculatorGlyph({ size = 18, color = '#fff' }) {
   )
 }
 
-/* ────────────────────────────────────────────────────────────────────────
-   BUTTON DATA
-   ──────────────────────────────────────────────────────────────────────── */
-
 const SCI_BUTTONS = [
   { label: 'sin', insert: 'sin(' },
   { label: 'cos', insert: 'cos(' },
@@ -285,12 +259,12 @@ const SCI_BUTTONS = [
   { label: 'ln', insert: 'ln(' },
   { label: '\u221A', insert: 'sqrt(' },
   { label: '\u221B', insert: 'cbrt(' },
-  { label: 'x\u00B2', insert: '^2', noOpenParen: true },
-  { label: 'x\u00B3', insert: '^3', noOpenParen: true },
+  { label: 'x\u00B2', insert: '^2' },
+  { label: 'x\u00B3', insert: '^3' },
   { label: 'x\u02B8', insert: '^' },
   { label: '10\u02E3', insert: '10^(' },
   { label: 'e\u02E3', insert: 'e^(' },
-  { label: 'x!', insert: '!', noOpenParen: true },
+  { label: 'x!', insert: '!' },
   { label: '|x|', insert: 'abs(' },
   { label: '\u03C0', insert: '\u03C0' },
   { label: 'e', insert: 'e' },
@@ -408,7 +382,6 @@ export default function ScientificCalculator({ userId, onClose, onExplainWithCur
     saveHistory(userId, [])
   }
 
-  // Keyboard support (desktop)
   useEffect(() => {
     const onKeyDown = (e) => {
       const key = e.key
@@ -420,53 +393,49 @@ export default function ScientificCalculator({ userId, onClose, onExplainWithCur
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  
   }, [expr, degMode])
 
   const explainDisabled = result === null || !!error
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 700, background: C.bg, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Header */}
+    <div style={{ position: 'fixed', inset: 0, zIndex: 700, background: C.bg, display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      {/* Top Navigation */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 16px', borderBottom: `1px solid ${C.border}`, flexShrink: 0,
-      }}
-      >
+        padding: '16px 20px', borderBottom: `1px solid ${C.border}`, flexShrink: 0,
+      }}>
         <button
           onClick={onClose}
           aria-label="Close calculator"
           style={{
-            width: 32, height: 32, borderRadius: '50%', border: `1px solid ${C.border}`,
-            background: C.key, color: C.textPrimary, display: 'flex',
-            alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
+            width: 36, height: 36, borderRadius: '50%', border: `1px solid ${C.border}`,
+            background: C.keyNum, color: C.textPrimary, display: 'flex',
+            alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
         </button>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{
-            width: 26, height: 26, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'linear-gradient(135deg,#a78bfa,#6c63ff)',
-          }}
-          >
-            <CalculatorGlyph size={15} />
+          <div style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #7c73ff, #5848c2)' }}>
+            <CalculatorGlyph size={16} />
           </div>
-          <h2 style={{ fontSize: 15, fontWeight: 800, color: C.textPrimary, margin: 0 }}>Scientific Calculator</h2>
+          <span style={{ fontSize: 16, fontWeight: 700, color: C.textPrimary, letterSpacing: '-0.01em' }}>Calculator</span>
         </div>
+
         <button
           onClick={() => setDegMode((d) => !d)}
-          style={{ display: 'flex', gap: 2, background: C.key, border: `1px solid ${C.border}`, borderRadius: 20, padding: 3, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
+          style={{ display: 'flex', background: C.keyNum, border: `1px solid ${C.border}`, borderRadius: 20, padding: 3, cursor: 'pointer' }}
           aria-label="Toggle degrees or radians"
         >
           {['DEG', 'RAD'].map((m) => (
             <span
               key={m}
               style={{
-                fontSize: 10.5, fontWeight: 800, padding: '5px 9px', borderRadius: 16,
+                fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 16,
                 color: (m === 'DEG') === degMode ? '#fff' : C.textSecondary,
-                background: (m === 'DEG') === degMode ? 'linear-gradient(135deg,#a78bfa,#6c63ff)' : 'transparent',
-                transition: 'all 0.2s ease',
+                background: (m === 'DEG') === degMode ? '#6c63ff' : 'transparent',
+                transition: 'all 0.15s ease',
               }}
             >
               {m}
@@ -475,117 +444,103 @@ export default function ScientificCalculator({ userId, onClose, onExplainWithCur
         </button>
       </div>
 
-      {/* Scrollable body, centered on wide/desktop screens so keys never stretch huge */}
-      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-        <div style={{ maxWidth: 420, margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
-          {/* Display */}
-          <div style={{ padding: '16px 16px 8px' }}>
+      {/* Calculator Body Container */}
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+        <div style={{ width: '100%', maxWidth: 390, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          
+          {/* Display screen */}
+          <div style={{
+            background: C.displayBg, border: `1px solid ${C.border}`, borderRadius: 24,
+            padding: '20px 22px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+            minHeight: 110, boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.3)'
+          }}>
             {prevCalc && (
-              <div style={{ fontSize: 12, color: C.textMuted, textAlign: 'right', marginBottom: 4 }}>
+              <div style={{ fontSize: 13, color: C.textMuted, textAlign: 'right', marginBottom: 4 }}>
                 {formatDisplay(prevCalc.expr)} = {prevCalc.result}
               </div>
             )}
             <div
               ref={displayRef}
               style={{
-                fontSize: expr.length > 16 ? 20 : 26, fontWeight: 700, color: C.textPrimary,
-                textAlign: 'right', overflowX: 'auto', whiteSpace: 'nowrap', minHeight: 32,
-                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                fontSize: expr.length > 18 ? 22 : 28, fontWeight: 600, color: C.textPrimary,
+                textAlign: 'right', overflowX: 'auto', whiteSpace: 'nowrap', minHeight: 36,
+                fontFamily: 'ui-monospace, SFMono-Regular, monospace', letterSpacing: '-0.5px'
               }}
             >
               {expr ? formatDisplay(expr) : <span style={{ color: C.textMuted }}>0</span>}
             </div>
-            <div style={{ fontSize: 28, fontWeight: 800, textAlign: 'right', marginTop: 4, minHeight: 36, color: error ? C.danger : C.accent }}>
+            <div style={{ fontSize: 32, fontWeight: 700, textAlign: 'right', marginTop: 6, minHeight: 40, color: error ? C.danger : '#a78bfa', letterSpacing: '-0.5px' }}>
               {error ? error : (result !== null ? `= ${result}` : '')}
             </div>
-
-            {!explainDisabled && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
-                <button
-                  onClick={() => onExplainWithCurry?.({ expression: formatDisplay(expr), result })}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700,
-                    background: C.accentSoft, border: `1px solid ${C.accentBorder}`,
-                    color: C.accentText, borderRadius: 20, padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit',
-                  }}
-                >
-                  ✨ Explain with Curry
-                </button>
-              </div>
-            )}
           </div>
 
-          {/* History */}
-          <div style={{ padding: '0 16px' }}>
+          {/* Action Row: Explain with Curry & History toggles */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
             <button
               onClick={() => setShowHistory((v) => !v)}
               style={{
-                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                background: C.panel, border: `1px solid ${C.border}`, borderRadius: 12,
-                padding: '9px 14px', cursor: 'pointer', fontFamily: 'inherit', color: C.textPrimary,
+                background: 'transparent', border: 'none', color: C.textSecondary,
+                fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, padding: 0
               }}
             >
-              <span style={{ fontSize: 12, fontWeight: 700 }}>History {history.length > 0 ? `(${history.length})` : ''}</span>
-              <span style={{ fontSize: 11, color: C.textMuted, transform: showHistory ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}>⌄</span>
+              <span>History</span>
+              <span style={{ fontSize: 10, transform: showHistory ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
             </button>
 
-            {showHistory && (
-              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
-                {history.length === 0 && (
-                  <div style={{ fontSize: 12, color: C.textMuted, textAlign: 'center', padding: '10px 0' }}>No calculations yet.</div>
-                )}
-                {history.length > 0 && (
-                  <button
-                    onClick={clearAllHistory}
-                    style={{ alignSelf: 'flex-end', fontSize: 11, color: C.danger, background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700 }}
-                  >
-                    Clear all
-                  </button>
-                )}
-                {history.map((h) => (
-                  <div
-                    key={h.id}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-                      background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, padding: '7px 10px',
-                    }}
-                  >
-                    <button
-                      onClick={() => reuseHistory(h)}
-                      style={{ flex: 1, textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit', color: C.textPrimary }}
-                    >
-                      <div style={{ fontSize: 11.5, color: C.textMuted }}>{formatDisplay(h.expr)}</div>
-                      <div style={{ fontSize: 13, fontWeight: 700 }}>= {h.result}</div>
-                    </button>
-                    <button
-                      onClick={() => deleteHistoryItem(h.id)}
-                      aria-label="Delete calculation"
-                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: C.textMuted, fontSize: 13, padding: 4 }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
+            {!explainDisabled && (
+              <button
+                onClick={() => onExplainWithCurry?.({ expression: formatDisplay(expr), result })}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700,
+                  background: 'rgba(108, 99, 255, 0.15)', border: '1px solid rgba(108, 99, 255, 0.35)',
+                  color: '#d0cbfd', borderRadius: 20, padding: '6px 14px', cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                ✨ Explain with Curry
+              </button>
             )}
           </div>
 
-          {/* Scientific panel toggle */}
-          <div style={{ padding: '12px 16px 0' }}>
-            <button
-              onClick={() => setShowSci((v) => !v)}
-              style={{
-                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                color: C.textSecondary, fontSize: 11, fontWeight: 700, padding: '4px 0',
-              }}
-            >
-              {showSci ? 'Hide' : 'Show'} scientific functions {showSci ? '▲' : '▼'}
-            </button>
-          </div>
+          {/* History Drawer Dropdown */}
+          {showHistory && (
+            <div style={{
+              background: C.displayBg, border: `1px solid ${C.border}`, borderRadius: 18,
+              padding: '12px', maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6
+            }}>
+              {history.length === 0 && (
+                <div style={{ fontSize: 12.5, color: C.textMuted, textAlign: 'center', padding: '12px 0' }}>No calculation history.</div>
+              )}
+              {history.length > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', paddingBottom: 4 }}>
+                  <button onClick={clearAllHistory} style={{ fontSize: 11, color: C.danger, background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 700 }}>Clear all</button>
+                </div>
+              )}
+              {history.map((h) => (
+                <div key={h.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: C.keyNum, borderRadius: 12, padding: '8px 12px' }}>
+                  <button onClick={() => reuseHistory(h)} style={{ flex: 1, textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', color: C.textPrimary }}>
+                    <div style={{ fontSize: 11.5, color: C.textMuted }}>{formatDisplay(h.expr)}</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 700 }}>= {h.result}</div>
+                  </button>
+                  <button onClick={() => deleteHistoryItem(h.id)} style={{ background: 'transparent', border: 'none', color: C.textMuted, cursor: 'pointer', fontSize: 13, padding: 4 }}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
 
+          {/* Scientific Mode Toggle */}
+          <button
+            onClick={() => setShowSci((v) => !v)}
+            style={{
+              width: '100%', background: C.keyNum, border: `1px solid ${C.border}`, borderRadius: 14,
+              padding: '8px', color: C.textSecondary, fontSize: 12, fontWeight: 700, cursor: 'pointer'
+            }}
+          >
+            {showSci ? 'Standard Keypad' : 'Scientific Keypad'}
+          </button>
+
+          {/* Scientific Grid */}
           {showSci && (
-            <div style={{ padding: '4px 16px 4px', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
               {SCI_BUTTONS.map((btn) => (
                 <CalcButton key={btn.label} onClick={() => handleButton(btn)} variant="sci">
                   {btn.label}
@@ -594,38 +549,40 @@ export default function ScientificCalculator({ userId, onClose, onExplainWithCur
             </div>
           )}
 
-          {/* Keypad */}
-          <div style={{ padding: '8px 16px 20px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+          {/* Standard Keypad Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
             <CalcButton onClick={handleClear} variant="util">AC</CalcButton>
             <CalcButton onClick={() => insert('(')} variant="util">(</CalcButton>
             <CalcButton onClick={() => insert(')')} variant="util">)</CalcButton>
-            <CalcButton onClick={() => insert('%')} variant="util">%</CalcButton>
+            <CalcButton onClick={() => insert('/')} variant="op">÷</CalcButton>
 
             <CalcButton onClick={() => insert('7')}>7</CalcButton>
             <CalcButton onClick={() => insert('8')}>8</CalcButton>
             <CalcButton onClick={() => insert('9')}>9</CalcButton>
-            <CalcButton onClick={() => insert('/')} variant="op">÷</CalcButton>
+            <CalcButton onClick={() => insert('*')} variant="op">×</CalcButton>
 
             <CalcButton onClick={() => insert('4')}>4</CalcButton>
             <CalcButton onClick={() => insert('5')}>5</CalcButton>
             <CalcButton onClick={() => insert('6')}>6</CalcButton>
-            <CalcButton onClick={() => insert('*')} variant="op">×</CalcButton>
+            <CalcButton onClick={() => insert('-')} variant="op">−</CalcButton>
 
             <CalcButton onClick={() => insert('1')}>1</CalcButton>
             <CalcButton onClick={() => insert('2')}>2</CalcButton>
             <CalcButton onClick={() => insert('3')}>3</CalcButton>
-            <CalcButton onClick={() => insert('-')} variant="op">−</CalcButton>
-
-            <CalcButton onClick={handleToggleSign}>±</CalcButton>
-            <CalcButton onClick={() => insert('0')}>0</CalcButton>
-            <CalcButton onClick={() => insert('.')}>.</CalcButton>
             <CalcButton onClick={() => insert('+')} variant="op">+</CalcButton>
 
-            <CalcButton onClick={handleDelete} variant="util">⌫</CalcButton>
-            <div style={{ gridColumn: 'span 3' }}>
-              <CalcButton onClick={handleEquals} variant="equals" full>=</CalcButton>
-            </div>
+            <CalcButton onClick={handleToggleSign} variant="util">±</CalcButton>
+            <CalcButton onClick={() => insert('0')}>0</CalcButton>
+            <CalcButton onClick={() => insert('.')}>.</CalcButton>
+            <CalcButton onClick={handleEquals} variant="equals">=</CalcButton>
           </div>
+
+          {/* Extra row for Backspace & Percentage */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <CalcButton onClick={() => insert('%')} variant="util">%</CalcButton>
+            <CalcButton onClick={handleDelete} variant="util">⌫ Delete</CalcButton>
+          </div>
+
         </div>
       </div>
     </div>
@@ -636,11 +593,11 @@ function CalcButton({ children, onClick, variant = 'num' }) {
   const [pressed, setPressed] = useState(false)
 
   const styles = {
-    num: { background: C.key, border: `1px solid ${C.border}`, color: C.textPrimary },
-    op: { background: C.accentSoft, border: `1px solid ${C.accentBorder}`, color: C.accentText },
-    util: { background: C.panel, border: `1px solid ${C.border}`, color: C.textSecondary },
-    sci: { background: C.panel, border: `1px solid ${C.border}`, color: C.textSecondary, fontSize: 11.5 },
-    equals: { background: 'linear-gradient(135deg,#a78bfa,#6c63ff)', border: 'none', color: '#fff' },
+    num: { background: C.keyNum, color: C.textPrimary },
+    op: { background: '#2d2b48', color: '#a78bfa' },
+    util: { background: C.keyUtil, color: C.textSecondary },
+    sci: { background: C.keyUtil, color: C.textSecondary, fontSize: 12 },
+    equals: { background: C.keyEquals, color: '#ffffff' },
   }
 
   return (
@@ -653,20 +610,20 @@ function CalcButton({ children, onClick, variant = 'num' }) {
       onTouchEnd={() => setPressed(false)}
       style={{
         ...styles[variant],
-        width: '100%',
-        height: variant === 'sci' ? 34 : 46,
-        borderRadius: 12,
-        fontSize: variant === 'sci' ? 11.5 : 16,
-        fontWeight: 700,
+        height: variant === 'sci' ? 40 : 54,
+        borderRadius: 16,
+        border: `1px solid ${C.border}`,
+        fontSize: variant === 'sci' ? 12 : 18,
+        fontWeight: 600,
         cursor: 'pointer',
         fontFamily: 'inherit',
-        transform: pressed ? 'scale(0.94)' : 'scale(1)',
-        transition: 'transform 0.08s ease, filter 0.15s ease, background 0.15s ease',
-        filter: pressed ? 'brightness(1.25)' : 'none',
-        background: pressed && variant === 'num' ? C.keyPress : styles[variant].background,
+        transform: pressed ? 'scale(0.95)' : 'scale(1)',
+        transition: 'transform 0.08s ease, filter 0.15s ease',
+        filter: pressed ? 'brightness(1.3)' : 'none',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        boxShadow: variant === 'equals' ? '0 4px 14px rgba(108, 99, 255, 0.4)' : 'none'
       }}
     >
       {children}
