@@ -1,22 +1,13 @@
-// src/components/Pulse/DeKUTHubCard.jsx
 import React, { useState } from 'react'
+import { motion } from 'framer-motion'
 import { DekutIcon, ICON_GRADIENTS } from './dekutIcons'
 import { DEKUT_CATEGORIES, DEFAULT_FEATURED_IDS, getServiceById } from '../../data/dekutServices'
 import { useDekutUsage } from '../../hooks/useDekutUsage'
 import DekutServicesModal from './DekutServicesModal'
 import { openDekutService } from '../../utils/dekutOpenService'
- 
 
-// onNavigate: (route, service) => void — forwarded from PulsePage so
-// internal services (Room Finder, Fresher Guide, Ask Curry, etc.) can
-// route to their in-app page.
- 
-// should be true whenever PulsePage already has some other fullscreen
-// view open (RoomFinder, FresherMode, the calculator, etc.) so the
-// floating orb never visually stacks on top of another fullscreen layer.
 export default function DeKUTHubCard({ onNavigate, userId, orbHidden }) {
-  const [hovered, setHovered] = useState(null)
-  const [pressed, setPressed] = useState(null)
+  const [hoveredId, setHoveredId] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
   const usage = useDekutUsage('dekut')
 
@@ -30,103 +21,129 @@ export default function DeKUTHubCard({ onNavigate, userId, orbHidden }) {
   }
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       style={{
         position: 'relative',
-        borderRadius: 20,
-        padding: 16,
-        background: 'var(--bg-surface-2)',
-        border: '1px solid var(--border)',
-        backdropFilter: 'blur(14px)',
-        WebkitBackdropFilter: 'blur(14px)',
+        borderRadius: 24,
+        padding: '20px 18px',
+        background: 'linear-gradient(145deg, rgba(30, 26, 60, 0.9) 0%, rgba(18, 15, 38, 0.95) 100%)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        border: '1px solid rgba(167,139,250,0.25)',
+        boxShadow: '0 15px 35px -10px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
         overflow: 'hidden',
       }}
     >
+      {/* Background ambient light orb */}
       <div
         aria-hidden="true"
         style={{
-          position: 'absolute', top: -40, right: -40, width: 140, height: 140,
-          borderRadius: '50%', background: 'radial-gradient(circle, rgba(167,139,250,0.22), transparent 70%)',
+          position: 'absolute', top: -50, right: -50, width: 150, height: 150,
+          borderRadius: '50%', background: 'radial-gradient(circle, rgba(167,139,250,0.25), transparent 70%)',
           pointerEvents: 'none',
         }}
       />
 
-      <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6, position: 'relative' }}>
-        <span aria-hidden="true">🎓</span> DeKUT Hub
-      </div>
-      <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginBottom: 12, position: 'relative' }}>
-        All your DeKUT services, one tap away.
+      {/* Header section */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, position: 'relative', zIndex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ 
+            width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(135deg, #6c63ff, #a78bfa)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, boxShadow: '0 4px 12px rgba(108,99,255,0.4)'
+          }}>
+            🎓
+          </div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', letterSpacing: '-0.01em' }}>DeKUT Hub</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 500 }}>Dedan Kimathi University Portal</div>
+          </div>
+        </div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.12)', padding: '4px 10px', borderRadius: 20, border: '1px solid rgba(167,139,250,0.2)' }}>
+          Campus Live
+        </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, position: 'relative' }}>
+      {/* Featured Service List */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, position: 'relative', zIndex: 1 }}>
         {featured.map((service) => {
-          const isHovered = hovered === service.id
-          const isPressed = pressed === service.id
+          const isHovered = hoveredId === service.id
           return (
-            <button
+            <motion.button
               key={service.id}
               onClick={() => openService(service)}
-              onMouseEnter={() => setHovered(service.id)}
-              onMouseLeave={() => { setHovered(null); setPressed(null) }}
-              onMouseDown={() => setPressed(service.id)}
-              onMouseUp={() => setPressed(null)}
+              onMouseEnter={() => setHoveredId(service.id)}
+              onMouseLeave={() => setHoveredId(null)}
+              whileHover={{ scale: 1.01, translateY: -1 }}
+              whileTap={{ scale: 0.98 }}
               aria-label={service.type === 'internal' ? `Open ${service.name}` : `Open DeKUT ${service.name} in a new tab`}
               style={{
                 display: 'flex', alignItems: 'center', gap: 12,
-                background: isHovered ? 'var(--bg-surface-1, rgba(0,0,0,0.04))' : 'transparent',
-                border: '1px solid var(--border)',
-                borderRadius: 14,
-                padding: '11px 12px',
+                background: isHovered ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)',
+                border: isHovered ? '1px solid rgba(167,139,250,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 16,
+                padding: '12px 14px',
                 cursor: 'pointer',
                 textAlign: 'left',
                 fontFamily: 'inherit',
                 width: '100%',
-                transform: isPressed ? 'scale(0.98)' : isHovered ? 'translateY(-2px)' : 'translateY(0px)',
-                boxShadow: isHovered ? '0 8px 20px -8px rgba(108,99,255,0.35)' : 'none',
-                transition: 'transform 160ms ease, box-shadow 200ms ease, background 160ms ease',
+                boxShadow: isHovered ? '0 8px 20px -6px rgba(108,99,255,0.3)' : 'none',
+                transition: 'background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
               }}
             >
               <div style={{
-                width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-                background: ICON_GRADIENTS[service.icon],
+                width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+                background: ICON_GRADIENTS[service.icon] || 'linear-gradient(135deg, #6c63ff, #a78bfa)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transform: isHovered ? 'scale(1.06) rotate(-3deg)' : 'scale(1) rotate(0deg)',
-                transition: 'transform 200ms ease',
+                boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+                transform: isHovered ? 'scale(1.05) rotate(-3deg)' : 'scale(1) rotate(0deg)',
+                transition: 'transform 0.2s ease',
               }}>
                 <DekutIcon type={service.icon} />
               </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>{service.name}</div>
-                <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>{service.name}</div>
+                <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.55)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {service.description}
                 </div>
               </div>
 
-              <span style={{ flexShrink: 0, opacity: isHovered ? 1 : 0.5, transition: 'opacity 160ms ease' }}>
-                <DekutIcon type={service.type === 'internal' ? 'chevronRight' : 'externalLink'} size={14} color="var(--text-secondary)" strokeWidth={2} />
-              </span>
-            </button>
+              <div style={{ 
+                width: 28, height: 28, borderRadius: '50%', background: isHovered ? 'rgba(167,139,250,0.2)' : 'rgba(255,255,255,0.05)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                transition: 'background 0.2s ease'
+              }}>
+                <DekutIcon type={service.type === 'internal' ? 'chevronRight' : 'externalLink'} size={13} color={isHovered ? '#a78bfa' : 'rgba(255,255,255,0.6)'} strokeWidth={2.2} />
+              </div>
+            </motion.button>
           )
         })}
 
-        <button
+        {/* See More Button */}
+        <motion.button
           onClick={() => setModalOpen(true)}
+          whileHover={{ scale: 1.01, backgroundColor: 'rgba(167,139,250,0.15)' }}
+          whileTap={{ scale: 0.98 }}
           style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            background: 'transparent',
-            border: '1px dashed var(--border)',
-            borderRadius: 14,
-            padding: '10px 12px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            background: 'rgba(167,139,250,0.08)',
+            border: '1px dashed rgba(167,139,250,0.35)',
+            borderRadius: 16,
+            padding: '11px 14px',
             cursor: 'pointer',
             fontFamily: 'inherit',
             fontSize: 13, fontWeight: 700,
-            color: 'var(--text-primary)',
-            marginTop: 2,
+            color: '#c4b5fd',
+            marginTop: 4,
+            transition: 'background 0.2s ease',
           }}
         >
-          See More <DekutIcon type="chevronRight" size={14} color="var(--text-primary)" strokeWidth={2.2} />
-        </button>
+          <span>Explore All DeKUT Services & Portals</span>
+          <DekutIcon type="chevronRight" size={14} color="#c4b5fd" strokeWidth={2.5} />
+        </motion.button>
       </div>
 
       {modalOpen && (
@@ -137,8 +154,6 @@ export default function DeKUTHubCard({ onNavigate, userId, orbHidden }) {
           onClose={() => setModalOpen(false)}
         />
       )}
-
-       
-    </div>
+    </motion.div>
   )
 }
