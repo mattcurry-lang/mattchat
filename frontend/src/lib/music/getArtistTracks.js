@@ -5,8 +5,7 @@ import { MattchatProvider } from './providers/MattchatProvider'
 export async function getArtistTracks(track) {
   switch (track.provider) {
     case 'mattchat': return MattchatProvider.getArtistTracks(track.artistId)
-    case 'audius':   return audiusProvider.getArtistTracks(track.artistId)
-    case 'jamendo':  return jamendoProvider.getArtistTracks(track.artistId)
+    
     default:         return []   // YouTube etc.: never
   }
 }
