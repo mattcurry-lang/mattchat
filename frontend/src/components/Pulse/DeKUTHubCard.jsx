@@ -29,21 +29,20 @@ export default function DeKUTHubCard({ onNavigate, userId, orbHidden }) {
         position: 'relative',
         borderRadius: 24,
         padding: '22px 20px',
-        // Dynamically reacts to your app's theme using CSS variables
-        background: 'var(--bg-surface-2, linear-gradient(145deg, rgba(30, 26, 60, 0.9) 0%, rgba(18, 15, 38, 0.95) 100%))',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
+        background: 'var(--bg-surface-2, rgba(20, 16, 42, 0.85))',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
         border: '1px solid var(--border, rgba(167,139,250,0.25))',
-        boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.12)',
+        boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15)',
         overflow: 'hidden',
       }}
     >
-      {/* Exquisite Ambient Aura Orb */}
+      {/* Ambient background glow orb */}
       <div
         aria-hidden="true"
         style={{
           position: 'absolute', top: -60, right: -60, width: 160, height: 160,
-          borderRadius: '50%', background: 'radial-gradient(circle, rgba(167,139,250,0.3), transparent 70%)',
+          borderRadius: '50%', background: 'radial-gradient(circle, rgba(167,139,250,0.28), transparent 70%)',
           pointerEvents: 'none',
         }}
       />
@@ -60,7 +59,7 @@ export default function DeKUTHubCard({ onNavigate, userId, orbHidden }) {
           </div>
           <div>
             <div style={{ fontSize: 15.5, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>DeKUT Hub</div>
-            <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', fontWeight: 500 }}>Dedan Kimathi University Portal</div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-secondary, rgba(255,255,255,0.6))', fontWeight: 500 }}>Dedan Kimathi University Portal</div>
           </div>
         </div>
         <div style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.15)', padding: '5px 12px', borderRadius: 20, border: '1px solid rgba(167,139,250,0.3)' }}>
@@ -83,7 +82,8 @@ export default function DeKUTHubCard({ onNavigate, userId, orbHidden }) {
               aria-label={service.type === 'internal' ? `Open ${service.name}` : `Open DeKUT ${service.name} in a new tab`}
               style={{
                 display: 'flex', alignItems: 'center', gap: 14,
-                background: isHovered ? 'var(--bg-surface-1, rgba(255,255,255,0.07))' : 'rgba(255,255,255,0.03)',
+                // Fixed background contrast so text is never hidden on hover
+                background: isHovered ? 'rgba(167,139,250,0.12)' : 'rgba(255,255,255,0.03)',
                 border: isHovered ? '1px solid rgba(167,139,250,0.5)' : '1px solid var(--border, rgba(255,255,255,0.08))',
                 borderRadius: 16,
                 padding: '12px 14px',
@@ -107,8 +107,9 @@ export default function DeKUTHubCard({ onNavigate, userId, orbHidden }) {
               </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>{service.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {/* Explicit text color variables to guarantee visibility on hover */}
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary, #ffffff)', marginBottom: 2 }}>{service.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary, rgba(255,255,255,0.65))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {service.description}
                 </div>
               </div>
@@ -118,13 +119,13 @@ export default function DeKUTHubCard({ onNavigate, userId, orbHidden }) {
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 transition: 'background 0.2s ease'
               }}>
-                <DekutIcon type={service.type === 'internal' ? 'chevronRight' : 'externalLink'} size={13} color={isHovered ? '#a78bfa' : 'var(--text-secondary)'} strokeWidth={2.4} />
+                <DekutIcon type={service.type === 'internal' ? 'chevronRight' : 'externalLink'} size={13} color={isHovered ? '#a78bfa' : 'var(--text-secondary, rgba(255,255,255,0.6))'} strokeWidth={2.4} />
               </div>
             </motion.button>
           )
         })}
 
-        {/* Exquisite "See More" Button */}
+        {/* Explore All Button */}
         <motion.button
           onClick={() => setModalOpen(true)}
           whileHover={{ scale: 1.01, backgroundColor: 'rgba(167,139,250,0.18)' }}
