@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { useMusicPlayer } from '../../context/MusicPlayerContext'
 import { PlaylistService } from '../../../lib/music/PlaylistService'
 import { useDominantColor, rgba } from '../../../lib/music/extractColor'
-import { IconX, IconMusic, IconPlay, IconTrash, IconPencil, IconCheck, IconShuffle, IconHeart } from '../../Icons'
+import { IconX, IconMusic, IconPlay, IconTrash, IconPencil, IconCheck, IconShuffle } from '../../Icons'
 
 export default function PlaylistDetailOverlay({ playlistId, initialName, onClose, onDeleted, onRenamed }) {
   const { playTrack, toggleShuffle, shuffle } = useMusicPlayer()
@@ -54,7 +54,7 @@ export default function PlaylistDetailOverlay({ playlistId, initialName, onClose
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
       style={{ position: 'fixed', inset: 0, zIndex: 650, background: '#0b0b13', overflowY: 'auto', color: '#fff' }}
     >
-      {/* Immersive Hero Header (Spotify/Boomplay Hybrid) */}
+      {/* Immersive Hero Header */}
       <div style={{
         position: 'relative', padding: '32px 24px 28px',
         background: `linear-gradient(180deg, ${rgba(dominant, 0.85)} 0%, ${rgba(dominant, 0.35)} 65%, #0b0b13 100%)`,
@@ -112,11 +112,33 @@ export default function PlaylistDetailOverlay({ playlistId, initialName, onClose
             </div>
           </div>
 
-          {/* Action Buttons */}
+          {/* Action Buttons (Themed Play All Button) */}
           {tracks.length > 0 && (
             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
               <button onClick={() => handlePlayAll(false)}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 800, color: '#0b0b13', background: '#1ed760', border: 'none', borderRadius: 999, padding: '12px 28px', cursor: 'pointer', boxShadow: '0 4px 14px rgba(30,215,96,0.4)', transition: 'transform 0.1s' }}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 8, 
+                  fontSize: 14, 
+                  fontWeight: 800, 
+                  color: '#0b0b13', 
+                  background: '#ffffff', 
+                  border: 'none', 
+                  borderRadius: 999, 
+                  padding: '12px 28px', 
+                  cursor: 'pointer', 
+                  boxShadow: '0 4px 16px rgba(255, 255, 255, 0.25)', 
+                  transition: 'all 0.2s ease' 
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-1px)'
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(255, 255, 255, 0.35)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.boxShadow = '0 4px 16px rgba(255, 255, 255, 0.25)'
+                }}
                 onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.97)'}
                 onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
               >
