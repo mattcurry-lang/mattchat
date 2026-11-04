@@ -1,4 +1,4 @@
-// Time-synced lyrics from LRCLIB (https://lrclib.net), free, no API key.
+// Time-synced lyrics from LRCLIB (https://lrclib.net), free, no API key
 const API = 'https://lrclib.net/api'
 const mem = new Map()
 
