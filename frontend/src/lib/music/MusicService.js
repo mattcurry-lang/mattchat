@@ -1,8 +1,8 @@
-import { audiusProvider } from './providers/AudiusProvider'
+
 import { mattchatProviderAdapter } from './providers/MattchatProvider'
 import { YouTubeMusicProvider } from './providers/YouTubeMusicProvider'
 import { OfflineCache } from './OfflineCache'
-import { jamendoProvider } from './providers/JamendoProvider'
+
 
 /**
  * lib/music/MusicService.js
