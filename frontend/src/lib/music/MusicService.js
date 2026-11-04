@@ -1,32 +1,16 @@
-
 import { mattchatProviderAdapter } from './providers/MattchatProvider'
 import { YouTubeMusicProvider } from './providers/YouTubeMusicProvider'
 import { OfflineCache } from './OfflineCache'
-
 
 /**
  * lib/music/MusicService.js
  *
  * UI  →  MusicService  →  Provider Adapter  →  Provider API
  *
- * The UI imports ONLY this file, never a provider directly. Mattchat's
- * own catalog (Phase 4) is now registered here and merged into every
- * search alongside whichever external provider is active — Mattchat
- * artists surface first, Audius (or Spotify/Boomplay in Phase 5) fills
- * the rest. When Spotify/Boomplay come online they register the same
- * way, with routing decided here, not in the UI.
- *
- * NOTE: provider lookup is intentionally LAZY (a function, not a
- * module-scope object literal). Some providers import this file back
- * (e.g. to call setActiveProvider), which makes this a circular
- * import. Building `{ audius: audiusProvider, ... }` at module load
- * time reads those bindings before the cycle has finished resolving,
- * which throws "Cannot access '<name>' before initialization". Doing
- * the lookup inside a function defers it until call time, by which
- * point every module involved has finished initializing.
+ * Configured exclusively for YouTube Music and Mattchat catalog.
  */
 
-let activeProviderKey = 'audius'
+let activeProviderKey = 'youtube'
 
 export function setActiveProvider(key) {
   if (getProvider(key)) activeProviderKey = key
@@ -34,14 +18,10 @@ export function setActiveProvider(key) {
 
 function getProvider(key) {
   switch (key || activeProviderKey) {
-    case 'audius':
-      return audiusProvider
-    case 'mattchat':
-      return mattchatProviderAdapter
     case 'youtube':
       return YouTubeMusicProvider
-    case 'jamendo':
-      return jamendoProvider
+    case 'mattchat':
+      return mattchatProviderAdapter
     default:
       return null
   }
@@ -70,60 +50,49 @@ export const MusicService = {
     }
 
     const external = getProvider(activeProviderKey)
-  const [externalResults, mattchatResults, youtubeResults, jamendoResults] = await Promise.all([
-  external.search(query, opts),
-  activeProviderKey === 'mattchat' ? Promise.resolve(null) : mattchatProviderAdapter.search(query, opts).catch(() => ({ tracks: [] })),
-  YouTubeMusicProvider.search(query, { limit: 8 }).catch(() => ({ tracks: [] })),
-  jamendoProvider.search(query, { limit: 8 }).catch(() => ({ tracks: [] })),
-])
+    const [externalResults, mattchatResults] = await Promise.all([
+      external ? external.search(query, opts).catch(() => ({ tracks: [], artists: [], albums: [] })) : Promise.resolve({ tracks: [], artists: [], albums: [] }),
+      activeProviderKey === 'mattchat' ? Promise.resolve(null) : mattchatProviderAdapter.search(query, opts).catch(() => ({ tracks: [] })),
+    ])
 
-const data = {
-  tracks: [
-    ...(mattchatResults ? mattchatResults.tracks : []),
-    ...jamendoResults.tracks,     // free + downloadable, shown before mainstream
-    ...youtubeResults.tracks,
-    ...externalResults.tracks,
-  ],
-  artists: externalResults.artists || [],
-  albums: externalResults.albums || [],
-}
+    const data = {
+      tracks: [
+        ...(mattchatResults ? mattchatResults.tracks : []),
+        ...(externalResults.tracks || []),
+      ],
+      artists: externalResults.artists || [],
+      albums: externalResults.albums || [],
+    }
     searchCache.set(key, { data, at: Date.now() })
     return data
   },
 
   async getTrending(opts = {}) {
     const provider = getProvider(opts.provider)
-    return provider.getTrending(opts)
+    return provider ? provider.getTrending(opts) : { tracks: [] }
   },
 
   async getArtist(providerArtistId, opts = {}) {
     const provider = getProvider(opts.provider)
-    return provider.getArtist(providerArtistId)
+    return provider ? provider.getArtist(providerArtistId) : null
   },
 
   /**
-   * Resolves a playable URL for a track, filling it in on the track
-   * object if it wasn't already present from search results.
-   * Returns null (never throws) if the track can't be streamed so
-   * the player can show "Track unavailable" instead of crashing.
-   *
-   * Offline-first: any track that was downloaded (currently only ever
-   * Mattchat-provider tracks, since isDownloadable gates it) plays
-   * straight from IndexedDB with zero network round trip.
+   * Resolves a playable URL for a track.
    */
-async resolveStreamUrl(track) {
-  const offline = await OfflineCache.getBlobUrl(track.id).catch(() => null)
-  if (offline) return offline
+  async resolveStreamUrl(track) {
+    const offline = await OfflineCache.getBlobUrl(track.id).catch(() => null)
+    if (offline) return offline
 
-  if (track.streamUrl) return track.streamUrl
+    if (track.streamUrl) return track.streamUrl
 
-  try {
-    const provider = getProvider(track.provider)
-    return await provider.streamTrack(track.providerTrackId)
-  } catch {
-    return null
-  }
-},
+    try {
+      const provider = getProvider(track.provider)
+      return provider ? await provider.streamTrack(track.providerTrackId) : null
+    } catch {
+      return null
+    }
+  },
 
   getActiveProviderKey: () => activeProviderKey,
 }
