@@ -619,15 +619,16 @@ export default function ProfileCard({
       </div>
 
       {/* Contact Share Picker Modal Overlay */}
-      {showSharePicker && (
-        <PassContactSharePicker
-          passDuration={passDuration}
-          currentUserId={currentUserId}
-          myProfile={myProfile}
-          targetProfile={targetProfile}
-          onClose={() => setShowSharePicker(false)}
-        />
-      )}
+    {showSharePicker && (
+  <PassContactSharePicker
+    passDuration={passDuration}
+    currentUserId={currentUserId}
+    myProfile={myProfile}
+    targetProfile={targetProfile}
+    conversationId={messages?.[0]?.conversation_id}
+    onClose={() => setShowSharePicker(false)}
+  />
+)}
     </div>
   )
 }
