@@ -8,6 +8,7 @@ import {
   IconPhone, IconVideo, IconShield, IconBell, IconFolder, IconTrash, 
   IconFilm, IconMusic, IconCheck, IconShare2, IconLock, IconUserPlus
 } from './Icons'
+import { PassContactSharePicker } from './StackedSessionManager'
 
 export const AVATAR_CATEGORIES = [
   { id: 'professional', label: 'Professional', emoji: '👔' },
@@ -63,7 +64,8 @@ export default function ProfileCard({
   const [isEditingSelf, setIsEditingSelf] = useState(false)
   const [editBio, setEditBio] = useState(targetProfile?.bio || '')
   const [editStatusText, setEditStatusText] = useState(extras?.statusText || '')
-
+const [showSharePicker, setShowSharePicker] = useState(false)
+  
   const isSelf = targetProfile?.id === currentUserId
   const displayName = targetProfile?.username || 'Mattchat User'
 
@@ -521,17 +523,16 @@ export default function ProfileCard({
 
                     <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                       {['1h', '2h', '6h', '24h'].map(dur => (
-                        <button 
-                          key={dur} 
-                          onClick={() => setPassDuration(dur)}
-                          style={{
-                            flex: 1, padding: '6px', borderRadius: 8, fontSize: 11, fontWeight: 700, fontFamily: 'inherit',
-                            background: passDuration === dur ? 'rgba(167,139,250,0.25)' : 'rgba(255,255,255,0.04)',
-                            color: passDuration === dur ? '#c4b5fd' : '#9d97b5',
-                            border: passDuration === dur ? '1px solid #a78bfa' : '1px solid rgba(255,255,255,0.08)',
-                            cursor: 'pointer'
-                          }}
-                        >
+                      <button 
+  onClick={() => setShowSharePicker(true)}
+  style={{
+    width: '100%', padding: '10px', borderRadius: 10, background: 'linear-gradient(135deg, #667eea, #764ba2)',
+    color: '#fff', border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
+  }}
+>
+                        <IconUserPlus size={14} /> Choose Contact to Share Pass
+</button>
                           {dur} Pass
                         </button>
                       ))}
@@ -592,7 +593,15 @@ export default function ProfileCard({
                       <option value="7d" style={{ background: '#14141f' }}>7 Days</option>
                     </select>
                   </div>
-
+{showSharePicker && (
+  <PassContactSharePicker
+    passDuration={passDuration}
+    currentUserId={currentUserId}
+    myProfile={myProfile}
+    targetProfile={targetProfile}
+    onClose={() => setShowSharePicker(false)}
+  />
+)}
                   {!isSelf && !blockLoading && (
                     <button
                       onClick={handleToggleBlock}
