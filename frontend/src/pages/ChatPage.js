@@ -1558,7 +1558,7 @@ const unreadStatusCount = statusGroups.filter(g => !g.allViewed).length
   }
 
   const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
-const isUserBlocked = otherUserId && blockedUserIds.has(otherUserId)
+const isUserBlocked = otherUserId && (blockedUserIds.has(otherUserId) || blockedByOtherIds.has(otherUserId))
   // Looks up a conversation by id from the full list — used for call UI
   // (caller name, avatar) so it works whether or not that conversation
   // happens to be the one currently open in the chat view. Relying on
@@ -2268,12 +2268,30 @@ const handleShareContact = async (profile) => {
   bumpConversationActivity(`👤 ${profile.username || 'Contact'}`)
 }
  const findMessageById = (id) => messages.find(m => m.id === id)
-  const getConvoName = (c) => {
-    if (c.isCurryAI) return 'Curry AI'
-    if (c.is_group) return c.name
-    const other = c.conversation_members?.find(m => m.user_id !== userId)
-    return other?.profiles?.username || other?.profiles?.email || 'Unknown'
+// Fallback helper for blocked or hidden profiles
+const getConvoName = (c) => {
+  if (c.isCurryAI) return 'Curry AI'
+  if (c.is_group) return c.name
+  const other = c.conversation_members?.find(m => m.user_id !== userId)
+  const otherId = other?.user_id
+  
+  // If this user is blocked by you or has blocked you (profiles query returns null/hidden)
+  if (otherId && (blockedUserIds.has(otherId) || !other?.profiles)) {
+    return 'Mattchat User'
   }
+  return other?.profiles?.username || other?.profiles?.email || 'Mattchat User'
+}
+
+const getOtherUserAvatar = (c, myUserId) => {
+  const other = c?.conversation_members?.find(m => m.user_id !== myUserId)
+  const otherId = other?.user_id
+  
+  // If blocked, return null so the Avatar component renders the stealth placeholder fallback
+  if (otherId && (blockedUserIds.has(otherId) || !other?.profiles)) {
+    return null 
+  }
+  return other?.profiles?.avatar_url || null
+}
   const inviteToDraw = useCallback(async () => {
   if (!activeConvo?.id || !otherUserId) return
   setShowDrawing(true)
@@ -3641,10 +3659,10 @@ _onMessageContact: (contactEmail) => handleMessageContact(contactEmail),
 )}
  
             {/* Input area */}
-              {isReadOnlyChat || isUserBlocked ? (
-  <div className="input-area" style={{ justifyContent: 'center', padding: '14px 16px' }}>
-    <div style={{ fontSize: 13, color: '#8696a0', display: 'flex', alignItems: 'center', gap: 6 }}>
-      {isUserBlocked ? '🔒 You blocked this contact. Open their profile to unblock.' : '🔒 Only the Mattchat team can send messages here'}
+   {isReadOnlyChat || isUserBlocked ? (
+  <div className="input-area" style={{ justifyContent: 'center', padding: '14px 16px', background: '#0b0b14' }}>
+    <div style={{ fontSize: 13, color: '#8b8b9e', display: 'flex', alignItems: 'center', gap: 6 }}>
+      🔒 {isUserBlocked ? 'Messaging is unavailable with this contact.' : 'Only the Mattchat team can send messages here'}
     </div>
   </div>
 ) : (
