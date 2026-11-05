@@ -19,7 +19,12 @@
       ]
     }
   ],
+ {
   "rewrites": [
+    {
+      "source": "/api/supabase/functions/v1/:path*",
+      "destination": "https://bqerkvywgxoiocbkxif.supabase.co/functions/v1/:path*"
+    },
     {
       "source": "/api/supabase/:path*",
       "destination": "https://bqerkvywgxoiocbkxif.supabase.co/:path*"
@@ -30,3 +35,4 @@
     }
   ]
 }
+
