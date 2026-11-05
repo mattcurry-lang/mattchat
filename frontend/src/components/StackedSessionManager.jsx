@@ -8,7 +8,8 @@ export function TemporaryPassCard({ passData, currentUserId, onJoinSession }) {
   const [status, setStatus] = useState(passData.status || 'pending')
   const [loading, setLoading] = useState(false)
 
-  const handleAction = async (newStatus) => {
+  const handleAction = async (e, newStatus) => {
+    e.stopPropagation()
     setLoading(true)
     const { error } = await supabase
       .from('temporary_passes')
@@ -21,19 +22,32 @@ export function TemporaryPassCard({ passData, currentUserId, onJoinSession }) {
     setLoading(false)
   }
 
+  const handleEnterRoom = (e) => {
+    e.stopPropagation()
+    e.preventDefault()
+    if (onJoinSession) {
+      onJoinSession(passData.pass_code || passData)
+    }
+  }
+
   return (
-    <div style={{
-      background: 'linear-gradient(135deg, rgba(108,99,255,0.18) 0%, rgba(167,139,250,0.08) 100%)',
-      border: '1px solid rgba(167,139,250,0.35)',
-      borderRadius: 18,
-      padding: 16,
-      maxWidth: 320,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 12,
-      boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
-      animation: 'fadeIn 0.2s ease'
-    }}>
+    <div 
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        background: 'linear-gradient(135deg, rgba(108,99,255,0.22) 0%, rgba(167,139,250,0.1) 100%)',
+        border: '1px solid rgba(167,139,250,0.4)',
+        borderRadius: 18,
+        padding: 16,
+        maxWidth: 320,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+        boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
+        position: 'relative',
+        zIndex: 20,
+        pointerEvents: 'auto'
+      }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 10px #4ade80' }} />
         <span style={{ fontSize: 11.5, fontWeight: 800, color: '#c4b5fd', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -42,10 +56,10 @@ export function TemporaryPassCard({ passData, currentUserId, onJoinSession }) {
       </div>
 
       <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff', lineHeight: 1.4 }}>
-        {passData.creator_name} invited you to join an active secure session for {passData.duration}.
+        {passData.creator_name || 'Host'} invited you to join an active secure session for {passData.duration || '2h'}.
       </div>
 
-      <div style={{ fontSize: 11, color: '#9d97b5', fontFamily: 'monospace', background: 'rgba(0,0,0,0.25)', padding: '6px 10px', borderRadius: 8 }}>
+      <div style={{ fontSize: 11, color: '#9d97b5', fontFamily: 'monospace', background: 'rgba(0,0,0,0.3)', padding: '6px 10px', borderRadius: 8 }}>
         Pass Code: {passData.pass_code}
       </div>
 
@@ -53,20 +67,22 @@ export function TemporaryPassCard({ passData, currentUserId, onJoinSession }) {
         <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
           <button
             disabled={loading}
-            onClick={() => handleAction('accepted')}
+            onClick={(e) => handleAction(e, 'accepted')}
             style={{
               flex: 1, padding: '10px', borderRadius: 12, background: 'linear-gradient(135deg, #4ade80, #22c55e)', color: '#090911',
-              border: 'none', fontWeight: 800, fontSize: 12.5, cursor: 'pointer', boxShadow: '0 4px 14px rgba(74,222,128,0.3)'
+              border: 'none', fontWeight: 800, fontSize: 12.5, cursor: 'pointer', boxShadow: '0 4px 14px rgba(74,222,128,0.3)',
+              pointerEvents: 'auto'
             }}
           >
             {loading ? 'Joining…' : 'Accept'}
           </button>
           <button
             disabled={loading}
-            onClick={() => handleAction('declined')}
+            onClick={(e) => handleAction(e, 'declined')}
             style={{
               flex: 1, padding: '10px', borderRadius: 12, background: 'rgba(239,68,68,0.15)', color: '#f87171',
-              border: '1px solid rgba(239,68,68,0.3)', fontWeight: 800, fontSize: 12.5, cursor: 'pointer'
+              border: '1px solid rgba(239,68,68,0.3)', fontWeight: 800, fontSize: 12.5, cursor: 'pointer',
+              pointerEvents: 'auto'
             }}
           >
             Decline
@@ -74,13 +90,19 @@ export function TemporaryPassCard({ passData, currentUserId, onJoinSession }) {
         </div>
       )}
 
-      {/* Enter Stacked Session Room Button - Always available for testing & entry */}
+      {/* Button with explicit click handler and pointer events */}
       <button
-        onClick={() => onJoinSession?.(passData.pass_code)}
+        type="button"
+        onClick={handleEnterRoom}
         style={{
-          width: '100%', padding: '11px', borderRadius: 12, background: 'linear-gradient(135deg, #6c63ff 0%, #a855f7 100%)', color: '#fff',
-          border: 'none', fontWeight: 800, fontSize: 12.5, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          boxShadow: '0 4px 16px rgba(108,99,255,0.45)', marginTop: status === 'pending' ? 0 : 4
+          width: '100%', padding: '12px', borderRadius: 12, 
+          background: 'linear-gradient(135deg, #6c63ff 0%, #a855f7 100%)', color: '#fff',
+          border: 'none', fontWeight: 800, fontSize: 13, cursor: 'pointer', 
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          boxShadow: '0 4px 18px rgba(108,99,255,0.5)',
+          pointerEvents: 'auto',
+          position: 'relative',
+          zIndex: 30
         }}
       >
         <IconMessageSquare size={16} /> Enter Stacked Session Room
