@@ -1532,7 +1532,7 @@ const otherMember = activeConvo?.conversation_members?.find(m => m.user_id !== u
 const otherProfile = otherMember?.profiles
 const isPeerBlocked = !!otherUserId && !activeConvo?.is_group && (blockedUserIds.has(otherUserId) || !otherProfile)
 
-const { isOnline, getLastSeenLabel, getPresenceStatus } = usePresence(userId)
+
 
 const headerStatus = () => {
   if (!activeConvo) return ''
