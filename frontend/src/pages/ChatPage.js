@@ -1396,7 +1396,123 @@ export default function ChatPage({ session }) {
   const [mediaViewerTarget, setMediaViewerTarget] = useState(null)
   const [momentViewerTarget, setMomentViewerTarget] = useState(null)
   const [blockedUserIds, setBlockedUserIds] = useState(new Set())
+  const [autoContext, setAutoContext] = useState(null)
+  const [autoContextLoading, setAutoContextLoading] = useState(false)
+  const [catchUpPending, setCatchUpPending] = useState(null)
+  const [catchUpResult, setCatchUpResult] = useState(null)
+  const [catchUpLoading, setCatchUpLoading] = useState(false)
+  const [coachSuggestion, setCoachSuggestion] = useState(null)
+  const [myRingtone, setMyRingtone] = useState(null)
+  const [showRingtonePicker, setShowRingtonePicker] = useState(false)
+  const [zoomSheet, setZoomSheet] = useState(null)
+  const [startMuted, setStartMuted] = useState(false)
+  const [showAddStatus, setShowAddStatus] = useState(false)
+  const [viewerIndex, setViewerIndex] = useState(null)
+  const [blockedByOtherIds, setBlockedByOtherIds] = useState(new Set())
 
+  const { tags, setTag } = useConvoTags()
+  const { cache: smartReplyCache, fetchSuggestion, clear: clearSmartReply } = useSmartReplyCache()
+  const { theme, toggleTheme } = useTheme()
+  const { isFullPlayerVisible, setIsFullPlayerVisible } = useMusicPlayer()
+  useRecordPlays(userId)
+  useOutboxFlush(userId)
+  useFlowRunner(userId, session)
+  const { tripleTapProps } = useShushhhShortcut({ onTrigger: () => setShowShushhh(true), enabled: !showShushhh && !!userId })
+
+  useEffect(() => {
+    if (!userId) return
+    RingtoneService.getMyRingtone(userId).then(setMyRingtone).catch(() => setMyRingtone(null))
+  }, [userId])
+
+  useEffect(() => {
+    if (!userId) return
+    supabase.from('blocked_users').select('blocked_id').eq('blocker_id', userId)
+      .then(({ data }) => { if (data) setBlockedUserIds(new Set(data.map(r => r.blocked_id))) })
+  }, [userId, profileCardTarget])
+
+  const msgRefs = useRef({})
+  const messagesEndRef = useRef(null)
+  const messagesScrollRef = useRef(null)
+  const typingTimer = useRef(null)
+  const textareaRef = useRef(null)
+  const threeDotBtnRef = useRef(null)
+  const headerMenuBtnRef = useRef(null)
+  const mediaFlowRef = useRef(null)
+
+  const { isOnline, getLastSeenLabel, getPresenceStatus } = usePresence(userId)   // MOVE it here (delete the later one)
+  const igQuick = useInstagramConnection(session, userId)
+  const watchTogether = useWatchTogether(
+    activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null, userId, profile?.username)
+
+  const { callStatus, activeCall, callToken, callError, startCall, startZoomCall, answerCall, declineCall, endCall } =
+    useCall(userId, activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null)
+  useRingtone(['calling', 'ringing'].includes(callStatus), 'ringback')
+  useRingtone(callStatus === 'incoming', 'ringtone')
+
+  const handleZoomCall = async (conversationId, name) => {
+    const result = await startZoomCall(conversationId, getMyZoomLink(userId))
+    if (result === 'needs-link') setZoomSheet({ conversationId, name })
+  }
+
+  const { conversations, loading: convLoading, reload } = useConversations(userId)
+  const publicExtras = usePublicProfiles([
+    userId, ...conversations.flatMap(c => (c.conversation_members || []).map(m => m.user_id)),
+  ])
+
+  const saveMyNote = async (patch) => {
+    const { error } = await supabase.from('profiles').update(patch).eq('id', userId)
+    return !error
+  }
+  const replyToNote = async (convo, text, noteText) => {
+    const content = quoteReply(noteText, text)
+    const { error } = await supabase.from('messages').insert({ conversation_id: convo.id, sender_id: userId, content, message_type: 'text' })
+    if (error) return false
+    await supabase.from('conversations').update({ updated_at: new Date().toISOString(), last_message: content }).eq('id', convo.id)
+    reload()
+    return true
+  }
+  const globalWatchInvite = useGlobalWatchInvites(userId, conversations.map(c => c.id))
+  const getMemberName = (convoId, uid) => {
+    const convo = conversations.find(c => c.id === convoId)
+    return convo?.conversation_members?.find(m => m.user_id === uid)?.profiles?.username || 'Someone'
+  }
+  const { calls: callHistory, loading: callHistoryLoading, hideCall } = useCallHistory(userId, conversations)
+  const { unreadCounts, clearUnread, totalUnread } = useUnreadCounts(userId, conversations.map(c => c.id))
+  const typingMap = useTypingStatus(userId, conversations.map(c => c.id))
+  const listState = useConversationListState({
+    conversations, unreadCounts, typingMap, isOnline, getLastSeenLabel,
+    getOtherUserId, currentUserId: userId, openConvoId: activeConvo?.id,
+  })
+  useGlobalDelivery(userId, conversations.map(c => c.id))
+
+  const { messages, loading: msgLoading, typing, sendMessage, sendMediaMessage,
+          sendMomentMessage, retryMediaUpload, broadcastTyping } = useChat(
+    activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
+    userId, { isGroup: !!activeConvo?.is_group, myUsername: profile?.username })
+  const arrivals = useArrivals(messages, activeConvo?.id, msgLoading)
+  const { readMap, deliveredMap } = useMessageStatus(
+    messages, activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null, userId)
+  const lastActivityStatus = useLastActivityStatus(conversations.map(c => c.id), userId)
+
+  const quickSendReply = async (convo, text) => {
+    await supabase.from('messages').insert({ conversation_id: convo.id, sender_id: userId, content: text, message_type: 'text' })
+    await supabase.from('conversations').update({ updated_at: new Date().toISOString(), last_message: text }).eq('id', convo.id)
+    clearSmartReply(convo.id); clearUnread(convo.id); reload()
+  }
+
+  const { statusGroups, myStatuses, markViewed, reload: reloadStatuses } = useStatuses(userId)
+  const unreadStatusCount = statusGroups.filter(g => !g.allViewed).length
+  const viewableGroups = [
+    ...(myStatuses.length > 0
+      ? [{ userId: 'mine', isMine: true, profile: { username: profile?.username || 'You' }, statuses: myStatuses }]
+      : []),
+    ...statusGroups.map(g => ({ ...g, isMine: false })),
+  ]
+  const openViewer = (uid) => {
+    if (uid === 'mine' && myStatuses.length === 0) { setShowAddStatus(true); return }
+    const idx = viewableGroups.findIndex(g => g.userId === uid)
+    if (idx !== -1) setViewerIndex(idx)
+  }
 
 // ── HELPERS FIRST ──
 const getConvoName = (c) => {
