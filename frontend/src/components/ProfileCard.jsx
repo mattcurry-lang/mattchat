@@ -4,7 +4,7 @@ import { computeReplyTimeLabel } from '../lib/supabase'
 import { themeById, themeGradient, themeBanner } from '../lib/profileThemes'
 import { 
   IconX, IconClock, IconSparkle, IconMessageSquare, 
-  IconVerified, IconShieldAlert, IconBellOff, IconSearch 
+  IconVerified, IconShieldAlert, IconBellOff, IconSearch, IconFilm, IconFolder 
 } from './Icons'
 
 export const AVATAR_CATEGORIES = [
@@ -35,8 +35,8 @@ export default function ProfileCard({
   onClose,
   onAskCurry,
   onMessageContact,
-  onBlockUser,       // New handler for blocking
-  onToggleMute,      // New handler for muting notifications
+  onBlockUser,       // Supabase block handler
+  onToggleMute,      // Mute notification handler
   extras,            
 }) {
   const [showBlockConfirm, setShowBlockConfirm] = useState(false)
@@ -81,208 +81,195 @@ export default function ProfileCard({
   const hasStatus = !!(extras?.statusEmoji || extras?.statusText)
 
   return (
-    <div className="modal-overlay" onClick={onClose} style={{ backdropFilter: 'blur(8px)', background: 'rgba(0, 0, 0, 0.65)' }}>
+    <div className="modal-overlay" onClick={onClose} style={{ backdropFilter: 'blur(8px)', background: 'rgba(0, 0, 0, 0.7)' }}>
       <div
         className="modal-panel"
         onClick={e => e.stopPropagation()}
         style={{ 
-          alignItems: 'center', 
-          textAlign: 'center', 
-          maxWidth: 410, 
-          width: '92%',
-          maxHeight: '88vh', 
+          alignItems: 'stretch', 
+          textAlign: 'left', 
+          maxWidth: 420, 
+          width: '94%',
+          maxHeight: '90vh', 
           overflowY: 'auto',
-          borderRadius: 20,
+          borderRadius: 16,
           background: 'var(--bg-surface-1, #14141f)',
           border: '1px solid var(--border, rgba(255,255,255,0.12))',
-          paddingBottom: 24,
-          boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
+          padding: 0,
+          boxShadow: '0 24px 48px rgba(0,0,0,0.6)'
         }}
       >
-        {/* Themed Banner Header */}
+        {/* WhatsApp-Style Header Bar */}
+        <div style={{ 
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+          padding: '14px 18px', borderBottom: '1px solid var(--border, rgba(255,255,255,0.08))',
+          background: 'var(--bg-surface-2, rgba(255,255,255,0.03))', position: 'sticky', top: 0, zIndex: 10
+        }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Contact info</span>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'transparent', border: 'none', color: 'var(--text-muted)',
+              cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}
+            aria-label="Close"
+          >
+            <IconX size={18} />
+          </button>
+        </div>
+
+        {/* Hero Section: Banner & Avatar */}
         <div style={{ position: 'relative', width: '100%' }}>
           <div
             style={{
-              height: 90, 
-              borderTopLeftRadius: 20,
-              borderTopRightRadius: 20,
+              height: 100, 
               backgroundImage: themeBanner(extras?.theme),
               backgroundSize: '14px 14px, auto',
             }}
           />
-          <button
-            onClick={onClose}
-            style={{
-              position: 'absolute', top: 10, right: 10, width: 32, height: 32, borderRadius: '50%',
-              border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(0,0,0,0.4)', color: '#fff',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0,
-              transition: 'background 0.2s',
-            }}
-            aria-label="Close"
-          >
-            <IconX size={16} />
-          </button>
+          <div style={{ paddingLeft: 24, marginTop: -42, display: 'flex', alignItems: 'flex-end', gap: 16 }}>
+            <div
+              style={{
+                borderRadius: '50%', padding: 3, background: themeGradient(theme),
+                boxShadow: '0 8px 20px rgba(0,0,0,0.5), 0 0 0 4px var(--bg-surface-1, #14141f)', display: 'inline-block',
+              }}
+            >
+              <Avatar name={targetProfile.username} photoUrl={targetProfile.avatar_url} size={88} />
+            </div>
+          </div>
         </div>
 
-        {/* Avatar Ring */}
-        <div
-          style={{
-            marginTop: -52, borderRadius: '50%', padding: 3.5, background: themeGradient(theme),
-            boxShadow: '0 8px 20px rgba(0,0,0,0.4), 0 0 0 4px var(--bg-surface-1, #14141f)', display: 'inline-block',
-          }}
-        >
-          <Avatar name={targetProfile.username} photoUrl={targetProfile.avatar_url} size={96} />
-        </div>
-
-        {/* Username & Verification */}
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-          {targetProfile.username}
-          {targetProfile.is_admin && <IconVerified size={18} />}
-        </div>
-
-        {/* Status Bubble */}
-        {hasStatus && (
-          <div
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 6, maxWidth: '90%',
-              padding: '6px 14px', borderRadius: 999, fontSize: 13, fontWeight: 650,
-              color: 'var(--text-primary)', background: 'var(--brand-soft)', border: '1px solid rgba(108,99,255,0.25)',
-            }}
-          >
-            <span>{extras.statusEmoji || '💭'}</span>
-            {extras.statusText && (
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{extras.statusText}</span>
-            )}
+        <div style={{ padding: '16px 24px 24px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          
+          {/* Name & Verification */}
+          <div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              {targetProfile.username}
+              {targetProfile.is_admin && <IconVerified size={18} />}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+              {targetProfile.email || 'Mattchat Community Member'}
+            </div>
           </div>
-        )}
 
-        {/* Personal Note */}
-        {extras?.note && (
-          <div
-            style={{
-              marginTop: 10, width: '90%', padding: '10px 14px', borderRadius: 12, fontSize: 13, textAlign: 'left',
-              color: 'var(--text-primary)', background: 'var(--bg-surface-2, rgba(255,255,255,0.04))',
-              border: '1px solid var(--border, rgba(255,255,255,0.08))', wordBreak: 'break-word',
-            }}
-          >
-            <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Personal Note</div>
-            {extras.note}
-          </div>
-        )}
-
-        {/* Bio */}
-        {bio && (
-          <div style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.5, padding: '0 16px', marginTop: 10 }}>
-            {bio}
-          </div>
-        )}
-
-        {/* Organization & Studies Meta */}
-        {(targetProfile.organization || targetProfile.currently_studying) && (
-          <div style={{ width: '90%', marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {targetProfile.organization && (
-              <div style={{ fontSize: 12.5, color: 'var(--text-muted)', fontWeight: 600 }}>
-                🏢 {targetProfile.organization}
-              </div>
-            )}
-            {targetProfile.currently_studying && (
-              <div style={{
-                background: 'var(--brand-soft)', border: '1px solid rgba(108,99,255,0.2)',
-                borderRadius: 12, padding: '10px 14px', textAlign: 'left',
-              }}>
-                <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--brand)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Currently studying
+          {/* WhatsApp-Style Action Strip (Icon Buttons Row) */}
+          {!isSelf && (
+            <div style={{ 
+              display: 'flex', justifyContent: 'space-around', alignItems: 'center', 
+              padding: '12px 8px', background: 'var(--bg-surface-2, rgba(255,255,255,0.04))', 
+              borderRadius: 14, border: '1px solid var(--border, rgba(255,255,255,0.06))' 
+            }}>
+              <button 
+                onClick={messageContact}
+                style={{ background: 'none', border: 'none', color: 'var(--brand)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}
+              >
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--brand-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <IconMessageSquare size={16} />
                 </div>
-                <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600, marginTop: 2 }}>
-                  {targetProfile.currently_studying}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+                Message
+              </button>
 
-        {/* Reply Time & Shared Interests */}
-        <div style={{ width: '90%', marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {replyLabel && (
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-              <IconClock size={13} /> {replyLabel}
+              <button 
+                onClick={() => {
+                  setIsMuted(!isMuted)
+                  onToggleMute?.(targetProfile.id, !isMuted)
+                }}
+                style={{ background: 'none', border: 'none', color: isMuted ? '#ef4444' : 'var(--text-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}
+              >
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--bg-surface-3, rgba(255,255,255,0.08))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <IconBellOff size={16} />
+                </div>
+                {isMuted ? 'Muted' : 'Mute'}
+              </button>
+
+              <button 
+                onClick={() => {
+                  onMessageContact?.(targetProfile.username)
+                  onClose()
+                }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}
+              >
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--bg-surface-3, rgba(255,255,255,0.08))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <IconSearch size={16} />
+                </div>
+                Search
+              </button>
             </div>
           )}
 
-          {shared.length > 0 && (
-            <div style={{ textAlign: 'left', marginTop: 4 }}>
-              <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-                Shared interests ({shared.length})
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {shared.map(interest => (
-                  <span
-                    key={interest}
-                    style={{
-                      fontSize: 12, fontWeight: 600, color: 'var(--brand)', background: 'var(--brand-soft)',
-                      border: '1px solid rgba(108,99,255,0.25)', borderRadius: 'var(--r-full)', padding: '4px 10px',
-                    }}
-                  >
-                    {interest}
-                  </span>
-                ))}
+          {/* Status / About Section */}
+          {hasStatus && (
+            <div style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--brand-soft)', border: '1px solid rgba(108,99,255,0.2)' }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--brand)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Status</div>
+              <div style={{ fontSize: 13.5, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>{extras.statusEmoji || '💭'}</span>
+                <span>{extras.statusText}</span>
               </div>
             </div>
           )}
-        </div>
 
-        {/* Hybrid Quick-Action Toolbar (Mute / Notifications shortcut) */}
-        {!isSelf && (
-          <div style={{ width: '90%', marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <button
-              onClick={() => {
-                setIsMuted(!isMuted)
-                onToggleMute?.(targetProfile.id, !isMuted)
-              }}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                padding: '9px 12px', borderRadius: 12, fontSize: 12.5, fontWeight: 650, cursor: 'pointer',
-                background: isMuted ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-surface-2, rgba(255,255,255,0.06))',
-                color: isMuted ? '#ef4444' : 'var(--text-primary)',
-                border: isMuted ? '1px solid rgba(239,68,68,0.3)' : '1px solid var(--border, rgba(255,255,255,0.1))',
-              }}
-            >
-              <IconBellOff size={14} /> {isMuted ? 'Muted' : 'Mute Notifications'}
-            </button>
-            <button
-              onClick={() => {
-                onMessageContact?.(targetProfile.username)
-                onClose()
-              }}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                padding: '9px 12px', borderRadius: 12, fontSize: 12.5, fontWeight: 650, cursor: 'pointer',
-                background: 'var(--bg-surface-2, rgba(255,255,255,0.06))',
-                color: 'var(--text-primary)', border: '1px solid var(--border, rgba(255,255,255,0.1))',
-              }}
-            >
-              <IconSearch size={14} /> Search Chat
-            </button>
-          </div>
-        )}
-
-        {/* Primary Actions (Message & Ask Curry) */}
-        <div style={{ width: '90%', marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {!isSelf && onMessageContact && (
-            <button
-              className="btn-primary"
-              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '11px 16px', borderRadius: 12 }}
-              onClick={messageContact}
-            >
-              <IconMessageSquare size={16} /> Message {targetProfile.username}
-            </button>
+          {/* Personal Note / Bio */}
+          {(extras?.note || bio) && (
+            <div style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--bg-surface-2, rgba(255,255,255,0.04))', border: '1px solid var(--border, rgba(255,255,255,0.08))' }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>About & Bio</div>
+              {extras?.note && <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 4 }}>{extras.note}</div>}
+              {bio && <div style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{bio}</div>}
+            </div>
           )}
+
+          {/* Organization & Studies */}
+          {(targetProfile.organization || targetProfile.currently_studying) && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {targetProfile.organization && (
+                <div style={{ fontSize: 12.5, color: 'var(--text-muted)', fontWeight: 600 }}>
+                  🏢 {targetProfile.organization}
+                </div>
+              )}
+              {targetProfile.currently_studying && (
+                <div style={{ fontSize: 12.5, color: 'var(--text-muted)', fontWeight: 600 }}>
+                  🎓 Studying: {targetProfile.currently_studying}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Shared Interests & Reply Time */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {replyLabel && (
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <IconClock size={13} /> {replyLabel}
+              </div>
+            )}
+
+            {shared.length > 0 && (
+              <div>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                  Shared interests ({shared.length})
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {shared.map(interest => (
+                    <span
+                      key={interest}
+                      style={{
+                        fontSize: 12, fontWeight: 600, color: 'var(--brand)', background: 'var(--brand-soft)',
+                        border: '1px solid rgba(108,99,255,0.25)', borderRadius: 'var(--r-full)', padding: '4px 10px',
+                      }}
+                    >
+                      {interest}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Ask Curry AI Button */}
           {onAskCurry && (
             <button
-              className="btn-primary"
               style={{ 
-                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '11px 16px', borderRadius: 12,
-                background: 'linear-gradient(135deg, #6c63ff 0%, #a855f7 100%)',
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 16px', borderRadius: 12,
+                background: 'linear-gradient(135deg, #6c63ff 0%, #a855f7 100%)', color: '#fff', border: 'none', fontWeight: 700, cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(108,99,255,0.3)'
               }}
               onClick={askCurry}
             >
@@ -290,25 +277,24 @@ export default function ProfileCard({
             </button>
           )}
 
-          {/* Safety / Danger Zone (Block User) */}
+          {/* WhatsApp-Style Danger / Safety Zone (Block & Report) */}
           {!isSelf && (
-            <div style={{ marginTop: 6, borderTop: '1px solid var(--border, rgba(255,255,255,0.08))', paddingTop: 10, width: '100%' }}>
+            <div style={{ marginTop: 8, borderTop: '1px solid var(--border, rgba(255,255,255,0.08))', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button
                 onClick={handleBlockAction}
                 style={{
-                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  padding: '9px 12px', borderRadius: 12, fontSize: 12.5, fontWeight: 650, cursor: 'pointer',
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '10px 12px', borderRadius: 10, fontSize: 13, fontWeight: 650, cursor: 'pointer',
                   background: showBlockConfirm ? 'rgba(239, 68, 68, 0.2)' : 'transparent',
-                  color: '#ef4444',
-                  border: showBlockConfirm ? '1px solid #ef4444' : '1px solid transparent',
-                  transition: 'all 0.2s',
+                  color: '#ef4444', border: 'none', textAlign: 'left', transition: 'background 0.2s',
                 }}
               >
-                <IconShieldAlert size={14} /> 
-                {showBlockConfirm ? `Confirm Block ${targetProfile.username}?` : `Block ${targetProfile.username}`}
+                <IconShieldAlert size={16} /> 
+                {showBlockConfirm ? `Confirm block ${targetProfile.username}?` : `Block ${targetProfile.username}`}
               </button>
             </div>
           )}
+
         </div>
       </div>
     </div>
