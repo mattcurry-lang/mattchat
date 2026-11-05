@@ -7,21 +7,6 @@ import {
 } from '../../Icons'
 import './ArtistDashboard.css'
 
-/**
- * components/Pulse/Music/ArtistDashboard.jsx
- *
- * Same props as before ({ userId, onClose }), plus an optional onBecomeArtist for the "no profile yet" state.
- *
- * Designed so uploading feels safe and unhurried:
- *  - Drag a song in (or browse). The file is checked straight away, with plain-language messages.
- *  - Hear it back before it goes anywhere, with its length shown.
- *  - Title is filled in from the file name; cover art and album are optional.
- *  - Publish now OR keep it as a draft that only you can see.
- *  - The button always says what is still missing instead of just being greyed out.
- *  - A failed upload never throws your file away.
- */
-
-// @pure-start
 const AUDIO_EXT = /\.(mp3|m4a|mp4|wav|ogg|oga)$/i
 
 const isAudioFile = (f) => !!f && (/^audio\//.test(f.type || '') || AUDIO_EXT.test(f.name || ''))
@@ -48,7 +33,6 @@ function compact(n) {
   return `${(v / 1e6).toFixed(1).replace(/\.0$/, '')}M`
 }
 
-// "04 - my_song_final.wav" -> "My song final"
 function titleFromFilename(name) {
   let t = String(name || '').replace(/\.[a-z0-9]{2,4}$/i, '')
   t = t.replace(/^\s*(?:track\s*)?\d{1,3}\s*[-_.)]+\s*/i, '')
@@ -64,7 +48,7 @@ function validateAudio(file, maxBytes) {
 }
 
 function tally(tracks) {
-  return tracks.reduce(
+  return (tracks || []).reduce(
     (a, t) => ({
       plays: a.plays + (Number(t.play_count) || 0),
       likes: a.likes + (Number(t.like_count) || 0),
@@ -74,7 +58,6 @@ function tally(tracks) {
   )
 }
 
-// What still stands between the artist and a published song, in the order they will do it
 function missingBits({ file, title, rights }) {
   const out = []
   if (!file) out.push('Add your song')
@@ -86,15 +69,12 @@ function missingBits({ file, title, rights }) {
 function friendlyUploadError(e) {
   const m = String(e?.message || e || '')
   if (/size|too large|exceed|413|payload/i.test(m)) return 'That file is too large to upload. Try a smaller export.'
-  if (/network|fetch|failed to fetch|offline|timeout/i.test(m)) return 'Connection problem. Check your internet and try again.'
+  if (/network|fetch|failed to fetch|offline|timeout|cors/i.test(m)) return 'Connection or network blocked (CORS). Check your network and try again.'
   if (/mime|type|format|unsupported/i.test(m)) return "That file type wasn't accepted. Try MP3 or WAV."
   return "The upload didn't go through. Your song is still here, so just try again."
 }
 
 const isLive = (t) => t.status === 'published'
-// @pure-end
-
-/* ── small pieces ──────────────────────────────────────────────────────── */
 
 function Stat({ icon, value, label }) {
   return (
@@ -158,7 +138,7 @@ function Uploader({ artist, onUploaded, onBusy }) {
   const [title, setTitle] = useState('')
   const [titleTouched, setTitleTouched] = useState(false)
   const [album, setAlbum] = useState('')
-  const [visibility, setVisibility] = useState('publish') // 'publish' | 'draft'
+  const [visibility, setVisibility] = useState('publish')
   const [rights, setRights] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -170,7 +150,7 @@ function Uploader({ artist, onUploaded, onBusy }) {
   const audioInput = useRef(null)
   const coverInput = useRef(null)
 
-  useEffect(() => { onBusy && onBusy(busy) }, [busy]) // eslint-disable-line
+  useEffect(() => { onBusy && onBusy(busy) }, [busy, onBusy])
 
   useEffect(() => {
     if (!file) { setAudioUrl(null); return undefined }
@@ -388,14 +368,12 @@ function TrackCard({ track, confirming, onAskDelete, onCancelDelete, onDelete, o
   )
 }
 
-/* ── the screen ────────────────────────────────────────────────────────── */
-
 export default function ArtistDashboard({ userId, onClose, onBecomeArtist }) {
   const [artist, setArtist] = useState(null)
   const [tracks, setTracks] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadFailed, setLoadFailed] = useState(false)
-  const [filter, setFilter] = useState('all') // all | live | hidden
+  const [filter, setFilter] = useState('all')
   const [confirmId, setConfirmId] = useState(null)
   const [toast, setToast] = useState(null)
   const [uploading, setUploading] = useState(false)
@@ -411,9 +389,10 @@ export default function ArtistDashboard({ userId, onClose, onBecomeArtist }) {
     setLoading(true)
     setLoadFailed(false)
     try {
-      const a = await ArtistService.getMyArtistProfile(userId)
+      const a = await ArtistService.getMyArtistProfile(userId).catch(() => null)
       setArtist(a)
-      setTracks(a ? await ArtistService.listMyTracks(a.id) : [])
+      const tList = a ? await ArtistService.listMyTracks(a.id).catch(() => []) : []
+      setTracks(tList)
     } catch (e) {
       console.error('artist dashboard load failed:', e)
       setLoadFailed(true)
@@ -481,61 +460,68 @@ export default function ArtistDashboard({ userId, onClose, onBecomeArtist }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 18 }}
       transition={{ duration: 0.22 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1200, background: '#131022', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}
     >
-      <div className="ad-wrap">
-        <header className="ad-hero">
+      <div className="ad-wrap" style={{ width: '100%', maxWidth: 960, margin: '0 auto', padding: '24px 20px 80px', boxSizing: 'border-box', color: '#fff' }}>
+        <header className="ad-hero" style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, position: 'relative' }}>
           <div className="ad-hero-glow" aria-hidden="true" />
-          <div className="ad-avatar">{avatar ? <img src={avatar} alt="" /> : <IconMic size={26} />}</div>
-          <div className="ad-hero-text">
-            <span className="ad-kicker">Artist Studio</span>
-            <h2>{artist ? artist.artist_name : 'Your studio'}</h2>
-            {artist?.bio && <p>{artist.bio}</p>}
+          <div className="ad-avatar" style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(167,139,250,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+            {avatar ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconMic size={24} color="#a78bfa" />}
           </div>
-          <button type="button" className="ad-close" onClick={onClose} aria-label="Close studio"><IconX size={16} /></button>
+          <div className="ad-hero-text" style={{ flex: 1, minWidth: 0 }}>
+            <span className="ad-kicker" style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Artist Studio</span>
+            <h2 style={{ fontSize: 22, fontWeight: 900, margin: '2px 0 4px', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {artist ? artist.artist_name : 'Your Studio'}
+            </h2>
+            {artist?.bio && <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{artist.bio}</p>}
+          </div>
+          <button type="button" className="ad-close" onClick={onClose} aria-label="Close studio" style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 36, height: 36, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+            <IconX size={18} />
+          </button>
         </header>
 
         {loading && (
-          <div className="ad-skel" aria-busy="true">
-            <span /><span /><span />
+          <div className="ad-skel" aria-busy="true" style={{ padding: '40px 0', textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>
+            Loading your studio...
           </div>
         )}
 
         {!loading && loadFailed && (
-          <div className="ad-empty">
-            <h3>Couldn't open your studio</h3>
-            <p>Check your connection and try again.</p>
-            <button type="button" className="ad-cta ad-cta-sm" onClick={load}>Try again</button>
+          <div className="ad-empty" style={{ textAlign: 'center', padding: '60px 20px', background: 'rgba(255,255,255,0.03)', borderRadius: 20, border: '1px solid rgba(255,255,255,0.08)' }}>
+            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Couldn't open your studio</h3>
+            <p style={{ color: 'rgba(255,255,255,0.6)', marginBottom: 20 }}>Check your connection and try again.</p>
+            <button type="button" className="ad-cta ad-cta-sm" onClick={load} style={{ background: '#a78bfa', border: 'none', padding: '10px 20px', borderRadius: 12, fontWeight: 700, color: '#131022', cursor: 'pointer' }}>Try again</button>
           </div>
         )}
 
         {!loading && !loadFailed && !artist && (
-          <div className="ad-empty">
-            <span className="ad-empty-icon"><IconMic size={22} /></span>
-            <h3>Set up your artist profile first</h3>
-            <p>It takes a minute: a name, and a photo if you like. Then you can upload songs here.</p>
-            {onBecomeArtist && <button type="button" className="ad-cta ad-cta-sm" onClick={onBecomeArtist}>Create my profile</button>}
+          <div className="ad-empty" style={{ textAlign: 'center', padding: '60px 20px', background: 'rgba(255,255,255,0.03)', borderRadius: 20, border: '1px solid rgba(255,255,255,0.08)' }}>
+            <span className="ad-empty-icon" style={{ fontSize: 32, marginBottom: 12, display: 'block' }}><IconMic size={28} /></span>
+            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Set up your artist profile first</h3>
+            <p style={{ color: 'rgba(255,255,255,0.6)', marginBottom: 20 }}>It takes a minute: a name, and a photo if you like. Then you can upload songs here.</p>
+            {onBecomeArtist && <button type="button" className="ad-cta ad-cta-sm" onClick={onBecomeArtist} style={{ background: '#a78bfa', border: 'none', padding: '10px 20px', borderRadius: 12, fontWeight: 700, color: '#131022', cursor: 'pointer' }}>Create my profile</button>}
           </div>
         )}
 
         {!loading && !loadFailed && artist && (
           <>
-            <div className="ad-stats">
+            <div className="ad-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
               <Stat icon={<IconPlay size={14} />} value={totals.plays} label="Plays" />
               <Stat icon={<IconHeart size={14} />} value={totals.likes} label="Likes" />
               <Stat icon={<IconDownload size={14} />} value={totals.downloads} label="Downloads" />
               <Stat icon={<IconMusic size={14} />} value={liveCount} label={liveCount === 1 ? 'Live song' : 'Live songs'} />
             </div>
 
-            <div className="ad-grid">
+            <div className="ad-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 24 }}>
               <Uploader artist={artist} onUploaded={handleUploaded} onBusy={setUploading} />
 
-              <section className="ad-songs" aria-label="Your songs">
-                <div className="ad-songs-head">
-                  <h3 className="ad-h">Your songs</h3>
+              <section className="ad-songs" aria-label="Your songs" style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 20, padding: 20, border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div className="ad-songs-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <h3 className="ad-h" style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Your songs</h3>
                   {tracks.length > 0 && (
-                    <div className="ad-tabs" role="tablist">
+                    <div className="ad-tabs" role="tablist" style={{ display: 'flex', gap: 6 }}>
                       {[['all', 'All', tracks.length], ['live', 'Live', liveCount], ['hidden', 'Hidden', tracks.length - liveCount]].map(([id, label, n]) => (
-                        <button key={id} type="button" role="tab" aria-selected={filter === id} className={filter === id ? 'is-on' : ''} onClick={() => setFilter(id)}>
+                        <button key={id} type="button" role="tab" aria-selected={filter === id} className={filter === id ? 'is-on' : ''} onClick={() => setFilter(id)} style={{ background: filter === id ? '#a78bfa' : 'rgba(255,255,255,0.06)', border: 'none', padding: '6px 12px', borderRadius: 10, color: filter === id ? '#131022' : '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                           {label} <em>{n}</em>
                         </button>
                       ))}
@@ -544,18 +530,13 @@ export default function ArtistDashboard({ userId, onClose, onBecomeArtist }) {
                 </div>
 
                 {tracks.length === 0 ? (
-                  <div className="ad-first">
+                  <div className="ad-first" style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(255,255,255,0.5)' }}>
                     <h4>Your first song starts here</h4>
-                    <ol>
-                      <li><b>1</b><span>Drop in a track. We'll play it back so you can check it.</span></li>
-                      <li><b>2</b><span>Add a cover and a title. Both are easy to change later.</span></li>
-                      <li><b>3</b><span>Publish it, or save it as a draft and decide later.</span></li>
-                    </ol>
                   </div>
                 ) : shown.length === 0 ? (
-                  <p className="ad-none">No {filter === 'live' ? 'live' : 'hidden'} songs.</p>
+                  <p className="ad-none" style={{ textAlign: 'center', color: 'rgba(255,255,255,0.5)', padding: '20px 0' }}>No {filter === 'live' ? 'live' : 'hidden'} songs.</p>
                 ) : (
-                  <ul className="ad-tracks">
+                  <ul className="ad-tracks" style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {shown.map((t) => (
                       <TrackCard
                         key={t.id}
@@ -575,7 +556,7 @@ export default function ArtistDashboard({ userId, onClose, onBecomeArtist }) {
         )}
       </div>
 
-      {toast && <div className={`ad-toast is-${toast.kind}`} role="status">{toast.text}</div>}
+      {toast && <div className={`ad-toast is-${toast.kind}`} role="status" style={{ position: 'fixed', bottom: 20, right: 20, background: '#1e1b38', border: '1px solid #a78bfa', padding: '10px 16px', borderRadius: 12, zIndex: 1300, color: '#fff', fontSize: 13, fontWeight: 700, boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>{toast.text}</div>}
     </motion.div>
   )
 }
