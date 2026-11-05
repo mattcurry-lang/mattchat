@@ -43,26 +43,53 @@ export const MusicService = {
     const cached = searchCache.get(key)
     if (cached && Date.now() - cached.at < CACHE_MS) return cached.data
 
+    // If an explicit provider was requested in options, search ONLY that provider
     if (opts.provider) {
-      const data = await getProvider(opts.provider).search(query, opts)
+      const providerInstance = getProvider(opts.provider)
+      const data = providerInstance
+        ? await providerInstance.search(query, opts).catch(() => ({ tracks: [], artists: [], albums: [] }))
+        : { tracks: [], artists: [], albums: [] }
       searchCache.set(key, { data, at: Date.now() })
       return data
     }
 
-    const external = getProvider(activeProviderKey)
+    // Determine the external/active provider
+    const externalProvider = getProvider(activeProviderKey)
+
+    // Execute searches concurrently for active provider and Mattchat catalog
     const [externalResults, mattchatResults] = await Promise.all([
-      external ? external.search(query, opts).catch(() => ({ tracks: [], artists: [], albums: [] })) : Promise.resolve({ tracks: [], artists: [], albums: [] }),
-      activeProviderKey === 'mattchat' ? Promise.resolve(null) : mattchatProviderAdapter.search(query, opts).catch(() => ({ tracks: [] })),
+      externalProvider
+        ? externalProvider.search(query, opts).catch((err) => {
+            console.warn('[MusicService] External search error:', err)
+            return { tracks: [], artists: [], albums: [] }
+          })
+        : Promise.resolve({ tracks: [], artists: [], albums: [] }),
+      
+      // Always pull Mattchat catalog unless activeProviderKey is already explicitly 'mattchat'
+      activeProviderKey === 'mattchat'
+        ? Promise.resolve({ tracks: [], artists: [], albums: [] })
+        : mattchatProviderAdapter.search(query, opts).catch((err) => {
+            console.warn('[MusicService] Mattchat search error:', err)
+            return { tracks: [], artists: [], albums: [] }
+          }),
     ])
 
+    // Combine tracks, artists, and albums from both catalog sources
     const data = {
       tracks: [
-        ...(mattchatResults ? mattchatResults.tracks : []),
-        ...(externalResults.tracks || []),
+        ...(mattchatResults?.tracks || []),
+        ...(externalResults?.tracks || []),
       ],
-      artists: externalResults.artists || [],
-      albums: externalResults.albums || [],
+      artists: [
+        ...(mattchatResults?.artists || []),
+        ...(externalResults?.artists || []),
+      ],
+      albums: [
+        ...(mattchatResults?.albums || []),
+        ...(externalResults?.albums || []),
+      ],
     }
+
     searchCache.set(key, { data, at: Date.now() })
     return data
   },
