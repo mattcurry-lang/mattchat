@@ -1412,7 +1412,18 @@ useEffect(() => {
 }, [userId])
   
  
- 
+ const [blockedUserIds, setBlockedUserIds] = useState(new Set())
+
+useEffect(() => {
+  if (!userId) return
+  supabase
+    .from('blocked_users')
+    .select('blocked_id')
+    .eq('blocker_id', userId)
+    .then(({ data }) => {
+      if (data) setBlockedUserIds(new Set(data.map(r => r.blocked_id)))
+    })
+}, [userId, profileCardTarget])
   
 
 const msgRefs        = useRef({})
@@ -1547,7 +1558,7 @@ const unreadStatusCount = statusGroups.filter(g => !g.allViewed).length
   }
 
   const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
-
+const isUserBlocked = otherUserId && blockedUserIds.has(otherUserId)
   // Looks up a conversation by id from the full list — used for call UI
   // (caller name, avatar) so it works whether or not that conversation
   // happens to be the one currently open in the chat view. Relying on
@@ -3183,16 +3194,19 @@ onForward={(m) => setForwardingMessage(m)}
   />
 )}
 {profileCardTarget && (
-<ProfileCard
-  targetProfile={profileCardTarget}
-  myProfile={profile}
-  messages={messages}
-  currentUserId={userId}
-  onClose={() => setProfileCardTarget(null)}
-  onAskCurry={(question) => { setCurryPrefill(question); setActiveConvo(CURRY_AI_CONTACT) }}
-onMessageContact={handleMessageContact} 
-  extras={publicExtras.get(profileCardTarget?.id)}
-/>
+  <ProfileCard
+    targetProfile={profileCardTarget}
+    myProfile={profile}
+    messages={messages}
+    currentUserId={userId}
+    onClose={() => setProfileCardTarget(null)}
+    onAskCurry={(question) => { setCurryPrefill(question); setActiveConvo(CURRY_AI_CONTACT) }}
+    onMessageContact={handleMessageContact}
+    onVoiceCall={() => startCall('audio')}
+    onVideoCall={() => startCall('video')}
+    onOpenSearch={() => setShowSearch(true)}
+    extras={publicExtras.get(profileCardTarget?.id)}
+  />
 )}
 
       <div className="welcome-pane">
@@ -3627,13 +3641,13 @@ _onMessageContact: (contactEmail) => handleMessageContact(contactEmail),
 )}
  
             {/* Input area */}
-                      {isReadOnlyChat ? (
-              <div className="input-area" style={{ justifyContent: 'center', padding: '14px 16px' }}>
-                <div style={{ fontSize: 12.5, color: 'var(--dark-text-2)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  🔒 Only the Mattchat team can send messages here
-                </div>
-              </div>
-            ) : (
+              {isReadOnlyChat || isUserBlocked ? (
+  <div className="input-area" style={{ justifyContent: 'center', padding: '14px 16px' }}>
+    <div style={{ fontSize: 13, color: '#8696a0', display: 'flex', alignItems: 'center', gap: 6 }}>
+      {isUserBlocked ? '🔒 You blocked this contact. Open their profile to unblock.' : '🔒 Only the Mattchat team can send messages here'}
+    </div>
+  </div>
+) : (
             <div
   className={`input-area${afterglowOn ? ' ag-composer' : ''}`}
   style={{ flexDirection: 'column', alignItems: 'stretch', padding: 0, ...(afterglowOn ? { '--ag-h': convoHue(activeConvo?.id) } : null) }}
