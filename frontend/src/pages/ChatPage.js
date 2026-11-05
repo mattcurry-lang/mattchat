@@ -1417,8 +1417,7 @@ export default function ChatPage({ session }) {
 
   // ── DERIVED STATE VALUES ──
   const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
-  const isUserBlocked = Boolean(otherUserId && blockedUserIds.has(otherUserId))
-
+ 
   const otherMember = activeConvo?.conversation_members?.find(m => m.user_id !== userId)
   const otherProfile = otherMember?.profiles
   const isPeerBlocked = otherUserId && (blockedUserIds.has(otherUserId) || !otherProfile)
