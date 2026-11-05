@@ -1581,15 +1581,7 @@ const unreadStatusCount = statusGroups.filter(g => !g.allViewed).length
 
   const headerTitle = isPeerBlocked ? 'Mattchat User' : (otherProfile?.username || getConvoName(activeConvo))
   const headerStatusText = isPeerBlocked ? '' : headerStatus()
-  // Fetch users who blocked you
-  supabase
-    .from('blocked_users')
-    .select('blocker_id')
-    .eq('blocked_id', userId)
-    .then(({ data }) => {
-      if (data) setBlockedByOtherIds(new Set(data.map(r => r.blocker_id)))
-    })
-}, [userId, profileCardTarget])
+ 
 
 // Then this will work perfectly without throwing a ReferenceError
 const isUserBlocked = Boolean(otherUserId && blockedUserIds.has(otherUserId))
