@@ -25,8 +25,12 @@ export function TemporaryPassCard({ passData, currentUserId, onJoinSession }) {
   const handleEnterRoom = (e) => {
     e.stopPropagation()
     e.preventDefault()
-    if (onJoinSession) {
-      onJoinSession(passData.pass_code || passData)
+    
+    // Safety check to ensure we pass the string pass_code
+    const codeToPass = typeof passData === 'string' ? passData : (passData.pass_code || passData.code)
+    
+    if (typeof onJoinSession === 'function') {
+      onJoinSession(codeToPass)
     }
   }
 
@@ -90,7 +94,6 @@ export function TemporaryPassCard({ passData, currentUserId, onJoinSession }) {
         </div>
       )}
 
-      {/* Button with explicit click handler and pointer events */}
       <button
         type="button"
         onClick={handleEnterRoom}
