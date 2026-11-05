@@ -50,17 +50,18 @@ export const MusicService = {
         searchCache.set(key, { data, at: Date.now() })
         return data
       } catch (err) {
-        console.error('[MusicService] Explicit provider search error:', err)
+        console.warn('[MusicService] Explicit provider search error:', err)
         return { tracks: [], artists: [], albums: [] }
       }
     }
 
     const external = getProvider(activeProviderKey) || YouTubeMusicProvider
 
-    // Run searches independently with clear console warnings if anything fails
+    // Run searches independently. Even if the YouTube Edge Function returns a 500 error, 
+    // Mattchat results will still load successfully instead of crashing the entire view.
     const [externalResults, mattchatResults] = await Promise.all([
       external.search(query, opts).catch((err) => {
-        console.warn('[MusicService] External/YouTube search failed:', err)
+        console.warn('[MusicService] YouTube Edge Function error (500/Network):', err?.message || err)
         return { tracks: [], artists: [], albums: [] }
       }),
       activeProviderKey === 'mattchat' 
