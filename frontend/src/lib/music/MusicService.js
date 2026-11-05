@@ -38,8 +38,10 @@ function cacheKey(query, opts) {
 
 export const MusicService = {
   async search(query, opts = {}) {
-    if (!query?.trim()) return { tracks: [], artists: [], albums: [] }
-    const key = cacheKey(query, opts)
+    const cleanQuery = query?.trim().toLowerCase() || ''
+    if (!cleanQuery) return { tracks: [], artists: [], albums: [] }
+
+    const key = cacheKey(cleanQuery, opts)
     const cached = searchCache.get(key)
     if (cached && Date.now() - cached.at < CACHE_MS) return cached.data
 
@@ -49,7 +51,7 @@ export const MusicService = {
       let data = { tracks: [], artists: [], albums: [] }
       try {
         if (providerInstance && typeof providerInstance.search === 'function') {
-          const res = await providerInstance.search(query, opts)
+          const res = await providerInstance.search(cleanQuery, opts)
           if (res) {
             data.tracks = res.tracks || []
             data.artists = res.artists || []
@@ -63,13 +65,13 @@ export const MusicService = {
       return data
     }
 
-    // Execute searches safely and independently so one failing provider doesn't kill results
+    // Execute searches concurrently
     let ytResults = { tracks: [], artists: [], albums: [] }
     let mattchatResults = { tracks: [], artists: [], albums: [] }
 
     try {
       if (YouTubeMusicProvider && typeof YouTubeMusicProvider.search === 'function') {
-        const res = await YouTubeMusicProvider.search(query, opts)
+        const res = await YouTubeMusicProvider.search(cleanQuery, opts)
         if (res) {
           ytResults.tracks = res.tracks || []
           ytResults.artists = res.artists || []
@@ -82,7 +84,7 @@ export const MusicService = {
 
     try {
       if (mattchatProviderAdapter && typeof mattchatProviderAdapter.search === 'function') {
-        const res = await mattchatProviderAdapter.search(query, opts)
+        const res = await mattchatProviderAdapter.search(cleanQuery, opts)
         if (res) {
           mattchatResults.tracks = res.tracks || []
           mattchatResults.artists = res.artists || []
@@ -93,11 +95,23 @@ export const MusicService = {
       console.warn('[MusicService] Mattchat provider search failed:', err)
     }
 
-    // Combine results seamlessly: YouTube / external matches first, followed by custom Mattchat uploads
+    // FIX: Filter Mattchat results strictly. If the query is very short (< 3 chars) 
+    // or doesn't actually match the track title/artist, drop it so it doesn't hijack 
+    // the search with random default/featured uploads (like 24kGoldn).
+    let filteredMattchatTracks = []
+    if (cleanQuery.length >= 2) {
+      filteredMattchatTracks = (mattchatResults.tracks || []).filter(track => {
+        const title = (track.title || '').toLowerCase()
+        const artist = (track.artist || '').toLowerCase()
+        return title.includes(cleanQuery) || artist.includes(cleanQuery)
+      })
+    }
+
+    // Combine results: YouTube primary suggestions first, followed by valid Mattchat matches
     const data = {
       tracks: [
         ...(ytResults.tracks || []),
-        ...(mattchatResults.tracks || []),
+        ...filteredMattchatTracks,
       ],
       artists: [
         ...(ytResults.artists || []),
