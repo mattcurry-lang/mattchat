@@ -1559,6 +1559,12 @@ const unreadStatusCount = statusGroups.filter(g => !g.allViewed).length
   }
 
   const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
+  const otherMember = activeConvo?.conversation_members?.find(m => m.user_id !== userId)
+const otherProfile = otherMember?.profiles
+const isPeerBlocked = otherUserId && (blockedUserIds.has(otherUserId) || !otherProfile)
+
+const headerTitle = isPeerBlocked ? 'Mattchat User' : (otherProfile?.username || getConvoName(activeConvo))
+const headerStatusText = isPeerBlocked ? '' : headerStatus()
 useEffect(() => {
   if (!userId) return
   // Fetch users you blocked
@@ -3371,14 +3377,14 @@ activeConvo.isCurryAI ? (
   <Avatar name={getConvoName(activeConvo)} size={36} online={otherUserId ? isOnline(otherUserId) : false} photoUrl={getOtherUserAvatar(activeConvo, userId)} />
 </button>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="chat-header-name" style={{ display: 'flex', alignItems: 'center' }}>
-                  {getConvoName(activeConvo)}
-                  {getOtherUserIsAdmin(activeConvo, userId) && <IconVerified size={14} />}
-                </div>
-                <div className="chat-header-sub" style={{ minHeight: 16 }}>
-                  {headerStatus()}
-                  <StatusLine extras={publicExtras.get(otherUserId)} />
-                </div>
+               <div className="chat-header-name" style={{ display: 'flex', alignItems: 'center' }}>
+  {headerTitle}
+  {!isPeerBlocked && getOtherUserIsAdmin(activeConvo, userId) && <IconVerified size={14} />}
+</div>
+<div className="chat-header-sub" style={{ minHeight: 16 }}>
+  {headerStatusText}
+  {!isPeerBlocked && <StatusLine extras={publicExtras.get(otherUserId)} />}
+</div>
               </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', flexShrink: 0, maxWidth: '100%' }}>
                 {callStatus === 'idle' && !isReadOnlyChat && (
