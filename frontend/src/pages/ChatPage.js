@@ -1558,6 +1558,28 @@ const unreadStatusCount = statusGroups.filter(g => !g.allViewed).length
   }
 
   const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
+useEffect(() => {
+  if (!userId) return
+  // Fetch users you blocked
+  supabase
+    .from('blocked_users')
+    .select('blocked_id')
+    .eq('blocker_id', userId)
+    .then(({ data }) => {
+      if (data) setBlockedUserIds(new Set(data.map(r => r.blocked_id)))
+    })
+
+  // Fetch users who blocked you
+  supabase
+    .from('blocked_users')
+    .select('blocker_id')
+    .eq('blocked_id', userId)
+    .then(({ data }) => {
+      if (data) setBlockedByOtherIds(new Set(data.map(r => r.blocker_id)))
+    })
+}, [userId, profileCardTarget])
+
+// Then this will work perfectly without throwing a ReferenceError
 const isUserBlocked = otherUserId && (blockedUserIds.has(otherUserId) || blockedByOtherIds.has(otherUserId))
   // Looks up a conversation by id from the full list — used for call UI
   // (caller name, avatar) so it works whether or not that conversation
