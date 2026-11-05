@@ -268,7 +268,90 @@ function StickerBubble({ content, isMe }) {
     </div>
   )
 }
+function TemporaryPassCard({ passData, messageId, currentUserId }) {
+  const [status, setStatus] = useState(passData.status || 'pending')
+  const [loading, setLoading] = useState(false)
 
+  const handleAction = async (newStatus) => {
+    setLoading(true)
+    // Update Supabase backend record
+    const { error } = await supabase
+      .from('temporary_passes')
+      .update({ status: newStatus })
+      .eq('pass_code', passData.pass_code)
+
+    if (!error) {
+      setStatus(newStatus)
+    }
+    setLoading(false)
+  }
+
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, rgba(108,99,255,0.12) 0%, rgba(167,139,250,0.06) 100%)',
+      border: '1px solid rgba(167,139,250,0.3)',
+      borderRadius: 16,
+      padding: 16,
+      maxWidth: 320,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 10,
+      boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px #4ade80' }} />
+        <span style={{ fontSize: 12, fontWeight: 800, color: '#c4b5fd', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Temporary Chat Pass
+        </span>
+      </div>
+
+      <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff', lineHeight: 1.4 }}>
+        {passData.creator_name} invited you to join an active secure session for {passData.duration}.
+      </div>
+
+      <div style={{ fontSize: 11, color: '#9d97b5', fontFamily: 'monospace' }}>
+        Pass Code: {passData.pass_code}
+      </div>
+
+      {status === 'pending' && (
+        <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+          <button
+            disabled={loading}
+            onClick={() => handleAction('accepted')}
+            style={{
+              flex: 1, padding: '9px', borderRadius: 10, background: '#4ade80', color: '#090911',
+              border: 'none', fontWeight: 800, fontSize: 12, cursor: 'pointer'
+            }}
+          >
+            {loading ? 'Joining…' : 'Join Chat'}
+          </button>
+          <button
+            disabled={loading}
+            onClick={() => handleAction('declined')}
+            style={{
+              flex: 1, padding: '9px', borderRadius: 10, background: 'rgba(239,68,68,0.15)', color: '#f87171',
+              border: '1px solid rgba(239,68,68,0.3)', fontWeight: 800, fontSize: 12, cursor: 'pointer'
+            }}
+          >
+            Decline
+          </button>
+        </div>
+      )}
+
+      {status === 'accepted' && (
+        <div style={{ padding: '8px', borderRadius: 8, background: 'rgba(74,222,128,0.1)', color: '#4ade80', fontSize: 12, fontWeight: 700, textAlign: 'center' }}>
+          ✓ Pass Accepted — Session Active
+        </div>
+      )}
+
+      {status === 'declined' && (
+        <div style={{ padding: '8px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', color: '#f87171', fontSize: 12, fontWeight: 700, textAlign: 'center' }}>
+          ✕ Pass Declined
+        </div>
+      )}
+    </div>
+  )
+}
 function GifBubble({ content }) {
   const { autoplay } = useMediaPolicy()
   const [forcePlay, setForcePlay] = useState(false)
@@ -502,6 +585,23 @@ function MessageBubble({ msg, isMe, isRead, isDelivered, session }) {
   
   if (msg.message_type === 'curry') {
     return <CurryChatBubble msg={msg} />
+  }
+  if (msg.content?.startsWith('{') && msg.content?.includes('temporary_pass')) {
+    try {
+      const passData = JSON.parse(msg.content)
+      return (
+        <div className={`msg-row ${isMe ? 'mine' : ''}`}>
+          {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
+          <div>
+            {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
+            <TemporaryPassCard passData={passData} messageId={msg.id} currentUserId={msg._currentUserId || session?.user?.id} />
+            <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+          </div>
+        </div>
+      )
+    } catch (e) {
+      // Fallback if JSON parse fails
+    }
   }
   if (msg.deleted_for_everyone) {
     return (
