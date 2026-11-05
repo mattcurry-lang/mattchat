@@ -27,8 +27,7 @@ function getProvider(key) {
   }
 }
 
-// Tiny in-memory cache so retyping/backspacing during a debounced
-// search doesn't refire identical network requests.
+// In-memory cache so repeated queries or rapid retyping don't refire API calls
 const searchCache = new Map()
 const CACHE_MS = 60 * 1000
 
@@ -57,11 +56,10 @@ export const MusicService = {
 
     const external = getProvider(activeProviderKey) || YouTubeMusicProvider
 
-    // Run searches independently. Even if the YouTube Edge Function returns a 500 error, 
-    // Mattchat results will still load successfully instead of crashing the entire view.
+    // Concurrently fetch from YouTube and Mattchat with robust error recovery
     const [externalResults, mattchatResults] = await Promise.all([
       external.search(query, opts).catch((err) => {
-        console.warn('[MusicService] YouTube Edge Function error (500/Network):', err?.message || err)
+        console.warn('[MusicService] YouTube search failed:', err?.message || err)
         return { tracks: [], artists: [], albums: [] }
       }),
       activeProviderKey === 'mattchat' 
