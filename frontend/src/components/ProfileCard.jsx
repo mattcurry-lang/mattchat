@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import Avatar from './Avatar'
-import { computeReplyTimeLabel } from '../lib/supabase'
+import { computeReplyTimeLabel, supabase } from '../lib/supabase'
 import { themeById, themeGradient, themeBanner } from '../lib/profileThemes'
 import { 
   IconX, IconClock, IconSparkle, IconMessageSquare, 
@@ -35,7 +35,6 @@ export default function ProfileCard({
   onClose,
   onAskCurry,
   onMessageContact,
-  onBlockUser,
   onToggleMute,
   onVoiceCall,
   onVideoCall,
@@ -43,6 +42,26 @@ export default function ProfileCard({
 }) {
   const [showBlockConfirm, setShowBlockConfirm] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
+  const [isBlocked, setIsBlocked] = useState(false)
+  const [blockLoading, setBlockLoading] = useState(true)
+
+  // Fetch block status from Supabase when the card opens
+  useEffect(() => {
+    if (!currentUserId || !targetProfile?.id || currentUserId === targetProfile.id) {
+      setBlockLoading(false)
+      return
+    }
+    supabase
+      .from('blocked_users')
+      .select('id')
+      .eq('blocker_id', currentUserId)
+      .eq('blocked_id', targetProfile.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setIsBlocked(!!data)
+        setBlockLoading(false)
+      })
+  }, [currentUserId, targetProfile?.id])
 
   const replyLabel = useMemo(
     () => computeReplyTimeLabel(messages, targetProfile?.id, currentUserId),
@@ -67,12 +86,35 @@ export default function ProfileCard({
     onClose()
   }
 
-  const handleBlockAction = () => {
-    if (!showBlockConfirm) {
-      setShowBlockConfirm(true)
+  const handleToggleBlock = async () => {
+    if (isBlocked) {
+      // Unblock user in database
+      const { error } = await supabase
+        .from('blocked_users')
+        .delete()
+        .eq('blocker_id', currentUserId)
+        .eq('blocked_id', targetProfile.id)
+      if (!error) {
+        setIsBlocked(false)
+        setShowBlockConfirm(false)
+      } else {
+        alert('Could not unblock user. Please try again.')
+      }
     } else {
-      onBlockUser?.(targetProfile.id)
-      onClose()
+      // Block user in database
+      if (!showBlockConfirm) {
+        setShowBlockConfirm(true)
+        return
+      }
+      const { error } = await supabase
+        .from('blocked_users')
+        .insert({ blocker_id: currentUserId, blocked_id: targetProfile.id })
+      if (!error) {
+        setIsBlocked(true)
+        setShowBlockConfirm(false)
+      } else {
+        alert('Could not block user. Please try again.')
+      }
     }
   }
 
@@ -253,8 +295,8 @@ export default function ProfileCard({
             </div>
           )}
 
-          {/* Safety & Settings Controls (Mute & Block) */}
-          {!isSelf && (
+          {/* Safety & Settings Controls (Mute & Block/Unblock) */}
+          {!isSelf && !blockLoading && (
             <div style={{ padding: '8px 0', background: 'var(--bg-surface-1, #111b21)' }}>
               <button
                 onClick={() => {
@@ -272,16 +314,18 @@ export default function ProfileCard({
               </button>
 
               <button
-                onClick={handleBlockAction}
+                onClick={handleToggleBlock}
                 style={{
                   width: '100%', display: 'flex', alignItems: 'center', gap: 16,
                   padding: '14px 24px', fontSize: 14, fontWeight: 500, cursor: 'pointer',
                   background: showBlockConfirm ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
-                  color: '#f87171', border: 'none', textAlign: 'left', transition: 'background 0.15s',
+                  color: isBlocked ? '#34d399' : '#f87171', border: 'none', textAlign: 'left', transition: 'background 0.15s',
                 }}
               >
                 <IconShieldAlert size={18} /> 
-                {showBlockConfirm ? `Confirm block ${targetProfile.username}?` : `Block ${targetProfile.username}`}
+                {isBlocked 
+                  ? `Unblock ${targetProfile.username}` 
+                  : (showBlockConfirm ? `Confirm block ${targetProfile.username}?` : `Block ${targetProfile.username}`)}
               </button>
             </div>
           )}
