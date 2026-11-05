@@ -498,38 +498,45 @@ function CurryChatBubble({ msg }) {
   )
 }
 
-function MessageBubble({ msg, isMe, isRead, isDelivered, session }) {
-
+function MessageBubble({ msg, isMe, isRead, isDelivered, session, setActiveSessionPassCode }) {
   
   if (msg.message_type === 'curry') {
     return <CurryChatBubble msg={msg} />
   }
-if (msg.content?.startsWith('{') && msg.content?.includes('temporary_pass')) {
-  try {
-    const passData = JSON.parse(msg.content)
-    return (
-      <div key={msg.id} className={`msg-row ${isMe ? 'mine' : ''}`}>
-        {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
-        <div>
-          {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
-      <TemporaryPassCard 
-  passData={passData} 
-  currentUserId={session?.user?.id} 
-  onJoinSession={setActiveSessionPassCode} 
-/>
-          <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+
+  if (msg.content?.startsWith('{') && msg.content?.includes('temporary_pass')) {
+    try {
+      const passData = JSON.parse(msg.content)
+      return (
+        <div key={msg.id} className={`msg-row ${isMe ? 'mine' : ''}`}>
+          {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
+          <div>
+            {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
+            <TemporaryPassCard 
+              passData={passData} 
+              currentUserId={session?.user?.id} 
+              onJoinSession={(code) => {
+                console.log("Opening Stacked Session for code:", code)
+                if (typeof setActiveSessionPassCode === 'function') {
+                  setActiveSessionPassCode(code)
+                }
+              }} 
+            />
+            <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+          </div>
         </div>
-      </div>
-    )
-  } catch (e) {
-    // Fallback
+      )
+    } catch (e) {
+      // Fallback
+    }
   }
-}
+
   if (msg.deleted_for_everyone) {
     return (
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
         {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
         <div>
+         
           {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
           <div className="msg-bubble deleted-msg">🚫 This message was deleted</div>
           <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
@@ -3560,11 +3567,10 @@ onSaved={() => { setShowSaved(true); setShowThreeDot(false) }}
   isMe={isMine}
   conversationId={activeConvo.id}
 >
-    <MessageBubble
+   <MessageBubble
   msg={{
     ...msg,
     _currentUserId: userId,
-     // calls in chat (Afterglow): context + actions for the call card
     _callCtx: isMissedCall ? { history: callHistory, otherName: getConvoName(activeConvo), isGroup: !!activeConvo?.is_group, burst: callInfo?.bursts.get(msg.id), resolved: callInfo?.resolved.get(msg.id), fmt: formatMsgTime } : null,
     _onCallBack: (callType, zoom) => (zoom ? handleZoomCall(activeConvo.id, getConvoName(activeConvo)) : startCall(callType, activeConvo.id)),
     _onCallVoiceNote: () => setShowVoice(true),
@@ -3581,28 +3587,22 @@ onSaved={() => { setShowSaved(true); setShowThreeDot(false) }}
     _onOpenMoment: (m) => setMomentViewerTarget(m.id),
     _onRetryMediaUpload: (m) => retryMediaUpload(m),
     _onOpenShort: (video) => { setShortsInitialVideo(video); setShowShorts(true) },
-    // NEW — ContactBubble's onClick calls onOpenProfile(...), which reads
-    // this. It was missing entirely, so the button had nothing to call.
-    // Also normalizes the shape: ContactBubble hands back {id, username,
-    // avatarUrl} (camelCase, from its own JSON.parse of msg.content), but
-    // ProfileCard elsewhere in this file is always given a real `profiles`
-    // row shape (avatar_url, snake_case — see the header-avatar onClick
-    // above). Without this remap the card would open but the avatar
-    // wouldn't render.
-_onOpenSharedContact: (contact) => setProfileCardTarget({
-  id: contact.id,
-  username: contact.username,
-  avatar_url: contact.avatarUrl,
-  is_admin: contact.isAdmin,
-}),
-_onMessageContact: (contactEmail) => handleMessageContact(contactEmail), 
+    _onOpenSharedContact: (contact) => setProfileCardTarget({
+      id: contact.id,
+      username: contact.username,
+      avatar_url: contact.avatarUrl,
+      is_admin: contact.isAdmin,
+    }),
+    _onMessageContact: (contactEmail) => handleMessageContact(contactEmail),
+    
+    // Included right inside the message context object:
+    _onJoinSession: (code) => setActiveSessionPassCode(code),
   }}
   isMe={isMine}
   isRead={!!readMap[msg.id]}
   isDelivered={!!deliveredMap[msg.id]}
   session={session}
-/>
-                        </ReactableMessage>
+/>                  </ReactableMessage>
                           </SwipeableMessage>
                       )}
                     </div>
