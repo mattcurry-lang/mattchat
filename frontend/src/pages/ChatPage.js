@@ -1405,6 +1405,7 @@ const [curryPrefill, setCurryPrefill] = useState(null)
   const { tripleTapProps } = useShushhhShortcut({ onTrigger: () => setShowShushhh(true), enabled: !showShushhh && !!userId })
   const [myRingtone, setMyRingtone] = useState(null)
 const [showRingtonePicker, setShowRingtonePicker] = useState(false)
+  const [blockedUserIds, setBlockedUserIds] = useState(new Set())
 
 useEffect(() => {
   if (!userId) return
@@ -1580,7 +1581,7 @@ useEffect(() => {
 }, [userId, profileCardTarget])
 
 // Then this will work perfectly without throwing a ReferenceError
-const isUserBlocked = otherUserId && (blockedUserIds.has(otherUserId) || blockedByOtherIds.has(otherUserId))
+const isUserBlocked = Boolean(otherUserId && blockedUserIds.has(otherUserId))
   // Looks up a conversation by id from the full list — used for call UI
   // (caller name, avatar) so it works whether or not that conversation
   // happens to be the one currently open in the chat view. Relying on
@@ -1685,7 +1686,7 @@ useEffect(() => {
   
   useEffect(() => { loadSharedConvoIds() }, [loadSharedConvoIds])
 
-  const loadEmailAccounts = useCallback(async () => {
+  const loadEmailAccounts= useCallback(async () => {
     try { setEmailAccounts(await listEmailAccounts(session)) } catch (e) { console.error('listEmailAccounts failed:', e) }
   }, [session])
 
@@ -2297,7 +2298,6 @@ const getConvoName = (c) => {
   const other = c.conversation_members?.find(m => m.user_id !== userId)
   const otherId = other?.user_id
   
-  // If this user is blocked by you or has blocked you (profiles query returns null/hidden)
   if (otherId && (blockedUserIds.has(otherId) || !other?.profiles)) {
     return 'Mattchat User'
   }
@@ -2308,9 +2308,8 @@ const getOtherUserAvatar = (c, myUserId) => {
   const other = c?.conversation_members?.find(m => m.user_id !== myUserId)
   const otherId = other?.user_id
   
-  // If blocked, return null so the Avatar component renders the stealth placeholder fallback
   if (otherId && (blockedUserIds.has(otherId) || !other?.profiles)) {
-    return null 
+    return null
   }
   return other?.profiles?.avatar_url || null
 }
