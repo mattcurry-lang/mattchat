@@ -19,7 +19,6 @@
       ]
     }
   ],
- {
   "rewrites": [
     {
       "source": "/api/supabase/functions/v1/:path*",
@@ -35,4 +34,3 @@
     }
   ]
 }
-
