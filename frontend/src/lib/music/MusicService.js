@@ -46,48 +46,66 @@ export const MusicService = {
     // If an explicit provider was requested in options, search ONLY that provider
     if (opts.provider) {
       const providerInstance = getProvider(opts.provider)
-      const data = providerInstance
-        ? await providerInstance.search(query, opts).catch(() => ({ tracks: [], artists: [], albums: [] }))
-        : { tracks: [], artists: [], albums: [] }
+      let data = { tracks: [], artists: [], albums: [] }
+      try {
+        if (providerInstance && typeof providerInstance.search === 'function') {
+          const res = await providerInstance.search(query, opts)
+          if (res) {
+            data.tracks = res.tracks || []
+            data.artists = res.artists || []
+            data.albums = res.albums || []
+          }
+        }
+      } catch (err) {
+        console.warn('[MusicService] Explicit provider search error:', err)
+      }
       searchCache.set(key, { data, at: Date.now() })
       return data
     }
 
-    // Determine the external/active provider
-    const externalProvider = getProvider(activeProviderKey)
+    // Execute searches safely and independently so one failing provider doesn't kill results
+    let ytResults = { tracks: [], artists: [], albums: [] }
+    let mattchatResults = { tracks: [], artists: [], albums: [] }
 
-    // Execute searches concurrently for active provider and Mattchat catalog
-    const [externalResults, mattchatResults] = await Promise.all([
-      externalProvider
-        ? externalProvider.search(query, opts).catch((err) => {
-            console.warn('[MusicService] External search error:', err)
-            return { tracks: [], artists: [], albums: [] }
-          })
-        : Promise.resolve({ tracks: [], artists: [], albums: [] }),
-      
-      // Pull Mattchat catalog unless activeProviderKey is already explicitly 'mattchat'
-      activeProviderKey === 'mattchat'
-        ? Promise.resolve({ tracks: [], artists: [], albums: [] })
-        : mattchatProviderAdapter.search(query, opts).catch((err) => {
-            console.warn('[MusicService] Mattchat search error:', err)
-            return { tracks: [], artists: [], albums: [] }
-          }),
-    ])
+    try {
+      if (YouTubeMusicProvider && typeof YouTubeMusicProvider.search === 'function') {
+        const res = await YouTubeMusicProvider.search(query, opts)
+        if (res) {
+          ytResults.tracks = res.tracks || []
+          ytResults.artists = res.artists || []
+          ytResults.albums = res.albums || []
+        }
+      }
+    } catch (err) {
+      console.warn('[MusicService] YouTube provider search failed:', err)
+    }
 
-    // Combine tracks with External (YouTube) results first so relevant suggestions 
-    // drive the "Top result" and autocomplete, followed by Mattchat custom uploads.
+    try {
+      if (mattchatProviderAdapter && typeof mattchatProviderAdapter.search === 'function') {
+        const res = await mattchatProviderAdapter.search(query, opts)
+        if (res) {
+          mattchatResults.tracks = res.tracks || []
+          mattchatResults.artists = res.artists || []
+          mattchatResults.albums = res.albums || []
+        }
+      }
+    } catch (err) {
+      console.warn('[MusicService] Mattchat provider search failed:', err)
+    }
+
+    // Combine results seamlessly: YouTube / external matches first, followed by custom Mattchat uploads
     const data = {
       tracks: [
-        ...(externalResults?.tracks || []),
-        ...(mattchatResults?.tracks || []),
+        ...(ytResults.tracks || []),
+        ...(mattchatResults.tracks || []),
       ],
       artists: [
-        ...(externalResults?.artists || []),
-        ...(mattchatResults?.artists || []),
+        ...(ytResults.artists || []),
+        ...(mattchatResults.artists || []),
       ],
       albums: [
-        ...(externalResults?.albums || []),
-        ...(mattchatResults?.albums || []),
+        ...(ytResults.albums || []),
+        ...(mattchatResults.albums || []),
       ],
     }
 
@@ -96,19 +114,32 @@ export const MusicService = {
   },
 
   async getTrending(opts = {}) {
-    const provider = getProvider(opts.provider)
-    return provider ? provider.getTrending(opts) : { tracks: [] }
+    try {
+      const provider = getProvider(opts.provider)
+      return provider && typeof provider.getTrending === 'function' 
+        ? await provider.getTrending(opts) 
+        : { tracks: [] }
+    } catch {
+      return { tracks: [] }
+    }
   },
 
   async getArtist(providerArtistId, opts = {}) {
-    const provider = getProvider(opts.provider)
-    return provider ? provider.getArtist(providerArtistId) : null
+    try {
+      const provider = getProvider(opts.provider)
+      return provider && typeof provider.getArtist === 'function' 
+        ? await provider.getArtist(providerArtistId) 
+        : null
+    } catch {
+      return null
+    }
   },
 
   /**
    * Resolves a playable URL for a track.
    */
   async resolveStreamUrl(track) {
+    if (!track) return null
     const offline = await OfflineCache.getBlobUrl(track.id).catch(() => null)
     if (offline) return offline
 
@@ -116,7 +147,9 @@ export const MusicService = {
 
     try {
       const provider = getProvider(track.provider)
-      return provider ? await provider.streamTrack(track.providerTrackId) : null
+      return provider && typeof provider.streamTrack === 'function' 
+        ? await provider.streamTrack(track.providerTrackId) 
+        : null
     } catch {
       return null
     }
