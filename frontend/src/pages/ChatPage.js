@@ -1405,7 +1405,7 @@ const [curryPrefill, setCurryPrefill] = useState(null)
   const { tripleTapProps } = useShushhhShortcut({ onTrigger: () => setShowShushhh(true), enabled: !showShushhh && !!userId })
   const [myRingtone, setMyRingtone] = useState(null)
 const [showRingtonePicker, setShowRingtonePicker] = useState(false)
-  const [blockedUserIds, setBlockedUserIds] = useState(new Set())
+ 
 
 useEffect(() => {
   if (!userId) return
