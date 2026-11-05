@@ -3,7 +3,7 @@ import Avatar from './Avatar'
 import { supabase } from '../lib/supabase'
 import { IconX, IconMessageSquare, IconSend, IconUserPlus } from './Icons'
 
-// 1. Interactive Pass Card in Chat
+// 1. Interactive Pass Card rendered in Chat
 export function TemporaryPassCard({ passData, currentUserId, onJoinSession }) {
   const [status, setStatus] = useState(passData.status || 'pending')
   const [loading, setLoading] = useState(false)
@@ -91,43 +91,31 @@ export function TemporaryPassCard({ passData, currentUserId, onJoinSession }) {
   )
 }
 
-// 2. Contact Share Picker Modal (Generates & Sends Pass to Selected Contact)
-export function PassContactSharePicker({ passDuration, currentUserId, myProfile, targetProfile, onClose }) {
-  const [contacts, setContacts] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [sendingId, setSendingId] = useState(null)
+// 2. Filtered Contact Picker (Only shows current chat partner / active conversation members)
+export function PassContactSharePicker({ passDuration, currentUserId, myProfile, targetProfile, conversationId, onClose }) {
+  const [sending, setSending] = useState(false)
 
-  useEffect(() => {
-    async function loadContacts() {
-      const { data } = await supabase.from('profiles').select('id, username, avatar_url').neq('id', currentUserId)
-      if (data) setContacts(data)
-      setLoading(false)
-    }
-    loadContacts()
-  }, [currentUserId])
+  const handleSendToActiveChat = async () => {
+    if (!targetProfile?.id && !conversationId) return
+    setSending(true)
 
-  const handleSendToUser = async (contact) => {
-    setSendingId(contact.id)
     const randomHash = Math.random().toString(36).substring(2, 8).toUpperCase()
     const hoursNum = parseInt(passDuration) || 2
     const passCode = `MATT-${passDuration.toUpperCase()}-${randomHash}`
     const expiresAt = new Date(Date.now() + hoursNum * 3600 * 1000).toISOString()
 
-    // Save pass backend record
+    // 1. Insert record into database
     await supabase.from('temporary_passes').insert({
       pass_code: passCode,
       creator_id: currentUserId,
-      target_user_id: contact.id,
+      target_user_id: targetProfile?.id || currentUserId,
       duration_hours: hoursNum,
       status: 'pending',
       expires_at: expiresAt
     })
 
-    // Find conversation with target contact or create new message
-    const { data: convos } = await supabase.from('conversations').select('id').limit(1)
-    const convoId = convos?.[0]?.id
-
-    if (convoId) {
+    // 2. Insert pass card payload into the active conversation
+    if (conversationId) {
       const passPayload = JSON.stringify({
         type: 'temporary_pass',
         pass_code: passCode,
@@ -138,14 +126,14 @@ export function PassContactSharePicker({ passDuration, currentUserId, myProfile,
       })
 
       await supabase.from('messages').insert({
-        conversation_id: convoId,
+        conversation_id: conversationId,
         sender_id: currentUserId,
         content: passPayload,
         message_type: 'text'
       })
     }
 
-    setSendingId(null)
+    setSending(false)
     onClose()
   }
 
@@ -165,46 +153,51 @@ export function PassContactSharePicker({ passDuration, currentUserId, myProfile,
             <IconX size={18} />
           </button>
         </div>
-        <div style={{ fontSize: 12, color: '#9d97b5', marginBottom: 14 }}>
-          Select a contact to invite them into this session for {passDuration}:
+        <div style={{ fontSize: 12.5, color: '#9d97b5', marginBottom: 18, lineHeight: 1.4 }}>
+          Send this {passDuration} temporary pass directly to your active chat with <strong style={{ color: '#fff' }}>{targetProfile?.username || 'this contact'}</strong>:
         </div>
-        {loading ? (
-          <div style={{ fontSize: 12, color: '#a78bfa', textAlign: 'center', padding: 20 }}>Loading contacts...</div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 260, overflowY: 'auto' }}>
-            {contacts.map(c => (
-              <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 10, background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Avatar name={c.username} photoUrl={c.avatar_url} size={34} />
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>{c.username}</span>
-                </div>
-                <button
-                  disabled={sendingId === c.id}
-                  onClick={() => handleSendToUser(c)}
-                  style={{
-                    padding: '6px 12px', borderRadius: 8, background: 'linear-gradient(135deg, #6c63ff, #a855f7)',
-                    color: '#fff', border: 'none', fontWeight: 700, fontSize: 11, cursor: 'pointer'
-                  }}
-                >
-                  {sendingId === c.id ? 'Sending...' : 'Send Pass'}
-                </button>
+
+        {targetProfile ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 12, background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Avatar name={targetProfile.username} photoUrl={targetProfile.avatar_url} size={38} />
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>{targetProfile.username}</div>
+                <div style={{ fontSize: 11, color: '#4ade80' }}>Active Chat Partner</div>
               </div>
-            ))}
+            </div>
+            <button
+              disabled={sending}
+              onClick={handleSendToActiveChat}
+              style={{
+                padding: '8px 14px', borderRadius: 10, background: 'linear-gradient(135deg, #6c63ff, #a855f7)',
+                color: '#fff', border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(108,99,255,0.4)'
+              }}
+            >
+              {sending ? 'Sending...' : 'Send Pass'}
+            </button>
           </div>
+        ) : (
+          <div style={{ fontSize: 12, color: '#f87171', textAlign: 'center', padding: 16 }}>No active chat contact selected.</div>
         )}
       </div>
     </div>
   )
 }
 
-// 3. Stacked Profile Room Modal View
-export default function StackedSessionModal({ passCode, onClose }) {
+// 3. Stacked Session Room & Messaging Modal View
+export default function StackedSessionModal({ passCode, currentUserId, onClose }) {
   const [hosts, setHosts] = useState([])
   const [activeCardIndex, setActiveCardIndex] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [sessionMessages, setSessionMessages] = useState([])
+  const [inputMessage, setInputMessage] = useState('')
+  const [inChatMode, setInChatMode] = useState(false)
+  const [selectedHost, setSelectedHost] = useState(null)
 
   useEffect(() => {
-    async function loadHosts() {
+    async function loadSession() {
       if (!passCode) return
       const { data: passData } = await supabase
         .from('temporary_passes')
@@ -217,24 +210,31 @@ export default function StackedSessionModal({ passCode, onClose }) {
         const { data: profiles } = await supabase.from('profiles').select('*').in('id', ids)
         if (profiles) setHosts(profiles)
       } else {
-        // Fallback demo stack if pass is local state
         setHosts([
           { id: '1', username: 'Lainey', bio: 'Session Host & Administrator' },
-          { id: '2', username: 'Kane', bio: 'Co-Host Drop-in Participant' }
+          { id: '2', username: 'Kane', bio: 'Co-Host Participant' }
         ])
       }
       setLoading(false)
     }
-    loadHosts()
+    loadSession()
   }, [passCode])
+
+  const handleSendMessage = (e) => {
+    e.preventDefault()
+    if (!inputMessage.trim()) return
+    setSessionMessages(prev => [...prev, { id: Date.now(), sender: 'You', text: inputMessage }])
+    setInputMessage('')
+  }
 
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 99999,
-      background: 'rgba(4, 4, 10, 0.92)', backdropFilter: 'blur(20px)',
+      background: 'rgba(4, 4, 10, 0.94)', backdropFilter: 'blur(20px)',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       padding: 20, animation: 'fadeIn 0.25s ease-out'
     }}>
+      {/* Top Header Bar */}
       <div style={{
         position: 'absolute', top: 24, left: 24, right: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', padding: '12px 20px', borderRadius: 16
@@ -242,82 +242,126 @@ export default function StackedSessionModal({ passCode, onClose }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 10px #4ade80' }} />
           <span style={{ fontSize: 13, fontWeight: 800, color: '#fff', letterSpacing: '0.04em' }}>
-            STACKED SESSION ROOM
+            {inChatMode ? `SESSION CHAT: @${selectedHost?.username}` : 'STACKED SESSION ROOM'}
           </span>
           <span style={{ fontSize: 11, color: '#a78bfa', fontFamily: 'monospace', background: 'rgba(167,139,250,0.1)', padding: '2px 8px', borderRadius: 6 }}>
             {passCode}
           </span>
         </div>
-        <button onClick={onClose} style={{
-          background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff',
-          cursor: 'pointer', borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <IconX size={16} />
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {inChatMode && (
+            <button onClick={() => setInChatMode(false)} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: '#fff', padding: '6px 12px', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              Back to Cards
+            </button>
+          )}
+          <button onClick={onClose} style={{
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff',
+            cursor: 'pointer', borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+            <IconX size={16} />
+          </button>
+        </div>
       </div>
 
-      <div style={{ position: 'relative', width: '100%', maxWidth: 380, height: 480, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 30 }}>
-        {loading ? (
-          <div style={{ color: '#a78bfa', fontSize: 14, fontWeight: 700 }}>Loading stacked profiles...</div>
-        ) : (
-          hosts.map((host, idx) => {
-            const isTop = idx === activeCardIndex
-            return (
-              <div
-                key={host.id || idx}
-                onClick={() => setActiveCardIndex(idx)}
-                style={{
-                  position: 'absolute',
-                  width: '100%',
-                  height: 440,
-                  background: 'linear-gradient(180deg, #131324 0%, #0a0a14 100%)',
-                  border: '1px solid rgba(167, 139, 250, 0.35)',
-                  borderRadius: 24,
-                  padding: 24,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  textAlign: 'center',
-                  boxShadow: isTop ? '0 25px 60px rgba(0,0,0,0.85), 0 0 35px rgba(108,99,255,0.25)' : '0 10px 20px rgba(0,0,0,0.5)',
-                  transform: isTop ? 'translateY(0) scale(1)' : 'translateY(-28px) scale(0.92)',
-                  zIndex: isTop ? 10 : 5 - idx,
-                  transition: 'all 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
-                  cursor: 'pointer',
-                  opacity: isTop ? 1 : 0.6
-                }}
-              >
-                <div style={{ borderRadius: '50%', padding: 4, background: 'linear-gradient(135deg, #6c63ff, #a855f7)', boxShadow: '0 10px 30px rgba(108,99,255,0.4)', marginBottom: 16 }}>
-                  <Avatar name={host.username} photoUrl={host.avatar_url} size={90} />
-                </div>
-
-                <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginBottom: 4 }}>
-                  {host.username || 'Host'}
-                </div>
-                <div style={{ fontSize: 12, color: '#a78bfa', fontWeight: 600, marginBottom: 14 }}>
-                  @{host.username?.toLowerCase() || 'host'} • Co-Host
-                </div>
-
-                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: 12, width: '100%', marginBottom: 16, fontSize: 12.5, color: '#d1cde6', lineHeight: 1.4 }}>
-                  {host.bio || 'Participating in this secure temporary drop-in session.'}
-                </div>
-
-                <button
-                  onClick={(e) => { e.stopPropagation(); onClose(); }}
+      {/* Main Content Area: Stacked Cards OR Direct Session Chat */}
+      {!inChatMode ? (
+        <div style={{ position: 'relative', width: '100%', maxWidth: 380, height: 480, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 30 }}>
+          {loading ? (
+            <div style={{ color: '#a78bfa', fontSize: 14, fontWeight: 700 }}>Loading session hosts...</div>
+          ) : (
+            hosts.map((host, idx) => {
+              const isTop = idx === activeCardIndex
+              return (
+                <div
+                  key={host.id || idx}
+                  onClick={() => setActiveCardIndex(idx)}
                   style={{
-                    marginTop: 'auto', width: '100%', padding: '12px', borderRadius: 12, background: 'linear-gradient(135deg, #6c63ff 0%, #a855f7 100%)',
-                    color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
+                    position: 'absolute',
+                    width: '100%',
+                    height: 440,
+                    background: 'linear-gradient(180deg, #131324 0%, #0a0a14 100%)',
+                    border: '1px solid rgba(167, 139, 250, 0.35)',
+                    borderRadius: 24,
+                    padding: 24,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    textAlign: 'center',
+                    boxShadow: isTop ? '0 25px 60px rgba(0,0,0,0.85), 0 0 35px rgba(108,99,255,0.25)' : '0 10px 20px rgba(0,0,0,0.5)',
+                    transform: isTop ? 'translateY(0) scale(1)' : 'translateY(-28px) scale(0.92)',
+                    zIndex: isTop ? 10 : 5 - idx,
+                    transition: 'all 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
+                    cursor: 'pointer',
+                    opacity: isTop ? 1 : 0.6
                   }}
                 >
-                  <IconMessageSquare size={15} /> Chat with {host.username}
-                </button>
+                  <div style={{ borderRadius: '50%', padding: 4, background: 'linear-gradient(135deg, #6c63ff, #a855f7)', boxShadow: '0 10px 30px rgba(108,99,255,0.4)', marginBottom: 16 }}>
+                    <Avatar name={host.username} photoUrl={host.avatar_url} size={90} />
+                  </div>
+
+                  <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginBottom: 4 }}>
+                    {host.username || 'Host'}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#a78bfa', fontWeight: 600, marginBottom: 14 }}>
+                    @{host.username?.toLowerCase() || 'host'} • Co-Host
+                  </div>
+
+                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: 12, width: '100%', marginBottom: 16, fontSize: 12.5, color: '#d1cde6', lineHeight: 1.4 }}>
+                    {host.bio || 'Participating in this secure temporary drop-in session.'}
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedHost(host)
+                      setInChatMode(true)
+                    }}
+                    style={{
+                      marginTop: 'auto', width: '100%', padding: '12px', borderRadius: 12, background: 'linear-gradient(135deg, #6c63ff 0%, #a855f7 100%)',
+                      color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      boxShadow: '0 4px 16px rgba(108,99,255,0.35)'
+                    }}
+                  >
+                    <IconMessageSquare size={15} /> Chat with {host.username}
+                  </button>
+                </div>
+              )
+            })
+          )}
+        </div>
+      ) : (
+        /* Active Drop-In Chat View */
+        <div style={{ width: '100%', maxWidth: 440, height: 460, background: '#11101b', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 24, display: 'flex', flexDirection: 'column', marginTop: 30, overflow: 'hidden' }}>
+          <div style={{ flex: 1, padding: 16, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {sessionMessages.length === 0 ? (
+              <div style={{ color: '#8b8b9e', fontSize: 12.5, textAlign: 'center', marginTop: 80 }}>
+                Secure session established with {selectedHost?.username}. Send a message below!
               </div>
-            )
-          })
-        )}
-      </div>
+            ) : (
+              sessionMessages.map(m => (
+                <div key={m.id} style={{ alignSelf: m.sender === 'You' ? 'flex-end' : 'flex-start', background: m.sender === 'You' ? '#6c63ff' : 'rgba(255,255,255,0.06)', color: '#fff', padding: '10px 14px', borderRadius: 14, maxWidth: '80%', fontSize: 13 }}>
+                  {m.text}
+                </div>
+              ))
+            )}
+          </div>
+          <form onSubmit={handleSendMessage} style={{ display: 'flex', padding: 12, background: 'rgba(0,0,0,0.3)', borderTop: '1px solid rgba(255,255,255,0.06)', gap: 8 }}>
+            <input 
+              type="text" 
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              placeholder={`Message ${selectedHost?.username}...`}
+              style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: '#fff', fontSize: 13, outline: 'none' }}
+            />
+            <button type="submit" style={{ background: '#6c63ff', border: 'none', borderRadius: 10, width: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', cursor: 'pointer' }}>
+              <IconSend size={16} />
+            </button>
+          </form>
+        </div>
+      )}
 
       <div style={{ fontSize: 12, color: '#8b8b9e', marginTop: 24, textAlign: 'center' }}>
-        Click stacked cards to switch focus between session hosts.
+        {!inChatMode ? 'Click stacked cards to switch focus or jump into session chat.' : `Connected to secure room channel with ${selectedHost?.username}`}
       </div>
     </div>
   )
