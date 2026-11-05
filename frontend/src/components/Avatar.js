@@ -12,13 +12,9 @@ const PALETTE = [
 
 export default function Avatar({ name, size = 38, online = false, photoUrl = null }) {
   const [imgFailed, setImgFailed] = useState(false)
-  const initials = name
-    ? name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-    : '?'
-  const idx = name ? name.charCodeAt(0) % PALETTE.length : 0
-  const [bg, fg] = PALETTE[idx]
-  const dotSize = Math.max(10, Math.round(size * 0.3))
   const showPhoto = photoUrl && !imgFailed
+
+  const dotSize = Math.max(10, Math.round(size * 0.3))
 
   return (
     <div
@@ -26,8 +22,8 @@ export default function Avatar({ name, size = 38, online = false, photoUrl = nul
         width: size,
         height: size,
         borderRadius: '50%',
-        background: showPhoto ? 'transparent' : bg,
-        color: fg,
+        background: showPhoto ? 'transparent' : '#1a1a2e',
+        color: '#6b6b83',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -51,8 +47,22 @@ export default function Avatar({ name, size = 38, online = false, photoUrl = nul
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />
       ) : (
-        initials
+        /* Stealth Silhouette SVG for Blocked / Hidden Profiles */
+        <svg 
+          width={size * 0.55} 
+          height={size * 0.55} 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2" 
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+        >
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
       )}
+
       {online && (
         <span
           className="status-dot"
