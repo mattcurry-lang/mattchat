@@ -131,12 +131,51 @@ export default function ProfileCard({
     return (messages || []).filter(m => m.content && m.content.toLowerCase().includes(searchQuery.toLowerCase()))
   }, [messages, searchQuery])
 
-  // Generate Temporary Security Pass Code
-  const handleGenerateGuestPass = () => {
+  // Generate Temporary Security Pass Code & Send Interactive Card Payload to Chat
+  const handleGenerateGuestPass = async () => {
     const randomHash = Math.random().toString(36).substring(2, 8).toUpperCase()
-    const code = `MATT-${passDuration.toUpperCase()}-${randomHash}`
-    setGeneratedPassCode(code)
-    navigator.clipboard.writeText(`https://mattchat.app/join-temp?pass=${code}&chat=${targetProfile?.id}`)
+    const hoursNum = parseInt(passDuration) || 2
+    const passCode = `MATT-${passDuration.toUpperCase()}-${randomHash}`
+    
+    const expiresAt = new Date(Date.now() + hoursNum * 3600 * 1000).toISOString()
+
+    // 1. Insert record into Supabase backend table
+    const { error: dbError } = await supabase.from('temporary_passes').insert({
+      pass_code: passCode,
+      creator_id: currentUserId,
+      target_user_id: targetProfile.id,
+      duration_hours: hoursNum,
+      status: 'pending',
+      expires_at: expiresAt
+    })
+
+    if (dbError) {
+      console.error('Failed to create temporary pass:', dbError)
+      return
+    }
+
+    // 2. Prepare structured message payload for the interactive card
+    const passPayload = JSON.stringify({
+      type: 'temporary_pass',
+      pass_code: passCode,
+      duration: passDuration,
+      creator_name: myProfile?.username || 'Mathew',
+      expires_at: expiresAt,
+      status: 'pending'
+    })
+
+    // 3. Send the pass payload directly into the active chat conversation
+    const activeConvoId = messages?.[0]?.conversation_id
+    if (activeConvoId) {
+      await supabase.from('messages').insert({
+        conversation_id: activeConvoId,
+        sender_id: currentUserId,
+        content: passPayload,
+        message_type: 'text'
+      })
+    }
+
+    setGeneratedPassCode(passCode)
     setPassCopied(true)
     setTimeout(() => setPassCopied(false), 3000)
   }
@@ -158,53 +197,7 @@ export default function ProfileCard({
   const theme = themeById(extras?.theme)
   const bio = extras?.bio || targetProfile.bio
   const hasStatus = !!(extras?.statusEmoji || extras?.statusText)
-const handleGenerateGuestPass = async () => {
-  const randomHash = Math.random().toString(36).substring(2, 8).toUpperCase()
-  const hoursNum = parseInt(passDuration) || 2
-  const passCode = `MATT-${passDuration.toUpperCase()}-${randomHash}`
-  
-  const expiresAt = new Date(Date.now() + hoursNum * 3600 * 1000).toISOString()
 
-  // 1. Insert record into Supabase backend table
-  const { error: dbError } = await supabase.from('temporary_passes').insert({
-    pass_code: passCode,
-    creator_id: currentUserId,
-    target_user_id: targetProfile.id,
-    duration_hours: hoursNum,
-    status: 'pending',
-    expires_at: expiresAt
-  })
-
-  if (dbError) {
-    console.error('Failed to create temporary pass:', dbError)
-    return
-  }
-
-  // 2. Prepare structured message payload for the interactive card
-  const passPayload = JSON.stringify({
-    type: 'temporary_pass',
-    pass_code: passCode,
-    duration: passDuration,
-    creator_name: myProfile?.username || 'Mathew',
-    expires_at: expiresAt,
-    status: 'pending'
-  })
-
-  // 3. Send the pass payload directly into the active chat conversation
-  const activeConvoId = messages?.[0]?.conversation_id
-  if (activeConvoId) {
-    await supabase.from('messages').insert({
-      conversation_id: activeConvoId,
-      sender_id: currentUserId,
-      content: passPayload,
-      message_type: 'text'
-    })
-  }
-
-  setGeneratedPassCode(passCode)
-  setPassCopied(true)
-  setTimeout(() => setPassCopied(false), 3000)
-}
   return (
     <div className="profile-drawer-container" onClick={onClose} style={{
       position: 'fixed', inset: 0, zIndex: 1100,
@@ -552,7 +545,7 @@ const handleGenerateGuestPass = async () => {
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
                       }}
                     >
-                      <IconShare2 size={14} /> {passCopied ? 'Pass Link Copied!' : 'Generate & Copy Access Pass'}
+                      <IconShare2 size={14} /> {passCopied ? 'Pass Sent & Copied!' : 'Generate & Send Access Pass'}
                     </button>
 
                     {generatedPassCode && (
