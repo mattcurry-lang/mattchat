@@ -21,6 +21,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/supabase/(.*)",
+      "destination": "https://bqerkvywgxoiocbkxif.supabase.co/$1"
+    },
+    {
       "source": "/((?!sitemap.xml|robots.txt).*)",
       "destination": "/index.html"
     }
