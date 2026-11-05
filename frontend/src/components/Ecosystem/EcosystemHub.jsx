@@ -85,7 +85,14 @@ function AppDot({ id, size = 32 }) {
     </span>
   )
 }
-
+function Switch({ on, onChange, label, disabled }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled}
+      className={`eh-switch${on ? ' is-on' : ''}`} onClick={() => onChange(!on)}>
+      <span />
+    </button>
+  )
+}
 // ── main component ───────────────────────────────────────
 export default function EcosystemHub({ userId, conversations = [], onClose, onOpenLauncher }) {
   const [tab, setTab] = useState('flows')
