@@ -504,18 +504,21 @@ function MessageBubble({ msg, isMe, isRead, isDelivered, session }) {
   if (msg.message_type === 'curry') {
     return <CurryChatBubble msg={msg} />
   }
- if (msg.content?.startsWith('{') && msg.content?.includes('temporary_pass')) {
+if (msg.content?.startsWith('{') && msg.content?.includes('temporary_pass')) {
   try {
     const passData = JSON.parse(msg.content)
     return (
-      <div className={`msg-row ${isMe ? 'mine' : ''}`}>
+      <div key={msg.id} className={`msg-row ${isMe ? 'mine' : ''}`}>
         {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
         <div>
           {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
           <TemporaryPassCard 
             passData={passData} 
             currentUserId={session?.user?.id} 
-            onJoinSession={(passCode) => setActiveSessionPassCode(passCode)} 
+            onJoinSession={(code) => {
+              console.log("Opening Stacked Session for code:", code)
+              setActiveSessionPassCode(code)
+            }} 
           />
           <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
         </div>
