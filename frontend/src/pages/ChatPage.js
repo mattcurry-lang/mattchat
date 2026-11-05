@@ -1424,19 +1424,7 @@ export default function ChatPage({ session }) {
 
   const { isOnline, getLastSeenLabel, getPresenceStatus } = usePresence(userId)
 
-  const headerStatus = () => {
-    if (callStatus === 'calling')    return '📞 Calling…'
-    if (callStatus === 'ringing')    return '📞 Ringing…'
-    if (callStatus === 'connecting') return '📞 Connecting…'
-    if (callStatus === 'in-call')    return '🟢 On a call'
-    if (typing.length > 0)           return `${getConvoName(activeConvo)} is typing…`
-    if (otherUserId && isOnline(otherUserId)) {
-      const s = getPresenceStatus(otherUserId)
-      return s === 'busy' ? 'Busy' : s === 'idle' ? 'Away' : 'Online'
-    }
-    if (otherUserId) return getLastSeenLabel(otherUserId)
-    return ''
-  }
+ 
 
   const headerTitle = isPeerBlocked ? 'Mattchat User' : (otherProfile?.username || getConvoName(activeConvo))
   const headerStatusText = isPeerBlocked ? '' : headerStatus()
@@ -2153,18 +2141,9 @@ const handleShareContact = async (profile) => {
 }
  const findMessageById = (id) => messages.find(m => m.id === id)
 // Fallback helper for blocked or hidden profiles
-const getConvoName = (c) => {
-  if (c.isCurryAI) return 'Curry AI'
-  if (c.is_group) return c.name
-  const other = c.conversation_members?.find(m => m.user_id !== userId)
-  const otherId = other?.user_id
-  
-  if (otherId && (blockedUserIds.has(otherId) || !other?.profiles)) {
-    return 'Mattchat User'
-  }
-  return other?.profiles?.username || other?.profiles?.email || 'Mattchat User'
-}
 
+
+  
 const getOtherUserAvatar = (c, myUserId) => {
   const other = c?.conversation_members?.find(m => m.user_id !== myUserId)
   const otherId = other?.user_id
