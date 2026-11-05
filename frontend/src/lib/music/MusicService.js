@@ -65,7 +65,7 @@ export const MusicService = {
           })
         : Promise.resolve({ tracks: [], artists: [], albums: [] }),
       
-      // Always pull Mattchat catalog unless activeProviderKey is already explicitly 'mattchat'
+      // Pull Mattchat catalog unless activeProviderKey is already explicitly 'mattchat'
       activeProviderKey === 'mattchat'
         ? Promise.resolve({ tracks: [], artists: [], albums: [] })
         : mattchatProviderAdapter.search(query, opts).catch((err) => {
@@ -74,19 +74,20 @@ export const MusicService = {
           }),
     ])
 
-    // Combine tracks, artists, and albums from both catalog sources
+    // Combine tracks with External (YouTube) results first so relevant suggestions 
+    // drive the "Top result" and autocomplete, followed by Mattchat custom uploads.
     const data = {
       tracks: [
-        ...(mattchatResults?.tracks || []),
         ...(externalResults?.tracks || []),
+        ...(mattchatResults?.tracks || []),
       ],
       artists: [
-        ...(mattchatResults?.artists || []),
         ...(externalResults?.artists || []),
+        ...(mattchatResults?.artists || []),
       ],
       albums: [
-        ...(mattchatResults?.albums || []),
         ...(externalResults?.albums || []),
+        ...(mattchatResults?.albums || []),
       ],
     }
 
