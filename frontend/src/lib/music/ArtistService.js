@@ -3,13 +3,12 @@ import { supabase } from '../supabase'
 const AUDIO_BUCKET = 'mattchat-music-audio'
 const COVER_BUCKET = 'mattchat-music-covers'
 
-// Resolves public URLs through your local Vercel proxy so Brave Shields won't block them
+// Rewrites storage public URLs to use the Vercel proxy (/api/supabase) 
+// so Brave Shields treats them as first-party assets and doesn't block them.
 function coverUrl(coverPath) {
   if (!coverPath) return null
   const { data } = supabase.storage.from(COVER_BUCKET).getPublicUrl(coverPath)
   if (!data?.publicUrl) return null
-  
-  // Convert direct .supabase.co URLs to local proxy paths to keep Brave Shields happy
   return data.publicUrl.replace(/^https:\/\/[^/]+\.supabase\.co/, '/api/supabase')
 }
 
@@ -78,6 +77,8 @@ export const ArtistService = {
     if (!trimmedTitle) throw new Error('Title is required')
 
     const trackId = crypto.randomUUID()
+    // pull the user id off the artist row so we can build a path that
+    // satisfies the storage RLS ({user_id}/... ) without a second round trip
     const { data: artistRow, error: artistErr } = await supabase
       .from('music_artists').select('user_id').eq('id', artistId).single()
     if (artistErr) throw artistErr
@@ -124,6 +125,7 @@ export const ArtistService = {
       .order('created_at', { ascending: false })
     if (error) throw error
 
+    // like_count isn't denormalized on the row — pull it from music_likes in one grouped query
     if (data.length === 0) return data
     const { data: likeRows } = await supabase
       .from('music_likes')
@@ -134,18 +136,6 @@ export const ArtistService = {
     for (const row of likeRows || []) likeCounts[row.provider_track_id] = (likeCounts[row.provider_track_id] || 0) + 1
 
     return data.map((t) => ({ ...t, like_count: likeCounts[t.id] || 0, cover_url: coverUrl(t.cover_path) }))
-  },
-
-  // Helper method to query related tracks via the Vercel proxy route
-  async getRelatedTracks(artist, title, limit = 40) {
-    const res = await fetch('/api/supabase/functions/v1/music-related', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ artist, title, limit }),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Failed to fetch related tracks')
-    return data
   },
 
   async setTrackStatus(trackId, status) {
