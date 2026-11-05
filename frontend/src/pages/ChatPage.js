@@ -504,23 +504,27 @@ function MessageBubble({ msg, isMe, isRead, isDelivered, session }) {
   if (msg.message_type === 'curry') {
     return <CurryChatBubble msg={msg} />
   }
-  if (msg.content?.startsWith('{') && msg.content?.includes('temporary_pass')) {
-    try {
-      const passData = JSON.parse(msg.content)
-      return (
-        <div className={`msg-row ${isMe ? 'mine' : ''}`}>
-          {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
-          <div>
-            {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
-            <TemporaryPassCard passData={passData} messageId={msg.id} currentUserId={msg._currentUserId || session?.user?.id} />
-            <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
-          </div>
+ if (msg.content?.startsWith('{') && msg.content?.includes('temporary_pass')) {
+  try {
+    const passData = JSON.parse(msg.content)
+    return (
+      <div className={`msg-row ${isMe ? 'mine' : ''}`}>
+        {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
+        <div>
+          {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
+          <TemporaryPassCard 
+            passData={passData} 
+            currentUserId={session?.user?.id} 
+            onJoinSession={(passCode) => setActiveSessionPassCode(passCode)} 
+          />
+          <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
         </div>
-      )
-    } catch (e) {
-      // Fallback if JSON parse fails
-    }
+      </div>
+    )
+  } catch (e) {
+    // Fallback
   }
+}
   if (msg.deleted_for_everyone) {
     return (
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
@@ -3865,11 +3869,11 @@ _onMessageContact: (contactEmail) => handleMessageContact(contactEmail),
     }}
   />
 )}
-{activeSessionPass && (
-  <StackedSessionView 
-    hostProfiles={sessionHosts} 
-    passCode={activeSessionPass} 
-    onCloseSession={() => setActiveSessionPass(null)} 
+{activeSessionPassCode && (
+  <StackedSessionModal 
+    passCode={activeSessionPassCode} 
+    currentUserId={session?.user?.id}
+    onClose={() => setActiveSessionPassCode(null)} 
   />
 )}
             {showScheduledList && (
