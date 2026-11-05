@@ -1236,16 +1236,24 @@ function CallButtons({ onVoiceCall, onVideoCall, onZoomCall, onEditZoom, disable
   )
 }
 
+ 
 const CURRY_AI_CONTACT = { id: 'curry-ai', isCurryAI: true }
 
 function getOtherUserId(convo, myUserId) {
   const other = convo?.conversation_members?.find(m => m.user_id !== myUserId)
   return other?.user_id || null
 }
-function getOtherUserAvatar(convo, myUserId) {
+
+function getOtherUserAvatar(convo, myUserId, blockedUserIds = new Set()) {
   const other = convo?.conversation_members?.find(m => m.user_id !== myUserId)
+  const otherId = other?.user_id
+  
+  if (otherId && (blockedUserIds.has(otherId) || !other?.profiles)) {
+    return null
+  }
   return other?.profiles?.avatar_url || null
 }
+
 function getOtherUserIsAdmin(convo, myUserId) {
   const other = convo?.conversation_members?.find(m => m.user_id !== myUserId)
   return other?.profiles?.is_admin || false
@@ -1384,12 +1392,35 @@ export default function ChatPage({ session }) {
   const [momentViewerTarget, setMomentViewerTarget] = useState(null)
   const [blockedUserIds, setBlockedUserIds] = useState(new Set())
 
-  // ── HELPER FUNCTIONS DECLARED FIRST ──
-  const getOtherUserId = (convo, myUserId) => {
-    const other = convo?.conversation_members?.find(m => m.user_id !== myUserId)
-    return other?.user_id || null
+
+  // ── DERIVED STATE VALUES ──
+  const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
+  const isUserBlocked = Boolean(otherUserId && blockedUserIds.has(otherUserId))
+
+  const otherMember = activeConvo?.conversation_members?.find(m => m.user_id !== userId)
+  const otherProfile = otherMember?.profiles
+  const isPeerBlocked = otherUserId && (blockedUserIds.has(otherUserId) || !otherProfile)
+
+  const { isOnline, getLastSeenLabel, getPresenceStatus } = usePresence(userId)
+
+  const headerStatus = () => {
+    if (callStatus === 'calling')    return '📞 Calling…'
+    if (callStatus === 'ringing')    return '📞 Ringing…'
+    if (callStatus === 'connecting') return '📞 Connecting…'
+    if (callStatus === 'in-call')    return '🟢 On a call'
+    if (typing.length > 0)           return `${getConvoName(activeConvo)} is typing…`
+    if (otherUserId && isOnline(otherUserId)) {
+      const s = getPresenceStatus(otherUserId)
+      return s === 'busy' ? 'Busy' : s === 'idle' ? 'Away' : 'Online'
+    }
+    if (otherUserId) return getLastSeenLabel(otherUserId)
+    return ''
   }
 
+  const headerTitle = isPeerBlocked ? 'Mattchat User' : (otherProfile?.username || getConvoName(activeConvo))
+  const headerStatusText = isPeerBlocked ? '' : headerStatus()
+ // ── HELPER FUNCTIONS DECLARED FIRST ──
+ 
   const getConvoName = (c) => {
     if (c.isCurryAI) return 'Curry AI'
     if (c.is_group) return c.name
@@ -1400,34 +1431,6 @@ export default function ChatPage({ session }) {
     }
     return other?.profiles?.username || other?.profiles?.email || 'Mattchat User'
   }
-
-  const getOtherUserAvatar = (c, myUserId) => {
-    const other = c?.conversation_members?.find(m => m.user_id !== myUserId)
-    const otherId = other?.user_id
-    if (otherId && (blockedUserIds.has(otherId) || !other?.profiles)) {
-      return null
-    }
-    return other?.profiles?.avatar_url || null
-  }
-
-  const getOtherUserIsAdmin = (convo, myUserId) => {
-    const other = convo?.conversation_members?.find(m => m.user_id !== myUserId)
-    return other?.profiles?.is_admin || false
-  }
-
-  // ── DERIVED STATE VALUES ──
-  const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
- 
-  const otherMember = activeConvo?.conversation_members?.find(m => m.user_id !== userId)
-  const otherProfile = otherMember?.profiles
-  const isPeerBlocked = otherUserId && (blockedUserIds.has(otherUserId) || !otherProfile)
-
-  const { isOnline, getLastSeenLabel, getPresenceStatus } = usePresence(userId)
-
- 
-
-  const headerTitle = isPeerBlocked ? 'Mattchat User' : (otherProfile?.username || getConvoName(activeConvo))
-  const headerStatusText = isPeerBlocked ? '' : headerStatus()
 
 // Then this will work perfectly without throwing a ReferenceError
 const isUserBlocked = Boolean(otherUserId && blockedUserIds.has(otherUserId))
@@ -2185,19 +2188,7 @@ const getOtherUserAvatar = (c, myUserId) => {
     ? { now: applyLens(collectionFiltered, 'now', lensCtx).length, close: applyLens(collectionFiltered, 'close', lensCtx).length }
     : {}
 
-  const headerStatus = () => {
-    if (callStatus === 'calling')    return '📞 Calling…'
-    if (callStatus === 'ringing')    return '📞 Ringing…'
-    if (callStatus === 'connecting') return '📞 Connecting…'
-    if (callStatus === 'in-call')    return '🟢 On a call'
-    if (typing.length > 0)           return `${getConvoName(activeConvo)} is typing…`
-if (otherUserId && isOnline(otherUserId)) {
-  const s = getPresenceStatus(otherUserId)
-  return s === 'busy' ? 'Busy' : s === 'idle' ? 'Away' : 'Online'
-}
-    if (otherUserId) return getLastSeenLabel(otherUserId)
-    return ''
-  }
+ 
   const callActive = ['calling', 'ringing', 'connecting', 'in-call'].includes(callStatus)
 const headerTint = otherUserId && isOnline(otherUserId)
              ? 'linear-gradient(180deg, rgba(74,222,128,0.05), transparent)'
@@ -2972,13 +2963,8 @@ shareConversations={conversations.map(c => ({
  
           
  <QuickActionsMenu
- // Quick actions belong to the chat list only: not on Calls / Pulse / Status, not inside a conversation.
-      // (On desktop with Afterglow on, the home screen shows its own shortcuts instead of this pill.)
       hidden={activeTab !== 'chats' || !!activeConvo || showShorts || showDekutCurry || showProfileMenu || (afterglowOn && !isNarrowViewport)}
       onNewChat={() => setShowNewChat(true)}
-       onOpenCurryAI={() => setActiveConvo(CURRY_AI_CONTACT)}
-       onOpenDekutCurry={() => setShowDekutCurry(true)}
-       dekutBadge={dekutHasNudge}
       onOpenCurryAI={() => setActiveConvo(CURRY_AI_CONTACT)}
       onOpenDekutCurry={() => setShowDekutCurry(true)}
       dekutBadge={dekutHasNudge}
