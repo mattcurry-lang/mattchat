@@ -180,6 +180,7 @@ if (content.startsWith('{')) {
 
 function formatMsgTime(ts) {
   const d = new Date(ts)
+  if (!ts || isNaN(d.getTime())) return ''
   if (isToday(d)) return format(d, 'h:mm a')
   if (isYesterday(d)) return 'Yesterday'
   return format(d, 'MMM d')
@@ -187,6 +188,7 @@ function formatMsgTime(ts) {
 
 function DateDivider({ date }) {
   const d = new Date(date)
+  if (isNaN(d.getTime())) return null
   const label = isToday(d) ? 'Today' : isYesterday(d) ? 'Yesterday' : format(d, 'MMMM d, yyyy')
   return <div className="date-divider" data-ts={String(date)}>{label}</div>
 }
@@ -465,7 +467,8 @@ function StatusReplyBubble({ content, isMe }) {
   const withoutPrefix = content.replace('status_reply:', '')
   const [encodedCaption, ...rest] = withoutPrefix.split('::')
   const replyText = rest.join('::')
-  const caption = decodeURIComponent(encodedCaption || '')
+ let caption = ''
+try { caption = decodeURIComponent(encodedCaption || '') } catch { caption = encodedCaption || '' }
 
   return (
     <div className={`msg-bubble status-reply-bubble ${isMe ? 'mine' : ''}`}>
@@ -924,6 +927,7 @@ function ThreeDotMenu({
     { icon: <IconCheckSquare size={17} />, label: 'Task List', action: onTask },
     { icon: <IconClock size={17} />, label: 'Schedule Message', action: onSchedule },
     { icon: <IconSearch size={17} />, label: 'Search Messages', action: onSearch },
+    ...(onSaved ? [{ icon: <IconStar size={17} />, label: 'Saved Messages', action: onSaved }] : []),
     { icon: <IconVideo size={17} />, label: 'Search YouTube', action: onSearchYouTube },
     { icon: <IconMail size={17} />, label: 'Share Contact Link', action: onShare },
   ]
@@ -1208,7 +1212,8 @@ function HeaderMoreMenu({ anchorRef, theme, onToggleTheme, heyCurryListening, he
           <span className="hm-row-sub">{sub}</span>
         </span>
         <span className={`hm-switch ${heyCurryListening ? 'on' : ''}`}><span /></span>
-      </button>      {(errorText || hint) && <div className="hm-hint">{errorText || hint}</div>} {hint && <div className="hm-hint">{hint}</div>}
+     </button>
+     {(errorText || hint) && <div className="hm-hint">{errorText || hint}</div>}
     </div>,
     document.body
   )
@@ -1393,47 +1398,46 @@ export default function ChatPage({ session }) {
   const [blockedUserIds, setBlockedUserIds] = useState(new Set())
 
 
-  // ── DERIVED STATE VALUES ──
-  const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
-  const isUserBlocked = Boolean(otherUserId && blockedUserIds.has(otherUserId))
+// ── HELPERS FIRST ──
+const getConvoName = (c) => {
+  if (!c) return ''
+  if (c.isCurryAI) return 'Curry AI'
+  if (c.is_group) return c.name
+  const other = c.conversation_members?.find(m => m.user_id !== userId)
+  const otherId = other?.user_id
+  if (otherId && (blockedUserIds.has(otherId) || !other?.profiles)) return 'Mattchat User'
+  return other?.profiles?.username || other?.profiles?.email || 'Mattchat User'
+}
 
-  const otherMember = activeConvo?.conversation_members?.find(m => m.user_id !== userId)
-  const otherProfile = otherMember?.profiles
-  const isPeerBlocked = otherUserId && (blockedUserIds.has(otherUserId) || !otherProfile)
-
-  const { isOnline, getLastSeenLabel, getPresenceStatus } = usePresence(userId)
-
-  const headerStatus = () => {
-    if (callStatus === 'calling')    return '📞 Calling…'
-    if (callStatus === 'ringing')    return '📞 Ringing…'
-    if (callStatus === 'connecting') return '📞 Connecting…'
-    if (callStatus === 'in-call')    return '🟢 On a call'
-    if (typing.length > 0)           return `${getConvoName(activeConvo)} is typing…`
-    if (otherUserId && isOnline(otherUserId)) {
-      const s = getPresenceStatus(otherUserId)
-      return s === 'busy' ? 'Busy' : s === 'idle' ? 'Away' : 'Online'
-    }
-    if (otherUserId) return getLastSeenLabel(otherUserId)
-    return ''
-  }
-
-  const headerTitle = isPeerBlocked ? 'Mattchat User' : (otherProfile?.username || getConvoName(activeConvo))
-  const headerStatusText = isPeerBlocked ? '' : headerStatus()
- // ── HELPER FUNCTIONS DECLARED FIRST ──
- 
-  const getConvoName = (c) => {
-    if (c.isCurryAI) return 'Curry AI'
-    if (c.is_group) return c.name
-    const other = c.conversation_members?.find(m => m.user_id !== userId)
-    const otherId = other?.user_id
-    if (otherId && (blockedUserIds.has(otherId) || !other?.profiles)) {
-      return 'Mattchat User'
-    }
-    return other?.profiles?.username || other?.profiles?.email || 'Mattchat User'
-  }
-
-// Then this will work perfectly without throwing a ReferenceError
+// ── DERIVED STATE ──
+const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
 const isUserBlocked = Boolean(otherUserId && blockedUserIds.has(otherUserId))
+const otherMember = activeConvo?.conversation_members?.find(m => m.user_id !== userId)
+const otherProfile = otherMember?.profiles
+const isPeerBlocked = !!otherUserId && !activeConvo?.is_group && (blockedUserIds.has(otherUserId) || !otherProfile)
+
+const { isOnline, getLastSeenLabel, getPresenceStatus } = usePresence(userId)
+
+const headerStatus = () => {
+  if (!activeConvo) return ''
+  if (callStatus === 'calling')    return '📞 Calling…'
+  if (callStatus === 'ringing')    return '📞 Ringing…'
+  if (callStatus === 'connecting') return '📞 Connecting…'
+  if (callStatus === 'in-call')    return '🟢 On a call'
+  if (typing.length > 0)           return `${getConvoName(activeConvo)} is typing…`
+  if (otherUserId && isOnline(otherUserId)) {
+    const s = getPresenceStatus(otherUserId)
+    return s === 'busy' ? 'Busy' : s === 'idle' ? 'Away' : 'Online'
+  }
+  if (otherUserId) return getLastSeenLabel(otherUserId)
+  return ''
+}
+
+const headerTitle = activeConvo ? getConvoName(activeConvo) : ''
+const headerStatusText = isPeerBlocked ? '' : headerStatus()
+ 
+
+ 
   // Looks up a conversation by id from the full list — used for call UI
   // (caller name, avatar) so it works whether or not that conversation
   // happens to be the one currently open in the chat view. Relying on
@@ -1757,14 +1761,27 @@ useEffect(() => {
   getHiddenMessageIds(userId, realIds).then(setHiddenMsgIds)
 }, [messages, userId])
   
-  useEffect(() => { if (activeConvo) window.history.pushState({ chatOpen: true }, '') }, [activeConvo])
+ useEffect(() => {
+if (activeConvo && !window.history.state?.chatOpen) window.history.pushState({ chatOpen: true }, '')
+  }, [activeConvo?.id])
+
+  const closeChat = useCallback(() => {
+    if (window.history.state?.chatOpen) window.history.back()   // popstate handler nulls activeConvo
+    else setActiveConvo(null)
+  }, [])
 
   useEffect(() => {
     const handlePopState = () => setActiveConvo(null)
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
-
+// Upgrade the stand-in {id, conversation_members: []} to the real row once it loads
+useEffect(() => {
+  if (!activeConvo?.id || activeConvo.isCurryAI) return
+  if (activeConvo.conversation_members?.length) return
+  const full = conversations.find(c => c.id === activeConvo.id)
+  if (full) setActiveConvo(full)
+}, [conversations, activeConvo])
   useEffect(() => {
     setShowVoice(false); setShowPoll(false); setShowTask(false)
     setShowScheduler(false); setShowScheduledList(false); setShowSearch(false)
@@ -1772,9 +1789,9 @@ useEffect(() => {
     setHasScheduled(false); setShowEmojiPicker(false); setShowInsights(false)
     setCoachSuggestion(null);setReplyingTo(null)
    setForwardingMessage(null)
-    setSendLater(null)
+   setMediaViewerTarget(null); setMomentViewerTarget(null)
     return () => { if (activeConvo?.id) removeReactionChannel(activeConvo.id) }
-  }, [activeConvo])
+ }, [activeConvo?.id])
 
 useEffect(() => {
     if (!activeConvo?.id || activeConvo.isCurryAI) return
@@ -1797,7 +1814,7 @@ useEffect(() => {
     )
 
     return unsubscribe
-  }, [activeConvo, userId])
+}, [activeConvo?.id, activeConvo?.isCurryAI, userId])
  
   // "Deletes" a conversation for THIS user only. It doesn't touch the
   // conversations/messages/members rows at all — it just records that
@@ -1826,7 +1843,7 @@ useEffect(() => {
       return
     }
 
-    if (activeConvo?.id === convoId) setActiveConvo(null)
+  if (activeConvo?.id === convoId) closeChat()
     await reload()
   }
 
@@ -1955,7 +1972,7 @@ const handleVoiceSent = (msg) => {
     if (!catchUpPending || catchUpPending.convoId !== activeConvo?.id) return
     setCatchUpLoading(true)
     const missed = messages.slice(-catchUpPending.unreadCount)
-      .filter(m => m.message_type !== 'curry' && m.content
+    .filter(m => (!m.message_type || m.message_type === 'text') && m.content && !m.content.startsWith('{')
         && !m.content.startsWith('call_log:') && !m.content.startsWith('missed_call:')
        && !m.content.startsWith('sticker:') && !m.content.startsWith('gif:') && !m.content.startsWith('pinterest:'))
       .map(m => ({ sender: m.sender_id === userId ? 'You' : (m.profiles?.username || 'Them'), content: m.content }))
@@ -2004,11 +2021,14 @@ const handleSend = async () => {
         const question = text.slice(match[0].length).trim() || text
         try {
           const data = await callCurryAI('chat_ask', { conversationId: activeConvo.id, question }, session)
-    if (!data.ok && data.reason === 'no_consent') {
+  if (!data.ok && data.reason === 'no_consent') {
             playSound('warning')
             alert("Curry isn't turned on for this chat yet — both people need to enable it first (✨ icon → Invite Curry into this chat).")
             await sendMessage(text)
             bumpConversationActivity(text)
+    } else if (!data.ok) {
+      playSound('warning')
+      alert('Curry could not respond right now. Please try again.')
           }
         } catch (err) {
           playSound('warning')
@@ -2023,6 +2043,7 @@ const handleSend = async () => {
       const replyTarget = replyingTo
       setReplyingTo(null)
       await sendReplyMessage(activeConvo.id, userId, text, replyTarget.id)
+      bumpConversationActivity(text)
       reload()
     } else {
        playSound('tap')
@@ -2047,11 +2068,10 @@ const handleSend = async () => {
 
  const handleShare = () => {
     const link = `https://mattchat-nine.vercel.app/email/${profile?.username || ''}`
-    navigator.clipboard.writeText(link)
-    playSound('spark')
-    alert('Contact link copied!')
-  }
-
+  navigator.clipboard.writeText(link)
+     .then(() => { playSound('spark'); alert('Contact link copied!') })
+    .catch(() => window.prompt('Copy this link:', link))
+ }
   const handleEmojiSelect = (emoji) => {
     const ta = textareaRef.current
     if (ta) {
@@ -3043,7 +3063,7 @@ shareConversations={conversations.map(c => ({
   messages={messages}
   initialMessageId={mediaViewerTarget}
   currentUserId={userId}
-  conversationId={activeConvo.id}  
+conversationId={activeConvo?.id}
   onClose={() => setMediaViewerTarget(null)}
   onReply={(m) => setReplyingTo(m)}
 onForward={(m) => setForwardingMessage(m)}
@@ -3168,7 +3188,7 @@ activeConvo.isCurryAI ? (
   <div className="chat-area" style={{ background: '#0b0b16' }}>
     <CurryAIChat
       session={session}
-      onBack={() => setActiveConvo(null)}
+       onBack={closeChat}
       onOpenConversation={openConversationById}
       initialMessage={curryPrefill}
       onInitialMessageSent={() => setCurryPrefill(null)}
@@ -3189,7 +3209,7 @@ activeConvo.isCurryAI ? (
                   : 'none',
                 transition: 'border-color 0.25s ease, box-shadow 0.25s ease',
               }}>
-              <button className="back-btn" onClick={() => setActiveConvo(null)}>←</button>
+             <button className="back-btn" onClick={closeChat}>←</button>
             <button
   onClick={() => setProfileCardTarget(activeConvo.conversation_members?.find(m => m.user_id !== userId)?.profiles)}
   style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
@@ -3360,13 +3380,12 @@ onSaved={() => { setShowSaved(true); setShowThreeDot(false) }}
                     <div
                       ref={el => (msgRefs.current[msg.id] = el)}
                                 className={`msg-wrap ${wrapClass}${afterglowOn && wrapClass !== 'system' ? ' ' + groupPosition(prev, msg, visibleMessages[i + 1]) : ''}${afterglowOn && arrivals.has(msg.id) ? ' ag-arrive' : ''}`}
-                      onContextMenu={e => {
-                        if (!isCurryMsg && !isSynthCall) {
-                          e.preventDefault()
-                          pinMessage(msg.id)
-                        }
-                      }}
-                     title={isCurryMsg || isSynthCall ? undefined : 'Right-click to pin'}
+                     onContextMenu={e => {
+    if (!isCurryMsg && !isSynthCall) {
+      e.preventDefault()
+      setMessageMenu({ message: msg, x: e.clientX, y: e.clientY })
+    }
+ }}
                      {...(!isCurryMsg && !isSynthCall ? bindLongPress(msg) : {})}
                     >
                       {isCurryMsg ? (
