@@ -5,7 +5,8 @@ import { themeById, themeGradient } from '../lib/profileThemes'
 import { 
   IconX, IconClock, IconSparkle, IconMessageSquare, 
   IconVerified, IconShieldAlert, IconBellOff, IconSearch, 
-  IconPhone, IconVideo, IconShield, IconBell, IconFolder, IconTrash, IconFilm, IconLink
+  IconPhone, IconVideo, IconShield, IconBell, IconFolder, IconTrash, 
+  IconFilm, IconMusic, IconCheck, IconShare2, IconLock, IconUserPlus
 } from './Icons'
 
 export const AVATAR_CATEGORIES = [
@@ -26,7 +27,7 @@ export const AVATAR_CATEGORIES = [
 export default function ProfileCard({
   targetProfile,
   myProfile,
-  messages,
+  messages = [],
   currentUserId,
   onClose,
   onAskCurry,
@@ -37,19 +38,38 @@ export default function ProfileCard({
   onOpenSearch,         
   extras,             
 }) {
-  const [activeTab, setActiveTab] = useState('overview') // 'overview' | 'media' | 'security' | 'settings'
+  const [activeTab, setActiveTab] = useState('overview') // 'overview' | 'media' | 'experiences' | 'security' | 'settings'
 
+  // Safety & Moderation States
   const [showBlockConfirm, setShowBlockConfirm] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [isBlocked, setIsBlocked] = useState(false)
   const [blockLoading, setBlockLoading] = useState(true)
   const [disappearingTimer, setDisappearingTimer] = useState('off')
 
+  // Search Mode inside Drawer
   const [isSearching, setIsSearching] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
+  // Guest Pass / Temporary Access Pass State
+  const [passDuration, setPassDuration] = useState('2h')
+  const [passCopied, setPassCopied] = useState(false)
+  const [generatedPassCode, setGeneratedPassCode] = useState('')
+
+  // Bio Expand State
+  const [bioExpanded, setBioExpanded] = useState(false)
+
+  // Edit Mode State (when viewing self)
+  const [isEditingSelf, setIsEditingSelf] = useState(false)
+  const [editBio, setEditBio] = useState(targetProfile?.bio || '')
+  const [editStatusText, setEditStatusText] = useState(extras?.statusText || '')
+
+  const isSelf = targetProfile?.id === currentUserId
+  const displayName = targetProfile?.username || 'Mattchat User'
+
+  // Check initial block status
   useEffect(() => {
-    if (!currentUserId || !targetProfile?.id || currentUserId === targetProfile.id) {
+    if (!currentUserId || !targetProfile?.id || isSelf) {
       setBlockLoading(false)
       return
     }
@@ -63,40 +83,65 @@ export default function ProfileCard({
         setIsBlocked(!!data)
         setBlockLoading(false)
       })
-  }, [currentUserId, targetProfile?.id])
+  }, [currentUserId, targetProfile?.id, isSelf])
 
+  // Compute calculated reply latency badge
   const replyLabel = useMemo(
     () => computeReplyTimeLabel(messages, targetProfile?.id, currentUserId),
     [messages, targetProfile, currentUserId]
   )
 
-  const shared = useMemo(() => {
+  // Compute Shared Interests
+  const sharedInterests = useMemo(() => {
     const mineSet = new Set((myProfile?.interests || []).map(s => s.toLowerCase().trim()))
     return (targetProfile?.interests || []).filter(i => mineSet.has(i.toLowerCase().trim()))
   }, [myProfile, targetProfile])
 
-  // High-fidelity Media Parser (Extracts Images, GIFs, Pins, and Links cleanly)
+  // High-Fidelity Categorized Shared Media
   const sharedMedia = useMemo(() => {
     const msgs = messages || []
-    const photos = msgs.filter(m => {
+    const photos = []
+    const links = []
+    const documents = []
+    const audio = []
+
+    msgs.forEach(m => {
       const c = m.content || ''
-      return m.message_type === 'media' || c.startsWith('gif:') || c.startsWith('pinterest:') || c.match(/\.(jpeg|jpg|gif|png|webp)$/i)
-    }).map(m => {
-      const c = m.content || ''
-      if (c.startsWith('gif:')) return { type: 'gif', url: c.replace('gif:', '').split('::')[0] }
-      if (c.startsWith('pinterest:')) return { type: 'pin', url: c.replace('pinterest:', '').split('::')[0] }
-      return { type: 'image', url: c }
+      if (m.message_type === 'media' || c.startsWith('gif:') || c.startsWith('pinterest:') || c.match(/\.(jpeg|jpg|gif|png|webp)$/i)) {
+        let url = c
+        if (c.startsWith('gif:')) url = c.replace('gif:', '').split('::')[0]
+        if (c.startsWith('pinterest:')) url = c.replace('pinterest:', '').split('::')[0]
+        photos.push({ id: m.id, url, timestamp: m.created_at })
+      } else if (c.includes('http://') || c.includes('https://')) {
+        const matches = c.match(/https?:\/\/[^\s]+/g) || []
+        matches.forEach(link => links.push({ id: m.id, url: link, timestamp: m.created_at }))
+      } else if (m.message_type === 'task' || m.message_type === 'document') {
+        documents.push({ id: m.id, name: c.slice(0, 30) || 'Shared Document', timestamp: m.created_at })
+      } else if (m.message_type === 'voice' || m.message_type === 'music') {
+        audio.push({ id: m.id, title: c.slice(0, 30) || 'Audio Note', timestamp: m.created_at })
+      }
     })
 
-    const links = msgs.filter(m => m.content?.includes('http://') || m.content?.includes('https://')).map(m => m.content)
-    return { photos, links }
+    return { photos, links, documents, audio }
   }, [messages])
 
+  // Filtered Messages for Inline Search
   const filteredMessages = useMemo(() => {
     if (!searchQuery.trim()) return []
     return (messages || []).filter(m => m.content && m.content.toLowerCase().includes(searchQuery.toLowerCase()))
   }, [messages, searchQuery])
 
+  // Generate Temporary Security Pass Code
+  const handleGenerateGuestPass = () => {
+    const randomHash = Math.random().toString(36).substring(2, 8).toUpperCase()
+    const code = `MATT-${passDuration.toUpperCase()}-${randomHash}`
+    setGeneratedPassCode(code)
+    navigator.clipboard.writeText(`https://mattchat.app/join-temp?pass=${code}&chat=${targetProfile?.id}`)
+    setPassCopied(true)
+    setTimeout(() => setPassCopied(false), 3000)
+  }
+
+  // Handle Block Toggle
   const handleToggleBlock = async () => {
     if (isBlocked) {
       const { error } = await supabase.from('blocked_users').delete().eq('blocker_id', currentUserId).eq('blocked_id', targetProfile.id)
@@ -113,31 +158,29 @@ export default function ProfileCard({
   const theme = themeById(extras?.theme)
   const bio = extras?.bio || targetProfile.bio
   const hasStatus = !!(extras?.statusEmoji || extras?.statusText)
-  const displayName = targetProfile.username || 'User'
-  const isSelf = targetProfile?.id === currentUserId
 
   return (
     <div className="profile-drawer-container" onClick={onClose} style={{
       position: 'fixed', inset: 0, zIndex: 1100,
-      background: 'rgba(3, 3, 7, 0.82)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
-      display: 'flex', justifyContent: 'flex-end', animation: 'fadeIn 0.25s ease'
+      background: 'rgba(5, 5, 12, 0.82)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+      display: 'flex', justifyContent: 'flex-end', animation: 'fadeIn 0.22s ease-out'
     }}>
       <div
         className="profile-drawer-panel"
         onClick={e => e.stopPropagation()}
         style={{ 
-          width: '100%', maxWidth: 420, height: '100%', 
-          background: 'linear-gradient(180deg, #0e0e19 0%, #090911 100%)', 
+          width: '100%', maxWidth: 430, height: '100%', 
+          background: 'linear-gradient(180deg, #0e0d18 0%, #080811 100%)', 
           color: '#f2f0f8', borderLeft: '1px solid rgba(167, 139, 250, 0.2)',
           display: 'flex', flexDirection: 'column',
-          boxShadow: '-24px 0 64px rgba(0,0,0,0.85)',
-          animation: 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+          boxShadow: '-20px 0 60px rgba(0,0,0,0.85)',
+          animation: 'slideInRight 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
-        {/* Top Header */}
+        {/* Sticky Header Navigation */}
         <div style={{ 
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-          padding: '18px 22px', background: 'rgba(255, 255, 255, 0.02)',
+          padding: '16px 20px', background: 'rgba(255, 255, 255, 0.02)',
           borderBottom: '1px solid rgba(255, 255, 255, 0.06)', position: 'sticky', top: 0, zIndex: 10
         }}>
           {isSearching ? (
@@ -147,7 +190,7 @@ export default function ProfileCard({
                 type="text" 
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder={`Search in chat with ${displayName}...`}
+                placeholder={`Search history with ${displayName}...`}
                 autoFocus
                 style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#fff', fontSize: 13.5, fontFamily: 'inherit' }}
               />
@@ -157,11 +200,15 @@ export default function ProfileCard({
             </div>
           ) : (
             <>
-              <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#9d97b5' }}>Profile & Control</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#a78bfa' }}>
+                  {isSelf ? 'My Identity' : 'Contact Profile'}
+                </span>
+                {extras?.online && <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 10px #4ade80' }} />}
+              </div>
               <button onClick={onClose} style={{
                 background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff',
-                cursor: 'pointer', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'all 0.2s'
+                cursor: 'pointer', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center'
               }}>
                 <IconX size={15} />
               </button>
@@ -170,11 +217,12 @@ export default function ProfileCard({
         </div>
 
         {isSearching ? (
+          /* Search History Drawer Mode */
           <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
             {searchQuery.trim() === '' ? (
-              <div style={{ color: '#8b8b9e', fontSize: 13, textAlign: 'center', marginTop: 50 }}>Type keywords to search conversation history...</div>
+              <div style={{ color: '#8b8b9e', fontSize: 13, textAlign: 'center', marginTop: 60 }}>Type keywords to search conversation history...</div>
             ) : filteredMessages.length === 0 ? (
-              <div style={{ color: '#8b8b9e', fontSize: 13, textAlign: 'center', marginTop: 50 }}>No matching messages found</div>
+              <div style={{ color: '#8b8b9e', fontSize: 13, textAlign: 'center', marginTop: 60 }}>No matching messages found</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {filteredMessages.map(msg => (
@@ -187,107 +235,132 @@ export default function ProfileCard({
             )}
           </div>
         ) : (
+          /* Standard Profile Navigation Mode */
           <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
             
-            {/* Hero Banner Section with Ambient Glow */}
+            {/* Ambient Hero Identity Header */}
             <div style={{ 
-              padding: '32px 20px 24px 20px', display: 'flex', flexDirection: 'column', 
+              padding: '28px 20px 22px 20px', display: 'flex', flexDirection: 'column', 
               alignItems: 'center', textAlign: 'center', position: 'relative',
-              background: 'radial-gradient(circle at 50% 20%, rgba(108,99,255,0.15) 0%, transparent 70%)',
+              background: 'radial-gradient(circle at 50% 20%, rgba(108,99,255,0.18) 0%, transparent 75%)',
               borderBottom: '1px solid rgba(255,255,255,0.06)'
             }}>
               <div style={{
                 borderRadius: '50%', padding: 4, background: themeGradient(theme),
-                boxShadow: '0 12px 40px rgba(108, 99, 255, 0.4)', display: 'inline-block', marginBottom: 14,
+                boxShadow: '0 12px 40px rgba(108, 99, 255, 0.4)', display: 'inline-block', marginBottom: 12,
                 position: 'relative'
               }}>
-                <Avatar name={displayName} photoUrl={targetProfile.avatar_url} size={100} />
+                <Avatar name={displayName} photoUrl={targetProfile.avatar_url} size={94} />
+                {extras?.online && (
+                  <span title="Online now" style={{
+                    position: 'absolute', bottom: 4, right: 4, width: 14, height: 14, borderRadius: '50%',
+                    background: '#4ade80', border: '2.5px solid #0e0d18', boxShadow: '0 0 10px rgba(74,222,128,0.8)'
+                  }} />
+                )}
               </div>
 
-              <div style={{ fontSize: 21, fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'center', gap: 6, letterSpacing: '-0.01em' }}>
+              <div style={{ fontSize: 20, fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'center', gap: 6 }}>
                 {displayName}
-                {targetProfile.is_admin && <IconVerified size={16} />}
+                {targetProfile.is_admin && <IconVerified size={17} />}
               </div>
-              <div style={{ fontSize: 12.5, color: '#a78bfa', fontWeight: 600, marginTop: 3 }}>
+              <div style={{ fontSize: 12.5, color: '#a78bfa', fontWeight: 600, marginTop: 2 }}>
                 @{targetProfile.username?.toLowerCase() || 'mattchat_user'}
               </div>
 
-              {/* Action Toolbar Pills */}
-              {!isSelf && (
-                <div style={{ display: 'flex', gap: 10, marginTop: 20, width: '100%', maxWidth: 340, justifyContent: 'center' }}>
-                  <button onClick={() => { onVoiceCall?.(); onClose(); }} style={toolbarBtnStyle}>
-                    <IconPhone size={14} /> Audio
+              {/* Communication Toolbar */}
+              {!isSelf ? (
+                <div style={{ display: 'flex', gap: 10, marginTop: 18, width: '100%', maxWidth: 350, justifyContent: 'center' }}>
+                  <button onClick={() => { onMessageContact?.(targetProfile.email); onClose(); }} style={toolbarPrimaryBtnStyle}>
+                    <IconMessageSquare size={14} /> Message
                   </button>
-                  <button onClick={() => { onVideoCall?.(); onClose(); }} style={toolbarBtnStyle}>
+                  <button onClick={() => { onVoiceCall?.(); onClose(); }} style={toolbarSecondaryBtnStyle}>
+                    <IconPhone size={14} /> Call
+                  </button>
+                  <button onClick={() => { onVideoCall?.(); onClose(); }} style={toolbarSecondaryBtnStyle}>
                     <IconVideo size={14} /> Video
                   </button>
-                  <button onClick={() => setIsSearching(true)} style={toolbarBtnStyle}>
-                    <IconSearch size={14} /> Search
+                  <button onClick={() => setIsSearching(true)} style={toolbarSecondaryBtnStyle} title="Search chat">
+                    <IconSearch size={14} />
                   </button>
                 </div>
+              ) : (
+                <button onClick={() => setIsEditingSelf(!isEditingSelf)} style={{ ...toolbarPrimaryBtnStyle, marginTop: 16, width: 'auto', padding: '8px 20px' }}>
+                  {isEditingSelf ? 'Done Editing' : 'Edit Profile'}
+                </button>
               )}
             </div>
 
-            {/* High-End Sleek Tabs Bar */}
-            <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.3)', padding: '0 8px' }}>
-              {['overview', 'media', 'security', 'settings'].map(tab => (
+            {/* Hybrid Profile Navigation Bar */}
+            <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.3)', padding: '0 4px' }}>
+              {[
+                { id: 'overview', label: 'Overview' },
+                { id: 'media', label: `Media (${sharedMedia.photos.length + sharedMedia.links.length})` },
+                { id: 'experiences', label: 'Experiences' },
+                { id: 'security', label: 'Security & Pass' },
+                { id: 'settings', label: 'Privacy' },
+              ].map(tab => (
                 <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
                   style={{
-                    flex: 1, padding: '12px 0', background: 'none', border: 'none', fontFamily: 'inherit',
-                    fontSize: 12, fontWeight: 700, textTransform: 'capitalize', cursor: 'pointer',
-                    color: activeTab === tab ? '#c4b5fd' : '#8b8b9e',
-                    borderBottom: activeTab === tab ? '2px solid #a78bfa' : '2px solid transparent',
+                    flex: 1, padding: '12px 2px', background: 'none', border: 'none', fontFamily: 'inherit',
+                    fontSize: 11, fontWeight: 700, cursor: 'pointer', textAlign: 'center',
+                    color: activeTab === tab.id ? '#c4b5fd' : '#8b8b9e',
+                    borderBottom: activeTab === tab.id ? '2px solid #a78bfa' : '2px solid transparent',
                     transition: 'all 0.2s ease'
                   }}
                 >
-                  {tab}
+                  {tab.label}
                 </button>
               ))}
             </div>
 
-            {/* Tab Contents */}
+            {/* TAB CONTENTS */}
             <div style={{ flex: 1, padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
               
-              {/* OVERVIEW TAB */}
+              {/* 1. OVERVIEW TAB */}
               {activeTab === 'overview' && (
                 <>
                   <div style={cardBoxStyle}>
                     {hasStatus && (
                       <div style={{ marginBottom: 12 }}>
-                        <div style={{ fontSize: 10, fontWeight: 800, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Status Update</div>
+                        <div style={sectionLabelStyle}>Current Status</div>
                         <div style={{ fontSize: 13.5, color: '#ffffff', display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 16 }}>{extras.statusEmoji || '💭'}</span>
-                          <span style={{ fontWeight: 500 }}>{extras.statusText}</span>
+                          <span style={{ fontSize: 15 }}>{extras.statusEmoji || '💭'}</span>
+                          <span>{extras.statusText}</span>
                         </div>
                       </div>
                     )}
 
                     {bio && (
                       <div>
-                        <div style={{ fontSize: 10, fontWeight: 800, color: '#8b8b9e', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>About</div>
-                        <div style={{ fontSize: 13, color: '#d1cde6', lineHeight: 1.5 }}>{bio}</div>
+                        <div style={sectionLabelStyle}>About</div>
+                        <div style={{ fontSize: 13, color: '#d1cde6', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: bioExpanded ? 'unset' : 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                          {bio}
+                        </div>
+                        {bio.length > 120 && (
+                          <button onClick={() => setBioExpanded(!bioExpanded)} style={{ background: 'none', border: 'none', color: '#a78bfa', fontSize: 11.5, fontWeight: 700, padding: 0, marginTop: 4, cursor: 'pointer' }}>
+                            {bioExpanded ? 'Show less' : 'Read more'}
+                          </button>
+                        )}
                       </div>
                     )}
 
                     {replyLabel && (
-                      <div style={{ fontSize: 11.5, color: '#9d97b5', display: 'flex', alignItems: 'center', gap: 6, marginTop: bio || hasStatus ? 14 : 0, paddingTop: bio || hasStatus ? 10 : 0, borderTop: bio || hasStatus ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                      <div style={{ fontSize: 11.5, color: '#9d97b5', display: 'flex', alignItems: 'center', gap: 6, marginTop: bio || hasStatus ? 12 : 0, paddingTop: bio || hasStatus ? 10 : 0, borderTop: bio || hasStatus ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
                         <IconClock size={13} style={{ color: '#a78bfa' }} /> {replyLabel}
                       </div>
                     )}
                   </div>
 
-                  {shared.length > 0 && (
+                  {sharedInterests.length > 0 && (
                     <div style={cardBoxStyle}>
-                      <div style={{ fontSize: 10, fontWeight: 800, color: '#8b8b9e', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
-                        Shared Interests ({shared.length})
-                      </div>
+                      <div style={sectionLabelStyle}>Shared Interests ({sharedInterests.length})</div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                        {shared.map(interest => (
+                        {sharedInterests.map(interest => (
                           <span key={interest} style={{
                             fontSize: 11.5, fontWeight: 600, color: '#c4b5fd', background: 'rgba(108,99,255,0.18)',
-                            border: '1px solid rgba(108,99,255,0.35)', borderRadius: 999, padding: '4px 12px',
+                            border: '1px solid rgba(108,99,255,0.35)', borderRadius: 999, padding: '3px 10px',
                           }}>
                             {interest}
                           </span>
@@ -296,89 +369,156 @@ export default function ProfileCard({
                     </div>
                   )}
 
+                  {/* Curry AI Intelligence Hook */}
                   {onAskCurry && (
-                    <button style={{ 
-                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '13px 18px', borderRadius: 14,
-                      background: 'linear-gradient(135deg, #6c63ff 0%, #9333ea 100%)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-                      boxShadow: '0 6px 20px rgba(108,99,255,0.4)', transition: 'transform 0.15s'
-                    }} onClick={() => { onAskCurry(`Tell me about my conversations with ${displayName}`); onClose(); }}>
-                      <IconSparkle size={16} /> Ask Curry about {displayName}
-                    </button>
+                    <div style={{ ...cardBoxStyle, background: 'linear-gradient(135deg, rgba(167,139,250,0.12) 0%, rgba(108,99,255,0.06) 100%)', border: '1px solid rgba(167,139,250,0.25)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <IconSparkle size={16} style={{ color: '#a78bfa' }} />
+                        <span style={{ fontSize: 12.5, fontWeight: 700, color: '#ffffff' }}>Curry Conversation Intelligence</span>
+                      </div>
+                      <div style={{ fontSize: 11.5, color: '#9d97b5', marginBottom: 12, lineHeight: 1.4 }}>
+                        Ask Curry to summarize shared decisions or recall key moments from your chat thread with {displayName}.
+                      </div>
+                      <button 
+                        style={{ width: '100%', padding: '10px', borderRadius: 10, background: 'linear-gradient(135deg, #6c63ff 0%, #9333ea 100%)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+                        onClick={() => { onAskCurry(`Summarize our key discussions with ${displayName}`); onClose(); }}
+                      >
+                        Summarize Conversation History
+                      </button>
+                    </div>
                   )}
                 </>
               )}
 
-              {/* MEDIA TAB (High-Quality Visual Cards instead of empty text) */}
+              {/* 2. MEDIA & VAULT TAB */}
               {activeTab === 'media' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div style={cardBoxStyle}>
-                    <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9d97b5', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <IconFilm size={14} style={{ color: '#a78bfa' }} /> Photos & Visuals ({sharedMedia.photos.length})
-                    </div>
+                    <div style={sectionLabelStyle}>Photos & Visuals ({sharedMedia.photos.length})</div>
                     {sharedMedia.photos.length > 0 ? (
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                        {sharedMedia.photos.slice(0, 9).map((m, idx) => (
-                          <div key={idx} style={{ 
-                            aspectRatio: '1', borderRadius: 10, background: 'rgba(255,255,255,0.06)', 
-                            overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', position: 'relative' 
-                          }}>
-                            {m.url ? (
-                              <img src={m.url} alt="Shared media" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#9d97b5' }}>Media</div>
-                            )}
+                        {sharedMedia.photos.slice(0, 9).map(m => (
+                          <div key={m.id} style={{ aspectRatio: '1', borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <img src={m.url} alt="Shared media" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div style={{ fontSize: 12.5, color: '#666', fontStyle: 'italic', textAlign: 'center', padding: '16px 0' }}>No photos or visual media shared yet</div>
+                      <div style={{ fontSize: 12, color: '#666', fontStyle: 'italic', textAlign: 'center', padding: '12px 0' }}>No shared photos found</div>
                     )}
                   </div>
 
                   <div style={cardBoxStyle}>
-                    <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9d97b5', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <IconLink size={14} style={{ color: '#a78bfa' }} /> Shared Links ({sharedMedia.links.length})
-                    </div>
+                    <div style={sectionLabelStyle}>Shared Links ({sharedMedia.links.length})</div>
                     {sharedMedia.links.length > 0 ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {sharedMedia.links.slice(0, 4).map((link, idx) => (
-                          <a key={idx} href={link} target="_blank" rel="noreferrer" style={{ 
+                        {sharedMedia.links.slice(0, 5).map((l, idx) => (
+                          <a key={idx} href={l.url} target="_blank" rel="noreferrer" style={{ 
                             fontSize: 12, color: '#c4b5fd', background: 'rgba(167,139,250,0.08)', padding: '8px 12px', borderRadius: 10,
                             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', border: '1px solid rgba(167,139,250,0.15)', textDecoration: 'none' 
                           }}>
-                            🔗 {link}
+                            🔗 {l.url}
                           </a>
                         ))}
                       </div>
                     ) : (
-                      <div style={{ fontSize: 12.5, color: '#666', fontStyle: 'italic', textAlign: 'center', padding: '12px 0' }}>No links shared yet</div>
+                      <div style={{ fontSize: 12, color: '#666', fontStyle: 'italic', textAlign: 'center', padding: '12px 0' }}>No shared links found</div>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* SECURITY TAB */}
-              {activeTab === 'security' && (
-                <div style={{ ...cardBoxStyle, background: 'linear-gradient(135deg, rgba(74,222,128,0.05) 0%, rgba(255,255,255,0.02) 100%)', border: '1px solid rgba(74,222,128,0.2)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(74,222,128,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <IconShield size={20} style={{ color: '#4ade80' }} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#f2f0f8' }}>End-to-End Encrypted</div>
-                      <div style={{ fontSize: 11, color: '#9d97b5' }}>Secured with modern cryptographic keys</div>
-                    </div>
+              {/* 3. SHARED EXPERIENCES TAB */}
+              {activeTab === 'experiences' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={cardBoxStyle}>
+                    <div style={sectionLabelStyle}>Shared Music & Audio</div>
+                    {sharedMedia.audio.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {sharedMedia.audio.map(a => (
+                          <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, background: 'rgba(255,255,255,0.04)', borderRadius: 10 }}>
+                            <IconMusic size={16} style={{ color: '#a78bfa' }} />
+                            <span style={{ fontSize: 12, color: '#fff', fontWeight: 600 }}>{a.title}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 12, color: '#666', fontStyle: 'italic', padding: '8px 0' }}>No shared music sessions yet</div>
+                    )}
                   </div>
-                  <div style={{ background: 'rgba(0,0,0,0.4)', padding: 12, borderRadius: 12, fontFamily: 'monospace', fontSize: 11.5, color: '#4ade80', wordBreak: 'break-all', letterSpacing: '0.08em', textAlign: 'center', border: '1px solid rgba(74,222,128,0.15)' }}>
-                    4891 0294 8192 7482 1092 3841 9021 7482
-                  </div>
-                  <div style={{ fontSize: 11.5, color: '#9d97b5', lineHeight: 1.4, marginTop: 8 }}>
-                    Your calls and chat streams with {displayName} are fully private.
+
+                  <div style={cardBoxStyle}>
+                    <div style={sectionLabelStyle}>Watch Together & Interactive Apps</div>
+                    <div style={{ fontSize: 12, color: '#9d97b5', lineHeight: 1.4 }}>
+                      Start a synchronized YouTube stream or drawing canvas directly within your chat thread.
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* SETTINGS TAB (Clean single-row toggles without duplication) */}
+              {/* 4. SECURITY & TEMPORARY ACCESS PASS TAB */}
+              {activeTab === 'security' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {/* Encryption Status */}
+                  <div style={{ ...cardBoxStyle, background: 'linear-gradient(135deg, rgba(74,222,128,0.05) 0%, rgba(255,255,255,0.02) 100%)', border: '1px solid rgba(74,222,128,0.2)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                      <IconShield size={18} style={{ color: '#4ade80' }} />
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#f2f0f8' }}>End-to-End Encrypted Channel</span>
+                    </div>
+                    <div style={{ background: 'rgba(0,0,0,0.4)', padding: 10, borderRadius: 10, fontFamily: 'monospace', fontSize: 11, color: '#4ade80', textAlign: 'center', letterSpacing: '0.08em' }}>
+                      4891 0294 8192 7482 1092 3841 9021 7482
+                    </div>
+                  </div>
+
+                  {/* Temporary Guest Access Pass Feature */}
+                  <div style={{ ...cardBoxStyle, border: '1px solid rgba(167,139,250,0.3)', background: 'rgba(167,139,250,0.04)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <IconUserPlus size={16} style={{ color: '#a78bfa' }} />
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#ffffff' }}>Create Temporary Chat Pass</span>
+                    </div>
+                    <div style={{ fontSize: 11.5, color: '#9d97b5', lineHeight: 1.4, marginBottom: 12 }}>
+                      Invite a third person to temporarily drop into this chat thread for a couple of hours without creating a permanent group.
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                      {['1h', '2h', '6h', '24h'].map(dur => (
+                        <button 
+                          key={dur} 
+                          onClick={() => setPassDuration(dur)}
+                          style={{
+                            flex: 1, padding: '6px', borderRadius: 8, fontSize: 11, fontWeight: 700, fontFamily: 'inherit',
+                            background: passDuration === dur ? 'rgba(167,139,250,0.25)' : 'rgba(255,255,255,0.04)',
+                            color: passDuration === dur ? '#c4b5fd' : '#9d97b5',
+                            border: passDuration === dur ? '1px solid #a78bfa' : '1px solid rgba(255,255,255,0.08)',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {dur} Pass
+                        </button>
+                      ))}
+                    </div>
+
+                    <button 
+                      onClick={handleGenerateGuestPass}
+                      style={{
+                        width: '100%', padding: '10px', borderRadius: 10, background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                        color: '#fff', border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
+                      }}
+                    >
+                      <IconShare2 size={14} /> {passCopied ? 'Pass Link Copied!' : 'Generate & Copy Access Pass'}
+                    </button>
+
+                    {generatedPassCode && (
+                      <div style={{ marginTop: 10, fontSize: 11, color: '#4ade80', textAlign: 'center', fontFamily: 'monospace' }}>
+                        Active Pass Code: {generatedPassCode}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* 5. PRIVACY & SETTINGS TAB */}
               {activeTab === 'settings' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div style={settingRowStyle}>
@@ -394,7 +534,7 @@ export default function ProfileCard({
                         setIsMuted(next)
                         onToggleMute?.(targetProfile.id, next)
                       }} 
-                      style={{ cursor: 'pointer', width: 18, height: 18, accentColor: '#7c6cf0' }} 
+                      style={{ cursor: 'pointer', width: 17, height: 17, accentColor: '#7c6cf0' }} 
                     />
                   </div>
 
@@ -406,31 +546,27 @@ export default function ProfileCard({
                     <select 
                       value={disappearingTimer} 
                       onChange={(e) => setDisappearingTimer(e.target.value)}
-                      style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', borderRadius: 8, padding: '5px 10px', fontSize: 12, fontFamily: 'inherit', outline: 'none', cursor: 'pointer' }}
+                      style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', borderRadius: 8, padding: '4px 8px', fontSize: 12, fontFamily: 'inherit', outline: 'none', cursor: 'pointer' }}
                     >
                       <option value="off" style={{ background: '#14141f' }}>Off</option>
                       <option value="24h" style={{ background: '#14141f' }}>24 Hours</option>
                       <option value="7d" style={{ background: '#14141f' }}>7 Days</option>
-                      <option value="90d" style={{ background: '#14141f' }}>90 Days</option>
                     </select>
                   </div>
 
                   {!isSelf && !blockLoading && (
-                    <div style={{ marginTop: 8 }}>
-                      <button
-                        onClick={handleToggleBlock}
-                        style={{
-                          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                          padding: '12px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                          background: showBlockConfirm ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.08)',
-                          color: isBlocked ? '#34d399' : '#f87171', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: 12,
-                          transition: 'background 0.2s'
-                        }}
-                      >
-                        <IconShieldAlert size={16} /> 
-                        {isBlocked ? `Unblock ${displayName}` : (showBlockConfirm ? `Confirm Block ${displayName}?` : `Block ${displayName}`)}
-                      </button>
-                    </div>
+                    <button
+                      onClick={handleToggleBlock}
+                      style={{
+                        marginTop: 10, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        padding: '12px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                        background: showBlockConfirm ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.08)',
+                        color: isBlocked ? '#34d399' : '#f87171', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: 12
+                      }}
+                    >
+                      <IconShieldAlert size={16} /> 
+                      {isBlocked ? `Unblock ${displayName}` : (showBlockConfirm ? `Confirm Block ${displayName}?` : `Block ${displayName}`)}
+                    </button>
                   )}
                 </div>
               )}
@@ -444,20 +580,31 @@ export default function ProfileCard({
   )
 }
 
-// Sleek reusable UI styles for high-end feel
-const toolbarBtnStyle = {
-  flex: 1, padding: '10px 12px', borderRadius: 12, background: 'rgba(167,139,250,0.1)',
-  border: '1px solid rgba(167,139,250,0.22)', color: '#c4b5fd', fontSize: 12.5, fontWeight: 700,
+// Micro-Styles
+const toolbarPrimaryBtnStyle = {
+  flex: 1, padding: '10px 14px', borderRadius: 12,
+  background: 'linear-gradient(135deg, #6c63ff 0%, #a855f7 100%)',
+  color: '#fff', border: 'none', fontSize: 12.5, fontWeight: 700,
   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontFamily: 'inherit',
-  transition: 'background 0.15s'
+  boxShadow: '0 4px 14px rgba(108,99,255,0.35)'
+}
+
+const toolbarSecondaryBtnStyle = {
+  padding: '10px 14px', borderRadius: 12, background: 'rgba(255,255,255,0.06)',
+  border: '1px solid rgba(255,255,255,0.12)', color: '#f2f0f8', fontSize: 12.5, fontWeight: 700,
+  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontFamily: 'inherit'
 }
 
 const cardBoxStyle = {
   background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)',
-  borderRadius: 16, padding: 16, display: 'flex', flexDirection: 'column', gap: 8
+  borderRadius: 16, padding: 15, display: 'flex', flexDirection: 'column', gap: 8
 }
 
 const settingRowStyle = {
   display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px',
   background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14
+}
+
+const sectionLabelStyle = {
+  fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9d97b5', marginBottom: 4
 }
