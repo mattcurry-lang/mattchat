@@ -512,14 +512,14 @@ if (msg.content?.startsWith('{') && msg.content?.includes('temporary_pass')) {
         {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
         <div>
           {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
-          <TemporaryPassCard 
-            passData={passData} 
-            currentUserId={session?.user?.id} 
-            onJoinSession={(code) => {
-              console.log("Opening Stacked Session for code:", code)
-              setActiveSessionPassCode(code)
-            }} 
-          />
+       <TemporaryPassCard 
+  passData={passData} 
+  currentUserId={session?.user?.id} 
+  onJoinSession={(code) => {
+    console.log("Opening Stacked Session for code:", code)
+    setActiveSessionPassCode(code)
+  }} 
+/>
           <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
         </div>
       </div>
@@ -1431,11 +1431,11 @@ export default function ChatPage({ session }) {
   const [showRingtonePicker, setShowRingtonePicker] = useState(false)
   const [zoomSheet, setZoomSheet] = useState(null)
   const [startMuted, setStartMuted] = useState(false)
-  const [showAddStatus, setShowAddStatus] = useState(false)
+const [showAddStatus, setShowAddStatus] = useState(false)
   const [viewerIndex, setViewerIndex] = useState(null)
   const [blockedByOtherIds, setBlockedByOtherIds] = useState(new Set())
-const [activeSessionPass, setActiveSessionPass] = useState(null)
-const [sessionHosts, setSessionHosts] = useState([])
+  const [activeSessionPass, setActiveSessionPass] = useState(null)
+  const [sessionHosts, setSessionHosts] = useState([])
   const [activeSessionPassCode, setActiveSessionPassCode] = useState(null)
 
 const handleJoinSession = (passData) => {
