@@ -1,18 +1,21 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Construct a valid absolute URL pointing to your own Vercel domain proxy.
-// This satisfies Supabase's absolute URL requirement while keeping requests 
-// first-party so Brave Shields won't block them.
-const getSupabaseUrl = () => {
-  if (typeof window !== 'undefined') {
-    return `${window.location.origin}/api/supabase`
-  }
-  return process.env.REACT_APP_SUPABASE_URL || 'https://bqerkvywgxoiocbkxif.supabase.co'
-}
-
-const supabaseUrl = getSupabaseUrl()
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://bqerkvywgxoiocbkxif.supabase.co'
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+// Helper to safely parse JSON responses from edge functions and prevent "Unexpected end of JSON input" crashes
+async function safeJsonFetch(url, options = {}) {
+  const res = await fetch(url, options)
+  const text = await res.text()
+  let data = {}
+  try {
+    data = text ? JSON.parse(text) : {}
+  } catch {
+    data = { ok: false, error: text || 'Server returned an invalid response' }
+  }
+  return { res, data }
+}
 
 // Auth helpers
 export const signUp = async (email, password, username) => {
@@ -81,83 +84,74 @@ export const updatePassword = async (newPassword) => {
 }
 
 export const connectGmail = async (session) => {
-  const res = await fetch(`${supabaseUrl}/functions/v1/gmail-oauth?action=start`, {
+  const { data } = await safeJsonFetch(`${supabaseUrl}/functions/v1/gmail-oauth?action=start`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
-  const data = await res.json()
   if (!data.ok || !data.url) throw new Error(data.error || 'Could not start the Gmail connection')
   window.location.href = data.url
 }
 
 export const listEmailAccounts = async (session) => {
-  const res = await fetch(`${supabaseUrl}/functions/v1/gmail-oauth?action=list`, {
+  const { data } = await safeJsonFetch(`${supabaseUrl}/functions/v1/gmail-oauth?action=list`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
-  const data = await res.json()
   return data.accounts || []
 }
 
 export const disconnectEmailAccount = async (session, accountId) => {
-  const res = await fetch(`${supabaseUrl}/functions/v1/gmail-oauth?action=disconnect`, {
+  const { data } = await safeJsonFetch(`${supabaseUrl}/functions/v1/gmail-oauth?action=disconnect`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ accountId }),
   })
-  const data = await res.json()
   if (!data.ok) throw new Error(data.error || 'Could not disconnect that account')
 }
 
 export const connectGoogleDrive = async (session) => {
-  const res = await fetch(`${supabaseUrl}/functions/v1/google-drive-oauth?action=start`, {
+  const { data } = await safeJsonFetch(`${supabaseUrl}/functions/v1/google-drive-oauth?action=start`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
-  const data = await res.json()
   if (!data.ok || !data.url) throw new Error(data.error || 'Could not start the Google Drive connection')
   window.location.href = data.url
 }
 
 export const listGoogleDriveAccounts = async (session) => {
-  const res = await fetch(`${supabaseUrl}/functions/v1/google-drive-oauth?action=list`, {
+  const { data } = await safeJsonFetch(`${supabaseUrl}/functions/v1/google-drive-oauth?action=list`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
-  const data = await res.json()
   return data.accounts || []
 }
 
 export const disconnectGoogleDriveAccount = async (session, accountId) => {
-  const res = await fetch(`${supabaseUrl}/functions/v1/google-drive-oauth?action=disconnect`, {
+  const { data } = await safeJsonFetch(`${supabaseUrl}/functions/v1/google-drive-oauth?action=disconnect`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ accountId }),
   })
-  const data = await res.json()
   if (!data.ok) throw new Error(data.error || 'Could not disconnect that Drive account')
 }
 
 export const connectGoogleCalendar = async (session) => {
-  const res = await fetch(`${supabaseUrl}/functions/v1/google-calendar-oauth?action=start`, {
+  const { data } = await safeJsonFetch(`${supabaseUrl}/functions/v1/google-calendar-oauth?action=start`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
-  const data = await res.json()
   if (!data.ok || !data.url) throw new Error(data.error || 'Could not start the Google Calendar connection')
   window.location.href = data.url
 }
 
 export const listGoogleCalendarAccounts = async (session) => {
-  const res = await fetch(`${supabaseUrl}/functions/v1/google-calendar-oauth?action=list`, {
+  const { data } = await safeJsonFetch(`${supabaseUrl}/functions/v1/google-calendar-oauth?action=list`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
-  const data = await res.json()
   return data.accounts || []
 }
 
 export const disconnectGoogleCalendarAccount = async (session, accountId) => {
-  const res = await fetch(`${supabaseUrl}/functions/v1/google-calendar-oauth?action=disconnect`, {
+  const { data } = await safeJsonFetch(`${supabaseUrl}/functions/v1/google-calendar-oauth?action=disconnect`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ accountId }),
   })
-  const data = await res.json()
   if (!data.ok) throw new Error(data.error || 'Could not disconnect that Calendar account')
 }
 
@@ -566,27 +560,25 @@ export async function sendReplyMessage(conversationId, senderId, content, replyT
 }
 
 export const connectSpotify = async (session) => {
-  const res = await fetch(`${supabaseUrl}/functions/v1/spotify-oauth?action=start`, {
+  const { data } = await safeJsonFetch(`${supabaseUrl}/functions/v1/spotify-oauth?action=start`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
-  const data = await res.json()
   if (!data.ok || !data.url) throw new Error(data.error || 'Could not start the Spotify connection')
   window.location.href = data.url
 }
 export const disconnectSpotify = async (session) => {
-  const res = await fetch(`${supabaseUrl}/functions/v1/spotify-oauth?action=disconnect`, {
+  const { data } = await safeJsonFetch(`${supabaseUrl}/functions/v1/spotify-oauth?action=disconnect`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
-  const data = await res.json()
   if (!data.ok) throw new Error(data.error || 'Could not disconnect Spotify')
 }
 
 export const getSpotifyToken = async (session) => {
-  const res = await fetch(`${supabaseUrl}/functions/v1/spotify-token`, {
+  const { data } = await safeJsonFetch(`${supabaseUrl}/functions/v1/spotify-token`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
-  return res.json()
+  return data
 }
 
 export async function uploadAvatar(userId, file) {
@@ -626,10 +618,9 @@ export async function setUsagePreference(userId, preference) {
 }
 
 export const connectPinterest = async (session) => {
-  const res = await fetch(`${supabaseUrl}/functions/v1/pinterest-oauth?action=start`, {
+  const { data } = await safeJsonFetch(`${supabaseUrl}/functions/v1/pinterest-oauth?action=start`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
-  const data = await res.json()
   if (!data.ok || !data.url) throw new Error(data.error || 'Could not start the Pinterest connection')
   window.location.href = data.url
 }
