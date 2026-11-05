@@ -4,9 +4,9 @@ import { computeReplyTimeLabel, supabase } from '../lib/supabase'
 import { themeById, themeGradient } from '../lib/profileThemes'
 import { 
   IconX, IconClock, IconSparkle, IconMessageSquare, 
-  IconVerified, IconShieldAlert, IconBellOff, IconSearch, 
-  IconPhone, IconVideo, IconShield, IconBell, IconFolder, IconTrash, 
-  IconFilm, IconMusic, IconCheck, IconShare2, IconLock, IconUserPlus
+  IconVerified, IconShieldAlert, IconSearch, 
+  IconPhone, IconVideo, IconShield, IconBell, 
+  IconMusic, IconShare2, IconUserPlus
 } from './Icons'
 import { PassContactSharePicker } from './StackedSessionManager'
 
@@ -36,7 +36,6 @@ export default function ProfileCard({
   onToggleMute,
   onVoiceCall,
   onVideoCall,
-  onOpenSearch,         
   extras,             
 }) {
   const [activeTab, setActiveTab] = useState('overview') // 'overview' | 'media' | 'experiences' | 'security' | 'settings'
@@ -56,16 +55,14 @@ export default function ProfileCard({
   const [passDuration, setPassDuration] = useState('2h')
   const [passCopied, setPassCopied] = useState(false)
   const [generatedPassCode, setGeneratedPassCode] = useState('')
+  const [showSharePicker, setShowSharePicker] = useState(false)
 
   // Bio Expand State
   const [bioExpanded, setBioExpanded] = useState(false)
 
   // Edit Mode State (when viewing self)
   const [isEditingSelf, setIsEditingSelf] = useState(false)
-  const [editBio, setEditBio] = useState(targetProfile?.bio || '')
-  const [editStatusText, setEditStatusText] = useState(extras?.statusText || '')
-const [showSharePicker, setShowSharePicker] = useState(false)
-  
+
   const isSelf = targetProfile?.id === currentUserId
   const displayName = targetProfile?.username || 'Mattchat User'
 
@@ -141,7 +138,6 @@ const [showSharePicker, setShowSharePicker] = useState(false)
     
     const expiresAt = new Date(Date.now() + hoursNum * 3600 * 1000).toISOString()
 
-    // 1. Insert record into Supabase backend table
     const { error: dbError } = await supabase.from('temporary_passes').insert({
       pass_code: passCode,
       creator_id: currentUserId,
@@ -156,7 +152,6 @@ const [showSharePicker, setShowSharePicker] = useState(false)
       return
     }
 
-    // 2. Prepare structured message payload for the interactive card
     const passPayload = JSON.stringify({
       type: 'temporary_pass',
       pass_code: passCode,
@@ -166,7 +161,6 @@ const [showSharePicker, setShowSharePicker] = useState(false)
       status: 'pending'
     })
 
-    // 3. Send the pass payload directly into the active chat conversation
     const activeConvoId = messages?.[0]?.conversation_id
     if (activeConvoId) {
       await supabase.from('messages').insert({
@@ -258,7 +252,6 @@ const [showSharePicker, setShowSharePicker] = useState(false)
         </div>
 
         {isSearching ? (
-          /* Search History Drawer Mode */
           <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
             {searchQuery.trim() === '' ? (
               <div style={{ color: '#8b8b9e', fontSize: 13, textAlign: 'center', marginTop: 60 }}>Type keywords to search conversation history...</div>
@@ -276,7 +269,6 @@ const [showSharePicker, setShowSharePicker] = useState(false)
             )}
           </div>
         ) : (
-          /* Standard Profile Navigation Mode */
           <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
             
             {/* Ambient Hero Identity Header */}
@@ -410,7 +402,6 @@ const [showSharePicker, setShowSharePicker] = useState(false)
                     </div>
                   )}
 
-                  {/* Curry AI Intelligence Hook */}
                   {onAskCurry && (
                     <div style={{ ...cardBoxStyle, background: 'linear-gradient(135deg, rgba(167,139,250,0.12) 0%, rgba(108,99,255,0.06) 100%)', border: '1px solid rgba(167,139,250,0.25)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -469,7 +460,7 @@ const [showSharePicker, setShowSharePicker] = useState(false)
                 </div>
               )}
 
-              {/* 3. SHARED EXPERIENCES TAB */}
+              {/* 3. EXPERIENCES TAB */}
               {activeTab === 'experiences' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div style={cardBoxStyle}>
@@ -497,10 +488,9 @@ const [showSharePicker, setShowSharePicker] = useState(false)
                 </div>
               )}
 
-              {/* 4. SECURITY & TEMPORARY ACCESS PASS TAB */}
+              {/* 4. SECURITY & PASS TAB */}
               {activeTab === 'security' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {/* Encryption Status */}
                   <div style={{ ...cardBoxStyle, background: 'linear-gradient(135deg, rgba(74,222,128,0.05) 0%, rgba(255,255,255,0.02) 100%)', border: '1px solid rgba(74,222,128,0.2)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                       <IconShield size={18} style={{ color: '#4ade80' }} />
@@ -511,7 +501,6 @@ const [showSharePicker, setShowSharePicker] = useState(false)
                     </div>
                   </div>
 
-                  {/* Temporary Guest Access Pass Feature */}
                   <div style={{ ...cardBoxStyle, border: '1px solid rgba(167,139,250,0.3)', background: 'rgba(167,139,250,0.04)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                       <IconUserPlus size={16} style={{ color: '#a78bfa' }} />
@@ -523,30 +512,42 @@ const [showSharePicker, setShowSharePicker] = useState(false)
 
                     <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                       {['1h', '2h', '6h', '24h'].map(dur => (
-                      <button 
-  onClick={() => setShowSharePicker(true)}
-  style={{
-    width: '100%', padding: '10px', borderRadius: 10, background: 'linear-gradient(135deg, #667eea, #764ba2)',
-    color: '#fff', border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
-  }}
->
-                        <IconUserPlus size={14} /> Choose Contact to Share Pass
-</button>
-                          {dur} Pass
+                        <button 
+                          key={dur} 
+                          onClick={() => setPassDuration(dur)}
+                          style={{
+                            flex: 1, padding: '6px', borderRadius: 8, fontSize: 11, fontWeight: 700, fontFamily: 'inherit',
+                            background: passDuration === dur ? 'rgba(167,139,250,0.25)' : 'rgba(255,255,255,0.04)',
+                            color: passDuration === dur ? '#c4b5fd' : '#9d97b5',
+                            border: passDuration === dur ? '1px solid #a78bfa' : '1px solid rgba(255,255,255,0.08)',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {dur}
                         </button>
                       ))}
                     </div>
 
                     <button 
-                      onClick={handleGenerateGuestPass}
+                      onClick={() => setShowSharePicker(true)}
                       style={{
                         width: '100%', padding: '10px', borderRadius: 10, background: 'linear-gradient(135deg, #667eea, #764ba2)',
                         color: '#fff', border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 8
+                      }}
+                    >
+                      <IconUserPlus size={14} /> Choose Contact to Share Pass
+                    </button>
+
+                    <button 
+                      onClick={handleGenerateGuestPass}
+                      style={{
+                        width: '100%', padding: '10px', borderRadius: 10, background: 'rgba(255,255,255,0.06)',
+                        color: '#f2f0f8', border: '1px solid rgba(255,255,255,0.12)', fontWeight: 700, fontSize: 12, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
                       }}
                     >
-                      <IconShare2 size={14} /> {passCopied ? 'Pass Sent & Copied!' : 'Generate & Send Access Pass'}
+                      <IconShare2 size={14} /> {passCopied ? 'Pass Copied to Chat!' : 'Generate & Send to Chat'}
                     </button>
 
                     {generatedPassCode && (
@@ -593,15 +594,7 @@ const [showSharePicker, setShowSharePicker] = useState(false)
                       <option value="7d" style={{ background: '#14141f' }}>7 Days</option>
                     </select>
                   </div>
-{showSharePicker && (
-  <PassContactSharePicker
-    passDuration={passDuration}
-    currentUserId={currentUserId}
-    myProfile={myProfile}
-    targetProfile={targetProfile}
-    onClose={() => setShowSharePicker(false)}
-  />
-)}
+
                   {!isSelf && !blockLoading && (
                     <button
                       onClick={handleToggleBlock}
@@ -624,6 +617,17 @@ const [showSharePicker, setShowSharePicker] = useState(false)
           </div>
         )}
       </div>
+
+      {/* Contact Share Picker Modal Overlay */}
+      {showSharePicker && (
+        <PassContactSharePicker
+          passDuration={passDuration}
+          currentUserId={currentUserId}
+          myProfile={myProfile}
+          targetProfile={targetProfile}
+          onClose={() => setShowSharePicker(false)}
+        />
+      )}
     </div>
   )
 }
