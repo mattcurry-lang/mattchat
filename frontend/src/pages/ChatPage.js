@@ -1558,24 +1558,29 @@ const unreadStatusCount = statusGroups.filter(g => !g.allViewed).length
     if (idx !== -1) setViewerIndex(idx)
   }
 
-  const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
+ const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
+
+  const [blockedUserIds, setBlockedUserIds] = useState(new Set())
+
+  useEffect(() => {
+    if (!userId) return
+    supabase
+      .from('blocked_users')
+      .select('blocked_id')
+      .eq('blocker_id', userId)
+      .then(({ data }) => {
+        if (data) setBlockedUserIds(new Set(data.map(r => r.blocked_id)))
+      })
+  }, [userId, profileCardTarget])
+
+  const isUserBlocked = Boolean(otherUserId && blockedUserIds.has(otherUserId))
+
   const otherMember = activeConvo?.conversation_members?.find(m => m.user_id !== userId)
-const otherProfile = otherMember?.profiles
-const isPeerBlocked = otherUserId && (blockedUserIds.has(otherUserId) || !otherProfile)
+  const otherProfile = otherMember?.profiles
+  const isPeerBlocked = otherUserId && (blockedUserIds.has(otherUserId) || !otherProfile)
 
-const headerTitle = isPeerBlocked ? 'Mattchat User' : (otherProfile?.username || getConvoName(activeConvo))
-const headerStatusText = isPeerBlocked ? '' : headerStatus()
-useEffect(() => {
-  if (!userId) return
-  // Fetch users you blocked
-  supabase
-    .from('blocked_users')
-    .select('blocked_id')
-    .eq('blocker_id', userId)
-    .then(({ data }) => {
-      if (data) setBlockedUserIds(new Set(data.map(r => r.blocked_id)))
-    })
-
+  const headerTitle = isPeerBlocked ? 'Mattchat User' : (otherProfile?.username || getConvoName(activeConvo))
+  const headerStatusText = isPeerBlocked ? '' : headerStatus()
   // Fetch users who blocked you
   supabase
     .from('blocked_users')
