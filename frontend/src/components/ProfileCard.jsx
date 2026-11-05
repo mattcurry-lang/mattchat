@@ -7,6 +7,22 @@ import {
   IconVerified, IconShieldAlert, IconBellOff, IconSearch, IconPhone, IconVideo 
 } from './Icons'
 
+// AVATAR_CATEGORIES exported so setup flows and ProfileCard agree on tags
+export const AVATAR_CATEGORIES = [
+  { id: 'professional', label: 'Professional', emoji: '👔' },
+  { id: 'personal',     label: 'Personal',     emoji: '😊' },
+  { id: 'minimal',      label: 'Minimal',      emoji: '🎨' },
+  { id: 'gaming',       label: 'Gaming',       emoji: '🎮' },
+  { id: 'ai_avatar',    label: 'AI Avatar',    emoji: '🤖' },
+  { id: 'photography',  label: 'Photography',  emoji: '📸' },
+  { id: 'anime',        label: 'Anime',        emoji: '🌌' },
+  { id: 'nature',       label: 'Nature',       emoji: '🌿' },
+  { id: 'animals',      label: 'Animals',      emoji: '🐶' },
+  { id: 'cars',         label: 'Cars',         emoji: '🚗' },
+  { id: 'sports',       label: 'Sports',       emoji: '⚽' },
+  { id: 'music',        label: 'Music',        emoji: '🎵' },
+]
+
 export default function ProfileCard({
   targetProfile,
   myProfile,
@@ -18,6 +34,7 @@ export default function ProfileCard({
   onToggleMute,
   onVoiceCall,
   onVideoCall,
+  onOpenSearch,     
   extras,            
 }) {
   const [showBlockConfirm, setShowBlockConfirm] = useState(false)
