@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
+// Use a relative proxy path in production so Brave Shields don't block direct cross-origin requests
+const isProduction = process.env.NODE_ENV === 'production' || window.location.hostname !== 'localhost'
+const supabaseUrl = isProduction ? '/api/supabase' : (process.env.REACT_APP_SUPABASE_URL || 'https://bqerkvywgxoiocbkxif.supabase.co')
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
@@ -8,11 +10,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 export const signUp = async (email, password, username) => {
   const cleanUsername = username.trim()
 
-  // Pre-check availability so people get an immediate, honest answer
-  // instead of Supabase Auth's generic "Database error saving new
-  // user" message. This runs BEFORE auth.signUp() creates anything,
-  // and .ilike() with no wildcards is an exact case-insensitive match
-  // — the same rule enforced by the profiles_username_lower_key index.
   const { data: existing, error: checkError } = await supabase
     .from('profiles')
     .select('id')
@@ -29,11 +26,6 @@ export const signUp = async (email, password, username) => {
   })
 
   if (error) {
-    // Race-condition fallback: two people submitted the same username
-    // at nearly the same instant, both passed the check above, and
-    // the handle_new_user trigger hit the unique index. Supabase Auth
-    // wraps that as a generic message — translate it into something
-    // a user can actually understand.
     if (error.message?.toLowerCase().includes('database error saving new user')) {
       throw new Error('That username or email is already taken. Please try a different one.')
     }
@@ -47,15 +39,12 @@ export const signIn = async (email, password) => {
   if (error) throw error
   return data
 }
-// Sign in with either an email or a username.
-// Anything containing "@" is treated as an email; otherwise the username
-// is resolved to its email via the get_email_for_login RPC.
+
 export async function signInWithIdentifier(identifier, password) {
   const id = (identifier || '').trim()
   let email = id
   if (!id.includes('@')) {
     const { data, error } = await supabase.rpc('get_email_for_login', { p_identifier: id })
-    // Same message as a wrong password, so the form doesn't reveal which usernames exist
     if (error || !data) throw new Error('Invalid login credentials')
     email = data
   }
@@ -70,10 +59,6 @@ export const getUser = async () => {
   return user
 }
 
-// Sends the "forgot password" reset email. Google/Supabase will send
-// the user a link that lands back on this app at /reset-password with
-// a recovery token in the URL — that page should call updatePassword()
-// below once the user types their new password.
 export const resetPasswordForEmail = async (email) => {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/reset-password`,
@@ -81,22 +66,12 @@ export const resetPasswordForEmail = async (email) => {
   if (error) throw error
 }
 
-// Call this from the /reset-password page once the user submits a new
-// password. Supabase's client picks up the recovery token from the
-// URL automatically (via detectSessionInUrl), so this just needs the
-// new password itself — no token handling required here.
 export const updatePassword = async (newPassword) => {
   const { data, error } = await supabase.auth.updateUser({ password: newPassword })
   if (error) throw error
   return data
 }
 
-// Starts the "Connect Gmail" flow — asks the gmail-oauth edge function
-// for Google's consent URL, then navigates the whole page there (this
-// has to be a real top-level redirect, not a fetch, since Google's
-// consent screen can't be shown inside an XHR response). Google will
-// eventually redirect back to this app at "/?email_connect=success"
-// (or denied/expired/error) once the user finishes or cancels.
 export const connectGmail = async (session) => {
   const res = await fetch(`${supabaseUrl}/functions/v1/gmail-oauth?action=start`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
@@ -106,8 +81,6 @@ export const connectGmail = async (session) => {
   window.location.href = data.url
 }
 
-// Lists the current user's connected email accounts — id and address
-// only, never tokens (the edge function enforces that, not this call).
 export const listEmailAccounts = async (session) => {
   const res = await fetch(`${supabaseUrl}/functions/v1/gmail-oauth?action=list`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
@@ -125,7 +98,7 @@ export const disconnectEmailAccount = async (session, accountId) => {
   const data = await res.json()
   if (!data.ok) throw new Error(data.error || 'Could not disconnect that account')
 }
-// ── Google Drive (mirrors the Gmail connect pattern above) ───────────
+
 export const connectGoogleDrive = async (session) => {
   const res = await fetch(`${supabaseUrl}/functions/v1/google-drive-oauth?action=start`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
@@ -153,7 +126,6 @@ export const disconnectGoogleDriveAccount = async (session, accountId) => {
   if (!data.ok) throw new Error(data.error || 'Could not disconnect that Drive account')
 }
 
-// ── Google Calendar (mirrors the Gmail connect pattern above) ────────
 export const connectGoogleCalendar = async (session) => {
   const res = await fetch(`${supabaseUrl}/functions/v1/google-calendar-oauth?action=start`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
@@ -180,7 +152,7 @@ export const disconnectGoogleCalendarAccount = async (session, accountId) => {
   const data = await res.json()
   if (!data.ok) throw new Error(data.error || 'Could not disconnect that Calendar account')
 }
-// Message helpers
+
 export const getConversations = async (userId) => {
   const { data, error } = await supabase
     .from('conversations')
@@ -195,8 +167,6 @@ export const getConversations = async (userId) => {
   return data
 }
 
-// The message list. `edited_at` (the "edited" label) only exists once docs/step_message_saves.sql has been run;
-// until then we quietly ask without it, so loading chats never breaks.
 let messagesHaveEditedAt = true
 
 export const getMessages = async (conversationId) => {
@@ -221,7 +191,7 @@ export const getMessages = async (conversationId) => {
       deleted_for_everyone,
       ${withEditedAt ? 'edited_at,' : ''}
       created_at,
-     profiles!messages_sender_id_fkey(username, avatar_url, is_admin),
+      profiles!messages_sender_id_fkey(username, avatar_url, is_admin),
       media_assets(*)
     `)
     .eq('conversation_id', conversationId)
@@ -253,11 +223,6 @@ export const sendMessage = async (conversationId, senderId, content, isEmail = f
   return data
 }
 
-// Un-hides a conversation for a single user, if it was previously
-// hidden by them. Safe to call even if no hidden row exists — used
-// any time we're about to hand a conversation back to someone (e.g.
-// getOrCreateConversation finding an existing thread), so a chat you
-// deleted comes back automatically the moment either side texts again.
 const unhideConversationForUser = async (userId, conversationId) => {
   await supabase
     .from('hidden_conversations')
@@ -266,17 +231,9 @@ const unhideConversationForUser = async (userId, conversationId) => {
     .eq('conversation_id', conversationId)
 }
 
-// The database refuses to add someone whose "Who can add you" setting excludes you (step4_privacy.sql).
-// That arrives as a row-level-security error, so give it a plain-English message.
 const NOT_ACCEPTING_CHATS = "This person isn't accepting new chats from you."
 const friendlyAddError = (err) => (err && err.code === '42501' ? new Error(NOT_ACCEPTING_CHATS) : err)
 
-// Hides a conversation for the given user only. This is what "delete
-// conversation" in the UI should call now instead of actually deleting
-// rows — the conversation, its messages, and anything tied to it
-// (Curry AI consent, pinned messages, etc.) all stay exactly as they
-// are for the other member and in the database. It just stops showing
-// up in this user's own conversation list.
 export const hideConversationForUser = async (userId, conversationId) => {
   const { error } = await supabase
     .from('hidden_conversations')
@@ -284,34 +241,16 @@ export const hideConversationForUser = async (userId, conversationId) => {
   if (error) throw error
 }
 
-// ── One 1:1 conversation per pair of people ─────────────────────────────
-// Finding an existing chat and creating a new one used to be two separate steps with
-// nothing stopping them from running twice at once (a double tap, Enter + click, two
-// devices, both people starting a chat with each other). Each run saw "no chat yet" and
-// created its own, so the same person showed up twice.
-//
-// Three layers now stop that:
-//   1. calls for the same pair that overlap in this tab share ONE lookup/creation;
-//   2. every 1:1 conversation carries `direct_key` (both user ids, sorted) and the
-//      database only allows one conversation per key (docs/step_direct_chat_unique.sql),
-//      so even two tabs or two people racing can't make a second one;
-//   3. only real 1:1 conversations count as "existing" - a group you both belong to
-//      used to be returned by mistake.
-// Until that SQL is run the code falls back to the old behaviour (minus the group bug).
 const directKey = (a, b) => [a, b].sort().join(':')
-// "column direct_key doesn't exist" (SQL not run yet). Careful: the duplicate-key error (23505) also
-// names direct_key in its text, and must NOT be mistaken for this.
 const isMissingDirectKey = (err) => !!err && err.code !== '23505' && (err.code === '42703' || err.code === 'PGRST204')
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
-const inFlightDirect = new Map() // pair key -> promise
+const inFlightDirect = new Map()
 
 async function findDirectConversation(currentUserId, otherUserId, key) {
-  // Fast path: a conversation already tagged for this pair
   const tagged = await supabase.from('conversations').select('id').eq('direct_key', key).maybeSingle()
   if (!tagged.error && tagged.data) return { id: tagged.data.id, tagColumn: true }
   const tagColumn = !isMissingDirectKey(tagged.error)
 
-  // Older chats (made before direct_key existed): any non-group conversation you share
   const [{ data: myRows }, { data: theirRows }] = await Promise.all([
     supabase.from('conversation_members').select('conversation_id').eq('user_id', currentUserId),
     supabase.from('conversation_members').select('conversation_id').eq('user_id', otherUserId),
@@ -327,11 +266,9 @@ async function findDirectConversation(currentUserId, otherUserId, key) {
     .eq('is_group', false)
   if (!convos || !convos.length) return { id: null, tagColumn }
 
-  // If duplicates already exist, land in the one with real history, then the most recent
   convos.sort((x, y) => (!!y.last_message - !!x.last_message) || (new Date(y.updated_at) - new Date(x.updated_at)))
   const pick = convos[0]
   if (tagColumn) {
-    // Tag it so it is the canonical chat from now on (ignored if another one already holds the tag)
     await supabase.from('conversations').update({ direct_key: key }).eq('id', pick.id).is('direct_key', null)
   }
   return { id: pick.id, tagColumn }
@@ -342,8 +279,6 @@ async function createOrFindDirectConversation(currentUserId, otherUserId) {
 
   const found = await findDirectConversation(currentUserId, otherUserId, key)
   if (found.id) {
-    // Whether or not you'd hidden/deleted it on your side, texting them again reopens that
-    // same thread - never a second one.
     await unhideConversationForUser(currentUserId, found.id)
     return found.id
   }
@@ -352,13 +287,11 @@ async function createOrFindDirectConversation(currentUserId, otherUserId) {
   const base = { id: newId, is_group: false, updated_at: new Date().toISOString() }
   let { error: convoError } = await supabase.from('conversations').insert(found.tagColumn ? { ...base, direct_key: key } : base)
   if (convoError && isMissingDirectKey(convoError)) {
-    ;({ error: convoError } = await supabase.from('conversations').insert(base)) // SQL not run yet
+    ;({ error: convoError } = await supabase.from('conversations').insert(base))
   }
 
   if (convoError) {
     if (convoError.code === '23505') {
-      // Someone (another tab, or the other person) created this chat a moment ago. We can only
-      // see it once its members are in, so give that a few tries.
       for (let i = 0; i < 8; i++) {
         await wait(250)
         const again = await findDirectConversation(currentUserId, otherUserId, key)
@@ -376,13 +309,12 @@ async function createOrFindDirectConversation(currentUserId, otherUserId) {
       { conversation_id: newId, user_id: otherUserId },
     ])
   if (memberError) {
-    await supabase.from('conversations').delete().eq('id', newId) // best effort: don't leave an empty conversation behind
+    await supabase.from('conversations').delete().eq('id', newId)
     throw friendlyAddError(memberError)
   }
   return newId
 }
 
-// Overlapping calls for the same pair share one run
 function openDirectConversation(currentUserId, otherUserId) {
   const key = directKey(currentUserId, otherUserId)
   if (inFlightDirect.has(key)) return inFlightDirect.get(key)
@@ -391,12 +323,6 @@ function openDirectConversation(currentUserId, otherUserId) {
   return run
 }
 
-// Accepts EITHER a username or an email as `identifier`. Tries email
-// first when the input looks like one (contains "@"), then always
-// falls back to a case-insensitive username match - safe now that
-// usernames are enforced unique regardless of case
-// (profiles_username_lower_key), so this can never resolve to the
-// wrong person.
 export const getOrCreateConversation = async (currentUserId, identifier) => {
   const clean = (identifier || '').trim()
   if (!clean) throw new Error('Enter a username or email')
@@ -434,7 +360,7 @@ export async function getStatusMediaUrl(path) {
   if (!path) return null
   const { data, error } = await supabase.storage
     .from('status-media')
-    .createSignedUrl(path, 60 * 60 * 24) // 24h, matches how long a status lives anyway
+    .createSignedUrl(path, 60 * 60 * 24)
   if (error) {
     console.error('createSignedUrl failed:', error)
     return null
@@ -470,10 +396,6 @@ export async function deleteStatus(statusId) {
   if (error) throw new Error(error.message)
 }
 
-// Toggles a reaction: if this user already reacted with this emoji,
-// removes it (un-like). Otherwise upserts it — so switching from one
-// emoji to another just overwrites, no duplicate rows possible thanks
-// to the unique(status_id, user_id) constraint.
 export async function toggleStatusReaction(statusId, userId, emoji = '❤️') {
   const { data: existing } = await supabase
     .from('status_reactions')
@@ -503,21 +425,11 @@ export async function getStatusReactions(statusId) {
   return data || []
 }
 
-// Same "find or create a 1:1 conversation" logic as getOrCreateConversation,
-// but takes the other person's user id directly instead of a
-// username/email string — used by replyToStatus below, since we
-// already know the status owner's id and shouldn't force an extra
-// username lookup just to get back to the same id.
 export async function getOrCreateConversationByUserId(currentUserId, otherUserId) {
   if (otherUserId === currentUserId) throw new Error("That's you!")
   return openDirectConversation(currentUserId, otherUserId)
 }
 
-// Sends a status reply as a normal DM, tagged with a "status_reply:"
-// prefix (same convention as sticker:/gif:/call_log: elsewhere in the
-// app) so the chat can render it with a small status-icon tag instead
-// of baking a sentence like "Replied to your status" into the literal
-// text — that read wrong from the sender's own point of view.
 export async function replyToStatus(currentUserId, statusOwnerId, statusCaption, replyText) {
   const convoId = await getOrCreateConversationByUserId(currentUserId, statusOwnerId)
   const encodedCaption = encodeURIComponent((statusCaption || '').slice(0, 80))
@@ -525,8 +437,6 @@ export async function replyToStatus(currentUserId, statusOwnerId, statusCaption,
   return convoId
 }
 
-// 12-hour window for "delete for everyone" — matches WhatsApp's
-// concept but with a longer allowance, per your call.
 const DELETE_FOR_EVERYONE_WINDOW_MS = 12 * 60 * 60 * 1000
 
 export function canDeleteForEveryone(message, currentUserId) {
@@ -535,11 +445,6 @@ export function canDeleteForEveryone(message, currentUserId) {
   return Date.now() - new Date(message.created_at).getTime() <= DELETE_FOR_EVERYONE_WINDOW_MS
 }
 
-// Soft-deletes for everyone: clears the content and sets a flag, so
-// the bubble can render "This message was deleted" instead of
-// disappearing outright. Only the sender can do this, and only
-// within the window above — enforced here AND worth mirroring in an
-// RLS policy/trigger later if you want server-side enforcement too.
 export async function deleteMessageForEveryone(messageId, currentUserId) {
   const { data: msg, error: fetchErr } = await supabase
     .from('messages').select('sender_id, created_at, deleted_for_everyone').eq('id', messageId).single()
@@ -554,8 +459,6 @@ export async function deleteMessageForEveryone(messageId, currentUserId) {
   if (error) throw new Error(error.message)
 }
 
-// Hides a message for the current viewer only — everyone else still
-// sees it exactly as before.
 export async function deleteMessageForMe(messageId, userId) {
   const { error } = await supabase
     .from('hidden_messages')
@@ -563,8 +466,6 @@ export async function deleteMessageForMe(messageId, userId) {
   if (error) throw new Error(error.message)
 }
 
-// Ids this user has hidden for themself, for a given conversation's
-// message set — used to filter the rendered list client-side.
 export async function getHiddenMessageIds(userId, messageIds) {
   if (!messageIds.length) return new Set()
   const { data } = await supabase
@@ -575,27 +476,6 @@ export async function getHiddenMessageIds(userId, messageIds) {
   return new Set((data || []).map(r => r.message_id))
 }
 
-// Forwards a message into another conversation. Accepts the FULL message
-// object now (not just message.content) so a media forward can actually
-// carry the file — previously this only ever inserted a text row, so
-// forwarding a photo silently sent nothing (or just its caption).
-//
-// For media: copies the underlying storage object to a NEW path rather
-// than pointing two message rows at the same file. That matters because
-// MediaViewer's delete button calls deleteMediaAsset, which removes the
-// bytes at that asset's storage_path — if the original and the forwarded
-// copy shared a path, deleting either one would break the other.
-//
-// Cloudflare-Stream-backed videos (asset.cf_stream_uid set) skip the
-// storage copy entirely and just reuse the same cf_stream_uid: per
-// MediaAssetService's own deleteMediaAsset, deleting a row never touches
-// Cloudflare Stream's actual video bytes (a separate pre-existing gap,
-// not something this change needs to fix) — so two rows sharing a
-// cf_stream_uid is safe from the same "one delete breaks the other" risk.
-//
-// Still text-only for now: message_type 'moment' (multi-asset grouped
-// messages) isn't handled here — ForwardModal shows a clear "not
-// supported yet" state for those instead of silently mangling them.
 export async function forwardMessageToConversation(conversationId, senderId, message) {
   const isMedia = typeof message === 'object' && message.message_type === 'media' && message.media_assets?.[0]
   const content = typeof message === 'string' ? message : (message.content || '')
@@ -658,10 +538,6 @@ export async function forwardMessageToConversation(conversationId, senderId, mes
     .eq('id', conversationId)
 }
 
-// Sends a message's content as a real email, reusing the same
-// gmail-oauth-connected account flow — routes through Curry's chat
-// endpoint, which already knows how to parse a "send an email"
-// instruction into a real Gmail send action.
 export async function forwardMessageToEmail(session, toAddress, content) {
   const prompt = `Send an email to ${toAddress} with subject "Forwarded message from Mattchat" and body: ${content}`
   const { callCurryAI } = await import('../components/CurryAI')
@@ -670,9 +546,6 @@ export async function forwardMessageToEmail(session, toAddress, content) {
   return data
 }
 
-// Sends a reply that's linked to an original message via
-// reply_to_message_id, so the bubble can render a quoted preview
-// above the reply text, like WhatsApp's swipe-to-reply.
 export async function sendReplyMessage(conversationId, senderId, content, replyToMessageId) {
   const { error } = await supabase
     .from('messages')
@@ -684,39 +557,28 @@ export async function sendReplyMessage(conversationId, senderId, content, replyT
     .eq('id', conversationId)
 }
 
-
-// ── Spotify (mirrors the Gmail connect pattern above) ───────────
 export const connectSpotify = async (session) => {
-const res = await fetch(`${supabaseUrl}/functions/v1/spotify-oauth?action=start`, {
- headers: { Authorization: `Bearer ${session.access_token}` },
-})
-const data = await res.json()
-if (!data.ok || !data.url) throw new Error(data.error || 'Could not start the Spotify connection')
- window.location.href = data.url
+  const res = await fetch(`${supabaseUrl}/functions/v1/spotify-oauth?action=start`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  const data = await res.json()
+  if (!data.ok || !data.url) throw new Error(data.error || 'Could not start the Spotify connection')
+  window.location.href = data.url
 }
 export const disconnectSpotify = async (session) => {
- const res = await fetch(`${supabaseUrl}/functions/v1/spotify-oauth?action=disconnect`, {
-method: 'POST',
-headers: { Authorization: `Bearer ${session.access_token}` },
- })
- const data = await res.json()
- if (!data.ok) throw new Error(data.error || 'Could not disconnect Spotify')
-
+  const res = await fetch(`${supabaseUrl}/functions/v1/spotify-oauth?action=disconnect`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  const data = await res.json()
+  if (!data.ok) throw new Error(data.error || 'Could not disconnect Spotify')
 }
 
-// Returns { connected, accessToken, product, displayName } — the
-
-// access token is always fresh (the edge function refreshes it
-
-// server-side if needed), so callers never have to think about
-
-// expiry themselves.
-
 export const getSpotifyToken = async (session) => {
- const res = await fetch(`${supabaseUrl}/functions/v1/spotify-token`, {
-headers: { Authorization: `Bearer ${session.access_token}` },
- })
- return res.json()
+  const res = await fetch(`${supabaseUrl}/functions/v1/spotify-token`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  return res.json()
 }
 
 export async function uploadAvatar(userId, file) {
@@ -755,7 +617,6 @@ export async function setUsagePreference(userId, preference) {
   if (error) throw error
 }
 
-// ── Pinterest ────────────────────────────────────────────
 export const connectPinterest = async (session) => {
   const res = await fetch(`${supabaseUrl}/functions/v1/pinterest-oauth?action=start`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
