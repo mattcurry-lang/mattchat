@@ -21,7 +21,7 @@ export const YouTubeMusicProvider = {
 
   async search(query, opts = {}) {
     const tracks = await this.searchTracks(query, opts)
-    return { tracks, artists: [], albums: [] } // no separate artist/channel search wired up yet
+    return { tracks, artists: [], albums: [] }
   },
 
   async searchTracks(query, { limit = 12 } = {}) {
@@ -31,6 +31,9 @@ export const YouTubeMusicProvider = {
         body: { action: 'search', query, limit },
       })
       if (error) throw error
+      
+      // Handles both direct array returns and object wrappers from the edge function
+      if (Array.isArray(data)) return data
       return data?.tracks || []
     } catch (err) {
       console.error('[YouTubeMusicProvider] search failed', err)
@@ -47,7 +50,7 @@ export const YouTubeMusicProvider = {
   },
 
   async getTrack() {
-    return null // not needed — tracks resolve straight from search
+    return null 
   },
 
   async getArtist() {
@@ -60,6 +63,8 @@ export const YouTubeMusicProvider = {
         body: { action: 'trending', limit, regionCode },
       })
       if (error) throw error
+      
+      if (Array.isArray(data)) return data
       return data?.tracks || []
     } catch (err) {
       console.error('[YouTubeMusicProvider] trending failed', err)
@@ -67,10 +72,6 @@ export const YouTubeMusicProvider = {
     }
   },
 
-  // Never resolves a raw URL — MusicPlayerContext checks
-  // track.provider === 'youtube' and routes to YouTubeEngine instead
-  // of calling this at all. Kept here only so the provider shape
-  // matches Audius/Mattchat for registration in MusicService.
   async streamTrack() {
     return null
   },
