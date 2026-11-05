@@ -1,8 +1,16 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Use a relative proxy path in production so Brave Shields don't block direct cross-origin requests
-const isProduction = process.env.NODE_ENV === 'production' || window.location.hostname !== 'localhost'
-const supabaseUrl = isProduction ? '/api/supabase' : (process.env.REACT_APP_SUPABASE_URL || 'https://bqerkvywgxoiocbkxif.supabase.co')
+// Construct a valid absolute URL pointing to your own Vercel domain proxy.
+// This satisfies Supabase's absolute URL requirement while keeping requests 
+// first-party so Brave Shields won't block them.
+const getSupabaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/api/supabase`
+  }
+  return process.env.REACT_APP_SUPABASE_URL || 'https://bqerkvywgxoiocbkxif.supabase.co'
+}
+
+const supabaseUrl = getSupabaseUrl()
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
