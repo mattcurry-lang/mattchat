@@ -44,7 +44,7 @@ function fmtDuration(sec) {
 function compact(n) {
   const v = Number(n) || 0
   if (v < 1000) return String(v)
-  if (v < 1e6) return `${(v / 1000).toFixed(v < 10000 ? 1 : 0).replace(/\.0$/, '')}K`
+  if (v < 1e6) return `${(v / 1000).toFixed(v < 100000 ? 1 : 0).replace(/\.0$/, '')}K`
   return `${(v / 1e6).toFixed(1).replace(/\.0$/, '')}M`
 }
 
