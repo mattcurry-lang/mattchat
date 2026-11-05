@@ -38,7 +38,7 @@ function cacheKey(query, opts) {
 
 export const MusicService = {
   async search(query, opts = {}) {
-    const cleanQuery = query?.trim().toLowerCase() || ''
+    const cleanQuery = query?.trim() || ''
     if (!cleanQuery) return { tracks: [], artists: [], albums: [] }
 
     const key = cacheKey(cleanQuery, opts)
@@ -65,7 +65,7 @@ export const MusicService = {
       return data
     }
 
-    // Execute searches concurrently
+    // Execute searches concurrently with full error containment
     let ytResults = { tracks: [], artists: [], albums: [] }
     let mattchatResults = { tracks: [], artists: [], albums: [] }
 
@@ -95,19 +95,17 @@ export const MusicService = {
       console.warn('[MusicService] Mattchat provider search failed:', err)
     }
 
-    // FIX: Filter Mattchat results strictly. If the query is very short (< 3 chars) 
-    // or doesn't actually match the track title/artist, drop it so it doesn't hijack 
-    // the search with random default/featured uploads (like 24kGoldn).
-    let filteredMattchatTracks = []
-    if (cleanQuery.length >= 2) {
-      filteredMattchatTracks = (mattchatResults.tracks || []).filter(track => {
-        const title = (track.title || '').toLowerCase()
-        const artist = (track.artist || '').toLowerCase()
-        return title.includes(cleanQuery) || artist.includes(cleanQuery)
-      })
-    }
+    // Filter Mattchat tracks safely to ensure custom uploads only show up 
+    // if they actually match the search term, preventing random default hijacking.
+    const lowerQuery = cleanQuery.toLowerCase()
+    const filteredMattchatTracks = (mattchatResults.tracks || []).filter(track => {
+      const title = (track.title || '').toLowerCase()
+      const artist = (track.artist || '').toLowerCase()
+      return title.includes(lowerQuery) || artist.includes(lowerQuery)
+    })
 
-    // Combine results: YouTube primary suggestions first, followed by valid Mattchat matches
+    // Combine results: YouTube / external matches lead for autocomplete and top results,
+    // followed by valid user-uploaded Mattchat tracks.
     const data = {
       tracks: [
         ...(ytResults.tracks || []),
