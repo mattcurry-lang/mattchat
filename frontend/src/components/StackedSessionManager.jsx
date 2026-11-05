@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import ReactDOM from 'react-dom'
 import Avatar from './Avatar'
 import { supabase } from '../lib/supabase'
 import { IconX, IconMessageSquare, IconSend, IconUserPlus } from './Icons'
@@ -25,10 +26,8 @@ export function TemporaryPassCard({ passData, currentUserId, onJoinSession }) {
   const handleEnterRoom = (e) => {
     e.stopPropagation()
     e.preventDefault()
-    
-    // Safety check to ensure we pass the string pass_code
     const codeToPass = typeof passData === 'string' ? passData : (passData.pass_code || passData.code)
-    
+    console.log("➡️ Enter Room button clicked! Code:", codeToPass)
     if (typeof onJoinSession === 'function') {
       onJoinSession(codeToPass)
     }
@@ -139,7 +138,6 @@ export function PassContactSharePicker({ passDuration, currentUserId, myProfile,
     const passCode = `MATT-${passDuration.toUpperCase()}-${randomHash}`
     const expiresAt = new Date(Date.now() + hoursNum * 3600 * 1000).toISOString()
 
-    // 1. Insert temporary pass record
     await supabase.from('temporary_passes').insert({
       pass_code: passCode,
       creator_id: currentUserId,
@@ -149,7 +147,6 @@ export function PassContactSharePicker({ passDuration, currentUserId, myProfile,
       expires_at: expiresAt
     })
 
-    // 2. Find or create conversation with this contact
     let targetConvoId = null
     const { data: convos } = await supabase
       .from('conversation_participants')
@@ -185,7 +182,6 @@ export function PassContactSharePicker({ passDuration, currentUserId, myProfile,
       }
     }
 
-    // 3. Send pass payload into the conversation
     if (targetConvoId) {
       const passPayload = JSON.stringify({
         type: 'temporary_pass',
@@ -208,9 +204,9 @@ export function PassContactSharePicker({ passDuration, currentUserId, myProfile,
     onClose()
   }
 
-  return (
+  return ReactDOM.createPortal(
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 12000,
+      position: 'fixed', inset: 0, zIndex: 999999,
       background: 'rgba(5, 5, 12, 0.85)', backdropFilter: 'blur(14px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
     }}>
@@ -255,12 +251,15 @@ export function PassContactSharePicker({ passDuration, currentUserId, myProfile,
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
-// 3. Stacked Session Room & Messaging Modal View
+// 3. Stacked Session Room & Messaging Modal View wrapped in ReactDOM.createPortal
 export default function StackedSessionModal({ passCode, currentUserId, onClose }) {
+  console.log("🚀 StackedSessionModal successfully mounted with passCode:", passCode)
+
   const [hosts, setHosts] = useState([])
   const [activeCardIndex, setActiveCardIndex] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -306,9 +305,9 @@ export default function StackedSessionModal({ passCode, currentUserId, onClose }
     setInputMessage('')
   }
 
-  return (
+  return ReactDOM.createPortal(
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 99999,
+      position: 'fixed', inset: 0, zIndex: 999999,
       background: 'rgba(4, 4, 10, 0.94)', backdropFilter: 'blur(20px)',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       padding: 20, animation: 'fadeIn 0.25s ease-out'
@@ -442,6 +441,7 @@ export default function StackedSessionModal({ passCode, currentUserId, onClose }
       <div style={{ fontSize: 12, color: '#8b8b9e', marginTop: 24, textAlign: 'center' }}>
         {!inChatMode ? 'Click stacked cards to switch focus or jump into session chat.' : `Connected to secure room channel with ${selectedHost?.username}`}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
