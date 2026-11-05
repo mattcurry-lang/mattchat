@@ -70,7 +70,7 @@
 /* ── drop zone ────────────────────────────────────────────────── */
 .ad-drop {
   position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 4px;
-  padding: 30px 16px 34px; border-radius: 18px; text-align: center; cursor: pointer;
+  padding: 30px 16px 52px; border-radius: 18px; text-align: center; cursor: pointer;
   border: 2px dashed rgba(167, 139, 250, 0.4); background: rgba(167, 139, 250, 0.05);
   transition: border-color 0.18s, background 0.18s, transform 0.18s var(--ad-ease);
 }
