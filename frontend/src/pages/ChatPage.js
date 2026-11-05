@@ -512,13 +512,10 @@ if (msg.content?.startsWith('{') && msg.content?.includes('temporary_pass')) {
         {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
         <div>
           {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
-       <TemporaryPassCard 
+      <TemporaryPassCard 
   passData={passData} 
   currentUserId={session?.user?.id} 
-  onJoinSession={(code) => {
-    console.log("Opening Stacked Session for code:", code)
-    setActiveSessionPassCode(code)
-  }} 
+  onJoinSession={setActiveSessionPassCode} 
 />
           <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
         </div>
