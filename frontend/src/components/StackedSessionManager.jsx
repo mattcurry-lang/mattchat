@@ -17,9 +17,6 @@ export function TemporaryPassCard({ passData, currentUserId, onJoinSession }) {
 
     if (!error) {
       setStatus(newStatus)
-      if (newStatus === 'accepted') {
-        onJoinSession?.(passData)
-      }
     }
     setLoading(false)
   }
@@ -52,7 +49,7 @@ export function TemporaryPassCard({ passData, currentUserId, onJoinSession }) {
         Pass Code: {passData.pass_code}
       </div>
 
-      {status === 'pending' ? (
+      {status === 'pending' && (
         <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
           <button
             disabled={loading}
@@ -62,7 +59,7 @@ export function TemporaryPassCard({ passData, currentUserId, onJoinSession }) {
               border: 'none', fontWeight: 800, fontSize: 12.5, cursor: 'pointer', boxShadow: '0 4px 14px rgba(74,222,128,0.3)'
             }}
           >
-            {loading ? 'Joining…' : 'Join Chat'}
+            {loading ? 'Joining…' : 'Accept'}
           </button>
           <button
             disabled={loading}
@@ -75,47 +72,96 @@ export function TemporaryPassCard({ passData, currentUserId, onJoinSession }) {
             Decline
           </button>
         </div>
-      ) : (
-        <button
-          onClick={() => onJoinSession?.(passData)}
-          style={{
-            width: '100%', padding: '11px', borderRadius: 12, background: 'linear-gradient(135deg, #6c63ff 0%, #a855f7 100%)', color: '#fff',
-            border: 'none', fontWeight: 800, fontSize: 12.5, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            boxShadow: '0 4px 16px rgba(108,99,255,0.45)'
-          }}
-        >
-          <IconMessageSquare size={16} /> Enter Stacked Session Room
-        </button>
       )}
+
+      {/* Enter Stacked Session Room Button - Always available for testing & entry */}
+      <button
+        onClick={() => onJoinSession?.(passData.pass_code)}
+        style={{
+          width: '100%', padding: '11px', borderRadius: 12, background: 'linear-gradient(135deg, #6c63ff 0%, #a855f7 100%)', color: '#fff',
+          border: 'none', fontWeight: 800, fontSize: 12.5, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          boxShadow: '0 4px 16px rgba(108,99,255,0.45)', marginTop: status === 'pending' ? 0 : 4
+        }}
+      >
+        <IconMessageSquare size={16} /> Enter Stacked Session Room
+      </button>
     </div>
   )
 }
 
-// 2. Filtered Contact Picker (Only shows current chat partner / active conversation members)
-export function PassContactSharePicker({ passDuration, currentUserId, myProfile, targetProfile, conversationId, onClose }) {
-  const [sending, setSending] = useState(false)
+// 2. Contact Picker showing all contacts/profiles
+export function PassContactSharePicker({ passDuration, currentUserId, myProfile, onClose }) {
+  const [contacts, setContacts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [sendingId, setSendingId] = useState(null)
 
-  const handleSendToActiveChat = async () => {
-    if (!targetProfile?.id && !conversationId) return
-    setSending(true)
+  useEffect(() => {
+    async function loadAllContacts() {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url')
+        .neq('id', currentUserId)
+      if (data) setContacts(data)
+      setLoading(false)
+    }
+    loadAllContacts()
+  }, [currentUserId])
 
+  const handleSendPassToContact = async (contact) => {
+    setSendingId(contact.id)
     const randomHash = Math.random().toString(36).substring(2, 8).toUpperCase()
     const hoursNum = parseInt(passDuration) || 2
     const passCode = `MATT-${passDuration.toUpperCase()}-${randomHash}`
     const expiresAt = new Date(Date.now() + hoursNum * 3600 * 1000).toISOString()
 
-    // 1. Insert record into database
+    // 1. Insert temporary pass record
     await supabase.from('temporary_passes').insert({
       pass_code: passCode,
       creator_id: currentUserId,
-      target_user_id: targetProfile?.id || currentUserId,
+      target_user_id: contact.id,
       duration_hours: hoursNum,
       status: 'pending',
       expires_at: expiresAt
     })
 
-    // 2. Insert pass card payload into the active conversation
-    if (conversationId) {
+    // 2. Find or create conversation with this contact
+    let targetConvoId = null
+    const { data: convos } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', contact.id)
+
+    if (convos && convos.length > 0) {
+      const convoIds = convos.map(c => c.conversation_id)
+      const { data: myConvos } = await supabase
+        .from('conversation_participants')
+        .select('conversation_id')
+        .eq('user_id', currentUserId)
+        .in('conversation_id', convoIds)
+
+      if (myConvos && myConvos.length > 0) {
+        targetConvoId = myConvos[0].conversation_id
+      }
+    }
+
+    if (!targetConvoId) {
+      const { data: newConvo } = await supabase
+        .from('conversations')
+        .insert({})
+        .select()
+        .single()
+
+      if (newConvo) {
+        targetConvoId = newConvo.id
+        await supabase.from('conversation_participants').insert([
+          { conversation_id: targetConvoId, user_id: currentUserId },
+          { conversation_id: targetConvoId, user_id: contact.id }
+        ])
+      }
+    }
+
+    // 3. Send pass payload into the conversation
+    if (targetConvoId) {
       const passPayload = JSON.stringify({
         type: 'temporary_pass',
         pass_code: passCode,
@@ -126,14 +172,14 @@ export function PassContactSharePicker({ passDuration, currentUserId, myProfile,
       })
 
       await supabase.from('messages').insert({
-        conversation_id: conversationId,
+        conversation_id: targetConvoId,
         sender_id: currentUserId,
         content: passPayload,
         message_type: 'text'
       })
     }
 
-    setSending(false)
+    setSendingId(null)
     onClose()
   }
 
@@ -144,42 +190,44 @@ export function PassContactSharePicker({ passDuration, currentUserId, myProfile,
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
     }}>
       <div style={{
-        width: '100%', maxWidth: 360, background: '#100f1d', border: '1px solid rgba(167,139,250,0.3)',
+        width: '100%', maxWidth: 380, background: '#100f1d', border: '1px solid rgba(167,139,250,0.3)',
         borderRadius: 20, padding: 20, boxShadow: '0 20px 50px rgba(0,0,0,0.8)', color: '#fff'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#c4b5fd' }}>Share Access Pass</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: '#c4b5fd' }}>Share Access Pass to Contact</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9d97b5', cursor: 'pointer' }}>
             <IconX size={18} />
           </button>
         </div>
-        <div style={{ fontSize: 12.5, color: '#9d97b5', marginBottom: 18, lineHeight: 1.4 }}>
-          Send this {passDuration} temporary pass directly to your active chat with <strong style={{ color: '#fff' }}>{targetProfile?.username || 'this contact'}</strong>:
+        <div style={{ fontSize: 12, color: '#9d97b5', marginBottom: 14 }}>
+          Select a contact from your list to send this {passDuration} pass:
         </div>
 
-        {targetProfile ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 12, background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)', marginBottom: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Avatar name={targetProfile.username} photoUrl={targetProfile.avatar_url} size={38} />
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>{targetProfile.username}</div>
-                <div style={{ fontSize: 11, color: '#4ade80' }}>Active Chat Partner</div>
-              </div>
-            </div>
-            <button
-              disabled={sending}
-              onClick={handleSendToActiveChat}
-              style={{
-                padding: '8px 14px', borderRadius: 10, background: 'linear-gradient(135deg, #6c63ff, #a855f7)',
-                color: '#fff', border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(108,99,255,0.4)'
-              }}
-            >
-              {sending ? 'Sending...' : 'Send Pass'}
-            </button>
-          </div>
+        {loading ? (
+          <div style={{ fontSize: 12, color: '#a78bfa', textAlign: 'center', padding: 20 }}>Loading contacts...</div>
+        ) : contacts.length === 0 ? (
+          <div style={{ fontSize: 12, color: '#8b8b9e', textAlign: 'center', padding: 20 }}>No other contacts found.</div>
         ) : (
-          <div style={{ fontSize: 12, color: '#f87171', textAlign: 'center', padding: 16 }}>No active chat contact selected.</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 280, overflowY: 'auto' }}>
+            {contacts.map(c => (
+              <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 10, background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Avatar name={c.username} photoUrl={c.avatar_url} size={36} />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{c.username}</span>
+                </div>
+                <button
+                  disabled={sendingId === c.id}
+                  onClick={() => handleSendPassToContact(c)}
+                  style={{
+                    padding: '7px 12px', borderRadius: 8, background: 'linear-gradient(135deg, #6c63ff, #a855f7)',
+                    color: '#fff', border: 'none', fontWeight: 700, fontSize: 11.5, cursor: 'pointer'
+                  }}
+                >
+                  {sendingId === c.id ? 'Sending...' : 'Send Pass'}
+                </button>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
@@ -208,7 +256,13 @@ export default function StackedSessionModal({ passCode, currentUserId, onClose }
       if (passData) {
         const ids = [passData.creator_id, passData.target_user_id].filter(Boolean)
         const { data: profiles } = await supabase.from('profiles').select('*').in('id', ids)
-        if (profiles) setHosts(profiles)
+        if (profiles && profiles.length > 0) {
+          setHosts(profiles)
+        } else {
+          setHosts([
+            { id: passData.creator_id, username: 'Host', bio: 'Session Creator' }
+          ])
+        }
       } else {
         setHosts([
           { id: '1', username: 'Lainey', bio: 'Session Host & Administrator' },
