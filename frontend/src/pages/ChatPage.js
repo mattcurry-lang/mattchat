@@ -1309,14 +1309,14 @@ export default function ChatPage({ session }) {
   const [activeConvo, setActiveConvo]   = useState(null)
   const userId = session.user.id
   const [newContact, setNewContact]     = useState('')
-   const [showWhatsApp, setShowWhatsApp] = useState(false)
+  const [showWhatsApp, setShowWhatsApp] = useState(false)
   const [showNewChat, setShowNewChat]   = useState(false)
   const [startingChat, setStartingChat] = useState(false)
-  const startingChatRef = useRef(false) // blocks a second submit in the same instant (Enter + click)
+  const startingChatRef = useRef(false)
   const [inputText, setInputText]       = useState('')
   const [search, setSearch]             = useState('')
   const [showSearchBar, setShowSearchBar] = useState(false)
-  const [listFilter, setListFilter]     = useState('all') // 'all' | 'group'
+  const [listFilter, setListFilter]     = useState('all')
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const [showShushhh, setShowShushhh] = useState(false)
   const [showProfileSetup, setShowProfileSetup] = useState(false)
@@ -1331,12 +1331,12 @@ export default function ChatPage({ session }) {
   const [showScheduledList, setShowScheduledList]   = useState(false)
   const [showSearch, setShowSearch]                 = useState(false)
   const [showCurryAssistant, setShowCurryAssistant] = useState(false)
-   const [showThreeDot, setShowThreeDot]             = useState(false)
- const [showHeaderMenu, setShowHeaderMenu]         = useState(false)
+  const [showThreeDot, setShowThreeDot]             = useState(false)
+  const [showHeaderMenu, setShowHeaderMenu]         = useState(false)
   const [showMusicSettings, setShowMusicSettings]   = useState(false)
   const [showChangeUsername, setShowChangeUsername] = useState(false)
   const [showInsights, setShowInsights]             = useState(false) 
-  const messageSaves = useMessageSaves(userId)           // starred messages + reminders (see lib/messageSaves.js)
+  const messageSaves = useMessageSaves(userId)
   const [showSaved, setShowSaved] = useState(false)
   const pendingJumpRef = useRef(null)
   const [hasScheduled, setHasScheduled]             = useState(false)
@@ -1347,34 +1347,32 @@ export default function ChatPage({ session }) {
   const [emailAccounts, setEmailAccounts]           = useState([])
   const [connectingGmail, setConnectingGmail]       = useState(false)
   const [showNewCall, setShowNewCall] = useState(false)
-  const [messageMenu, setMessageMenu] = useState(null) // { message, x, y } | null
+  const [messageMenu, setMessageMenu] = useState(null)
   const [collection, setCollection] = useState('all')
-  // ── Afterglow chat list (redesign step 1) ──
-  // Kill-switch: localStorage.setItem('mattchat:afterglow','off') restores the old list.
   const afterglowOn = isAfterglowEnabled()
-  const [lens, setLens] = useState('all') // 'now' | 'close' | 'all'
+  const [lens, setLens] = useState('all')
   const [showMoreFilters, setShowMoreFilters] = useState(false)
   const { closeIds, toggleClose } = useCloseCircle()
   const lensSwipe = useLensSwipe(lens, setLens)
-  const isNarrowViewport = useIsMobile(640) // below this the right-hand pane is hidden by CSS
+  const isNarrowViewport = useIsMobile(640)
   const [showPersonalAnalytics, setShowPersonalAnalytics] = useState(false)
   const [showTasksPage, setShowTasksPage] = useState(false)
   const [showConnectedApps, setShowConnectedApps] = useState(false)
   const [showEcosystem, setShowEcosystem] = useState(false)
-const [showInstagramFull, setShowInstagramFull] = useState(false)
+  const [showInstagramFull, setShowInstagramFull] = useState(false)
   const [replyingTo, setReplyingTo] = useState(null)
   const [forwardingMessage, setForwardingMessage] = useState(null)
   const [hiddenMsgIds, setHiddenMsgIds] = useState(new Set())
- const [profileCardTarget, setProfileCardTarget] = useState(null) // profile object | null
+  const [profileCardTarget, setProfileCardTarget] = useState(null)
   const [showDocuments, setShowDocuments] = useState(false)
-const [showWeeklyReport, setShowWeeklyReport] = useState(false)
+  const [showWeeklyReport, setShowWeeklyReport] = useState(false)
   const [showAISettings, setShowAISettings] = useState(false)
-  const [youtubePlayer, setYoutubePlayer] = useState(null) // { videoId, mini } | null
+  const [youtubePlayer, setYoutubePlayer] = useState(null)
   const [showYouTubeSearch, setShowYouTubeSearch] = useState(false)
   const [showShorts, setShowShorts] = useState(false)
-const [shortsInitialVideo, setShortsInitialVideo] = useState(null) // now holds the full video object, not just an id
+  const [shortsInitialVideo, setShortsInitialVideo] = useState(null)
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)
-const [curryPrefill, setCurryPrefill] = useState(null)
+  const [curryPrefill, setCurryPrefill] = useState(null)
   const [showEmailWorkspace, setShowEmailWorkspace] = useState(false)
   const [showAnnouncements, setShowAnnouncements] = useState(false)
   const [showChangePicture, setShowChangePicture] = useState(false)
@@ -1382,206 +1380,67 @@ const [curryPrefill, setCurryPrefill] = useState(null)
   const [dekutFullscreen, setDekutFullscreen] = useState(false)
   const [showDekutCurry, setShowDekutCurry] = useState(false)
   const [dekutHasNudge, setDekutHasNudge] = useState(false)
-  const [mediaViewerTarget, setMediaViewerTarget] = useState(null) // messageId | null
-  const [momentViewerTarget, setMomentViewerTarget] = useState(null) // messageId | null
-  
-  // that appears AFTER a plain message has already been sent, if
-  // Curry thinks it might land colder than intended. Never blocks or
-  // delays sending; see runCoachCheck below.
-   const [autoContext, setAutoContext] = useState(null) // {conversationId, daysSince, lastTopic, openPromise} | null
-  const [autoContextLoading, setAutoContextLoading] = useState(false)
-  const [catchUpPending, setCatchUpPending] = useState(null) // {convoId, unreadCount} | null
-  const [catchUpResult, setCatchUpResult] = useState(null)   // {conversationId, bullets, readingTimeSavedMin} | null
-  const [catchUpLoading, setCatchUpLoading] = useState(false)
-  const [coachSuggestion, setCoachSuggestion] = useState(null)
-  const { tags, setTag } = useConvoTags()
-  const { cache: smartReplyCache, fetchSuggestion, clear: clearSmartReply } = useSmartReplyCache()
-  const { theme, toggleTheme } = useTheme()
-  const { isFullPlayerVisible, setIsFullPlayerVisible } = useMusicPlayer()
-    useRecordPlays(userId)
-  useOutboxFlush(userId)
-  useFlowRunner(userId, session)
-  // Shortcut into Shushhh: Enter x3 on desktop, three quick taps on the logo on mobile
-  const { tripleTapProps } = useShushhhShortcut({ onTrigger: () => setShowShushhh(true), enabled: !showShushhh && !!userId })
-  const [myRingtone, setMyRingtone] = useState(null)
-const [showRingtonePicker, setShowRingtonePicker] = useState(false)
- 
-
-useEffect(() => {
-  if (!userId) return
-  RingtoneService.getMyRingtone(userId).then(setMyRingtone).catch(() => setMyRingtone(null))
-}, [userId])
-  
- 
- 
-
-useEffect(() => {
-  if (!userId) return
-  supabase
-    .from('blocked_users')
-    .select('blocked_id')
-    .eq('blocker_id', userId)
-    .then(({ data }) => {
-      if (data) setBlockedUserIds(new Set(data.map(r => r.blocked_id)))
-    })
-}, [userId, profileCardTarget])
-  
-
-const msgRefs        = useRef({})
-  const messagesEndRef = useRef(null)
-  const messagesScrollRef = useRef(null) // Afterglow time rail needs the scroller
-  const typingTimer    = useRef(null)
-  const textareaRef    = useRef(null)
-  const threeDotBtnRef = useRef(null)
-  const headerMenuBtnRef = useRef(null)
-  const mediaFlowRef = useRef(null)
-
-const { isOnline, getLastSeenLabel, getPresenceStatus } = usePresence(userId)
-  const igQuick = useInstagramConnection(session, userId)
-   const watchTogether = useWatchTogether(
-  activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
-  userId,
-  profile?.username
-)
-
-  const { callStatus, activeCall, callToken, callError, startCall, startZoomCall, answerCall, declineCall, endCall } =
-    useCall(userId, activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null)
-
-  useRingtone(['calling', 'ringing'].includes(callStatus), 'ringback')
-  useRingtone(callStatus === 'incoming', 'ringtone')
-  
-  // Zoom calls: first time asks for your Zoom link; after that it's one tap.
-  // The call starts synchronously inside the click so the browser lets Zoom open.
-  const [zoomSheet, setZoomSheet] = useState(null)   // { conversationId, name, edit? }
-  const handleZoomCall = async (conversationId, name) => {
-    // Tries the automatic room first; only asks for a link if automatic rooms aren't set up and none is saved.
-    const result = await startZoomCall(conversationId, getMyZoomLink(userId))
-    if (result === 'needs-link') setZoomSheet({ conversationId, name })
-  }
-  const { conversations, loading: convLoading, reload } = useConversations(userId)
-  const publicExtras = usePublicProfiles([
-  userId,
-  ...conversations.flatMap(c => (c.conversation_members || []).map(m => m.user_id)),
-])
-
-  
-  // ── Presence rail: save my note / reply to a friend's note ──
-  // Saves note (+ optional vibe status) straight onto my profile row; everyone's rail updates in realtime.
-  const saveMyNote = async (patch) => {
-    const { error } = await supabase.from('profiles').update(patch).eq('id', userId)
-    return !error
-  }
-  // A reply/reaction is a normal chat message that quotes the note, so it shows up in the chat like any other.
-  const replyToNote = async (convo, text, noteText) => {
-    const content = quoteReply(noteText, text)
-    const { error } = await supabase.from('messages').insert({ conversation_id: convo.id, sender_id: userId, content, message_type: 'text' })
-    if (error) return false
-    await supabase.from('conversations').update({ updated_at: new Date().toISOString(), last_message: content }).eq('id', convo.id)
-    reload()
-    return true
-  }
-  const globalWatchInvite = useGlobalWatchInvites(userId, conversations.map(c => c.id))
-
-const getMemberName = (convoId, uid) => {
-  const convo = conversations.find(c => c.id === convoId)
-  const member = convo?.conversation_members?.find(m => m.user_id === uid)
-  return member?.profiles?.username || 'Someone'
-}
- const { calls: callHistory, loading: callHistoryLoading, hideCall } = useCallHistory(userId, conversations)
-  const [startMuted, setStartMuted] = useState(false)
-  const { unreadCounts, clearUnread, totalUnread } = useUnreadCounts(
-    userId,
-    conversations.map(c => c.id)
-  )
-
-  const typingMap = useTypingStatus(userId, conversations.map(c => c.id))
-const listState = useConversationListState({
-  conversations,
-  unreadCounts,
-  typingMap,
-  isOnline,
-  getLastSeenLabel,
-  getOtherUserId,
-  currentUserId: userId,
-  openConvoId: activeConvo?.id,
-})
-  useGlobalDelivery(userId, conversations.map(c => c.id)) 
-  const {
-  messages,
-  loading: msgLoading,
-  typing,
-  sendMessage,
-  sendMediaMessage,
-  sendMomentMessage,
-  retryMediaUpload,
-  broadcastTyping,
-} = useChat(
-  activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
-  userId,
-  { isGroup: !!activeConvo?.is_group, myUsername: profile?.username }
-)
-   const arrivals = useArrivals(messages, activeConvo?.id, msgLoading)
-  const { readMap, deliveredMap } = useMessageStatus(
-    messages,
-    activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null,
-    userId
-  )
-  
-const lastActivityStatus = useLastActivityStatus(conversations.map(c => c.id), userId)
-  // Sends a smart-reply suggestion straight to a conversation from the
-  // list, without opening the chat. Clears that row's cached suggestion
-  // and unread badge afterward, same as replying normally would.
-  const quickSendReply = async (convo, text) => {
-    const convoId = convo.id
-    await supabase.from('messages').insert({ conversation_id: convoId, sender_id: userId, content: text, message_type: 'text' })
-    await supabase.from('conversations').update({ updated_at: new Date().toISOString(), last_message: text }).eq('id', convoId)
-    clearSmartReply(convoId)
-    clearUnread(convoId)
-    reload()
-  }
-
-  const [showAddStatus, setShowAddStatus] = useState(false)
-  const [viewerIndex, setViewerIndex] = useState(null)
-
-  const { statusGroups, myStatuses, markViewed, reload: reloadStatuses } = useStatuses(userId)
-const unreadStatusCount = statusGroups.filter(g => !g.allViewed).length
-  const viewableGroups = [
-    ...(myStatuses.length > 0
-      ? [{ userId: 'mine', isMine: true, profile: { username: profile?.username || 'You' }, statuses: myStatuses }]
-      : []),
-    ...statusGroups.map(g => ({ ...g, isMine: false })),
-  ]
-
-  const openViewer = (uid) => {
-    if (uid === 'mine' && myStatuses.length === 0) { setShowAddStatus(true); return }
-    const idx = viewableGroups.findIndex(g => g.userId === uid)
-    if (idx !== -1) setViewerIndex(idx)
-  }
-
- const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
-
+  const [mediaViewerTarget, setMediaViewerTarget] = useState(null)
+  const [momentViewerTarget, setMomentViewerTarget] = useState(null)
   const [blockedUserIds, setBlockedUserIds] = useState(new Set())
 
-  useEffect(() => {
-    if (!userId) return
-    supabase
-      .from('blocked_users')
-      .select('blocked_id')
-      .eq('blocker_id', userId)
-      .then(({ data }) => {
-        if (data) setBlockedUserIds(new Set(data.map(r => r.blocked_id)))
-      })
-  }, [userId, profileCardTarget])
+  // ── HELPER FUNCTIONS DECLARED FIRST ──
+  const getOtherUserId = (convo, myUserId) => {
+    const other = convo?.conversation_members?.find(m => m.user_id !== myUserId)
+    return other?.user_id || null
+  }
 
+  const getConvoName = (c) => {
+    if (c.isCurryAI) return 'Curry AI'
+    if (c.is_group) return c.name
+    const other = c.conversation_members?.find(m => m.user_id !== userId)
+    const otherId = other?.user_id
+    if (otherId && (blockedUserIds.has(otherId) || !other?.profiles)) {
+      return 'Mattchat User'
+    }
+    return other?.profiles?.username || other?.profiles?.email || 'Mattchat User'
+  }
+
+  const getOtherUserAvatar = (c, myUserId) => {
+    const other = c?.conversation_members?.find(m => m.user_id !== myUserId)
+    const otherId = other?.user_id
+    if (otherId && (blockedUserIds.has(otherId) || !other?.profiles)) {
+      return null
+    }
+    return other?.profiles?.avatar_url || null
+  }
+
+  const getOtherUserIsAdmin = (convo, myUserId) => {
+    const other = convo?.conversation_members?.find(m => m.user_id !== myUserId)
+    return other?.profiles?.is_admin || false
+  }
+
+  // ── DERIVED STATE VALUES ──
+  const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
   const isUserBlocked = Boolean(otherUserId && blockedUserIds.has(otherUserId))
 
   const otherMember = activeConvo?.conversation_members?.find(m => m.user_id !== userId)
   const otherProfile = otherMember?.profiles
   const isPeerBlocked = otherUserId && (blockedUserIds.has(otherUserId) || !otherProfile)
 
+  const { isOnline, getLastSeenLabel, getPresenceStatus } = usePresence(userId)
+
+  const headerStatus = () => {
+    if (callStatus === 'calling')    return '📞 Calling…'
+    if (callStatus === 'ringing')    return '📞 Ringing…'
+    if (callStatus === 'connecting') return '📞 Connecting…'
+    if (callStatus === 'in-call')    return '🟢 On a call'
+    if (typing.length > 0)           return `${getConvoName(activeConvo)} is typing…`
+    if (otherUserId && isOnline(otherUserId)) {
+      const s = getPresenceStatus(otherUserId)
+      return s === 'busy' ? 'Busy' : s === 'idle' ? 'Away' : 'Online'
+    }
+    if (otherUserId) return getLastSeenLabel(otherUserId)
+    return ''
+  }
+
   const headerTitle = isPeerBlocked ? 'Mattchat User' : (otherProfile?.username || getConvoName(activeConvo))
   const headerStatusText = isPeerBlocked ? '' : headerStatus()
- 
 
 // Then this will work perfectly without throwing a ReferenceError
 const isUserBlocked = Boolean(otherUserId && blockedUserIds.has(otherUserId))
