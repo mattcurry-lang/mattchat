@@ -1085,3 +1085,12 @@ export function IconShieldAlert({ size = 18, ...props }) {
     </svg>
   )
 }
+
+export function IconLink({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+      <path d="M10 13a5 5 0 0 0 75.45l2.83 2.83a4 4 0 0 1-5.66 5.66l-2.83-2.83a5 5 0 0 1 0-7.07" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-2.83 2.83a4 4 0 0 0 5.66 5.66l2.83-2.83a5 5 0 0 0 0-7.07" />
+    </svg>
+  )
+}
