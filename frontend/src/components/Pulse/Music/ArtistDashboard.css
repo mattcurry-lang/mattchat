@@ -92,7 +92,7 @@
 .ad-browse-link { color: var(--ad-a); text-underline-offset: 4px; font-weight: 600; }
 .ad-drop-hint { position: relative; margin-top: 6px; font-size: 11px; color: var(--ad-muted); }
 .ad-drop-bars { position: absolute; left: 0; right: 0; bottom: 0; height: 42px; display: flex; align-items: flex-end; justify-content: center; gap: 4px; opacity: 0.3; pointer-events: none; }
-.ad-drop-bars i { width: 3.5px; border-radius: 2px; background: var(--ad-a); height: calc(6px + (var(--i) * 5 % 14) * 2px); }
+.ad-drop-bars i { width: 3.5px; border-radius: 2px; background: var(--ad-a); height: calc(8px + var(--i) * 3px); }
 .ad-drop.is-over .ad-drop-bars { opacity: 0.85; }
 
 /* ── File Selected & Preview ──────────────────────────────────── */
