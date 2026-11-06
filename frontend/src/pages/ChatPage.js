@@ -136,7 +136,7 @@ import EcoCardMessage from '../components/Ecosystem/EcoCardMessage'
 import { parseEcoCard } from '../lib/ecosystem/cards'
 import SendLaterMenu, { useSendLongPress, ScheduleToast } from '../components/SendLaterMenu'
 import { formatWhen } from '../lib/scheduleTime'
-import StackedSessionModal, { TemporaryPassCard } from '../components/StackedSessionManager'
+import StackedSessionModal, { TemporaryPassCard, PassContactSharePicker } from '../components/StackedSessionManager'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
