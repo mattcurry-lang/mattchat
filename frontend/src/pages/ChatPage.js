@@ -3845,6 +3845,16 @@ onSaved={() => { setShowSaved(true); setShowThreeDot(false) }}
     onClose={() => setShowCodeManager(false)} 
   />
 )}
+      {showRedeemModal && (
+  <ChatCodeRedeemModal 
+    currentUserId={userId} 
+    onJoinSuccess={(convoId) => {
+      setShowRedeemModal(false)
+      // Switch active conversation to the joined ID
+    }} 
+    onClose={() => setShowRedeemModal(false)} 
+  />
+)}
             {showScheduledList && (
               <ScheduledMessagesList conversationId={activeConvo.id} currentUserId={userId} onClose={() => setShowScheduledList(false)} />
             )}
