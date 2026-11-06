@@ -2,13 +2,13 @@ import React, { useMemo, useState, useEffect } from 'react'
 import Avatar from './Avatar'
 import { computeReplyTimeLabel, supabase } from '../lib/supabase'
 import { themeById, themeGradient } from '../lib/profileThemes'
+import ChatCodeManager from './StackedSessionManager'
 import { 
   IconX, IconClock, IconSparkle, IconMessageSquare, 
   IconVerified, IconShieldAlert, IconSearch, 
   IconPhone, IconVideo, IconShield, IconBell, 
-  IconMusic, IconShare2, IconUserPlus
+  IconMusic, IconUserPlus, IconKey
 } from './Icons'
-import { PassContactSharePicker } from './StackedSessionManager'
 
 export const AVATAR_CATEGORIES = [
   { id: 'professional', label: 'Professional', emoji: '👔' },
@@ -51,11 +51,8 @@ export default function ProfileCard({
   const [isSearching, setIsSearching] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
-  // Guest Pass / Temporary Access Pass State
-  const [passDuration, setPassDuration] = useState('2h')
-  const [passCopied, setPassCopied] = useState(false)
-  const [generatedPassCode, setGeneratedPassCode] = useState('')
-  const [showSharePicker, setShowSharePicker] = useState(false)
+  // New Chat Code Manager Modal State
+  const [showCodeManager, setShowCodeManager] = useState(false)
 
   // Bio Expand State
   const [bioExpanded, setBioExpanded] = useState(false)
@@ -130,52 +127,6 @@ export default function ProfileCard({
     return (messages || []).filter(m => m.content && m.content.toLowerCase().includes(searchQuery.toLowerCase()))
   }, [messages, searchQuery])
 
-  // Generate Temporary Security Pass Code & Send Interactive Card Payload to Chat
-  const handleGenerateGuestPass = async () => {
-    const randomHash = Math.random().toString(36).substring(2, 8).toUpperCase()
-    const hoursNum = parseInt(passDuration) || 2
-    const passCode = `MATT-${passDuration.toUpperCase()}-${randomHash}`
-    
-    const expiresAt = new Date(Date.now() + hoursNum * 3600 * 1000).toISOString()
-
-    const { error: dbError } = await supabase.from('temporary_passes').insert({
-      pass_code: passCode,
-      creator_id: currentUserId,
-      target_user_id: targetProfile.id,
-      duration_hours: hoursNum,
-      status: 'pending',
-      expires_at: expiresAt
-    })
-
-    if (dbError) {
-      console.error('Failed to create temporary pass:', dbError)
-      return
-    }
-
-    const passPayload = JSON.stringify({
-      type: 'temporary_pass',
-      pass_code: passCode,
-      duration: passDuration,
-      creator_name: myProfile?.username || 'Mathew',
-      expires_at: expiresAt,
-      status: 'pending'
-    })
-
-    const activeConvoId = messages?.[0]?.conversation_id
-    if (activeConvoId) {
-      await supabase.from('messages').insert({
-        conversation_id: activeConvoId,
-        sender_id: currentUserId,
-        content: passPayload,
-        message_type: 'text'
-      })
-    }
-
-    setGeneratedPassCode(passCode)
-    setPassCopied(true)
-    setTimeout(() => setPassCopied(false), 3000)
-  }
-
   // Handle Block Toggle
   const handleToggleBlock = async () => {
     if (isBlocked) {
@@ -193,6 +144,7 @@ export default function ProfileCard({
   const theme = themeById(extras?.theme)
   const bio = extras?.bio || targetProfile.bio
   const hasStatus = !!(extras?.statusEmoji || extras?.statusText)
+  const activeConvoId = messages?.[0]?.conversation_id
 
   return (
     <div className="profile-drawer-container" onClick={onClose} style={{
@@ -503,58 +455,24 @@ export default function ProfileCard({
 
                   <div style={{ ...cardBoxStyle, border: '1px solid rgba(167,139,250,0.3)', background: 'rgba(167,139,250,0.04)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                      <IconUserPlus size={16} style={{ color: '#a78bfa' }} />
-                      <span style={{ fontSize: 13, fontWeight: 700, color: '#ffffff' }}>Create Temporary Chat Pass</span>
+                      <IconKey size={16} style={{ color: '#a78bfa' }} />
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#ffffff' }}>Secure Passcode Management</span>
                     </div>
-                    <div style={{ fontSize: 11.5, color: '#9d97b5', lineHeight: 1.4, marginBottom: 12 }}>
-                      Invite a third person to temporarily drop into this chat thread for a couple of hours without creating a permanent group.
-                    </div>
-
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                      {['1h', '2h', '6h', '24h'].map(dur => (
-                        <button 
-                          key={dur} 
-                          onClick={() => setPassDuration(dur)}
-                          style={{
-                            flex: 1, padding: '6px', borderRadius: 8, fontSize: 11, fontWeight: 700, fontFamily: 'inherit',
-                            background: passDuration === dur ? 'rgba(167,139,250,0.25)' : 'rgba(255,255,255,0.04)',
-                            color: passDuration === dur ? '#c4b5fd' : '#9d97b5',
-                            border: passDuration === dur ? '1px solid #a78bfa' : '1px solid rgba(255,255,255,0.08)',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {dur}
-                        </button>
-                      ))}
+                    <div style={{ fontSize: 11.5, color: '#9d97b5', lineHeight: 1.4, marginBottom: 14 }}>
+                      Generate time-limited, consent-confirmed passcodes for this chat, or revoke active guest access instantly.
                     </div>
 
                     <button 
-                      onClick={() => setShowSharePicker(true)}
+                      onClick={() => setShowCodeManager(true)}
                       style={{
-                        width: '100%', padding: '10px', borderRadius: 10, background: 'linear-gradient(135deg, #667eea, #764ba2)',
-                        color: '#fff', border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 8
+                        width: '100%', padding: '12px', borderRadius: 12, background: 'linear-gradient(135deg, #6c63ff, #a855f7)',
+                        color: '#fff', border: 'none', fontWeight: 800, fontSize: 12.5, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        boxShadow: '0 4px 16px rgba(108,99,255,0.35)'
                       }}
                     >
-                      <IconUserPlus size={14} /> Choose Contact to Share Pass
+                      <IconKey size={15} /> Manage Chat Passcodes
                     </button>
-
-                    <button 
-                      onClick={handleGenerateGuestPass}
-                      style={{
-                        width: '100%', padding: '10px', borderRadius: 10, background: 'rgba(255,255,255,0.06)',
-                        color: '#f2f0f8', border: '1px solid rgba(255,255,255,0.12)', fontWeight: 700, fontSize: 12, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
-                      }}
-                    >
-                      <IconShare2 size={14} /> {passCopied ? 'Pass Copied to Chat!' : 'Generate & Send to Chat'}
-                    </button>
-
-                    {generatedPassCode && (
-                      <div style={{ marginTop: 10, fontSize: 11, color: '#4ade80', textAlign: 'center', fontFamily: 'monospace' }}>
-                        Active Pass Code: {generatedPassCode}
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
@@ -618,46 +536,44 @@ export default function ProfileCard({
         )}
       </div>
 
-      {/* Contact Share Picker Modal Overlay */}
-    {showSharePicker && (
-  <PassContactSharePicker
-    passDuration={passDuration}
-    currentUserId={currentUserId}
-    myProfile={myProfile}
-    targetProfile={targetProfile}
-    conversationId={messages?.[0]?.conversation_id}
-    onClose={() => setShowSharePicker(false)}
-  />
-)}
+      {/* Chat Code Manager Modal Overlay */}
+      {showCodeManager && activeConvoId && (
+        <ChatCodeManager
+          conversationId={activeConvoId}
+          currentUserId={currentUserId}
+          onClose={() => setShowCodeManager(false)}
+        />
+      )}
     </div>
   )
 }
 
 // Micro-Styles
 const toolbarPrimaryBtnStyle = {
-  flex: 1, padding: '10px 14px', borderRadius: 12,
-  background: 'linear-gradient(135deg, #6c63ff 0%, #a855f7 100%)',
-  color: '#fff', border: 'none', fontSize: 12.5, fontWeight: 700,
-  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontFamily: 'inherit',
+  flex: 1, padding: '10px 14px', borderRadius: 12, background: 'linear-gradient(135deg, #6c63ff, #a855f7)',
+  color: '#fff', border: 'none', fontWeight: 700, fontSize: 12.5, cursor: 'pointer',
+  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
   boxShadow: '0 4px 14px rgba(108,99,255,0.35)'
 }
 
 const toolbarSecondaryBtnStyle = {
   padding: '10px 14px', borderRadius: 12, background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.12)', color: '#f2f0f8', fontSize: 12.5, fontWeight: 700,
-  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontFamily: 'inherit'
+  color: '#f2f0f8', border: '1px solid rgba(255,255,255,0.12)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer',
+  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
 }
 
 const cardBoxStyle = {
-  background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)',
-  borderRadius: 16, padding: 15, display: 'flex', flexDirection: 'column', gap: 8
-}
-
-const settingRowStyle = {
-  display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px',
-  background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14
+  background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.07)',
+  borderRadius: 16, padding: 16
 }
 
 const sectionLabelStyle = {
-  fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9d97b5', marginBottom: 4
+  fontSize: 11.5, fontWeight: 800, color: '#a78bfa', textTransform: 'uppercase',
+  letterSpacing: '0.06em', marginBottom: 8
+}
+
+const settingRowStyle = {
+  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+  padding: '12px 14px', background: 'rgba(255, 255, 255, 0.03)',
+  border: '1px solid rgba(255, 255, 255, 0.07)', borderRadius: 12
 }
