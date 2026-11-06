@@ -14,7 +14,8 @@ import { getPulsePlugin } from '../../lib/pulsePlugins'
 import { supabase } from '../../lib/supabase'
 import YouTubePulsePage from './YouTubePulsePage'
 import CyclePage from '../Cycle/CyclePage'
-import { IconFlower } from '../Icons'
+import { IconFlower, IconChart } from '../Icons'
+import CampusTrendsAdmin from './Music/CampusTrends/CampusTrendsAdmin'
 import { usePendingTrustedInvites } from '../../hooks/usePendingTrustedInvites'
 import DeKUTHubCard from './DeKUTHubCard'
 import RoomFinder from './RoomFinder'
@@ -311,6 +312,7 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
               items={[
                 { id: 'kb', icon: '📚', label: 'Curry Knowledge Base', onClick: () => setDekutView('knowledge-admin') },
                 { id: 'catering', icon: '🍛', label: 'Catering Admin', onClick: () => setDekutView('catering-admin') },
+                  { id: 'campus', icon: <IconChart size={16} />, label: 'Campus Trends Admin', onClick: () => setDekutView('campus-trends-admin') },
               ]}
             />
           )}
@@ -458,7 +460,11 @@ const [dekutRouteContext, setDekutRouteContext] = useState(null)
           onExplainWithCurry={handleExplainWithCurry}
         />
       )}
-
+   {dekutView === 'campus-trends-admin' && profile?.is_admin && (
+     <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
+       <CampusTrendsAdmin onClose={() => setDekutView(null)} />
+     </div>
+   )}
       {dekutView === 'catering-admin' && profile?.is_admin && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'var(--bg-surface-1, #0f0f1a)', overflowY: 'auto', padding: 16 }}>
           <DekutCateringAdmin onClose={() => setDekutView(null)} />
