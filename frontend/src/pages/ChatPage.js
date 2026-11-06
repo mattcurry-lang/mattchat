@@ -3210,6 +3210,7 @@ onForward={(m) => setForwardingMessage(m)}
     myProfile={profile}
     messages={messages}
     currentUserId={userId}
+ conversationId={activeConvo?.id}
     onClose={() => setProfileCardTarget(null)}
     onAskCurry={(question) => { setCurryPrefill(question); setActiveConvo(CURRY_AI_CONTACT) }}
     onMessageContact={handleMessageContact}
