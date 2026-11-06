@@ -58,15 +58,21 @@ export function ChatCodeRedeemModal({ currentUserId, onJoinSuccess, onClose }) {
   }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 99999,
-      background: 'rgba(5, 5, 12, 0.85)', backdropFilter: 'blur(12px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
-    }}>
-      <div style={{
-        width: '100%', maxWidth: 380, background: '#100f1d', border: '1px solid rgba(167,139,250,0.3)',
-        borderRadius: 20, padding: 24, boxShadow: '0 20px 50px rgba(0,0,0,0.8)', color: '#fff'
-      }}>
+    <div 
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 99999,
+        background: 'rgba(5, 5, 12, 0.85)', backdropFilter: 'blur(12px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+      }}
+    >
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 380, background: '#100f1d', border: '1px solid rgba(167,139,250,0.3)',
+          borderRadius: 20, padding: 24, boxShadow: '0 20px 50px rgba(0,0,0,0.8)', color: '#fff'
+        }}
+      >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 800, color: '#c4b5fd' }}>
             <IconKey size={18} /> Join Chat via Pass Code
@@ -175,15 +181,21 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
   }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 99999,
-      background: 'rgba(5, 5, 12, 0.85)', backdropFilter: 'blur(12px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
-    }}>
-      <div style={{
-        width: '100%', maxWidth: 420, background: '#100f1d', border: '1px solid rgba(167,139,250,0.3)',
-        borderRadius: 20, padding: 24, boxShadow: '0 20px 50px rgba(0,0,0,0.8)', color: '#fff'
-      }}>
+    <div 
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 99999,
+        background: 'rgba(5, 5, 12, 0.85)', backdropFilter: 'blur(12px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+      }}
+    >
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 420, background: '#100f1d', border: '1px solid rgba(167,139,250,0.3)',
+          borderRadius: 20, padding: 24, boxShadow: '0 20px 50px rgba(0,0,0,0.8)', color: '#fff'
+        }}
+      >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 800, color: '#c4b5fd' }}>
             <IconShield size={18} /> Manage Chat Access Codes
