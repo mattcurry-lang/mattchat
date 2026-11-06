@@ -3205,7 +3205,7 @@ onForward={(m) => setForwardingMessage(m)}
   />
 )}
 {profileCardTarget && (
-{profileCardTarget && (
+ 
   <ProfileCard
     targetProfile={profileCardTarget}
     myProfile={profile}
