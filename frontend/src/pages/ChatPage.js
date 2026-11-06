@@ -3205,12 +3205,13 @@ onForward={(m) => setForwardingMessage(m)}
   />
 )}
 {profileCardTarget && (
+{profileCardTarget && (
   <ProfileCard
     targetProfile={profileCardTarget}
     myProfile={profile}
     messages={messages}
     currentUserId={userId}
- conversationId={activeConvo?.id}
+    conversationId={activeConvo?.id}
     onClose={() => setProfileCardTarget(null)}
     onAskCurry={(question) => { setCurryPrefill(question); setActiveConvo(CURRY_AI_CONTACT) }}
     onMessageContact={handleMessageContact}
@@ -3218,6 +3219,20 @@ onForward={(m) => setForwardingMessage(m)}
     onVideoCall={() => startCall('video')}
     onOpenSearch={() => setShowSearch(true)}
     extras={publicExtras.get(profileCardTarget?.id)}
+    onSelectConversation={async (convoId) => {
+      // Fetch the conversation from Supabase and open it instantly
+      const { data: convo } = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('id', convoId)
+        .maybeSingle()
+
+      if (convo) {
+        setActiveConvo(convo)
+      } else {
+        setActiveConvo({ id: convoId })
+      }
+    }}
   />
 )}
 
