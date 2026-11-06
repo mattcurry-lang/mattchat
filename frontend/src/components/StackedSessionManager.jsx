@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { IconKey, IconShield, IconX, IconCopy } from './Icons'
 
-// 1. Modal for users to redeem a pass code in their profile
+// 1. Modal for users to redeem a pass code
 export function ChatCodeRedeemModal({ currentUserId, onJoinSuccess, onClose }) {
   const [passCode, setPassCode] = useState('')
   const [loading, setLoading] = useState(false)
@@ -16,7 +16,6 @@ export function ChatCodeRedeemModal({ currentUserId, onJoinSuccess, onClose }) {
     setErrorMsg('')
     const formattedCode = passCode.trim().toUpperCase()
 
-    // Fetch the active pass code from Supabase
     const { data: passRecord, error } = await supabase
       .from('temporary_passes')
       .select('*')
@@ -30,14 +29,12 @@ export function ChatCodeRedeemModal({ currentUserId, onJoinSuccess, onClose }) {
       return
     }
 
-    // Check if the code has timed out / expired
     if (new Date(passRecord.expires_at) < new Date()) {
       setErrorMsg('This pass code has expired.')
       setLoading(false)
       return
     }
 
-    // Add current user as a participant to the invited conversation
     const { error: partError } = await supabase
       .from('conversation_participants')
       .upsert({
@@ -123,24 +120,49 @@ export function ChatCodeRedeemModal({ currentUserId, onJoinSuccess, onClose }) {
   )
 }
 
-// 2. Modal for managing, generating, and revoking chat pass codes with mutual consent
+// 2. Modal for managing, generating, and auto-initializing starting codes
 export default function ChatCodeManager({ conversationId, currentUserId, onClose }) {
   const [activeCodes, setActiveCodes] = useState([])
   const [durationHours, setDurationHours] = useState('2')
-  const [consentGiven, setConsentGiven] = useState(false)
+  const [consentGiven, setConsentGiven] = useState(true) // Default checked for smoothness
   const [loading, setLoading] = useState(false)
 
+  // Load existing codes or auto-generate a starting code if none exist
   useEffect(() => {
-    async function loadCodes() {
-      const { data } = await supabase
+    async function initCodes() {
+      setLoading(true)
+      const { data, error } = await supabase
         .from('temporary_passes')
         .select('*')
         .eq('conversation_id', conversationId)
         .eq('status', 'active')
-      if (data) setActiveCodes(data)
+
+      if (data && data.length > 0) {
+        setActiveCodes(data)
+      } else {
+        // Auto-generate starting code if none found
+        const randomHash = Math.random().toString(36).substring(2, 7).toUpperCase()
+        const passCode = `CHAT-${randomHash}`
+        const expiresAt = new Date(Date.now() + 2 * 3600 * 1000).toISOString()
+
+        const { data: newPass, err } = await supabase.from('temporary_passes').insert({
+          pass_code: passCode,
+          conversation_id: conversationId,
+          creator_id: currentUserId,
+          status: 'active',
+          expires_at: expiresAt
+        }).select().single()
+
+        if (!err && newPass) {
+          setActiveCodes([newPass])
+        }
+      }
+      setLoading(false)
     }
-    loadCodes()
-  }, [conversationId])
+    if (conversationId && currentUserId) {
+      initCodes()
+    }
+  }, [conversationId, currentUserId])
 
   const handleGenerateCode = async () => {
     if (!consentGiven) {
@@ -164,7 +186,6 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
 
     if (!error && data) {
       setActiveCodes(prev => [data, ...prev])
-      setConsentGiven(false)
     }
     setLoading(false)
   }
@@ -206,7 +227,7 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
         </div>
 
         <div style={{ fontSize: 12, color: '#9d97b5', marginBottom: 16, lineHeight: 1.4 }}>
-          Generate a time-limited passcode for this chat. Make sure you have mutual consent with your chat partner before sharing.
+          Your active starting passcode is available below. You can generate additional codes or manage timeouts anytime.
         </div>
 
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: '#d1cde6', marginBottom: 16, cursor: 'pointer' }}>
@@ -241,12 +262,14 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
               cursor: consentGiven ? 'pointer' : 'not-allowed'
             }}
           >
-            {loading ? 'Generating...' : 'Generate New Code'}
+            {loading ? 'Processing...' : 'Generate New Code'}
           </button>
         </div>
 
         <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Active Codes for this Chat:</div>
-        {activeCodes.length === 0 ? (
+        {loading && activeCodes.length === 0 ? (
+          <div style={{ fontSize: 12, color: '#8b8b9e', textAlign: 'center', padding: 16 }}>Loading starting code...</div>
+        ) : activeCodes.length === 0 ? (
           <div style={{ fontSize: 12, color: '#8b8b9e', textAlign: 'center', padding: 16, background: 'rgba(255,255,255,0.02)', borderRadius: 12 }}>
             No active codes generated.
           </div>
