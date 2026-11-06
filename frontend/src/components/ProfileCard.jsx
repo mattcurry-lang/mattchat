@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react'
 import Avatar from './Avatar'
 import { computeReplyTimeLabel, supabase } from '../lib/supabase'
 import { themeById, themeGradient } from '../lib/profileThemes'
-import ChatCodeManager from './StackedSessionManager'
+import ChatCodeManager, { ChatCodeRedeemModal } from './StackedSessionManager'
 import { 
   IconX, IconClock, IconSparkle, IconMessageSquare, 
   IconVerified, IconShieldAlert, IconSearch, 
@@ -51,8 +51,9 @@ export default function ProfileCard({
   const [isSearching, setIsSearching] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
-  // New Chat Code Manager Modal State
+  // Passcode Modal States
   const [showCodeManager, setShowCodeManager] = useState(false)
+  const [showRedeemModal, setShowRedeemModal] = useState(false)
 
   // Bio Expand State
   const [bioExpanded, setBioExpanded] = useState(false)
@@ -459,20 +460,33 @@ export default function ProfileCard({
                       <span style={{ fontSize: 13, fontWeight: 700, color: '#ffffff' }}>Secure Passcode Management</span>
                     </div>
                     <div style={{ fontSize: 11.5, color: '#9d97b5', lineHeight: 1.4, marginBottom: 14 }}>
-                      Generate time-limited, consent-confirmed passcodes for this chat, or revoke active guest access instantly.
+                      Generate time-limited passcodes for this chat, or enter a code to join another session.
                     </div>
 
-                    <button 
-                      onClick={() => setShowCodeManager(true)}
-                      style={{
-                        width: '100%', padding: '12px', borderRadius: 12, background: 'linear-gradient(135deg, #6c63ff, #a855f7)',
-                        color: '#fff', border: 'none', fontWeight: 800, fontSize: 12.5, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                        boxShadow: '0 4px 16px rgba(108,99,255,0.35)'
-                      }}
-                    >
-                      <IconKey size={15} /> Manage Chat Passcodes
-                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <button 
+                        onClick={() => setShowCodeManager(true)}
+                        style={{
+                          width: '100%', padding: '11px', borderRadius: 12, background: 'linear-gradient(135deg, #6c63ff, #a855f7)',
+                          color: '#fff', border: 'none', fontWeight: 800, fontSize: 12, cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                          boxShadow: '0 4px 16px rgba(108,99,255,0.35)'
+                        }}
+                      >
+                        <IconKey size={15} /> Manage Chat Passcodes
+                      </button>
+
+                      <button 
+                        onClick={() => setShowRedeemModal(true)}
+                        style={{
+                          width: '100%', padding: '11px', borderRadius: 12, background: 'rgba(255,255,255,0.06)',
+                          color: '#fff', border: '1px solid rgba(255,255,255,0.12)', fontWeight: 800, fontSize: 12, cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                        }}
+                      >
+                        🔑 Enter / Redeem Chat Code
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -542,6 +556,18 @@ export default function ProfileCard({
           conversationId={activeConvoId}
           currentUserId={currentUserId}
           onClose={() => setShowCodeManager(false)}
+        />
+      )}
+
+      {/* Chat Code Redeem Modal Overlay */}
+      {showRedeemModal && (
+        <ChatCodeRedeemModal
+          currentUserId={currentUserId}
+          onJoinSuccess={(convoId) => {
+            setShowRedeemModal(false)
+            onClose?.()
+          }}
+          onClose={() => setShowRedeemModal(false)}
         />
       )}
     </div>
