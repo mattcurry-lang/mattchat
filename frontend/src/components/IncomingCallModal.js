@@ -134,7 +134,7 @@ const styles = {
     animation: 'ic-avatar-glow 2.8s ease-in-out infinite',
   },
    avatarImg: {
-    position: 'absolute', inset: 0, borderRadius: '50%', objectFit: 'cover',
+   osition: 'absolute', inset: 0, width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover',
     zIndex: 1, border: '2px solid rgba(255,255,255,0.2)',
  },
   callerName: { fontSize: 24, fontWeight: 700, color: '#fff', letterSpacing: '-0.4px', textAlign: 'center' },
