@@ -51,7 +51,7 @@ import AskCurry from '../components/Pulse/AskCurry'
 import MessageActionsMenu, { useMessageLongPress } from '../components/MessageActionsMenu'
 import SmartCollections, { useConvoTags, filterByCollection } from '../components/SmartCollections'
 import SmartReplyPreview, { useSmartReplyCache } from '../components/SmartReplyPreview'
-import { ConversationRow, CurryRow, LensBar, LensEmpty, TimeRail, Capsule, ResumeHome, buildTrayItems, rankByWarmth, applyLens, convoHue, groupPosition, flashMessage, isAfterglowEnabled, useCloseCircle, useLensSwipe, useArrivals, CallEventCard, CallPreview, analyzeCalls, mergeCallEvents } from '../afterglow'
+import { ConversationRow, CurryRow, LensBar, LensEmpty, TimeRail, Capsule, ResumeHome, buildTrayItems, rankByWarmth, applyLens, convoHue, groupPosition, flashMessage, isAfterglowEnabled, useCloseCircle, useLensSwipe, useArrivals, CallEventCard, CallPreview, analyzeCalls, mergeCallEvents, AfterglowIncomingCall, AfterglowOutgoingCall } from '../afterglow'
 import RelationshipInsights from '../components/RelationshipInsights'
 import TodaysTimeline from '../components/TodaysTimeline'
 import { useTheme } from '../hooks/useTheme'
@@ -1367,6 +1367,7 @@ export default function ChatPage({ session }) {
   const { closeIds, toggleClose } = useCloseCircle()
   const lensSwipe = useLensSwipe(lens, setLens)
   const isNarrowViewport = useIsMobile(640)
+ const OutgoingUI = afterglowOn ? AfterglowOutgoingCall : OutgoingCallScreen
   const [showPersonalAnalytics, setShowPersonalAnalytics] = useState(false)
   const [showTasksPage, setShowTasksPage] = useState(false)
   const [showConnectedApps, setShowConnectedApps] = useState(false)
@@ -2411,7 +2412,7 @@ const handleSignOut = async () => {
      <ConnectionBanner />
       {/* ── INCOMING CALL ── */}
       {callStatus === 'incoming' && activeCall && (
-        <IncomingCallModal
+     <IncomingUI
           callerName={callConvo ? getConvoName(callConvo) : 'Unknown'}
           avatarUrl={callConvo ? getOtherUserAvatar(callConvo, userId) : null}
           callType={activeCall.callType}
@@ -2419,12 +2420,15 @@ const handleSignOut = async () => {
           onAnswer={(muted) => { setStartMuted(muted); answerCall() }}
           onDecline={declineCall}
              userId={session?.user?.id}
+  // decline-with-a-message, and "called N times just before this" (Afterglow screen only)
+        onQuickReply={(text) => { const c = conversations.find((x) => x.id === activeCall.conversationId); declineCall(); if (c) quickSendReply(c, text) }}
+          recentMisses={(callHistory || []).filter((c) => c.conversation_id === activeCall.conversationId && c.status === 'missed' && !c.outgoing && Date.now() - Date.parse(c.created_at) < 30 * 60 * 1000).length}
         />
       )}
  
       {/* ── OUTGOING CALL (caller's own full-screen "Calling…" view) ── */}
       {(callStatus === 'calling' || callStatus === 'ringing') && (
-        <OutgoingCallScreen
+       <OutgoingUI
          callerName={callConvo ? getConvoName(callConvo) : (activeConvo ? getConvoName(activeConvo) : '')}
          avatarUrl={callConvo ? getOtherUserAvatar(callConvo, userId) : (activeConvo ? getOtherUserAvatar(activeConvo, userId) : null)}
         callType={activeCall?.callType}
