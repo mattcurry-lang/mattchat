@@ -120,20 +120,17 @@ export function ChatCodeRedeemModal({ currentUserId, onJoinSuccess, onClose }) {
   )
 }
 
-// 2. Manager with instant guaranteed local generation fallback
+// 2. Manager with instant guaranteed code display
 export default function ChatCodeManager({ conversationId, currentUserId, onClose }) {
-  // Always initialize with an instant fallback code so it never shows "NO ACTIVE CODE"
   const [currentCode, setCurrentCode] = useState('CHAT-' + Math.random().toString(36).substring(2, 7).toUpperCase())
   const [durationHours, setDurationHours] = useState('2')
   const [consentGiven, setConsentGiven] = useState(true)
   const [loading, setLoading] = useState(false)
 
-  // Fetch from database or save the fallback code on mount
   useEffect(() => {
     async function syncCode() {
       if (!conversationId) return
       
-      // Check if code exists in DB
       const { data } = await supabase
         .from('temporary_passes')
         .select('*')
@@ -144,7 +141,6 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
       if (data) {
         setCurrentCode(data.pass_code)
       } else {
-        // Save our starting code to Supabase
         const expiresAt = new Date(Date.now() + 2 * 3600 * 1000).toISOString()
         await supabase.from('temporary_passes').insert({
           pass_code: currentCode,
@@ -170,13 +166,11 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
     const expiresAt = new Date(Date.now() + hoursNum * 3600 * 1000).toISOString()
 
     if (conversationId) {
-      // Revoke old ones first
       await supabase
         .from('temporary_passes')
         .update({ status: 'revoked' })
         .eq('conversation_id', conversationId)
 
-      // Insert new one
       await supabase.from('temporary_passes').insert({
         pass_code: newHash,
         conversation_id: conversationId,
@@ -219,7 +213,7 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
           Active session passcode for this chat channel. Share securely with your partner.
         </div>
 
-        {/* PERMANENT ACTIVE PASSCODE BOX */}
+        {/* ACTIVE PASSCODE BOX */}
         <div style={{ 
           background: 'linear-gradient(135deg, rgba(74,222,128,0.05) 0%, rgba(255,255,255,0.02) 100%)', 
           border: '1px solid rgba(74,222,128,0.25)', borderRadius: 14, padding: 14, marginBottom: 16, textAlign: 'center' 
@@ -274,7 +268,7 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
             style={{
               flex: 1, padding: '10px', borderRadius: 10,
               background: consentGiven ? 'linear-gradient(135deg, #6c63ff, #a855f7)' : 'rgba(255,255,255,0.08)',
-              color: consentGreen ? '#fff' : '#6b6b80', border: 'none', fontWeight: 700, fontSize: 12.5,
+              color: consentGiven ? '#fff' : '#6b6b80', border: 'none', fontWeight: 700, fontSize: 12.5,
               cursor: consentGiven ? 'pointer' : 'not-allowed'
             }}
           >
