@@ -29,6 +29,7 @@ import SavedSongs from './SavedSongs'
 import { useOnlineStatus } from '../../../hooks/useOnlineStatus'
 import DownloadAllButton from './DownloadAllButton'
 import { SearchBar, SearchResultsView, HomeButton, loadRecents, saveRecent } from './SpotifySearch'
+   import CampusTrendsTab from './CampusTrends/CampusTrendsTab'
 
 /* ------------------------------------------------------------------ */
 /* shared display helpers (same rules as FullPlayer.jsx)               */
@@ -528,7 +529,7 @@ function ForYouCarousel({ tracks, onPress, isMobile }) {
   )
 }
 
-const TABS = ['All', 'Songs', 'Playlists']
+   const TABS = ['All', 'Songs', 'Playlists', 'Campus']
 
 function DownloadedSection() {
   const [tracks, setTracks] = useState([])
@@ -706,6 +707,7 @@ export function PulseMusicOverlay({ onClose, conversations = [], onShareTrack, o
               </motion.div>
 
               <div style={{ padding: isMobile ? '0 14px 100px' : '0 24px 40px' }}>
+                   {activeTab === 'Campus' && <CampusTrendsTab />}
                 {activeTab === 'All' && forYou.length > 0 && (
                   <Section>
                     <ForYouCarousel tracks={forYou} isMobile={isMobile} onPress={(t) => playTrack(t, forYou)} />
@@ -718,7 +720,7 @@ export function PulseMusicOverlay({ onClose, conversations = [], onShareTrack, o
                   </div>
                 )}
 
-                {artistChecked && !artistProfile && (
+                  {activeTab !== 'Campus' && artistChecked && !artistProfile && (
                   <Section>
                     <button
                       onClick={() => setShowBecomeArtist(true)}
@@ -770,7 +772,7 @@ export function PulseMusicOverlay({ onClose, conversations = [], onShareTrack, o
                   <Section delay={0.09}><TrackRail title="Trending on Mattchat" tracks={trending} /></Section>
                 )}
 
-                {online && trendingError && trending.length === 0 && (
+                  {activeTab !== 'Campus' && online && trendingError && trending.length === 0 && (
                   <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 18 }}>Trending is temporarily unavailable.</div>
                 )}
 
