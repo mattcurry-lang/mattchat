@@ -1094,3 +1094,24 @@ export function IconLink({ size = 16, style = {} }) {
     </svg>
   )
 }
+export function IconKey({ size = 16, style = {}, ...props }) {
+  return (
+    <svg 
+      width={size} 
+      height={size} 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round" 
+      style={style} 
+      {...props}
+    >
+      <circle cx="7.5" cy="15.5" r="5.5"/>
+      <path d="m21 2-9.6 9.6"/>
+      <path d="m15.5 7.5 3 3"/>
+      <path d="m18 5 3 3"/>
+    </svg>
+  )
+}
