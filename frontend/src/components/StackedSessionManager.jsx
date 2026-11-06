@@ -16,6 +16,12 @@ export function ChatCodeRedeemModal({ currentUserId, onJoinSuccess, onClose }) {
     setErrorMsg('')
     const formattedCode = passCode.trim().toUpperCase()
 
+    let userId = currentUserId
+    if (!userId) {
+      const { data: { user } } = await supabase.auth.getUser()
+      userId = user?.id || 'guest-user'
+    }
+
     const { data: passRecord, error } = await supabase
       .from('temporary_passes')
       .select('*')
@@ -38,11 +44,12 @@ export function ChatCodeRedeemModal({ currentUserId, onJoinSuccess, onClose }) {
     const { error: partError } = await supabase
       .from('conversation_participants')
       .upsert({
-        conversation_id: passRecord.conversation_id,
-        user_id: currentUserId || passRecord.creator_id
+        conversation_id: String(passRecord.conversation_id),
+        user_id: String(userId)
       }, { onConflict: 'conversation_id,user_id' })
 
     if (partError) {
+      console.error('Participant upsert error:', partError)
       setErrorMsg('Failed to join the chat session.')
       setLoading(false)
       return
@@ -90,6 +97,7 @@ export function ChatCodeRedeemModal({ currentUserId, onJoinSuccess, onClose }) {
             onChange={(e) => setPassCode(e.target.value)}
             placeholder="e.g. CHAT-7X9"
             style={{
+              width: '100%', boxSizing: 'border-box',
               background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(167,139,250,0.3)',
               borderRadius: 12, padding: '12px 16px', color: '#fff', fontSize: 15, fontFamily: 'monospace',
               textAlign: 'center', letterSpacing: '0.1em', outline: 'none'
@@ -120,7 +128,7 @@ export function ChatCodeRedeemModal({ currentUserId, onJoinSuccess, onClose }) {
   )
 }
 
-// 2. Manager with guaranteed database confirmation
+// 2. Manager with verified database persistence
 export default function ChatCodeManager({ conversationId, currentUserId, onClose }) {
   const [currentCode, setCurrentCode] = useState('LOADING...')
   const [durationHours, setDurationHours] = useState('2')
@@ -131,7 +139,12 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
 
   useEffect(() => {
     async function getOrLessCreateCode() {
-      // 1. Check if an active code already exists for this chat
+      let userId = currentUserId
+      if (!userId) {
+        const { data: { user } } = await supabase.auth.getUser()
+        userId = user?.id || 'guest'
+      }
+
       const { data: existing } = await supabase
         .from('temporary_passes')
         .select('*')
@@ -142,14 +155,13 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
       if (existing) {
         setCurrentCode(existing.pass_code)
       } else {
-        // 2. Create a verified new code and insert into DB
         const newCode = 'CHAT-' + Math.random().toString(36).substring(2, 7).toUpperCase()
         const expiresAt = new Date(Date.now() + 2 * 3600 * 1000).toISOString()
 
         const { error } = await supabase.from('temporary_passes').insert({
           pass_code: newCode,
           conversation_id: convoStr,
-          creator_id: String(currentUserId || 'guest'),
+          creator_id: String(userId),
           status: 'active',
           expires_at: expiresAt
         })
@@ -158,7 +170,7 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
           setCurrentCode(newCode)
         } else {
           console.error('Insert error:', error)
-          setCurrentCode(newCode) // fallback display
+          setCurrentCode(newCode)
         }
       }
     }
@@ -172,21 +184,25 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
     }
 
     setLoading(true)
+    let userId = currentUserId
+    if (!userId) {
+      const { data: { user } } = await supabase.auth.getUser()
+      userId = user?.id || 'guest'
+    }
+
     const newHash = 'CHAT-' + Math.random().toString(36).substring(2, 7).toUpperCase()
     const hoursNum = parseInt(durationHours) || 2
     const expiresAt = new Date(Date.now() + hoursNum * 3600 * 1000).toISOString()
 
-    // Revoke old ones
     await supabase
       .from('temporary_passes')
       .update({ status: 'revoked' })
       .eq('conversation_id', convoStr)
 
-    // Insert new verified code
     const { error } = await supabase.from('temporary_passes').insert({
       pass_code: newHash,
       conversation_id: convoStr,
-      creator_id: String(currentUserId || 'guest'),
+      creator_id: String(userId),
       status: 'active',
       expires_at: expiresAt
     })
