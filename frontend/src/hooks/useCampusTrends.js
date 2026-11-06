@@ -110,7 +110,7 @@ export function useCampusTrends(userId, { enabled = true } = {}) {
     if (!online || !enabled || !userId) return
     if (stateError) loadState()
     if (campusId && (chartError || chart?.fromCache)) loadChart(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  
   }, [online])
 
   const run = useCallback(async (fn) => {
