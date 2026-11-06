@@ -3343,31 +3343,7 @@ activeConvo.isCurryAI ? (
   <Avatar name={getConvoName(activeConvo)} size={36} online={otherUserId ? isOnline(otherUserId) : false} photoUrl={getOtherUserAvatar(activeConvo, userId)} />
 </button>
 
-  {/* Passcodes Management Button */}
-<button 
-  onClick={() => setShowCodeManager(true)}
-  style={{
-    background: 'rgba(108,99,255,0.15)', border: '1px solid rgba(108,99,255,0.3)',
-    color: '#c4b5fd', padding: '6px 10px', borderRadius: 8, fontSize: 11,
-    fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4
-  }}
-  title="Manage chat passcodes"
->
-  🔒 Passcodes
-</button>
-
-{/* Join via Code Button */}
-<button 
-  onClick={() => setShowRedeemModal(true)}
-  style={{
-    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-    color: '#fff', padding: '6px 10px', borderRadius: 8, fontSize: 11,
-    fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4
-  }}
-  title="Enter a chat passcode"
->
-  🔑 Join via Code
-</button>
+  
               <div style={{ flex: 1, minWidth: 0 }}>
                <div className="chat-header-name" style={{ display: 'flex', alignItems: 'center' }}>
   {headerTitle}
