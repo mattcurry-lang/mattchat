@@ -120,18 +120,19 @@ export function ChatCodeRedeemModal({ currentUserId, onJoinSuccess, onClose }) {
   )
 }
 
-// 2. Modal for managing, generating, and auto-initializing starting codes
+// 2. Modal with permanent starting code box positioned right above the consent box
 export default function ChatCodeManager({ conversationId, currentUserId, onClose }) {
   const [activeCodes, setActiveCodes] = useState([])
   const [durationHours, setDurationHours] = useState('2')
-  const [consentGiven, setConsentGiven] = useState(true) // Default checked for smoothness
+  const [consentGiven, setConsentGiven] = useState(true)
   const [loading, setLoading] = useState(false)
 
-  // Load existing codes or auto-generate a starting code if none exist
+  // Auto-fetch or generate starting code on load
   useEffect(() => {
     async function initCodes() {
+      if (!conversationId || !currentUserId) return
       setLoading(true)
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('temporary_passes')
         .select('*')
         .eq('conversation_id', conversationId)
@@ -140,7 +141,6 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
       if (data && data.length > 0) {
         setActiveCodes(data)
       } else {
-        // Auto-generate starting code if none found
         const randomHash = Math.random().toString(36).substring(2, 7).toUpperCase()
         const passCode = `CHAT-${randomHash}`
         const expiresAt = new Date(Date.now() + 2 * 3600 * 1000).toISOString()
@@ -159,9 +159,7 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
       }
       setLoading(false)
     }
-    if (conversationId && currentUserId) {
-      initCodes()
-    }
+    initCodes()
   }, [conversationId, currentUserId])
 
   const handleGenerateCode = async () => {
@@ -201,6 +199,8 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
     }
   }
 
+  const primaryCode = activeCodes[0]
+
   return (
     <div 
       onClick={onClose}
@@ -227,9 +227,38 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
         </div>
 
         <div style={{ fontSize: 12, color: '#9d97b5', marginBottom: 16, lineHeight: 1.4 }}>
-          Your active starting passcode is available below. You can generate additional codes or manage timeouts anytime.
+          Active session passcode for this chat channel. Share securely with your partner.
         </div>
 
+        {/* PERMANENT STARTING PASSCODE BOX (Placed right above consent box, styled like encryption badge) */}
+        <div style={{ 
+          background: 'linear-gradient(135deg, rgba(74,222,128,0.05) 0%, rgba(255,255,255,0.02) 100%)', 
+          border: '1px solid rgba(74,222,128,0.25)', borderRadius: 14, padding: 14, marginBottom: 16, textAlign: 'center' 
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#4ade80', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Active Passcode
+          </div>
+          <div style={{ 
+            background: 'rgba(0,0,0,0.4)', padding: '10px 14px', borderRadius: 10, 
+            fontFamily: 'monospace', fontSize: 16, fontWeight: 800, color: '#4ade80', 
+            letterSpacing: '0.12em', display: 'flex', alignItems: 'center', justifyContent: 'space-between' 
+          }}>
+            <span>{loading && !primaryCode ? 'GENERATING...' : (primaryCode ? primaryCode.pass_code : 'NO ACTIVE CODE')}</span>
+            {primaryCode && (
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(primaryCode.pass_code)
+                  alert('Passcode copied to clipboard!')
+                }}
+                style={{ background: 'rgba(74,222,128,0.15)', border: 'none', color: '#4ade80', padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+              >
+                Copy
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* CONSENT CHECKBOX & CONTROLS */}
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: '#d1cde6', marginBottom: 16, cursor: 'pointer' }}>
           <input
             type="checkbox"
@@ -240,7 +269,7 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
           I confirm my chat partner consents to sharing access.
         </label>
 
-        <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
           <select
             value={durationHours}
             onChange={(e) => setDurationHours(e.target.value)}
@@ -265,43 +294,6 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
             {loading ? 'Processing...' : 'Generate New Code'}
           </button>
         </div>
-
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Active Codes for this Chat:</div>
-        {loading && activeCodes.length === 0 ? (
-          <div style={{ fontSize: 12, color: '#8b8b9e', textAlign: 'center', padding: 16 }}>Loading starting code...</div>
-        ) : activeCodes.length === 0 ? (
-          <div style={{ fontSize: 12, color: '#8b8b9e', textAlign: 'center', padding: 16, background: 'rgba(255,255,255,0.02)', borderRadius: 12 }}>
-            No active codes generated.
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 180, overflowY: 'auto' }}>
-            {activeCodes.map(c => (
-              <div key={c.pass_code} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>
-                <div>
-                  <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: '#4ade80' }}>{c.pass_code}</div>
-                  <div style={{ fontSize: 10.5, color: '#9d97b5' }}>Expires: {new Date(c.expires_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(c.pass_code)
-                      alert('Pass code copied to clipboard!')
-                    }}
-                    style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: '#fff', padding: '6px 10px', borderRadius: 8, fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
-                  >
-                    <IconCopy size={12} /> Copy
-                  </button>
-                  <button
-                    onClick={() => handleRevokeCode(c.pass_code)}
-                    style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', padding: '6px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
-                  >
-                    Revoke
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   )
