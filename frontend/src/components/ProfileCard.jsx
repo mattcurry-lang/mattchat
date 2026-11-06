@@ -36,6 +36,7 @@ export default function ProfileCard({
   onMessageContact,
   onToggleMute,
   onVoiceCall,
+  onSelectConversation,
   onVideoCall,
   extras,             
 }) {
@@ -561,16 +562,18 @@ export default function ProfileCard({
       )}
 
       {/* Chat Code Redeem Modal Overlay */}
-      {showRedeemModal && (
-        <ChatCodeRedeemModal
-          currentUserId={currentUserId}
-          onJoinSuccess={(convoId) => {
-            setShowRedeemModal(false)
-            onClose?.()
-          }}
-          onClose={() => setShowRedeemModal(false)}
-        />
-      )}
+ 
+{showRedeemModal && (
+  <ChatCodeRedeemModal
+    currentUserId={currentUserId}
+    onJoinSuccess={(convoId) => {
+      setShowRedeemModal(false)
+      onClose?.()
+      onSelectConversation?.(convoId) // <--- 2. Trigger conversation switch here
+    }}
+    onClose={() => setShowRedeemModal(false)}
+  />
+)}
     </div>
   )
 }
