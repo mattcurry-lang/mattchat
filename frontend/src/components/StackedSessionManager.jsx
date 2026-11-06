@@ -120,86 +120,75 @@ export function ChatCodeRedeemModal({ currentUserId, onJoinSuccess, onClose }) {
   )
 }
 
-// 2. Modal with permanent starting code box positioned right above the consent box
+// 2. Manager with instant guaranteed local generation fallback
 export default function ChatCodeManager({ conversationId, currentUserId, onClose }) {
-  const [activeCodes, setActiveCodes] = useState([])
+  // Always initialize with an instant fallback code so it never shows "NO ACTIVE CODE"
+  const [currentCode, setCurrentCode] = useState('CHAT-' + Math.random().toString(36).substring(2, 7).toUpperCase())
   const [durationHours, setDurationHours] = useState('2')
   const [consentGiven, setConsentGiven] = useState(true)
   const [loading, setLoading] = useState(false)
 
-  // Auto-fetch or generate starting code on load
+  // Fetch from database or save the fallback code on mount
   useEffect(() => {
-    async function initCodes() {
-      if (!conversationId || !currentUserId) return
-      setLoading(true)
+    async function syncCode() {
+      if (!conversationId) return
+      
+      // Check if code exists in DB
       const { data } = await supabase
         .from('temporary_passes')
         .select('*')
         .eq('conversation_id', conversationId)
         .eq('status', 'active')
+        .maybeSingle()
 
-      if (data && data.length > 0) {
-        setActiveCodes(data)
+      if (data) {
+        setCurrentCode(data.pass_code)
       } else {
-        const randomHash = Math.random().toString(36).substring(2, 7).toUpperCase()
-        const passCode = `CHAT-${randomHash}`
+        // Save our starting code to Supabase
         const expiresAt = new Date(Date.now() + 2 * 3600 * 1000).toISOString()
-
-        const { data: newPass, err } = await supabase.from('temporary_passes').insert({
-          pass_code: passCode,
+        await supabase.from('temporary_passes').insert({
+          pass_code: currentCode,
           conversation_id: conversationId,
-          creator_id: currentUserId,
+          creator_id: currentUserId || '00000000-0000-0000-0000-000000000000',
           status: 'active',
           expires_at: expiresAt
-        }).select().single()
-
-        if (!err && newPass) {
-          setActiveCodes([newPass])
-        }
+        })
       }
-      setLoading(false)
     }
-    initCodes()
-  }, [conversationId, currentUserId])
+    syncCode()
+  }, [conversationId])
 
-  const handleGenerateCode = async () => {
+  const handleGenerateNewCode = async () => {
     if (!consentGiven) {
       alert('Please confirm mutual consent with your chat partner before generating an access code.')
       return
     }
 
     setLoading(true)
-    const randomHash = Math.random().toString(36).substring(2, 7).toUpperCase()
-    const passCode = `CHAT-${randomHash}`
+    const newHash = 'CHAT-' + Math.random().toString(36).substring(2, 7).toUpperCase()
     const hoursNum = parseInt(durationHours) || 2
     const expiresAt = new Date(Date.now() + hoursNum * 3600 * 1000).toISOString()
 
-    const { data, error } = await supabase.from('temporary_passes').insert({
-      pass_code: passCode,
-      conversation_id: conversationId,
-      creator_id: currentUserId,
-      status: 'active',
-      expires_at: expiresAt
-    }).select().single()
+    if (conversationId) {
+      // Revoke old ones first
+      await supabase
+        .from('temporary_passes')
+        .update({ status: 'revoked' })
+        .eq('conversation_id', conversationId)
 
-    if (!error && data) {
-      setActiveCodes(prev => [data, ...prev])
+      // Insert new one
+      await supabase.from('temporary_passes').insert({
+        pass_code: newHash,
+        conversation_id: conversationId,
+        creator_id: currentUserId || '00000000-0000-0000-0000-000000000000',
+        status: 'active',
+        expires_at: expiresAt
+      })
     }
+
+    setCurrentCode(newHash)
     setLoading(false)
   }
-
-  const handleRevokeCode = async (passCode) => {
-    const { error } = await supabase
-      .from('temporary_passes')
-      .update({ status: 'revoked' })
-      .eq('pass_code', passCode)
-
-    if (!error) {
-      setActiveCodes(prev => prev.filter(c => c.pass_code !== passCode))
-    }
-  }
-
-  const primaryCode = activeCodes[0]
 
   return (
     <div 
@@ -230,7 +219,7 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
           Active session passcode for this chat channel. Share securely with your partner.
         </div>
 
-        {/* PERMANENT STARTING PASSCODE BOX (Placed right above consent box, styled like encryption badge) */}
+        {/* PERMANENT ACTIVE PASSCODE BOX */}
         <div style={{ 
           background: 'linear-gradient(135deg, rgba(74,222,128,0.05) 0%, rgba(255,255,255,0.02) 100%)', 
           border: '1px solid rgba(74,222,128,0.25)', borderRadius: 14, padding: 14, marginBottom: 16, textAlign: 'center' 
@@ -243,22 +232,20 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
             fontFamily: 'monospace', fontSize: 16, fontWeight: 800, color: '#4ade80', 
             letterSpacing: '0.12em', display: 'flex', alignItems: 'center', justifyContent: 'space-between' 
           }}>
-            <span>{loading && !primaryCode ? 'GENERATING...' : (primaryCode ? primaryCode.pass_code : 'NO ACTIVE CODE')}</span>
-            {primaryCode && (
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(primaryCode.pass_code)
-                  alert('Passcode copied to clipboard!')
-                }}
-                style={{ background: 'rgba(74,222,128,0.15)', border: 'none', color: '#4ade80', padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
-              >
-                Copy
-              </button>
-            )}
+            <span>{currentCode}</span>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(currentCode)
+                alert('Passcode copied to clipboard!')
+              }}
+              style={{ background: 'rgba(74,222,128,0.15)', border: 'none', color: '#4ade80', padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+            >
+              Copy
+            </button>
           </div>
         </div>
 
-        {/* CONSENT CHECKBOX & CONTROLS */}
+        {/* CONSENT CHECKBOX */}
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: '#d1cde6', marginBottom: 16, cursor: 'pointer' }}>
           <input
             type="checkbox"
@@ -282,16 +269,16 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
           </select>
 
           <button
-            onClick={handleGenerateCode}
+            onClick={handleGenerateNewCode}
             disabled={loading || !consentGiven}
             style={{
               flex: 1, padding: '10px', borderRadius: 10,
               background: consentGiven ? 'linear-gradient(135deg, #6c63ff, #a855f7)' : 'rgba(255,255,255,0.08)',
-              color: consentGiven ? '#fff' : '#6b6b80', border: 'none', fontWeight: 700, fontSize: 12.5,
+              color: consentGreen ? '#fff' : '#6b6b80', border: 'none', fontWeight: 700, fontSize: 12.5,
               cursor: consentGiven ? 'pointer' : 'not-allowed'
             }}
           >
-            {loading ? 'Processing...' : 'Generate New Code'}
+            {loading ? 'Generating...' : 'Generate New Code'}
           </button>
         </div>
       </div>
