@@ -65,7 +65,7 @@ export default function IncomingCall({ callerName = 'Unknown', callType, avatarU
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [sheet, canReply, startMuted])
 
   const { remaining, ratio } = ringRemaining(startRef.current, now)
