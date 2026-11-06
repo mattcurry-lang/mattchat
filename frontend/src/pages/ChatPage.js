@@ -1367,6 +1367,7 @@ export default function ChatPage({ session }) {
   const { closeIds, toggleClose } = useCloseCircle()
   const lensSwipe = useLensSwipe(lens, setLens)
   const isNarrowViewport = useIsMobile(640)
+   const IncomingUI = afterglowOn ? AfterglowIncomingCall : IncomingCallModal
  const OutgoingUI = afterglowOn ? AfterglowOutgoingCall : OutgoingCallScreen
   const [showPersonalAnalytics, setShowPersonalAnalytics] = useState(false)
   const [showTasksPage, setShowTasksPage] = useState(false)
