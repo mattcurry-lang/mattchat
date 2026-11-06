@@ -1409,7 +1409,7 @@ const [showAddStatus, setShowAddStatus] = useState(false)
   const [blockedByOtherIds, setBlockedByOtherIds] = useState(new Set())
   const [activeSessionPass, setActiveSessionPass] = useState(null)
   const [sessionHosts, setSessionHosts] = useState([])
-  const [activeSessionPassCode, setActiveSessionPassCode] = useState(null)
+   const [showCodeManager, setShowCodeManager] = useState(false)
 
 const handleJoinSession = (passData) => {
   setSessionHosts([
