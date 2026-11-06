@@ -136,7 +136,7 @@ import EcoCardMessage from '../components/Ecosystem/EcoCardMessage'
 import { parseEcoCard } from '../lib/ecosystem/cards'
 import SendLaterMenu, { useSendLongPress, ScheduleToast } from '../components/SendLaterMenu'
 import { formatWhen } from '../lib/scheduleTime'
-import StackedSessionModal, { TemporaryPassCard, PassContactSharePicker } from '../components/StackedSessionManager'
+import ChatCodeManager from '../components/StackedSessionManager'
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
 // in-chat Curry instead of delivering it to the other person.
@@ -497,38 +497,10 @@ function CurryChatBubble({ msg }) {
     </div>
   )
 }
-
-function MessageBubble({ msg, isMe, isRead, isDelivered, session, setActiveSessionPassCode }) {
+function MessageBubble({ msg, isMe, isRead, isDelivered, session }) {
   
   if (msg.message_type === 'curry') {
     return <CurryChatBubble msg={msg} />
-  }
-
-  if (msg.content?.startsWith('{') && msg.content?.includes('temporary_pass')) {
-    try {
-      const passData = JSON.parse(msg.content)
-      return (
-        <div key={msg.id} className={`msg-row ${isMe ? 'mine' : ''}`}>
-          {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
-          <div>
-            {!isMe && <div className="msg-sender">{msg.profiles?.username}</div>}
-            <TemporaryPassCard 
-              passData={passData} 
-              currentUserId={session?.user?.id} 
-              onJoinSession={(code) => {
-                console.log("Opening Stacked Session for code:", code)
-                if (typeof setActiveSessionPassCode === 'function') {
-                  setActiveSessionPassCode(code)
-                }
-              }} 
-            />
-            <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
-          </div>
-        </div>
-      )
-    } catch (e) {
-      // Fallback
-    }
   }
 
   if (msg.deleted_for_everyone) {
@@ -536,10 +508,7 @@ function MessageBubble({ msg, isMe, isRead, isDelivered, session, setActiveSessi
       <div className={`msg-row ${isMe ? 'mine' : ''}`}>
         {!isMe && <Avatar name={msg.profiles?.username} size={28} photoUrl={msg.profiles?.avatar_url} />}
         <div>
-         
-          {!isMe && <div className="msg-sender" style={{ display: 'flex', alignItems: 'center' }}>   {msg.profiles?.username}   {msg.profiles?.is_admin && <IconVerified size={11} />} </div>}
-          <div className="msg-bubble deleted-msg">🚫 This message was deleted</div>
-          <div className="msg-time">{formatMsgTime(msg.created_at)}</div>
+           
         </div>
       </div>
     )
@@ -3869,11 +3838,11 @@ onSaved={() => { setShowSaved(true); setShowThreeDot(false) }}
     }}
   />
 )}
-{activeSessionPassCode && (
-  <StackedSessionModal 
-    passCode={activeSessionPassCode} 
-    currentUserId={session?.user?.id}
-    onClose={() => setActiveSessionPassCode(null)} 
+{showCodeManager && activeConvo && (
+  <ChatCodeManager 
+    conversationId={activeConvo.id} 
+    currentUserId={userId} 
+    onClose={() => setShowCodeManager(false)} 
   />
 )}
             {showScheduledList && (
