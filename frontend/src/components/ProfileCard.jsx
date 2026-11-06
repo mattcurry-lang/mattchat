@@ -30,6 +30,7 @@ export default function ProfileCard({
   myProfile,
   messages = [],
   currentUserId,
+  conversationId,
   onClose,
   onAskCurry,
   onMessageContact,
@@ -145,7 +146,7 @@ export default function ProfileCard({
   const theme = themeById(extras?.theme)
   const bio = extras?.bio || targetProfile.bio
   const hasStatus = !!(extras?.statusEmoji || extras?.statusText)
-  const activeConvoId = messages?.[0]?.conversation_id
+  const activeConvoId = conversationId || messages?.[0]?.conversation_id
 
   return (
     <div className="profile-drawer-container" onClick={onClose} style={{
