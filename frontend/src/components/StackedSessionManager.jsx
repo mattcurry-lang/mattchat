@@ -41,6 +41,7 @@ export function ChatCodeRedeemModal({ currentUserId, onJoinSuccess, onClose }) {
       return
     }
 
+    // 1. Add guest to participants
     const { error: partError } = await supabase
       .from('conversation_participants')
       .upsert({
@@ -49,11 +50,18 @@ export function ChatCodeRedeemModal({ currentUserId, onJoinSuccess, onClose }) {
       }, { onConflict: 'conversation_id,user_id' })
 
     if (partError) {
-      console.error('Participant upsert error:', partError)
       setErrorMsg('Failed to join the chat session.')
       setLoading(false)
       return
     }
+
+    // 2. Insert a centered system join message into the chat
+    await supabase.from('messages').insert({
+      conversation_id: String(passRecord.conversation_id),
+      sender_id: String(userId),
+      content: '🔒 Guest joined secure chat via pass code',
+      message_type: 'system'
+    })
 
     setLoading(false)
     if (typeof onJoinSuccess === 'function') {
@@ -127,7 +135,6 @@ export function ChatCodeRedeemModal({ currentUserId, onJoinSuccess, onClose }) {
     </div>
   )
 }
-
 // 2. Manager with verified database persistence
 export default function ChatCodeManager({ conversationId, currentUserId, onClose }) {
   const [currentCode, setCurrentCode] = useState('LOADING...')
