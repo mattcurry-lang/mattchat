@@ -9,16 +9,15 @@ import { BRAND_ICONS } from '../../lib/brandIcons'
    ============================================================ */
 
 const COLORS = {
-  bg: '#090909',
-  glass: 'rgba(255,255,255,0.045)',
-  glassBorder: 'rgba(255,255,255,0.08)',
-  purple: '#6C63FF',
-  blue: '#4CC9F0',
-  violet: '#C77DFF',
-  text: '#F5F5FA',
-  muted: '#9A9AB0',
+  bg: '#F6F7F9',
+  glass: '#FFFFFF',
+  glassBorder: 'rgba(15,23,32,0.10)',
+  purple: '#2457F5',   // kept as the key name so nothing else breaks; now the single accent
+  blue: '#2457F5',
+  violet: '#1B44C8',
+  text: '#0F1720',
+  muted: '#5B6573',
 }
-
 /* ---------- small building blocks ---------- */
 
 function Eyebrow({ children }) {
@@ -163,6 +162,12 @@ function HeroSection({ onGetStarted }) {
         </div>
         <HeroShowcase />
       </div>
+       <div className="mc-works-with">
+  <span>Connects with</span>
+  {['gmail', 'whatsapp', 'googlecalendar', 'googledrive', 'instagram'].map((id) => (
+    <BrandLogo key={id} id={id} size={22} />
+  ))}
+</div>
     </section>
   )
 }
@@ -608,7 +613,7 @@ export default function LandingPage() {
 
   return (
     <div className="mc-root">
-      <AmbientBackground />
+      
       <nav className="mc-nav">
         <a href="/" className="mc-nav-brand" onClick={(e) => goTo(e, '/')} aria-label="Mattchat home">
           <BrandLockup size={26} />
@@ -631,7 +636,7 @@ export default function LandingPage() {
       <Footer onNavigate={goTo} />
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap');
+       https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600;700&family=Instrument+Sans:wght@400;500;600&display=swap
 @media (max-width: 900px) {
   .mc-aurora { filter: blur(60px); opacity: 0.28; }
 }
@@ -645,7 +650,7 @@ export default function LandingPage() {
           position: relative;
           background: ${COLORS.bg};
           color: ${COLORS.text};
-          font-family: 'Inter', system-ui, sans-serif;
+          font-family: 'Instrument Sans', system-ui, sans-serif;
           overflow-x: hidden;
           min-height: 100vh;
           height: auto;
@@ -687,43 +692,37 @@ export default function LandingPage() {
           font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; letter-spacing: 2.5px;
           color: ${COLORS.blue}; margin-bottom: 18px; font-weight: 500;
         }
-        .mc-h1 {
-          font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: clamp(38px, 5.6vw, 66px);
-          line-height: 1.06; letter-spacing: -1.5px; margin: 0 0 22px;
-          background: linear-gradient(120deg, #fff 40%, ${COLORS.blue} 80%, ${COLORS.violet});
-          -webkit-background-clip: text; background-clip: text; color: transparent;
-        }
+    .mc-h1 {
+  font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700;
+  font-size: clamp(38px, 5.4vw, 64px); line-height: 1.04; letter-spacing: -1.6px;
+  margin: 0 0 22px; color: ${COLORS.text};
+}
         .mc-h2 {
-          font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: clamp(26px, 3.4vw, 38px);
+          font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; font-size: clamp(26px, 3.4vw, 38px);
           letter-spacing: -0.5px; line-height: 1.2; margin: 0 0 48px; max-width: 640px;
         }
-        .mc-h3 { font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 600; margin: 18px 0 8px; }
+        .mc-h3 { font-family: 'Bricolage Grotesque', sans-serif; font-size: 18px; font-weight: 600; margin: 18px 0 8px; }
         .mc-p { color: ${COLORS.muted}; font-size: 15px; line-height: 1.65; margin: 0; }
         .mc-sub { color: ${COLORS.muted}; font-size: 17px; line-height: 1.65; max-width: 480px; margin-bottom: 36px; }
 
         /* ---------- glass / buttons ---------- */
-        .mc-glass {
-          background: ${COLORS.glass}; border: 1px solid ${COLORS.glassBorder}; border-radius: 20px;
-          backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-          box-shadow: 0 20px 60px rgba(0,0,0,0.35);
-          transition: transform 0.35s cubic-bezier(0.16,1,0.3,1), border-color 0.35s ease;
-        }
-
+       .mc-glass {
+  background: ${COLORS.glass}; border: 1px solid ${COLORS.glassBorder}; border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(15,23,32,0.04), 0 8px 24px rgba(15,23,32,0.05);
+  transition: transform 0.25s ease, border-color 0.25s ease;
+}
         .mc-btn {
           display: inline-flex; align-items: center; justify-content: center; text-decoration: none;
-          font-family: 'Inter', sans-serif; font-weight: 600; font-size: 14.5px; padding: 13px 26px;
+          font-family: 'Instrument Sans', system-ui, sans-serif; font-weight: 600; font-size: 14.5px; padding: 13px 26px;
           border-radius: 999px; cursor: pointer; border: 1px solid transparent; transition: all 0.25s ease;
         }
         .mc-btn:focus-visible {
           outline: 2px solid ${COLORS.blue}; outline-offset: 3px;
         }
-        .mc-btn-primary {
-          background: linear-gradient(120deg, ${COLORS.purple}, ${COLORS.violet});
-          color: #fff; box-shadow: 0 0 0 0 rgba(108,99,255,0.5);
-        }
-        .mc-btn-primary:hover { box-shadow: 0 0 32px 4px rgba(108,99,255,0.55); transform: translateY(-2px); }
-        .mc-btn-secondary { background: rgba(255,255,255,0.04); color: ${COLORS.text}; border-color: ${COLORS.glassBorder}; }
-        .mc-btn-secondary:hover { background: rgba(255,255,255,0.08); }
+        .mc-btn-primary { background: ${COLORS.purple}; color: #fff; }
+.mc-btn-primary:hover { background: ${COLORS.violet}; transform: translateY(-1px); }
+.mc-btn-secondary { background: #fff; color: ${COLORS.text}; border-color: ${COLORS.glassBorder}; }
+.mc-btn-secondary:hover { background: #F0F2F6; }
 
         /* ---------- brand lockup ---------- */
         .mc-brand-lockup { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
@@ -733,12 +732,13 @@ export default function LandingPage() {
 
         /* ---------- nav ---------- */
         .mc-nav {
-          position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between;
-          padding: 18px 32px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-          background: rgba(9,9,9,0.55); border-bottom: 1px solid rgba(255,255,255,0.06);
-        }
+  position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 32px; background: rgba(246,247,249,0.88);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(15,23,32,0.08);
+}
         .mc-nav-brand { text-decoration: none; color: inherit; }
-        .mc-nav-logo { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: -0.3px; }
+        .mc-nav-logo { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: -0.3px; }
         .mc-nav-links { display: flex; align-items: center; gap: 22px; }
         .mc-nav-link {
           font-size: 14.5px; font-weight: 600; color: ${COLORS.muted}; text-decoration: none; transition: color 0.2s ease;
@@ -754,15 +754,15 @@ export default function LandingPage() {
 .mc-hero-proof li::before { content: '✓'; color: ${COLORS.blue}; margin-right: 6px; font-weight: 700; }
 
 .mc-showcase { position: relative; padding-bottom: 36px; }
-.mc-showcase-glow { position: absolute; inset: 10% 5%; background: radial-gradient(circle, ${COLORS.purple}55, transparent 70%); filter: blur(50px); }
+.mc-showcase-glow { display: none; }
 .mc-frame {
-  position: relative; margin: 0; border-radius: 16px; overflow: hidden;
-  border: 1px solid ${COLORS.glassBorder}; background: #0f0f1a;
-  box-shadow: 0 30px 80px rgba(0,0,0,0.55);
+  position: relative; margin: 0; border-radius: 14px; overflow: hidden;
+  border: 1px solid ${COLORS.glassBorder}; background: #fff;
+  box-shadow: 0 24px 60px rgba(15,23,32,0.14);
 }
 .mc-frame img { display: block; width: 100%; height: auto; }
-.mc-frame-bar { display: flex; gap: 6px; padding: 10px 12px; background: rgba(255,255,255,0.04); border-bottom: 1px solid ${COLORS.glassBorder}; }
-.mc-frame-bar i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.18); }
+.mc-frame-bar { display: flex; gap: 6px; padding: 10px 12px; background: #F0F2F6; border-bottom: 1px solid ${COLORS.glassBorder}; }
+.mc-frame-bar i { width: 9px; height: 9px; border-radius: 50%; background: rgba(15,23,32,0.18); }
 .mc-frame-side {
   position: absolute; right: -14px; bottom: 0; width: 38%;
   border-radius: 14px; animation: mcFloat 7s ease-in-out infinite;
@@ -809,7 +809,7 @@ export default function LandingPage() {
           background: radial-gradient(circle, ${COLORS.purple}, ${COLORS.violet}66 60%, transparent 75%);
           animation: mcPulse 3.2s ease-in-out infinite;
         }
-        .mc-dash-core-label { position: relative; display: block; text-align: center; line-height: 80px; font-size: 11px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
+        .mc-dash-core-label { position: relative; display: block; text-align: center; line-height: 80px; font-size: 11px; font-weight: 700; font-family: 'Bricolage Grotesque', sans-serif; }
         @keyframes mcSpin { to { transform: rotate(360deg); } }
         @keyframes mcPulse { 0%, 100% { opacity: 0.75; transform: scale(1); } 50% { opacity: 1; transform: scale(1.08); } }
         .mc-dash-lines { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -861,7 +861,7 @@ export default function LandingPage() {
           box-shadow: 0 30px 70px rgba(0,0,0,0.5);
         }
         .mc-phone-notch { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 64px; height: 6px; border-radius: 4px; background: rgba(255,255,255,0.15); }
-        .mc-phone-header { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px; margin: 20px 0 16px; }
+        .mc-phone-header { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 14px; margin: 20px 0 16px; }
         .mc-phone-bubble { font-size: 12px; padding: 9px 12px; border-radius: 12px; margin-bottom: 8px; max-width: 85%; }
         .mc-phone-bubble.them { background: rgba(255,255,255,0.07); }
         .mc-phone-bubble.me { background: linear-gradient(120deg, ${COLORS.purple}99, ${COLORS.violet}99); margin-left: auto; }
@@ -940,7 +940,7 @@ export default function LandingPage() {
   display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: 40px;
 }
         .mc-footer-brand { max-width: 260px; }
-        .mc-footer-logo-text { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 17px; }
+        .mc-footer-logo-text { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 17px; }
         .mc-footer-tagline { margin: 14px 0 0; font-size: 13.5px; color: ${COLORS.muted}; line-height: 1.6; }
         .mc-footer-col { display: flex; flex-direction: column; gap: 12px; }
         .mc-footer-col-title {
@@ -1003,6 +1003,11 @@ export default function LandingPage() {
   .mc-integration { position: static; width: auto; height: auto; transform: none; }
   .mc-integration-badge { position: static; transform: none; margin: 0 auto; }
   .mc-integration-label { position: static; transform: none; text-align: center; }
+}
+.mc-works-with {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 14px 26px;
+  margin-top: 56px; padding-top: 28px; border-top: 1px solid ${COLORS.glassBorder};
+  font-size: 13.5px; color: ${COLORS.muted};
 }
       `}</style>
     </div>
