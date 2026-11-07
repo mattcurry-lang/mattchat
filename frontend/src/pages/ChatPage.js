@@ -1557,19 +1557,39 @@ const getConvoName = (c) => {
   if (c.isCurryAI) return 'Curry AI'
   if (c.is_group) return c.name
 
-  const members = c.conversation_members || []
-  const otherMembers = members.filter(m => m.user_id !== userId)
+  // 1. Gather all unique user IDs in this chat except the current user
+  const otherUserIds = new Set()
+  
+  // Check members
+  (c.conversation_members || []).forEach(m => {
+    if (m.user_id !== userId) otherUserIds.add(m.user_id)
+  })
+  
+  // Check message senders (covers pass-code guests & hosts instantly)
+  messages.forEach(m => {
+    if (m.sender_id && m.sender_id !== userId) otherUserIds.add(m.sender_id)
+  })
 
-  // Extract names using member profiles OR publicExtras lookup
-  const names = otherMembers
-    .map(m => m.profiles?.username || publicExtras.get(m.user_id)?.username)
-    .filter(Boolean)
+  // 2. Resolve names from profiles inside members, messages, or publicExtras
+  const resolvedNames = Array.from(otherUserIds).map(uid => {
+    const memberMatch = c.conversation_members?.find(m => m.user_id === uid)?.profiles?.username
+    if (memberMatch) return memberMatch
 
-  if (names.length > 0) {
-    return names.join(' & ')
+    const msgMatch = messages.find(m => m.sender_id === uid)?.profiles?.username
+    if (msgMatch) return msgMatch
+
+    const extraMatch = publicExtras.get(uid)?.username
+    if (extraMatch) return extraMatch
+
+    return null
+  }).filter(Boolean)
+
+  if (resolvedNames.length > 0) {
+    // Return unique host/guest names (e.g. "Matt" or "Matt & Lainey")
+    return Array.from(new Set(resolvedNames)).join(' & ')
   }
 
-  return 'Chat Session'
+  return 'Chat Partner'
 }
 // ── DERIVED STATE ──
 const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
@@ -1586,13 +1606,22 @@ const headerStatus = () => {
   if (callStatus === 'ringing')    return '📞 Ringing…'
   if (callStatus === 'connecting') return '📞 Connecting…'
   if (callStatus === 'in-call')    return '🟢 On a call'
-  
+
   if (typing.length > 0) {
     const typingNames = typing.map(uid => {
-      // Look up typing user in conversation members OR publicExtras
+      // 1. Check conversation_members
       const member = activeConvo.conversation_members?.find(m => m.user_id === uid)
-      const name = member?.profiles?.username || publicExtras.get(uid)?.username
-      return name || 'Guest'
+      if (member?.profiles?.username) return member.profiles.username
+
+      // 2. Check loaded messages for sender profile (e.g. Kane)
+      const msgSender = messages.find(m => m.sender_id === uid)?.profiles?.username
+      if (msgSender) return msgSender
+
+      // 3. Check publicExtras cache
+      const extraName = publicExtras.get(uid)?.username
+      if (extraName) return extraName
+
+      return 'Guest'
     })
     return `${typingNames.join(', ')} is typing…`
   }
@@ -1604,7 +1633,6 @@ const headerStatus = () => {
   if (otherUserId) return getLastSeenLabel(otherUserId)
   return ''
 }
-
 const headerTitle = activeConvo ? getConvoName(activeConvo) : ''
 const headerStatusText = isPeerBlocked ? '' : headerStatus()
  
