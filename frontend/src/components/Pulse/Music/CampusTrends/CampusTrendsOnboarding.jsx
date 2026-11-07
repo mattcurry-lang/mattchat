@@ -193,7 +193,7 @@ function ConsentStep({ ct, colors, reduce, again }) {
 
       <p style={{ margin: '16px 0 0', fontSize: 11.5, lineHeight: 1.5, color: colors.textMuted }}>
         What other students see is combined. Inside Mattchat, your activity is counted using your account once a week, so we treat it as personal data.{' '}
-        <a className="ct-link" href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: '#a78bfa', fontWeight: 700 }}>
+        <a className="ct-link" href="/privacy#campus-trends" target="_blank" rel="noopener noreferrer" style={{ color: '#a78bfa', fontWeight: 700 }}>
           Read the privacy notice
         </a>
       </p>
