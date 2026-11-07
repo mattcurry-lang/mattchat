@@ -175,6 +175,7 @@ const CURRY_POINTS = [
   { title: 'Email drafts', body: 'Curry writes the first version of a Gmail reply for you to edit.' },
   { title: 'Promise reminders', body: 'When you say you will do something, Curry offers to remind you.' },
   { title: 'Scheduling and voice', body: 'Ask for your day, the weather or a meeting time by typing or speaking.' },
+   { title: 'Music and daily check-ins', body: 'Ask for a song and play it in the chat, or read Curry\'s daily check-in.' },
 ]
 
  
@@ -199,11 +200,11 @@ function CurrySection() {
           </div>
         </div>
        <figure className="mc-frame">
-  <img
-    src="/screens/curry-chat.webp"
-    alt="Curry drafting an email reply inside a Mattchat conversation"
-    width="1100" height="826" loading="lazy" decoding="async"
-  />
+<img
+  src="/screens/curry-music.webp"
+  alt="Curry sending a daily check-in and playing a song inside Mattchat"
+  width="1273" height="914" loading="lazy" decoding="async"
+/>
 </figure>
       </div>
     </section>
@@ -211,46 +212,65 @@ function CurrySection() {
 }
 
 /* ---------- section: platform preview ---------- */
-
-function Shot({ src, alt, title, body }) {
-  const [ok, setOk] = useState(true)
-  if (!ok) return null
-  return (
-    <figure className="mc-shot">
-      <div className="mc-frame">
-        <img src={src} alt={alt} loading="lazy" decoding="async" onError={() => setOk(false)} />
-      </div>
-      <figcaption>
-        <strong>{title}</strong>
-        <span>{body}</span>
-      </figcaption>
-    </figure>
-  )
-}
+const BENTO_APPS = ['gmail', 'whatsapp', 'googlecalendar', 'googledrive', 'instagram', 'tiktok', 'pinterest']
 
 function PlatformSection() {
   return (
     <section className="mc-section" id="platform">
-      <Eyebrow>One interface</Eyebrow>
-      <h2 className="mc-h2">Chats, calls and your inbox in one app.</h2>
-      <div className="mc-shots">
-        <Shot
-          src="/screens/pulse.webp"
-          alt="Mattchat Pulse showing live updates and a daily brief"
-          title="Pulse"
-          body="Live updates and your daily brief in one view."
-        />
-        {/* Change src to your real Home screenshot filename */}
-        <Shot
-          src="/screens/home.webp"
-          alt="Mattchat home screen with chats, calls and status"
-          title="Home"
-          body="Your chats, calls and status in one place."
-        />
+      <Eyebrow>More than messaging</Eyebrow>
+      <h2 className="mc-h2">Everything you use to stay in touch, in one place.</h2>
+      <div className="mc-bento">
+        <figure className="mc-tile mc-tile-pulse">
+          <img src="/screens/pulse.webp" alt="Mattchat Pulse showing live updates and a daily brief" loading="lazy" decoding="async" />
+          <figcaption className="mc-tile-body">
+            <strong>Pulse</strong>
+            <span>Live updates and your daily brief in one view.</span>
+          </figcaption>
+        </figure>
+
+        <figure className="mc-tile mc-tile-checkin">
+          <img src="/screens/curry-checkin.webp" alt="Curry's daily check-in with a song suggestion" loading="lazy" decoding="async" />
+          <figcaption className="mc-tile-body">
+            <strong>A daily check-in from Curry</strong>
+            <span>A friendly note to start your day, with a song to match.</span>
+          </figcaption>
+        </figure>
+
+        <figure className="mc-tile mc-tile-music">
+          <img src="/screens/curry-music-card.webp" alt="A song from YouTube playing inside a Curry chat" loading="lazy" decoding="async" />
+          <figcaption className="mc-tile-body">
+            <strong>Music in the chat</strong>
+            <span>Ask for a song and play it without leaving the conversation.</span>
+          </figcaption>
+        </figure>
+
+        <div className="mc-tile mc-tile-apps mc-tile-body">
+          <strong>Connect the apps you already use</strong>
+          <span>You choose what to connect.</span>
+          <div className="mc-tile-logos">
+            {BENTO_APPS.map((id) => <BrandLogo key={id} id={id} size={26} />)}
+          </div>
+        </div>
+
+        <div className="mc-tile mc-tile-calls mc-tile-body">
+          <strong>Voice and video calls</strong>
+          <span>Call from the same place you chat.</span>
+        </div>
+
+        <div className="mc-tile mc-tile-draw mc-tile-body">
+          <strong>Draw Together</strong>
+          <span>Sketch on a shared canvas and play drawing games with friends.</span>
+        </div>
+
+        <div className="mc-tile mc-tile-private mc-tile-body">
+          <strong>Private to you</strong>
+          <span>Your chats with Curry stay private to you, and there are no ads.</span>
+        </div>
       </div>
     </section>
   )
 }
+
 
 /* ---------- section: comparison ---------- */
 
@@ -355,7 +375,17 @@ function IntegrationsSection() {
     </section>
   )
 }
+const COLLABS = [] // e.g. { name: 'Partner name', logo: '/collabs/partner.svg' }
 
+function CollabRow() {
+  if (!COLLABS.length) return null
+  return (
+    <div className="mc-collabs">
+      <span>Built with</span>
+      {COLLABS.map((c) => <img key={c.name} src={c.logo} alt={c.name} loading="lazy" />)}
+    </div>
+  )
+}
 /* ---------- section: testimonials ---------- */
 
 const TESTIMONIALS = [
@@ -511,14 +541,15 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      <HeroSection onGetStarted={() => navigate('/auth')} />
-      <WhySection />
-      <CurrySection />
-      <PlatformSection />
-      <CompareSection />
-      <IntegrationsSection />
-      <TestimonialsSection />
-      <FinalCTASection onGetStarted={() => navigate('/auth')} />
+     <HeroSection onGetStarted={() => navigate('/auth')} />
+<WhySection />
+<div className="mc-band"><CurrySection /></div>
+<PlatformSection />
+<div className="mc-band"><HowItWorksSection /></div>
+<CompareSection />
+<div className="mc-band"><IntegrationsSection /></div>
+<TestimonialsSection onGetStarted={() => navigate('/auth')} />
+<FinalCTASection onGetStarted={() => navigate('/auth')} />
 
       <Footer onNavigate={goTo} />
 
@@ -527,7 +558,7 @@ export default function LandingPage() {
 @media (max-width: 900px) {
   .mc-aurora { filter: blur(60px); opacity: 0.28; }
   .mc-why2, .mc-curry2 { grid-template-columns: 1fr; gap: 36px; }
-  .mc-shots { grid-template-columns: 1fr; }
+  
 }
 @media (hover: none) {
   .mc-cursor-glow { display: none; }
@@ -574,7 +605,7 @@ export default function LandingPage() {
         }
 
         /* ---------- layout base ---------- */
-        .mc-section { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 128px 24px; }
+       .mc-section { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 88px 24px; }
         .mc-center { text-align: center; margin-left: auto; margin-right: auto; }
 
         .mc-eyebrow {
@@ -636,7 +667,8 @@ export default function LandingPage() {
         .mc-nav-link:focus-visible { outline: 2px solid ${COLORS.blue}; outline-offset: 3px; border-radius: 4px; }
 
         /* ---------- hero ---------- */
-        .mc-hero { padding-top: 88px; }
+        .mc-hero { padding-top: 72px; padding-bottom: 48px; }
+        mc-band { background: #fff; border-top: 1px solid ${COLORS.glassBorder}; border-bottom: 1px solid ${COLORS.glassBorder}; }
         .mc-hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
         .mc-hero-actions { display: flex; gap: 14px; }
         .mc-hero-proof { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 0; margin: 26px 0 0; font-size: 12.5px; color: ${COLORS.muted}; }
@@ -861,7 +893,7 @@ export default function LandingPage() {
           .mc-steps { grid-template-columns: 1fr; }
         }
         @media (max-width: 520px) {
-          .mc-section { padding: 88px 18px; }
+         .mc-section { padding: 64px 18px; }
           .mc-nav { padding: 14px 18px; }
           .mc-nav-links { gap: 14px; }
           .mc-footer-grid { grid-template-columns: 1fr; }
@@ -897,12 +929,38 @@ export default function LandingPage() {
 .mc-curry2 { display: grid; grid-template-columns: 1.1fr 1fr; gap: 64px; align-items: center; }
 .mc-curry2-list { display: grid; gap: 20px; }
 .mc-curry2-item { padding-left: 16px; border-left: 2px solid ${COLORS.purple}; }
-.mc-shots { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; }
-.mc-shot { margin: 0; }
-.mc-shot figcaption { display: flex; flex-direction: column; gap: 4px; margin-top: 16px; font-size: 14.5px; }
-.mc-shot figcaption strong { color: ${COLORS.text}; }
-.mc-shot figcaption span { color: ${COLORS.muted}; }
- 
+ .mc-bento {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+  grid-template-areas: "pulse checkin checkin" "pulse music apps" "calls draw private";
+}
+.mc-tile {
+  margin: 0; display: flex; flex-direction: column; overflow: hidden; background: #fff;
+  border: 1px solid ${COLORS.glassBorder}; border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(15,23,32,0.04), 0 8px 24px rgba(15,23,32,0.05);
+}
+.mc-tile-pulse { grid-area: pulse; }
+.mc-tile-checkin { grid-area: checkin; }
+.mc-tile-music { grid-area: music; }
+.mc-tile-apps { grid-area: apps; }
+.mc-tile-calls { grid-area: calls; }
+.mc-tile-draw { grid-area: draw; }
+.mc-tile-private { grid-area: private; }
+.mc-tile img { display: block; width: 100%; height: auto; }
+.mc-tile-pulse img { flex: 1; min-height: 0; object-fit: cover; object-position: top; }
+.mc-tile-body { display: flex; flex-direction: column; gap: 4px; padding: 20px 22px 22px; }
+.mc-tile-body strong { font-family: 'Bricolage Grotesque', sans-serif; font-size: 17px; font-weight: 600; color: ${COLORS.text}; }
+.mc-tile-body span { font-size: 14.5px; line-height: 1.55; color: ${COLORS.muted}; }
+.mc-tile-logos { display: flex; flex-wrap: wrap; gap: 16px 20px; margin-top: 14px; }
+
+@media (max-width: 900px) {
+  .mc-bento {
+    grid-template-columns: 1fr;
+    grid-template-areas: "pulse" "checkin" "music" "apps" "calls" "draw" "private";
+  }
+  .mc-tile-pulse img { flex: none; max-height: 520px; }
+}
+ .mc-collabs { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 28px; margin-top: 20px; font-size: 13.5px; color: ${COLORS.muted}; }
+.mc-collabs img { height: 28px; width: auto; filter: grayscale(1); opacity: 0.8; }
       `}</style>
     </div>
   )
