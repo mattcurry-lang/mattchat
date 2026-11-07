@@ -394,9 +394,11 @@ function TestimonialsSection({ onGetStarted }) {
 function FinalCTASection({ onGetStarted }) {
   return (
     <section className="mc-section mc-final" id="get-started">
-      <div className="mc-final-glow" />
-      <h2 className="mc-h1 mc-center">Experience Communication<br />Reimagined.</h2>
-      <GlowButton primary onClick={onGetStarted}>Launch Mattchat</GlowButton>
+      <div className="mc-final-panel">
+        <h2 className="mc-h1">Bring your conversations somewhere private.</h2>
+        <p>Create your account, connect the apps you use, and let Curry handle the busywork.</p>
+        <GlowButton primary onClick={onGetStarted}>Create your account</GlowButton>
+      </div>
     </section>
   )
 }
@@ -521,7 +523,7 @@ export default function LandingPage() {
       <Footer onNavigate={goTo} />
 
       <style>{`
-       https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600;700&family=Instrument+Sans:wght@400;500;600&display=swap
+       @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600;700&family=Instrument+Sans:wght@400;500;600&display=swap');
 @media (max-width: 900px) {
   .mc-aurora { filter: blur(60px); opacity: 0.28; }
   .mc-why2, .mc-curry2 { grid-template-columns: 1fr; gap: 36px; }
@@ -774,8 +776,8 @@ export default function LandingPage() {
         .mc-compare-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 22px; align-items: center; }
         .mc-compare-card { padding: 32px 28px; }
         .mc-compare-card.muted { opacity: 0.6; }
-        .mc-compare-card.glow { border-color: rgba(108,99,255,0.4); box-shadow: 0 0 50px rgba(108,99,255,0.12), 0 20px 60px rgba(0,0,0,0.35); }
-        .mc-compare-tag { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 1.5px; margin-bottom: 18px; color: ${COLORS.muted}; }
+       .mc-compare-card.glow { border-color: ${COLORS.purple}; box-shadow: 0 1px 2px rgba(15,23,32,0.04), 0 8px 24px rgba(15,23,32,0.05); }
+      .mc-compare-tag { font-size: 13.5px; font-weight: 600; margin-bottom: 18px; color: ${COLORS.muted}; }
         .mc-compare-tag.accent { color: ${COLORS.blue}; }
         .mc-compare-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; font-size: 14.5px; }
         .mc-compare-arrow { font-size: 22px; color: ${COLORS.purple}; text-align: center; }
@@ -784,17 +786,17 @@ export default function LandingPage() {
 .mc-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .mc-step { padding: 28px 26px; }
 .mc-step:hover { transform: translateY(-4px); border-color: rgba(108,99,255,0.4); }
-.mc-step-num { font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 2px; color: ${COLORS.blue}; margin-bottom: 14px; }
+.mc-step-num { font-family: 'Bricolage Grotesque', sans-serif; font-size: 14px; font-weight: 600; color: ${COLORS.blue}; margin-bottom: 14px; }
 
 /* ---------- integrations ---------- */
 .mc-int-label {
   display: flex; align-items: center; gap: 8px; margin: 0 0 16px;
   font-size: 13.5px; font-weight: 600; color: ${COLORS.muted};
 }
-.mc-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ADE80; box-shadow: 0 0 10px #4ADE80; }
+.mc-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #16A34A; }
 .mc-int-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-bottom: 40px; }
 .mc-int-tile { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 14px; }
-.mc-int-tile:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.18); }
+.mc-int-tile:hover { transform: translateY(-2px); border-color: rgba(15,23,32,0.22); }
 .mc-int-tile.soon { opacity: 0.55; }
 .mc-int-name { font-size: 13.5px; font-weight: 600; }
 
@@ -804,24 +806,19 @@ export default function LandingPage() {
         .mc-testimonial { padding: 28px; display: flex; flex-direction: column; justify-content: space-between; min-height: 200px; }
         .mc-testimonial-quote { font-size: 14.5px; line-height: 1.6; color: ${COLORS.text}; margin: 0 0 24px; }
         .mc-testimonial-person { display: flex; align-items: center; gap: 10px; }
-        .mc-testimonial-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, ${COLORS.blue}, ${COLORS.purple}); box-shadow: 0 0 16px rgba(108,99,255,0.4); }
+       .mc-testimonial-avatar { width: 34px; height: 34px; border-radius: 50%; background: ${COLORS.purple}; }
         .mc-testimonial-name { font-size: 13px; font-weight: 700; }
         .mc-testimonial-role { font-size: 11.5px; color: ${COLORS.muted}; }
 
         /* ---------- final CTA ---------- */
-        .mc-final { text-align: center; padding: 160px 24px; position: relative; }
-        .mc-final-glow {
-          position: absolute; top: 50%; left: 50%; width: 700px; height: 700px; transform: translate(-50%,-50%);
-          background: radial-gradient(circle, ${COLORS.purple}33, transparent 70%); filter: blur(60px); z-index: -1;
-        }
-        .mc-final .mc-btn { margin-top: 28px; }
-
+       .mc-final { padding-top: 40px; padding-bottom: 120px; }
+.mc-final-panel { background: ${COLORS.text}; border-radius: 24px; padding: 72px 32px; text-align: center; }
+.mc-final-panel .mc-h1 { color: #fff; max-width: 720px; margin: 0 auto 16px; }
+.mc-final-panel p { color: rgba(255,255,255,0.72); font-size: 17px; line-height: 1.6; max-width: 480px; margin: 0 auto 32px; }
+.mc-final-panel .mc-btn-primary { background: #fff; color: ${COLORS.text}; }
+.mc-final-panel .mc-btn-primary:hover { background: #E8ECF3; }
         /* ---------- footer ---------- */
-        .mc-footer {
-          position: relative; z-index: 1; padding: 64px 32px 32px;
-          border-top: 1px solid rgba(255,255,255,0.06);
-          background: rgba(255,255,255,0.015);
-        }
+        .mc-footer { position: relative; z-index: 1; padding: 64px 32px 32px; border-top: 1px solid ${COLORS.glassBorder}; background: #fff; }
        .mc-footer-grid {
   max-width: 1180px; margin: 0 auto;
   display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: 40px;
@@ -830,10 +827,7 @@ export default function LandingPage() {
         .mc-footer-logo-text { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 17px; }
         .mc-footer-tagline { margin: 14px 0 0; font-size: 13.5px; color: ${COLORS.muted}; line-height: 1.6; }
         .mc-footer-col { display: flex; flex-direction: column; gap: 12px; }
-        .mc-footer-col-title {
-          font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 1.5px;
-          color: ${COLORS.muted}; text-transform: uppercase; margin-bottom: 4px;
-        }
+        .mc-footer-col-title { font-size: 13px; font-weight: 600; color: ${COLORS.text}; margin-bottom: 4px; }
         .mc-footer-col a {
           font-size: 14px; color: ${COLORS.text}; opacity: 0.8; text-decoration: none; transition: opacity 0.2s ease;
         }
@@ -841,7 +835,7 @@ export default function LandingPage() {
         .mc-footer-col a:focus-visible { outline: 2px solid ${COLORS.blue}; outline-offset: 3px; border-radius: 3px; }
         .mc-footer-bottom {
           max-width: 1180px; margin: 48px auto 0; padding-top: 24px;
-          border-top: 1px solid rgba(255,255,255,0.05);
+          border-top: 1px solid ${COLORS.glassBorder};
           font-size: 12.5px; color: ${COLORS.muted};
         }
 
