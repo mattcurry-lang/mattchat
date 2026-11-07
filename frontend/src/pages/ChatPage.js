@@ -137,6 +137,8 @@ import { parseEcoCard } from '../lib/ecosystem/cards'
 import SendLaterMenu, { useSendLongPress, ScheduleToast } from '../components/SendLaterMenu'
 import { formatWhen } from '../lib/scheduleTime'
 import ChatCodeManager, { ChatCodeRedeemModal } from '../components/StackedSessionManager'
+import { useBeyond } from '../beyond/useBeyond'
+import BeyondPortal, { BeyondGlyph } from '../beyond/BeyondPortal'
 
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
@@ -209,32 +211,27 @@ function MessageStatus({ isMe, isRead, isDelivered, queued }) {
   return <div className={`msg-status ${cls}`}>{label}</div>
 }
 function useSwipeToReply(onReply, msg) {
-  const startX = useRef(null)
+  const start = useRef(null)
+  const dxRef = useRef(0)
   const [dx, setDx] = useState(0)
   const [swiping, setSwiping] = useState(false)
   const THRESHOLD = 60
-  const onPointerDown = (e) => {
-    startX.current = e.clientX
-    setSwiping(true)
-  }
-  const onPointerMove = (e) => {
-    if (startX.current === null) return
-    const delta = e.clientX - startX.current
-    // only allow the natural WhatsApp direction: right-swipe on
-    // incoming bubbles, left-swipe on your own
-    const clamped = Math.max(-80, Math.min(80, delta))
-    setDx(clamped)
-  }
-  const onPointerUp = () => {
-    if (Math.abs(dx) > THRESHOLD) onReply(msg)
-    setDx(0)
-    setSwiping(false)
-    startX.current = null
-  }
-
+  const reset = () => { start.current = null; dxRef.current = 0; setDx(0); setSwiping(false) }
   return {
     style: { transform: `translateX(${dx}px)`, transition: swiping ? 'none' : 'transform 0.2s ease' },
-    handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerLeave: onPointerUp },
+    handlers: {
+      onPointerDown: (e) => { start.current = { x: e.clientX, y: e.clientY }; setSwiping(true) },
+      onPointerMove: (e) => {
+        if (!start.current) return
+        const mx = e.clientX - start.current.x, my = e.clientY - start.current.y
+        if (Math.abs(my) > Math.abs(mx) && dxRef.current === 0) return // vertical scroll
+        dxRef.current = Math.max(0, Math.min(80, mx))                  // right only
+        setDx(dxRef.current)
+      },
+      onPointerUp: () => { if (start.current && dxRef.current > THRESHOLD) onReply(msg); reset() },
+      onPointerLeave: reset,
+      onPointerCancel: reset,
+    },
   }
 }
 function SwipeableMessage({ msg, onReply, children }) {
@@ -1414,6 +1411,7 @@ const [showAddStatus, setShowAddStatus] = useState(false)
   const [sessionHosts, setSessionHosts] = useState([])
    const [showCodeManager, setShowCodeManager] = useState(false)
   const [showRedeemModal, setShowRedeemModal] = useState(false)
+  const chatAreaRef = useRef(null)
 
 const handleJoinSession = (passData) => {
   setSessionHosts([
@@ -1899,7 +1897,7 @@ if (activeConvo && !window.history.state?.chatOpen) window.history.pushState({ c
   }, [])
 
   useEffect(() => {
-    const handlePopState = () => setActiveConvo(null)
+    const handlePopState = () => { if (beyond.consumePop()) return; setActiveConvo(null) }
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
@@ -2344,6 +2342,14 @@ const headerTint = otherUserId && isOnline(otherUserId)
   const isReadOnlyChat =
   !!activeConvo && !activeConvo.isCurryAI &&
   getOtherUserIsAdmin(activeConvo, userId) && !profile?.is_admin
+
+const beyond = useBeyond({
+  chatRef: chatAreaRef,
+  scrollerRef: messagesScrollRef,
+  convoKey: activeConvo?.id,
+  enabled: !!activeConvo && !activeConvo.isCurryAI && !activeConvo.is_group
+    && !isUserBlocked && !isPeerBlocked && !isReadOnlyChat,
+})
   // Curry AI page nudge → opening a suggested conversation from the
   // Daily Brief's reconnect nudges (Phase 3). Just reuses openConvo so
   // unread badges clear the same way as clicking it from the list.
@@ -3343,7 +3349,14 @@ activeConvo.isCurryAI ? (
     />
   </div>
 ) : (
-  <div className="chat-area">
+  <div className="chat-area" ref={chatAreaRef}>
+ {beyond.mounted && (
+  <BeyondPortal beyond={beyond} contact={{
+    name: getConvoName(activeConvo),
+    avatarUrl: getOtherUserAvatar(activeConvo, userId),
+    online: otherUserId ? isOnline(otherUserId) : false,
+  }} />
+)} 
     {/* Header */}
 
             <div className="chat-header" style={{
@@ -3402,6 +3415,11 @@ activeConvo.isCurryAI ? (
                       }} />
                     )}
                   </button>
+{!isReadOnlyChat && (
+  <button className="icon-btn dark" onClick={() => beyond.openBeyond()} title="Beyond (Alt+B)" aria-label="Open Beyond">
+    <BeyondGlyph size={18} />
+  </button>
+)}
                   {showThreeDot && (
                    <ThreeDotMenu
   anchorRef={threeDotBtnRef}
