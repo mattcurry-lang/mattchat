@@ -61,7 +61,13 @@ const CSS = `
 .bdw-link{display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:0 16px;border-radius:999px;font:inherit;font-size:13px;font-weight:700;
   text-decoration:none;color:#fff;background:linear-gradient(135deg,#6c63ff,#5a4fe0);border:none;cursor:pointer}
 .bdw-link.ghost{background:rgba(255,255,255,.06);border:1px solid rgba(167,139,250,.28);color:#f1eefc}
-
+.bdw-toggle{flex:none;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;
+  border:1px solid rgba(167,139,250,.28);background:rgba(255,255,255,.06);color:#f1eefc;cursor:pointer;transition:background .18s}
+.bdw-toggle:hover{background:rgba(108,99,255,.3)}
+.bdw-toggle:focus-visible{outline:2px solid #a78bfa;outline-offset:2px}
+.bdw-toggle svg{transition:transform .2s}
+.bdw-panel.collapsed{padding:10px 10px 10px 12px}
+.bdw-panel.collapsed .bdw-toggle svg{transform:rotate(180deg)}
 .bdw-share{margin-top:12px;border-top:1px solid rgba(167,139,250,.16);padding-top:10px}
 .bdw-sum{cursor:pointer;font-size:13px;font-weight:700;color:#d9d2f3;list-style:none;min-height:32px;display:flex;align-items:center}
 .bdw-sum::-webkit-details-marker{display:none}
@@ -97,6 +103,7 @@ const IconPlus = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="no
 const IconMinus = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden><path d="M5 12h14" /></svg>)
 const IconTarget = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden><circle cx="12" cy="12" r="6.5" /><circle cx="12" cy="12" r="1.8" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3" /></svg>)
 const IconRoute = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM19 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" /><path d="M7 17h6a3 3 0 0 0 0-6h-2a3 3 0 0 1 0-6h6" /></svg>)
+const IconChevron = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m6 9 6 6 6-6" /></svg>)
 
 function buildMarker(name, avatarUrl) {
   const initial = (name || '?').trim().charAt(0).toUpperCase() || '?'
@@ -136,6 +143,7 @@ export default function WorldEnv({ contact, ctx, active }) {
   const [mapState, setMapState] = useState('idle') // idle | loading | ready | error
   const [attempt, setAttempt] = useState(0)
   const [busy, setBusy] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
 
   // ── create the map once the world is actually open ─────────────────────
   useEffect(() => {
@@ -278,14 +286,24 @@ export default function WorldEnv({ contact, ctx, active }) {
         </div>
       )}
 
-      <section className="bdw-panel" aria-live="polite" aria-label={`${contact.name}'s location`}>
+      <section className={`bdw-panel${collapsed ? ' collapsed' : ''}`} aria-live="polite" aria-label={`${contact.name}'s location`}>
         <div className="bdw-row">
           <Avatar name={contact.name} size={44} photoUrl={contact.avatarUrl} online={contact.online} />
           <div className="bdw-who">
             <div className="bdw-name">{contact.name}</div>
-            <div className="bdw-status"><span className="bdw-dot" data-s={dotState} aria-hidden />{statusText}</div>
+                       <div className="bdw-status"><span className="bdw-dot" data-s={dotState} aria-hidden />{statusText}</div>
           </div>
+          <button
+            className="bdw-toggle"
+            onClick={() => setCollapsed((v) => !v)}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? 'Show location details' : 'Hide location details'}
+          >
+            <IconChevron />
+          </button>
         </div>
+
+        {!collapsed && (<>
 
         {pos && (
           <ul className="bdw-meta">
@@ -329,7 +347,8 @@ export default function WorldEnv({ contact, ctx, active }) {
             </>
           )}
           {live.error && <p className="bdw-err" role="alert">{SHARE_ERRORS[live.error] || SHARE_ERRORS.failed}</p>}
-        </details>
+              </details>
+        </>)}
       </section>
     </div>
   )
