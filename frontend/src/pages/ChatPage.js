@@ -497,6 +497,27 @@ function CurryChatBubble({ msg }) {
 }
 function MessageBubble({ msg, isMe, isRead, isDelivered, session }) {
   
+  // ADD THIS BLOCK:
+  if (msg.message_type === 'system') {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', margin: '16px 0', width: '100%' }}>
+        <div style={{ 
+          background: 'rgba(167, 139, 250, 0.12)', 
+          border: '1px solid rgba(167, 139, 250, 0.3)', 
+          color: '#c4b5fd', 
+          padding: '6px 16px', 
+          borderRadius: 20, 
+          fontSize: 12, 
+          fontWeight: 600,
+          textAlign: 'center', 
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+        }}>
+          {msg.content}
+        </div>
+      </div>
+    )
+  }
+
   if (msg.message_type === 'curry') {
     return <CurryChatBubble msg={msg} />
   }
@@ -1412,6 +1433,7 @@ const [showAddStatus, setShowAddStatus] = useState(false)
    const [showCodeManager, setShowCodeManager] = useState(false)
   const [showRedeemModal, setShowRedeemModal] = useState(false)
   const chatAreaRef = useRef(null)
+  const [myJoinTime, setMyJoinTime] = useState(null)
 
 const handleJoinSession = (passData) => {
   setSessionHosts([
@@ -1645,7 +1667,22 @@ useEffect(() => {
   })
   return unsubscribe
 }, [conversations, answerCall, declineCall])
-  
+  useEffect(() => {
+    if (!activeConvo?.id || activeConvo.isCurryAI || !userId) {
+      setMyJoinTime(null)
+      return
+    }
+    supabase
+      .from('conversation_participants')
+      .select('created_at')
+      .eq('conversation_id', activeConvo.id)
+      .eq('user_id', userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setMyJoinTime(new Date(data.created_at))
+        else setMyJoinTime(null)
+      })
+  }, [activeConvo?.id, userId])
 useEffect(() => {
   supabase.from('profiles').select('*').eq('id', userId).single().then(({ data }) => {
     setProfile(data)
@@ -3533,7 +3570,12 @@ onSaved={() => { setShowSaved(true); setShowThreeDot(false) }}
             >
               {afterglowOn && <TimeRail scrollerRef={messagesScrollRef} version={messages.length} />}
               {msgLoading && <div className="loading-state">Loading messages…</div>}
-                {(() => { const threadMessages = afterglowOn ? mergeCallEvents(messages, callHistory, activeConvo?.id) : messages; const callInfo = afterglowOn ? analyzeCalls(threadMessages, userId, { history: callHistory }) : null; const visibleMessages = threadMessages.filter(m => !hiddenMsgIds.has(m.id) && !(callInfo && callInfo.hidden.has(m.id))); return visibleMessages.map((msg, i) => {
+                {(() => { const threadMessages = afterglowOn ? mergeCallEvents(messages, callHistory, activeConvo?.id) : messages; const callInfo = afterglowOn ? analyzeCalls(threadMessages, userId, { history: callHistory }) : null; const visibleMessages = threadMessages.filter(m => !hiddenMsgIds.has(m.id) && !(callInfo && callInfo.hidden.has(m.id))
+                                                                                                                                                                                                                                                                                      && 
+    (!myJoinTime || new Date(m.created_at) >= myJoinTime || m.message_type === 'system')
+  );
+                         
+                         return visibleMessages.map((msg, i) => {
                 const prev = visibleMessages[i - 1]
                 const showDate = !prev || new Date(msg.created_at).toDateString() !== new Date(prev.created_at).toDateString()
                 const isMissedCall = msg.content?.startsWith('missed_call:') || msg.content?.startsWith('call_log:')
