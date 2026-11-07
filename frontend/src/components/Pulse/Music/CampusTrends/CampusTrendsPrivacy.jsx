@@ -2,8 +2,8 @@ import React, { useEffect } from 'react'
 import { NOTICE_VERSION } from '../../../../lib/music/CampusTrends'
 
 // Fill these in before publishing. They are shown on purpose in square brackets so a missed one is obvious.
-const CONTACT = '[add your privacy contact email]'
-const UPDATED = '[add the date you publish this]'
+const CONTACT = '[mattchat.app.org@gmail.com]'
+const UPDATED = '[7th November ,2026]'
 
 const h3 = { fontSize: 15, fontWeight: 800, margin: '22px 0 6px' }
 const p = { fontSize: 14, lineHeight: 1.65, margin: '0 0 10px', opacity: 0.88 }
