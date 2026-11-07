@@ -1556,7 +1556,6 @@ const getConvoName = (c) => {
   if (otherId && (blockedUserIds.has(otherId) || !other?.profiles)) return 'Chat User'
   return other?.profiles?.username || other?.profiles?.email?.split('@')[0] || 'Chat User'
 }
-
 // ── DERIVED STATE ──
 const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
 const isUserBlocked = Boolean(otherUserId && blockedUserIds.has(otherUserId))
