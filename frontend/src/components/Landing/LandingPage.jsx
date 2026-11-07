@@ -81,38 +81,7 @@ function BrandLockup({ size = 28, textClassName = 'mc-nav-logo' }) {
   )
 }
 
-/* Simple line-icon set, drawn by hand so nothing depends on an
-   external icon package. Kept minimal and consistent stroke weight. */
-function Icon({ name, size = 22 }) {
-  const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }
-  switch (name) {
-    case 'spark':
-      return <svg {...common}><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M18 6l-2.5 2.5M8.5 15.5L6 18" /></svg>
-    case 'link':
-      return <svg {...common}><path d="M9 15L15 9" /><path d="M10 6l1-1a4 4 0 1 1 6 6l-1 1" /><path d="M14 18l-1 1a4 4 0 1 1-6-6l1-1" /></svg>
-    case 'future':
-      return <svg {...common}><circle cx="12" cy="12" r="8" /><path d="M12 8v4l3 2" /></svg>
-    case 'voice':
-      return <svg {...common}><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
-    case 'calendar':
-      return <svg {...common}><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
-    case 'mail':
-      return <svg {...common}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg>
-    case 'reply':
-      return <svg {...common}><path d="M9 14L4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 6 6v2" /></svg>
-    case 'meeting':
-      return <svg {...common}><rect x="2" y="6" width="14" height="12" rx="2" /><path d="M16 10l6-3v10l-6-3" /></svg>
-    case 'doc':
-      return <svg {...common}><path d="M6 2h9l5 5v15H6z" /><path d="M15 2v5h5M9 13h6M9 17h6" /></svg>
-    case 'weather':
-      return <svg {...common}><circle cx="9" cy="10" r="4" /><path d="M13 15h4a3 3 0 0 0 0-6 5 5 0 0 0-9.6-1.5" /></svg>
-    case 'task':
-      return <svg {...common}><path d="M9 11l2 2 4-4" /><rect x="3" y="3" width="18" height="18" rx="3" /></svg>
-    default:
-      return null
-  }
-}
-
+ 
 /* ---------- section: hero ---------- */
 function HeroShowcase() {
   return (
@@ -144,7 +113,7 @@ function HeroSection({ onGetStarted }) {
     <section className="mc-section mc-hero">
       <div className="mc-hero-grid">
         <div>
-          <Eyebrow>PRIVATE, AD-FREE MESSAGING</Eyebrow>
+         <Eyebrow>Private, ad-free messaging</Eyebrow>
           <h1 className="mc-h1">One private place for every conversation.</h1>
           <p className="mc-sub">
             Chat, call, and manage Gmail, WhatsApp and your calendar in one app, while
@@ -208,21 +177,7 @@ const CURRY_POINTS = [
   { title: 'Scheduling and voice', body: 'Ask for your day, the weather or a meeting time by typing or speaking.' },
 ]
 
-function CurryDemo() {
-  return (
-    <div className="mc-curry2-demo" role="img" aria-label="Example of Curry suggesting a reply and a reminder">
-      <div className="mc-demo-msg them">Can you send me the budget by Friday?</div>
-      <div className="mc-demo-suggest">
-        <span className="mc-demo-label">Curry suggests</span>
-        <span className="mc-demo-reply">Sure, I'll send it Thursday evening.</span>
-      </div>
-      <div className="mc-demo-reminder">
-        <strong>Remind you?</strong> You promised the budget by Friday. Remind you Thursday at 5:00 PM.
-      </div>
-      <div className="mc-demo-caption">Example</div>
-    </div>
-  )
-}
+ 
 
 function CurrySection() {
   return (
@@ -243,7 +198,13 @@ function CurrySection() {
             ))}
           </div>
         </div>
-        <CurryDemo />
+       <figure className="mc-frame">
+  <img
+    src="/screens/curry-chat.webp"
+    alt="Curry drafting an email reply inside a Mattchat conversation"
+    width="1100" height="826" loading="lazy" decoding="async"
+  />
+</figure>
       </div>
     </section>
   )
@@ -251,53 +212,41 @@ function CurrySection() {
 
 /* ---------- section: platform preview ---------- */
 
-function PhoneMock() {
+function Shot({ src, alt, title, body }) {
+  const [ok, setOk] = useState(true)
+  if (!ok) return null
   return (
-    <div className="mc-phone">
-      <div className="mc-phone-notch" />
-      <div className="mc-phone-header">Mattchat</div>
-      <div className="mc-phone-bubble them">Loved the deck — sending notes now</div>
-      <div className="mc-phone-bubble me">Perfect, meeting Curry-summarized already ✨</div>
-      <div className="mc-phone-pulse-row">
-        <span className="mc-pulse-pill">📧 Gmail</span>
-        <span className="mc-pulse-pill">📅 Today 3:00</span>
+    <figure className="mc-shot">
+      <div className="mc-frame">
+        <img src={src} alt={alt} loading="lazy" decoding="async" onError={() => setOk(false)} />
       </div>
-    </div>
-  )
-}
-
-function DesktopMock() {
-  return (
-    <div className="mc-desktop">
-      <div className="mc-desktop-bar" />
-      <div className="mc-desktop-body">
-        <div className="mc-desktop-side">
-          <div className="mc-side-item active" />
-          <div className="mc-side-item" />
-          <div className="mc-side-item" />
-          <div className="mc-side-item" />
-        </div>
-        <div className="mc-desktop-main">
-          <div className="mc-desktop-tile" style={{ gridColumn: 'span 2' }}>
-            <span className="mc-tile-label">Video meeting</span>
-            <div className="mc-tile-avatars"><span /><span /><span /></div>
-          </div>
-          <div className="mc-desktop-tile"><span className="mc-tile-label">Calendar</span></div>
-          <div className="mc-desktop-tile"><span className="mc-tile-label">Inbox</span></div>
-        </div>
-      </div>
-    </div>
+      <figcaption>
+        <strong>{title}</strong>
+        <span>{body}</span>
+      </figcaption>
+    </figure>
   )
 }
 
 function PlatformSection() {
   return (
     <section className="mc-section" id="platform">
-      <Eyebrow>PLATFORM PREVIEW</Eyebrow>
-      <h2 className="mc-h2">One interface. Every conversation.</h2>
-      <div className="mc-platform-grid">
-        <PhoneMock />
-        <DesktopMock />
+      <Eyebrow>One interface</Eyebrow>
+      <h2 className="mc-h2">Chats, calls and your inbox in one app.</h2>
+      <div className="mc-shots">
+        <Shot
+          src="/screens/pulse.webp"
+          alt="Mattchat Pulse showing live updates and a daily brief"
+          title="Pulse"
+          body="Live updates and your daily brief in one view."
+        />
+        {/* Change src to your real Home screenshot filename */}
+        <Shot
+          src="/screens/home.webp"
+          alt="Mattchat home screen with chats, calls and status"
+          title="Home"
+          body="Your chats, calls and status in one place."
+        />
       </div>
     </section>
   )
@@ -308,7 +257,7 @@ function PlatformSection() {
 function CompareSection() {
   return (
     <section className="mc-section">
-      <Eyebrow>WHY MATTCHAT IS DIFFERENT</Eyebrow>
+      <Eyebrow>Why Mattchat is different</Eyebrow>
       <h2 className="mc-h2">Stop assembling your day from six different apps.</h2>
       <div className="mc-compare-grid">
         <GlassCard className="mc-compare-card muted">
@@ -348,7 +297,7 @@ const STEPS = [
 function HowItWorksSection() {
   return (
     <section className="mc-section">
-      <Eyebrow>HOW IT WORKS</Eyebrow>
+      <Eyebrow>How it works</Eyebrow>
       <h2 className="mc-h2">Up and running in three steps.</h2>
       <div className="mc-steps">
         {STEPS.map((s) => (
@@ -381,10 +330,10 @@ function BrandLogo({ id, size = 26 }) {
 function IntegrationsSection() {
   return (
     <section className="mc-section">
-      <Eyebrow>INTEGRATIONS</Eyebrow>
+     <Eyebrow>Integrations</Eyebrow>
       <h2 className="mc-h2">Your apps, all in Mattchat.</h2>
 
-      <div className="mc-int-label"><span className="mc-live-dot" /> LIVE NOW</div>
+      <div className="mc-int-label"><span className="mc-live-dot" />Live now</div>
       <div className="mc-int-grid">
         {LIVE_APPS.map((id) => (
           <GlassCard key={id} className="mc-int-tile">
@@ -394,7 +343,7 @@ function IntegrationsSection() {
         ))}
       </div>
 
-      <div className="mc-int-label">COMING SOON</div>
+      <div className="mc-int-label">Coming soon</div>
       <div className="mc-int-grid">
         {SOON_APPS.map((id) => (
           <GlassCard key={id} className="mc-int-tile soon">
@@ -418,7 +367,7 @@ const TESTIMONIALS = [
 function TestimonialsSection({ onGetStarted }) {
   return (
     <section className="mc-section">
-      <Eyebrow>PEOPLE ON MATTCHAT</Eyebrow>
+     <Eyebrow>People on Mattchat</Eyebrow>
       <h2 className="mc-h2">Designed for students, creators, teams, and professionals.</h2>
       <div className="mc-testimonial-grid">
         {TESTIMONIALS.map((t) => (
@@ -483,55 +432,9 @@ function Footer({ onNavigate }) {
   )
 }
 
-/* ---------- ambient background: aurora + particles ---------- */
+ 
 
-function AmbientBackground() {
-  const particles = useRef(
-    Array.from({ length: window.matchMedia('(max-width: 900px)').matches ? 8 : 22 }).map(() => ({
-      left: Math.random() * 100,
-      delay: Math.random() * 12,
-      duration: 14 + Math.random() * 10,
-      size: 1 + Math.random() * 2.5,
-    }))
-  ).current
-
-  const [mouse, setMouse] = useState({ x: 50, y: 50 })
-  const frame = useRef(null)
-
-  const handleMove = useCallback((e) => {
-    if (frame.current) return
-    frame.current = requestAnimationFrame(() => {
-      setMouse({ x: (e.clientX / window.innerWidth) * 100, y: (e.clientY / window.innerHeight) * 100 })
-      frame.current = null
-    })
-  }, [])
-
-  useEffect(() => {
-    window.addEventListener('mousemove', handleMove)
-    return () => window.removeEventListener('mousemove', handleMove)
-  }, [handleMove])
-
-  return (
-    <div className="mc-ambient" aria-hidden="true">
-      <div className="mc-aurora a1" />
-      <div className="mc-aurora a2" />
-      <div className="mc-aurora a3" />
-      <div className="mc-cursor-glow" style={{ left: `${mouse.x}%`, top: `${mouse.y}%` }} />
-      {particles.map((p, i) => (
-        <span
-          key={i}
-          className="mc-particle"
-          style={{
-            left: `${p.left}%`,
-            width: p.size, height: p.size,
-            animationDelay: `${p.delay}s`, animationDuration: `${p.duration}s`,
-          }}
-        />
-      ))}
-    </div>
-  )
-}
-
+ 
 /*
   ---------- SCROLL FIX ----------
   Nothing in this file traps scroll. When the whole page is clipped to
@@ -622,6 +525,7 @@ export default function LandingPage() {
 @media (max-width: 900px) {
   .mc-aurora { filter: blur(60px); opacity: 0.28; }
   .mc-why2, .mc-curry2 { grid-template-columns: 1fr; gap: 36px; }
+  .mc-shots { grid-template-columns: 1fr; }
 }
 @media (hover: none) {
   .mc-cursor-glow { display: none; }
@@ -885,7 +789,7 @@ export default function LandingPage() {
 /* ---------- integrations ---------- */
 .mc-int-label {
   display: flex; align-items: center; gap: 8px; margin: 0 0 16px;
-  font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 1.5px; color: ${COLORS.muted};
+  font-size: 13.5px; font-weight: 600; color: ${COLORS.muted};
 }
 .mc-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ADE80; box-shadow: 0 0 10px #4ADE80; }
 .mc-int-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-bottom: 40px; }
@@ -999,23 +903,12 @@ export default function LandingPage() {
 .mc-curry2 { display: grid; grid-template-columns: 1.1fr 1fr; gap: 64px; align-items: center; }
 .mc-curry2-list { display: grid; gap: 20px; }
 .mc-curry2-item { padding-left: 16px; border-left: 2px solid ${COLORS.purple}; }
-
-.mc-curry2-demo {
-  position: relative; background: #fff; border: 1px solid ${COLORS.glassBorder}; border-radius: 18px;
-  padding: 28px 24px 36px; display: grid; gap: 14px;
-  box-shadow: 0 24px 60px rgba(15,23,32,0.10);
-}
-.mc-demo-msg { font-size: 14.5px; padding: 11px 14px; border-radius: 14px; max-width: 80%; }
-.mc-demo-msg.them { background: #EEF0F4; color: ${COLORS.text}; }
-.mc-demo-suggest {
-  display: grid; gap: 6px; padding: 12px 14px; border-radius: 14px;
-  border: 1px dashed ${COLORS.purple}; background: rgba(36,87,245,0.05); margin-left: auto; max-width: 88%;
-}
-.mc-demo-label { font-size: 12px; font-weight: 600; color: ${COLORS.purple}; }
-.mc-demo-reply { font-size: 14.5px; color: ${COLORS.text}; }
-.mc-demo-reminder { font-size: 13.5px; line-height: 1.5; padding: 12px 14px; border-radius: 12px; background: #F6F7F9; color: ${COLORS.muted}; }
-.mc-demo-reminder strong { color: ${COLORS.text}; }
-.mc-demo-caption { position: absolute; right: 16px; bottom: 10px; font-size: 11.5px; color: ${COLORS.muted}; }
+.mc-shots { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; }
+.mc-shot { margin: 0; }
+.mc-shot figcaption { display: flex; flex-direction: column; gap: 4px; margin-top: 16px; font-size: 14.5px; }
+.mc-shot figcaption strong { color: ${COLORS.text}; }
+.mc-shot figcaption span { color: ${COLORS.muted}; }
+ 
       `}</style>
     </div>
   )
