@@ -1340,6 +1340,13 @@ function openWhatsApp() {
     )
   }, 1500)
 }
+
+// Stand-in until real live location sharing is wired in. Same shape as useLiveShare().
+const NO_LIVE_SHARE = {
+  activeFor: () => null,
+  start: async () => { const e = new Error('Live sharing is not set up yet'); e.code = 'unavailable'; throw e },
+  stop: async () => {},
+}
 export default function ChatPage({ session }) {
   const [activeConvo, setActiveConvo]   = useState(null)
   const userId = session.user.id
@@ -3502,7 +3509,7 @@ activeConvo.isCurryAI ? (
 {beyond.mounted && (
   <BeyondPortal
     beyond={beyond}
-    ctx={{ conversationId: activeConvo.id, userId, liveShare: null }}
+   ctx={{ conversationId: activeConvo.id, userId, liveShare: NO_LIVE_SHARE }}
     contact={{
       id: otherUserId,
       name: getConvoName(activeConvo),
