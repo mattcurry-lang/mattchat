@@ -63,7 +63,7 @@ export function makeDemoChart() {
   const start = end - 7 * DAY
   return {
     status: 'ok',
-    campus: 'Demo campus (made-up data)',
+    campus: 'Demo Campus (DemoA)',
     period_start: new Date(start).toISOString(),
     period_end: new Date(end).toISOString(),
     stale: false,
@@ -77,5 +77,35 @@ export function makeDemoChart() {
       { rank: 1, genre: 'Afrobeats', share_pct: 35 }, { rank: 2, genre: 'Hip-hop', share_pct: 25 },
       { rank: 3, genre: 'Gospel', share_pct: 20 }, { rank: 4, genre: 'Amapiano', share_pct: 15 }, { rank: 5, genre: 'Other', share_pct: 5 },
     ],
+  }
+}
+const mk = (i, title, artist) => ({ id: `demo:${i}`, provider: 'demo', providerTrackId: String(i), title, artist, artwork: null, duration: 180, genre: null })
+
+export function makeDemoWrapped() {
+  const end = currentWeekStart()
+  return {
+    status: 'ok', campus: 'Demo Campus (DemoA)', weeks: 4, total: 12,
+    period_start: new Date(end - 28 * DAY).toISOString(), period_end: new Date(end).toISOString(),
+    song: { track: mk(1, 'Demo Song One', 'Demo Artist A'), weeks: 4, best_rank: 1 },
+    staying: [
+      { track: mk(2, 'Demo Song Two', 'Demo Artist B'), weeks: 3, best_rank: 2 },
+      { track: mk(3, 'Demo Song Three', 'Demo Artist A'), weeks: 3, best_rank: 3 },
+    ],
+    newcomers: [{ track: mk(4, 'Demo Song Four', 'Demo Artist C'), best_rank: 4 }],
+    artist: { name: 'Demo Artist A', songs: 3 },
+  }
+}
+
+export function makeDemoBattle() {
+  const end = currentWeekStart()
+  return {
+    status: 'ok', campus: 'Demo Campus (DemoA)', opponent: 'Demo University (DemoB)',
+    period_start: new Date(end - 7 * DAY).toISOString(), period_end: new Date(end).toISOString(),
+    my_songs: 14, their_songs: 14, shared_total: 5,
+    shared: [
+      { track: mk(1, 'Demo Song One', 'Demo Artist A'), my_rank: 1, their_rank: 2 },
+      { track: mk(2, 'Demo Song Two', 'Demo Artist B'), my_rank: 2, their_rank: 4 },
+    ],
+    only_there: [{ track: mk(9, 'Demo Song Nine', 'Demo Artist F'), their_rank: 1 }],
   }
 }
