@@ -1439,38 +1439,12 @@ const [showAddStatus, setShowAddStatus] = useState(false)
   const [showRedeemModal, setShowRedeemModal] = useState(false)
   const chatAreaRef = useRef(null)
   const [myJoinTime, setMyJoinTime] = useState(null)
+  const [hostDisplayName, setHostDisplayName] = useState(null)
 // Dynamic cache for profiles that join via pass codes or aren't in initial members
 const [extraProfiles, setExtraProfiles] = useState(new Map())
 
 // Automatically fetch profile info for any unknown user ID found in typing or messages
-useEffect(() => {
-  const uidsToFetch = new Set()
-  typing.forEach(uid => {
-    if (!publicExtras.get(uid)?.username && !extraProfiles.has(uid)) uidsToFetch.add(uid)
-  })
-  messages.forEach(m => {
-    if (m.sender_id && !m.profiles?.username && !publicExtras.get(m.sender_id)?.username && !extraProfiles.has(m.sender_id)) {
-      uidsToFetch.add(m.sender_id)
-    }
-  })
 
-  if (uidsToFetch.size === 0) return
-
-  supabase.from('profiles').select('id, username, email').in('id', Array.from(uidsToFetch))
-    .then(({ data }) => {
-      if (data) {
-        setExtraProfiles(prev => {
-          const next = new Map(prev)
-          data.forEach(p => next.set(p.id, p))
-          return next
-        })
-      }
-    })
-}, [typing, messages, publicExtras])
-
-// Unified helper to resolve any user ID to their real username
-const getUsernameForUser = (uid) => {
-  if (!uid || uid === userId) return ''
 
   // Look in loaded messages array for sender profile
   const msg = messages.find(m => m.sender_id === uid)
@@ -1491,8 +1465,7 @@ const getUsernameForUser = (uid) => {
   return null
 }
 const handleJoinSession = (passData) => {
-  setSessionHosts([
-    targetProfile || { username: passData.creator_name }, 
+   setSessionHosts([
     { username: passData.creator_name, bio: 'Session Creator & Security Admin' }
   ])
   setActiveSessionPass(passData.pass_code)
@@ -1580,7 +1553,34 @@ const handleJoinSession = (passData) => {
   const { readMap, deliveredMap } = useMessageStatus(
     messages, activeConvo?.id && !activeConvo.isCurryAI ? activeConvo.id : null, userId)
   const lastActivityStatus = useLastActivityStatus(conversations.map(c => c.id), userId)
+useEffect(() => {
+  const uidsToFetch = new Set()
+  typing.forEach(uid => {
+    if (!publicExtras.get(uid)?.username && !extraProfiles.has(uid)) uidsToFetch.add(uid)
+  })
+  messages.forEach(m => {
+    if (m.sender_id && !m.profiles?.username && !publicExtras.get(m.sender_id)?.username && !extraProfiles.has(m.sender_id)) {
+      uidsToFetch.add(m.sender_id)
+    }
+  })
 
+  if (uidsToFetch.size === 0) return
+
+  supabase.from('profiles').select('id, username, email').in('id', Array.from(uidsToFetch))
+    .then(({ data }) => {
+      if (data) {
+        setExtraProfiles(prev => {
+          const next = new Map(prev)
+          data.forEach(p => next.set(p.id, p))
+          return next
+        })
+      }
+    })
+}, [typing, messages, publicExtras])
+
+// Unified helper to resolve any user ID to their real username
+const getUsernameForUser = (uid) => {
+  if (!uid || uid === userId) return ''
   const quickSendReply = async (convo, text) => {
     await supabase.from('messages').insert({ conversation_id: convo.id, sender_id: userId, content: text, message_type: 'text' })
     await supabase.from('conversations').update({ updated_at: new Date().toISOString(), last_message: text }).eq('id', convo.id)
@@ -1608,10 +1608,9 @@ const getConvoName = (c) => {
   if (c.is_group) return c.name
 
   // If host displayName was resolved via pass code creator_id
-  if (hostDisplayName) {
+   if (hostDisplayName && c.id === activeConvo?.id) {
     return hostDisplayName
   }
-
   // 1. Check conversation_members
   const members = c.conversation_members || []
   const otherMembers = members.filter(m => m.user_id !== userId)
@@ -1664,7 +1663,7 @@ const headerStatus = () => {
     if (typingNames.length > 0) {
       return `${Array.from(new Set(typingNames)).join(', ')} is typing…`
     }
-    return 'Guest is typing…'
+       return 'Someone is typing…'
   }
 
   if (otherUserId && isOnline(otherUserId)) {
@@ -1743,7 +1742,7 @@ const scheduleFromMenu = async (when) => {
   clearTimeout(toastTimer.current)
   toastTimer.current = setTimeout(() => setScheduleToast(''), 3500)
 }
-const [hostDisplayName, setHostDisplayName] = useState(null)
+
 
 useEffect(() => {
   if (!activeConvo?.id || activeConvo.isCurryAI) {
@@ -2055,27 +2054,40 @@ if (activeConvo && !window.history.state?.chatOpen) window.history.pushState({ c
   }, [])
 
   useEffect(() => {
-    const handlePopState = () => { if (beyond.consumePop()) return; setActiveConvo(null) }
+   const handlePopState = () => { if (beyondRef.current?.consumePop()) return; setActiveConvo(null) }
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 // Upgrade the stand-in {id, conversation_members: []} to the real row once it loads
 useEffect(() => {
-  if (!activeConvo?.id || activeConvo.isCurryAI) return
-  if (activeConvo.conversation_members?.length) return
-  const full = conversations.find(c => c.id === activeConvo.id)
-  if (full) setActiveConvo(full)
-}, [conversations, activeConvo])
-  useEffect(() => {
-    setShowVoice(false); setShowPoll(false); setShowTask(false)
-    setShowScheduler(false); setShowScheduledList(false); setShowSearch(false)
-    setShowCurryAssistant(false); setShowThreeDot(false)
-    setHasScheduled(false); setShowEmojiPicker(false); setShowInsights(false)
-    setCoachSuggestion(null);setReplyingTo(null)
-   setForwardingMessage(null)
-   setMediaViewerTarget(null); setMomentViewerTarget(null)
-    return () => { if (activeConvo?.id) removeReactionChannel(activeConvo.id) }
- }, [activeConvo?.id])
+  if (!activeConvo?.id || activeConvo.isCurryAI) { setHostDisplayName(null); return }
+  let cancelled = false
+  ;(async () => {
+    const { data: pass } = await supabase
+      .from('temporary_passes').select('creator_id')
+      .eq('conversation_id', activeConvo.id).eq('status', 'active').maybeSingle()
+    if (cancelled) return
+
+    // Not a guest session (or I'm the host): no override, and clear any stale name
+    if (!pass?.creator_id || pass.creator_id === userId) { setHostDisplayName(null); return }
+
+    // Hosts = the creator first, then anyone else in the chat who isn't me
+    const hostIds = [pass.creator_id]
+    ;(activeConvo.conversation_members || []).forEach(m => {
+      if (m.user_id !== userId && !hostIds.includes(m.user_id)) hostIds.push(m.user_id)
+    })
+    const { data: rows } = await supabase
+      .from('profiles').select('id, username, email').in('id', hostIds)
+    if (cancelled) return
+
+    const names = hostIds
+      .map(id => rows?.find(p => p.id === id))
+      .map(p => p?.username || p?.email?.split('@')[0])
+      .filter(Boolean)
+    setHostDisplayName(names.length ? Array.from(new Set(names)).join(' & ') : null)
+  })()
+  return () => { cancelled = true }
+}, [activeConvo?.id, activeConvo?.conversation_members?.length, userId])
 
 useEffect(() => {
     if (!activeConvo?.id || activeConvo.isCurryAI) return
@@ -2508,6 +2520,8 @@ const beyond = useBeyond({
   enabled: !!activeConvo && !activeConvo.isCurryAI && !activeConvo.is_group
     && !isUserBlocked && !isPeerBlocked && !isReadOnlyChat,
 })
+  const beyondRef = useRef(null)
+beyondRef.current = beyond
   // Curry AI page nudge → opening a suggested conversation from the
   // Daily Brief's reconnect nudges (Phase 3). Just reuses openConvo so
   // unread badges clear the same way as clicking it from the list.
@@ -3771,7 +3785,7 @@ onSaved={() => { setShowSaved(true); setShowThreeDot(false) }}
     _onMessageContact: (contactEmail) => handleMessageContact(contactEmail),
     
     // Included right inside the message context object:
-    _onJoinSession: (code) => setActiveSessionPassCode(code),
+        _onJoinSession: (code) => setActiveSessionPass(code),
   }}
   isMe={isMine}
   isRead={!!readMap[msg.id]}
