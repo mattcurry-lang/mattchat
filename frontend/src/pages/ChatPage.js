@@ -1555,27 +1555,22 @@ const handleJoinSession = (passData) => {
 const getConvoName = (c) => {
   if (!c) return ''
   if (c.isCurryAI) return 'Curry AI'
-  if (c.is_group) return c.name
-  
+  if.c?.is_group) return c.name
+
+  // If we fetched a host name via pass code, use it!
+  if (hostDisplayName) {
+    return hostDisplayName
+  }
+
   const members = c.conversation_members || []
-  // Find the other user who is not me
-  const otherMember = members.find(m => m.user_id !== userId)
-  
-  if (otherMember?.profiles?.username) {
-    return otherMember.profiles.username
-  }
-  
-  if (otherMember?.profiles?.email) {
-    return otherMember.profiles.email.split('@')[0]
-  }
+  const otherMembers = members.filter(m => m.user_id !== userId)
 
-  // If there are multiple members or if it's a pass code session, join host names
-  const hostNames = members
-    .filter(m => m.user_id !== userId && m.profiles?.username)
-    .map(m => m.profiles.username)
+  const names = otherMembers
+    .map(m => m.profiles?.username || publicExtras.get(m.user_id)?.username)
+    .filter(Boolean)
 
-  if (hostNames.length > 0) {
-    return hostNames.join(' & ')
+  if (names.length > 0) {
+    return names.join(' & ')
   }
 
   return 'Chat Session'
@@ -1596,12 +1591,12 @@ const headerStatus = () => {
   if (callStatus === 'connecting') return '📞 Connecting…'
   if (callStatus === 'in-call')    return '🟢 On a call'
   
-  // TYPING INDICATOR FIX: Show the exact name of whoever is typing
   if (typing.length > 0) {
-    // If typing contains user IDs or names, resolve them cleanly
     const typingNames = typing.map(uid => {
+      // Look up typing user in conversation members OR publicExtras
       const member = activeConvo.conversation_members?.find(m => m.user_id === uid)
-      return member?.profiles?.username || 'Someone'
+      const name = member?.profiles?.username || publicExtras.get(uid)?.username
+      return name || 'Guest'
     })
     return `${typingNames.join(', ')} is typing…`
   }
@@ -1683,7 +1678,35 @@ const scheduleFromMenu = async (when) => {
   clearTimeout(toastTimer.current)
   toastTimer.current = setTimeout(() => setScheduleToast(''), 3500)
 }
-  
+const [hostDisplayName, setHostDisplayName] = useState(null)
+
+useEffect(() => {
+  if (!activeConvo?.id || activeConvo.isCurryAI) {
+    setHostDisplayName(null)
+    return
+  }
+
+  // Check if this conversation was joined via pass code, and find the creator
+  supabase
+    .from('temporary_passes')
+    .select('creator_id')
+    .eq('conversation_id', activeConvo.id)
+    .eq('status', 'active')
+    .maybeSingle()
+    .then(async ({ data: passData }) => {
+      if (passData?.creator_id && passData.creator_id !== userId) {
+        const { data: creatorProfile } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', passData.creator_id)
+          .maybeSingle()
+
+        if (creatorProfile?.username) {
+          setHostDisplayName(creatorProfile.username)
+        }
+      }
+    })
+}, [activeConvo?.id, userId])
 useEffect(() => {
   const unsubscribe = listenForNotificationActions((action, data) => {
     if (data.type === 'call' && action === 'answer') {
