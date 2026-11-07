@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BRAND_ICONS } from '../../lib/brandIcons'
 /* ============================================================
@@ -126,12 +126,17 @@ function HeroSection({ onGetStarted }) {
           <ul className="mc-hero-proof">
             <li>Ad-free</li>
             <li>Phone and desktop</li>
-            <li>Gmail, WhatsApp, Calendar</li>
+            
           </ul>
+           <figure className="mc-hero-quote">
+  <blockquote>“I stopped switching apps mid-conversation. Everything I need is already there.”</blockquote>
+  <figcaption>Jerry Wendo, Product designer</figcaption>
+</figure>
         </div>
         <HeroShowcase />
       </div>
        <div className="mc-works-with">
+          <CollabRow />
   <span>Connects with</span>
   {['gmail', 'whatsapp', 'googlecalendar', 'googledrive', 'instagram'].map((id) => (
     <BrandLogo key={id} id={id} size={22} />
@@ -518,11 +523,87 @@ function useNaturalPageScroll() {
 }
 
 /* ---------- root ---------- */
+function DownloadIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3v12M7 10l5 5 5-5M4 20h16" />
+    </svg>
+  )
+}
 
+function useInstallApp() {
+  const [promptEvent, setPromptEvent] = useState(() => (typeof window !== 'undefined' ? window.__mcInstall || null : null))
+  const [installed, setInstalled] = useState(() =>
+    typeof window !== 'undefined' &&
+    (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true)
+  )
+  const [helpOpen, setHelpOpen] = useState(false)
+
+  useEffect(() => {
+    const onPrompt = (e) => { e.preventDefault(); window.__mcInstall = e; setPromptEvent(e) }
+    const onInstalled = () => { window.__mcInstall = null; setPromptEvent(null); setInstalled(true) }
+    window.addEventListener('beforeinstallprompt', onPrompt)
+    window.addEventListener('appinstalled', onInstalled)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt)
+      window.removeEventListener('appinstalled', onInstalled)
+    }
+  }, [])
+
+  const install = useCallback(async () => {
+    if (!promptEvent) { setHelpOpen(true); return }
+    promptEvent.prompt()
+    try { await promptEvent.userChoice } catch (e) { /* ignore */ }
+    window.__mcInstall = null
+    setPromptEvent(null)
+  }, [promptEvent])
+
+  return { installed, install, helpOpen, closeHelp: () => setHelpOpen(false) }
+}
+
+function detectInstallHelp() {
+  const ua = navigator.userAgent
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  if (isIOS) return 'ios'
+  if (/Android/i.test(ua)) return 'android'
+  if (/Firefox/i.test(ua)) return 'firefox'
+  if (/Safari/i.test(ua) && !/Chrome|Chromium|Edg|OPR/i.test(ua)) return 'safari'
+  return 'desktop'
+}
+
+const HELP_STEPS = {
+  ios: ['Tap the Share button in Safari.', 'Scroll down and tap Add to Home Screen.', 'Tap Add. Mattchat appears on your home screen.'],
+  android: ['Open your browser menu (the three dots).', 'Tap Install app or Add to Home screen.', 'Confirm, and Mattchat appears with your other apps.'],
+  safari: ['In the menu bar, choose File.', 'Choose Add to Dock.', 'Mattchat opens in its own window from your Dock.'],
+  firefox: ['Firefox on desktop cannot install web apps.', 'Open Mattchat in Chrome or Edge to install it, or keep using it right here in your browser.'],
+  desktop: ['Look for the install icon at the right end of the address bar and click it.', 'No icon? Open the browser menu and look for Install Mattchat.', 'Mattchat then opens in its own window.'],
+}
+
+function InstallHelp({ open, onClose }) {
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+  if (!open) return null
+  const steps = HELP_STEPS[detectInstallHelp()]
+  return (
+    <div className="mc-modal" role="presentation" onClick={onClose}>
+      <div className="mc-modal-panel" role="dialog" aria-modal="true" aria-labelledby="mc-install-title" onClick={(e) => e.stopPropagation()}>
+        <h2 id="mc-install-title" className="mc-h3" style={{ marginTop: 0 }}>Install Mattchat</h2>
+        <ol className="mc-modal-steps">
+          {steps.map((s) => <li key={s}>{s}</li>)}
+        </ol>
+        <button type="button" className="mc-btn mc-btn-primary" onClick={onClose} autoFocus>Got it</button>
+      </div>
+    </div>
+  )
+}
 export default function LandingPage() {
   const navigate = useNavigate()
   useNaturalPageScroll()
-
+const { installed, install, helpOpen, closeHelp } = useInstallApp()
   const goTo = useCallback((e, path) => {
     if (e) e.preventDefault()
     navigate(path)
@@ -531,16 +612,33 @@ export default function LandingPage() {
   return (
     <div className="mc-root">
       
-      <nav className="mc-nav">
-        <a href="/" className="mc-nav-brand" onClick={(e) => goTo(e, '/')} aria-label="Mattchat home">
-          <BrandLockup size={26} />
-        </a>
-        <div className="mc-nav-links">
-          <a href="/explore" className="mc-nav-link" onClick={(e) => goTo(e, '/explore')}>Explore</a>
-          <GlowButton primary onClick={() => navigate('/auth')}>Get Started</GlowButton>
-        </div>
-      </nav>
-
+   <nav className="mc-nav" aria-label="Main">
+  <a href="/" className="mc-nav-brand" onClick={(e) => goTo(e, '/')} aria-label="Mattchat home">
+    <BrandLockup size={26} />
+  </a>
+  <div className="mc-nav-center">
+    <a href="#curry" className="mc-nav-link">Curry</a>
+    <a href="#platform" className="mc-nav-link">Features</a>
+    <a href="#how" className="mc-nav-link">How it works</a>
+    <a href="#apps" className="mc-nav-link">Apps</a>
+    <a href="/explore" className="mc-nav-link" onClick={(e) => goTo(e, '/explore')}>Explore</a>
+  </div>
+  <div className="mc-nav-links">
+    {!installed && (
+      <button type="button" className="mc-btn mc-btn-secondary mc-install" onClick={install} aria-label="Install the Mattchat app">
+        <DownloadIcon /><span className="mc-install-text">Install app</span>
+      </button>
+    )}
+    <a href="/auth" className="mc-nav-link mc-nav-signin" onClick={(e) => goTo(e, '/auth')}>Sign in</a>
+    <GlowButton primary onClick={() => navigate('/auth')}>Get started</GlowButton>
+     <div id="curry" className="mc-band"><CurrySection /></div>
+<PlatformSection />
+<div id="how" className="mc-band"><HowItWorksSection /></div>
+<CompareSection />
+<div id="apps" className="mc-band"><IntegrationsSection /></div>
+  </div>
+</nav>
+<InstallHelp open={helpOpen} onClose={closeHelp} />
      <HeroSection onGetStarted={() => navigate('/auth')} />
 <WhySection />
 <div className="mc-band"><CurrySection /></div>
@@ -668,7 +766,7 @@ export default function LandingPage() {
 
         /* ---------- hero ---------- */
         .mc-hero { padding-top: 72px; padding-bottom: 48px; }
-        mc-band { background: #fff; border-top: 1px solid ${COLORS.glassBorder}; border-bottom: 1px solid ${COLORS.glassBorder}; }
+        .mc-band { background: #fff; border-top: 1px solid ${COLORS.glassBorder}; border-bottom: 1px solid ${COLORS.glassBorder}; }
         .mc-hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
         .mc-hero-actions { display: flex; gap: 14px; }
         .mc-hero-proof { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 0; margin: 26px 0 0; font-size: 12.5px; color: ${COLORS.muted}; }
@@ -961,6 +1059,35 @@ export default function LandingPage() {
 }
  .mc-collabs { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 28px; margin-top: 20px; font-size: 13.5px; color: ${COLORS.muted}; }
 .mc-collabs img { height: 28px; width: auto; filter: grayscale(1); opacity: 0.8; }
+html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+
+.mc-nav-center { display: flex; align-items: center; gap: 26px; }
+.mc-nav-links .mc-btn { padding: 10px 18px; }
+.mc-install { gap: 8px; }
+
+.mc-hero { position: relative; }
+.mc-hero::before {
+  content: ''; position: absolute; top: 0; left: 50%; width: 100vw; height: 560px;
+  transform: translateX(-50%); z-index: -1; pointer-events: none;
+  background-image: radial-gradient(rgba(15,23,32,0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 0%, #000 25%, transparent 72%);
+  mask-image: radial-gradient(ellipse at 50% 0%, #000 25%, transparent 72%);
+}
+.mc-hero-quote { margin: 28px 0 0; padding-left: 16px; border-left: 2px solid ${COLORS.purple}; max-width: 440px; }
+.mc-hero-quote blockquote { margin: 0; font-size: 15px; line-height: 1.6; color: ${COLORS.text}; }
+.mc-hero-quote figcaption { margin-top: 8px; font-size: 13px; color: ${COLORS.muted}; }
+
+.mc-modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(15,23,32,0.45); }
+.mc-modal-panel { width: 100%; max-width: 420px; background: #fff; border-radius: 16px; padding: 28px; box-shadow: 0 24px 60px rgba(15,23,32,0.25); }
+.mc-modal-steps { margin: 12px 0 24px; padding-left: 20px; color: ${COLORS.muted}; font-size: 15px; line-height: 1.7; }
+
+@media (max-width: 900px) { .mc-nav-center { display: none; } }
+@media (max-width: 520px) {
+  .mc-nav-signin { display: none; }
+  .mc-install-text { display: none; }
+  .mc-nav-links .mc-install { padding: 10px 12px; }
+}
       `}</style>
     </div>
   )
