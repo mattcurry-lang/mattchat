@@ -94,7 +94,6 @@ export default function MiniPlayer() {
 
   // ── where the player sits ──
   const cardRef = useRef(null)
-  const dragRef = useRef(null)
   const [pos, setPos] = useState(loadPos)            // saved spot, as fractions; null = the default top-right
   const [px, setPx] = useState(null)                 // that spot in pixels for the current window size
   const [dragPx, setDragPx] = useState(null)         // live position while the finger/mouse is down
@@ -122,40 +121,54 @@ export default function MiniPlayer() {
 
   const reset = useCallback(() => { savePos(null); setPos(null); setPx(null) }, [])
 
+  // The drag is tracked on the whole window, so a fast flick that leaves the card still carries it along.
+  const detachRef = useRef(null)
+  useEffect(() => () => { if (detachRef.current) detachRef.current() }, [])
+
   const onPointerDown = (e) => {
     if (e.button !== undefined && e.button !== 0) return
     const el = cardRef.current
     if (!el) return
+    if (detachRef.current) detachRef.current()
     const r = el.getBoundingClientRect()
-    dragRef.current = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: r.left, oy: r.top, w: el.offsetWidth, h: el.offsetHeight, moved: false, last: null }
-  }
+    const d = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: r.left, oy: r.top, w: el.offsetWidth, h: el.offsetHeight, moved: false, last: null }
 
-  const onPointerMove = (e) => {
-    const d = dragRef.current
-    if (!d || e.pointerId !== d.id) return
-    const dx = e.clientX - d.sx
-    const dy = e.clientY - d.sy
-    if (!d.moved) {
-      if (Math.hypot(dx, dy) < DRAG_START) return
-      d.moved = true
-      try { cardRef.current.setPointerCapture(e.pointerId) } catch { /* already released */ }
+    const move = (ev) => {
+      if (ev.pointerId !== d.id) return
+      const dx = ev.clientX - d.sx
+      const dy = ev.clientY - d.sy
+      if (!d.moved) {
+        if (Math.hypot(dx, dy) < DRAG_START) return
+        d.moved = true
+      }
+      d.last = keepOnScreen(d.ox + dx, d.oy + dy, window.innerWidth, window.innerHeight, d.w, d.h)
+      setDragPx(d.last)
     }
-    d.last = keepOnScreen(d.ox + dx, d.oy + dy, window.innerWidth, window.innerHeight, d.w, d.h)
-    setDragPx(d.last)
-  }
 
-  const endDrag = (e) => {
-    const d = dragRef.current
-    if (!d || e.pointerId !== d.id) return
-    dragRef.current = null
-    if (!d.moved || !d.last) return
-    // letting go over a button must not press it
-    const stop = (ev) => { ev.stopPropagation(); ev.preventDefault() }
-    window.addEventListener('click', stop, { capture: true, once: true })
-    setTimeout(() => window.removeEventListener('click', stop, { capture: true }), 0)
-    const s = snapToEdges(d.last.left, d.last.top, window.innerWidth, window.innerHeight, d.w, d.h)
-    commit(s.left, s.top, d.w, d.h)
-    setDragPx(null)
+    const detach = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+      detachRef.current = null
+    }
+
+    const up = (ev) => {
+      if (ev.pointerId !== d.id) return
+      detach()
+      if (!d.moved || !d.last) return
+      // letting go over a button must not press it
+      const stop = (cev) => { cev.stopPropagation(); cev.preventDefault() }
+      window.addEventListener('click', stop, { capture: true, once: true })
+      setTimeout(() => window.removeEventListener('click', stop, { capture: true }), 0)
+      const snapped = snapToEdges(d.last.left, d.last.top, window.innerWidth, window.innerHeight, d.w, d.h)
+      commit(snapped.left, snapped.top, d.w, d.h)
+      setDragPx(null)
+    }
+
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+    detachRef.current = detach
   }
 
   // keyboard: arrows nudge, Home puts it back
@@ -215,9 +228,6 @@ export default function MiniPlayer() {
           exit={{ y: -20, opacity: 0, scale: 0.96 }}
           transition={{ type: 'spring', stiffness: 420, damping: 32 }}
           onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={endDrag}
-          onPointerCancel={endDrag}
           style={{
             position: 'fixed', zIndex: 900, ...positionStyle,
             width: 'min(320px, calc(100vw - 24px))', maxWidth: 320,
