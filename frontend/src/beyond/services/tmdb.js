@@ -16,7 +16,7 @@ const TTL = 30 * 60 * 1000
 const mem = new Map()
 
 export class CinemaError extends Error {
-  constructor(kind, message) { super(message || kind); this.kind = kind } // 'offline' | 'not_configured' | 'unavailable'
+  constructor(kind, message) { super(message || kind); this.kind = kind } // 'offline' | 'not_configured' | 'not_deployed' | 'bad_key' | 'not_signed_in' | 'unavailable'
 }
 
 export async function tmdb(path, params = {}) {
@@ -37,10 +37,16 @@ export async function tmdb(path, params = {}) {
   const { data, error } = await supabase.functions.invoke('beyond-tmdb', { body: { path, params } })
   if (error) {
     let body = null
-    try { body = await error.context?.json?.() } catch { /* not json */ }
+    try { body = await error.context?.clone?.().json?.() } catch { /* not json */ }
+    const status = error.context?.status
     if (body?.error === 'not_configured') throw new CinemaError('not_configured')
-    // a missing/undeployed function surfaces as a relay/404 error from Supabase
-    if (error.name === 'FunctionsRelayError' || error.context?.status === 404) throw new CinemaError('not_configured')
+    // TMDB itself refused our token: almost always the short "API key" was used instead of the long Read Access Token
+    if (body?.error === 'tmdb_error' && (body.status === 401 || body.status === 403)) throw new CinemaError('bad_key')
+    // the function is not deployed (Supabase answers 404 / a relay error)
+    // (if the body has an `error` field, OUR function answered, so it is deployed)
+    if (!body?.error && (error.name === 'FunctionsRelayError' || status === 404 || status === 401)) {
+      throw new CinemaError(status === 401 ? 'not_signed_in' : 'not_deployed')
+    }
     throw new CinemaError('unavailable', body?.error || error.message)
   }
   const entry = { at: now, data }
