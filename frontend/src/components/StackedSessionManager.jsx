@@ -55,13 +55,12 @@ export function ChatCodeRedeemModal({ currentUserId, onJoinSuccess, onClose }) {
       return
     }
 
-    // 2. Insert a centered system join message into the chat
-    await supabase.from('messages').insert({
-      conversation_id: String(passRecord.conversation_id),
-      sender_id: String(userId),
-      content: '🔒 Guest joined secure chat via pass code',
-      message_type: 'system'
-    })
+     
+// Reload full conversation members so profiles populate instantly
+    await supabase
+      .from('conversation_members')
+      .select('user_id, profiles(username, avatar_url)')
+      .eq('conversation_id', passRecord.conversation_id)
 
     setLoading(false)
     if (typeof onJoinSuccess === 'function') {
