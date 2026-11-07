@@ -145,10 +145,9 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
 
   const convoStr = String(conversationId || 'default-convo')
 
-  // Fetch active code and participants
   useEffect(() => {
     async function initData() {
-      // 1. Fetch code
+      // 1. Fetch active code
       const { data: existing } = await supabase
         .from('temporary_passes')
         .select('*')
@@ -158,19 +157,31 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
 
       if (existing) setCurrentCode(existing.pass_code)
 
-      // 2. Fetch participants in this chat
+      // 2. Fetch participants and their profile info cleanly
       const { data: parts } = await supabase
         .from('conversation_participants')
-        .select('user_id, profiles(username, email)')
+        .select('user_id')
         .eq('conversation_id', convoStr)
 
-      if (parts) setParticipants(parts)
+      if (parts && parts.length > 0) {
+        const userIds = parts.map(p => p.user_id)
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, username, email')
+          .in('id', userIds)
+
+        const combined = parts.map(p => ({
+          user_id: p.user_id,
+          profile: profilesData?.find(prof => prof.id === p.user_id)
+        }))
+        setParticipants(combined)
+      }
     }
     initData()
   }, [convoStr])
 
   const handleRemoveParticipant = async (targetUserId) => {
-    if (!window.confirm('Are you sure you want to remove this participant from the chat?')) return
+    if (!window.confirm('Remove this guest from the secure session?')) return
 
     const { error } = await supabase
       .from('conversation_participants')
@@ -180,7 +191,6 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
 
     if (!error) {
       setParticipants(prev => prev.filter(p => p.user_id !== targetUserId))
-      // Optionally insert a system notice that guest was removed
       await supabase.from('messages').insert({
         conversation_id: convoStr,
         sender_id: currentUserId,
@@ -192,8 +202,6 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
     }
   }
 
- 
-
   const handleGenerateNewCode = async () => {
     if (!consentGiven) {
       alert('Please confirm mutual consent with your chat partner before generating an access code.')
@@ -201,12 +209,6 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
     }
 
     setLoading(true)
-    let userId = currentUserId
-    if (!userId) {
-      const { data: { user } } = await supabase.auth.getUser()
-      userId = user?.id || 'guest'
-    }
-
     const newHash = 'CHAT-' + Math.random().toString(36).substring(2, 7).toUpperCase()
     const hoursNum = parseInt(durationHours) || 2
     const expiresAt = new Date(Date.now() + hoursNum * 3600 * 1000).toISOString()
@@ -216,20 +218,15 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
       .update({ status: 'revoked' })
       .eq('conversation_id', convoStr)
 
-    const { error } = await supabase.from('temporary_passes').insert({
+    await supabase.from('temporary_passes').insert({
       pass_code: newHash,
       conversation_id: convoStr,
-      creator_id: String(userId),
+      creator_id: String(currentUserId || 'guest'),
       status: 'active',
       expires_at: expiresAt
     })
 
-    if (!error) {
-      setCurrentCode(newHash)
-    } else {
-      console.error('Error generating new code:', error)
-    }
-
+    setCurrentCode(newHash)
     setLoading(false)
   }
 
@@ -287,9 +284,10 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
             </button>
           </div>
         </div>
-{/* ACTIVE GUESTS LIST & REMove BUTTON */}
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 8, marginTop: 16 }}>Active Session Guests:</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 140, overflowY: 'auto', marginBottom: 16 }}>
+
+        {/* ACTIVE GUESTS LIST */}
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Active Session Guests:</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 130, overflowY: 'auto', marginBottom: 16 }}>
           {participants.filter(p => p.user_id !== currentUserId).length === 0 ? (
             <div style={{ fontSize: 11.5, color: '#8b8b9e', textAlign: 'center', padding: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: 10 }}>
               No guests joined yet.
@@ -297,7 +295,7 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
           ) : (
             participants.filter(p => p.user_id !== currentUserId).map(p => (
               <div key={p.user_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10 }}>
-                <span style={{ fontSize: 12.5, color: '#e5e7eb', fontWeight: 600 }}>{p.profiles?.username || p.profiles?.email || 'Guest User'}</span>
+                <span style={{ fontSize: 12.5, color: '#e5e7eb', fontWeight: 600 }}>{p.profile?.username || p.profile?.email || 'Invited Guest'}</span>
                 <button
                   onClick={() => handleRemoveParticipant(p.user_id)}
                   style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
@@ -308,6 +306,7 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
             ))
           )}
         </div>
+
         {/* CONSENT CHECKBOX */}
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: '#d1cde6', marginBottom: 16, cursor: 'pointer' }}>
           <input
@@ -319,7 +318,7 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
           I confirm my chat partner consents to sharing access.
         </label>
 
-        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 10 }}>
           <select
             value={durationHours}
             onChange={(e) => setDurationHours(e.target.value)}
