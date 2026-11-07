@@ -1,7 +1,3 @@
-// scripts/copy-maplibre-worker.js
-// Copies MapLibre's CSP worker into /public so the map's background thread runs from a
-// plain file (Create React App's Babel step breaks the default inline worker in production).
-// Runs automatically before `npm start` and `npm run build` (see package.json).
 const fs = require('fs')
 const path = require('path')
 
