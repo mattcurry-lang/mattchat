@@ -1471,12 +1471,16 @@ useEffect(() => {
 // Unified helper to resolve any user ID to their real username
 const getUsernameForUser = (uid) => {
   if (!uid || uid === userId) return ''
+
+  // Look in loaded messages array for sender profile
   const msg = messages.find(m => m.sender_id === uid)
   if (msg?.profiles?.username) return msg.profiles.username
 
+  // Look in conversation_members
   const member = activeConvo?.conversation_members?.find(m => m.user_id === uid)
   if (member?.profiles?.username) return member.profiles.username
 
+  // Look in publicExtras or extraProfiles cache
   const extra = publicExtras.get(uid)
   if (extra?.username) return extra.username
 
@@ -1603,21 +1607,35 @@ const getConvoName = (c) => {
   if (c.isCurryAI) return 'Curry AI'
   if (c.is_group) return c.name
 
-  // Gather all unique user IDs in this chat except current user
-  const otherUserIds = new Set()
-  (c.conversation_members || []).forEach(m => {
-    if (m.user_id !== userId) otherUserIds.add(m.user_id)
-  })
+  // If host displayName was resolved via pass code creator_id
+  if (hostDisplayName) {
+    return hostDisplayName
+  }
+
+  // 1. Check conversation_members
+  const members = c.conversation_members || []
+  const otherMembers = members.filter(m => m.user_id !== userId)
+
+  const namesFromMembers = otherMembers
+    .map(m => m.profiles?.username || publicExtras.get(m.user_id)?.username || extraProfiles.get(m.user_id)?.username)
+    .filter(Boolean)
+
+  if (namesFromMembers.length > 0) {
+    return Array.from(new Set(namesFromMembers)).join(' & ')
+  }
+
+  // 2. Check loaded messages for host/partner profiles
+  const otherSenderIds = new Set()
   messages.forEach(m => {
-    if (m.sender_id && m.sender_id !== userId) otherUserIds.add(m.sender_id)
+    if (m.sender_id && m.sender_id !== userId) otherSenderIds.add(m.sender_id)
   })
 
-  const resolvedNames = Array.from(otherUserIds)
+  const namesFromMessages = Array.from(otherSenderIds)
     .map(uid => getUsernameForUser(uid))
     .filter(Boolean)
 
-  if (resolvedNames.length > 0) {
-    return Array.from(new Set(resolvedNames)).join(' & ')
+  if (namesFromMessages.length > 0) {
+    return Array.from(new Set(namesFromMessages)).join(' & ')
   }
 
   return 'Chat Session'
@@ -1639,11 +1657,14 @@ const headerStatus = () => {
   if (callStatus === 'in-call')    return '🟢 On a call'
 
   if (typing.length > 0) {
-    const typingNames = typing.map(uid => getUsernameForUser(uid)).filter(Boolean)
+    const typingNames = typing
+      .map(uid => getUsernameForUser(uid))
+      .filter(Boolean)
+
     if (typingNames.length > 0) {
-      return `${typingNames.join(', ')} is typing…`
+      return `${Array.from(new Set(typingNames)).join(', ')} is typing…`
     }
-    return 'Someone is typing…'
+    return 'Guest is typing…'
   }
 
   if (otherUserId && isOnline(otherUserId)) {
