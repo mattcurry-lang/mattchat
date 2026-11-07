@@ -138,20 +138,17 @@ export function ChatCodeRedeemModal({ currentUserId, onJoinSuccess, onClose }) {
 // 2. Manager with verified database persistence
 export default function ChatCodeManager({ conversationId, currentUserId, onClose }) {
   const [currentCode, setCurrentCode] = useState('LOADING...')
+  const [participants, setParticipants] = useState([])
   const [durationHours, setDurationHours] = useState('2')
   const [consentGiven, setConsentGiven] = useState(true)
   const [loading, setLoading] = useState(false)
 
   const convoStr = String(conversationId || 'default-convo')
 
+  // Fetch active code and participants
   useEffect(() => {
-    async function getOrLessCreateCode() {
-      let userId = currentUserId
-      if (!userId) {
-        const { data: { user } } = await supabase.auth.getUser()
-        userId = user?.id || 'guest'
-      }
-
+    async function initData() {
+      // 1. Fetch code
       const { data: existing } = await supabase
         .from('temporary_passes')
         .select('*')
@@ -159,30 +156,43 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
         .eq('status', 'active')
         .maybeSingle()
 
-      if (existing) {
-        setCurrentCode(existing.pass_code)
-      } else {
-        const newCode = 'CHAT-' + Math.random().toString(36).substring(2, 7).toUpperCase()
-        const expiresAt = new Date(Date.now() + 2 * 3600 * 1000).toISOString()
+      if (existing) setCurrentCode(existing.pass_code)
 
-        const { error } = await supabase.from('temporary_passes').insert({
-          pass_code: newCode,
-          conversation_id: convoStr,
-          creator_id: String(userId),
-          status: 'active',
-          expires_at: expiresAt
-        })
+      // 2. Fetch participants in this chat
+      const { data: parts } = await supabase
+        .from('conversation_participants')
+        .select('user_id, profiles(username, email)')
+        .eq('conversation_id', convoStr)
 
-        if (!error) {
-          setCurrentCode(newCode)
-        } else {
-          console.error('Insert error:', error)
-          setCurrentCode(newCode)
-        }
-      }
+      if (parts) setParticipants(parts)
     }
-    getOrLessCreateCode()
-  }, [convoStr, currentUserId])
+    initData()
+  }, [convoStr])
+
+  const handleRemoveParticipant = async (targetUserId) => {
+    if (!window.confirm('Are you sure you want to remove this participant from the chat?')) return
+
+    const { error } = await supabase
+      .from('conversation_participants')
+      .delete()
+      .eq('conversation_id', convoStr)
+      .eq('user_id', targetUserId)
+
+    if (!error) {
+      setParticipants(prev => prev.filter(p => p.user_id !== targetUserId))
+      // Optionally insert a system notice that guest was removed
+      await supabase.from('messages').insert({
+        conversation_id: convoStr,
+        sender_id: currentUserId,
+        content: '🔒 Host removed a participant from the secure session',
+        message_type: 'system'
+      })
+    } else {
+      alert('Failed to remove participant.')
+    }
+  }
+
+ 
 
   const handleGenerateNewCode = async () => {
     if (!consentGiven) {
@@ -277,7 +287,27 @@ export default function ChatCodeManager({ conversationId, currentUserId, onClose
             </button>
           </div>
         </div>
-
+{/* ACTIVE GUESTS LIST & REMove BUTTON */}
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 8, marginTop: 16 }}>Active Session Guests:</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 140, overflowY: 'auto', marginBottom: 16 }}>
+          {participants.filter(p => p.user_id !== currentUserId).length === 0 ? (
+            <div style={{ fontSize: 11.5, color: '#8b8b9e', textAlign: 'center', padding: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: 10 }}>
+              No guests joined yet.
+            </div>
+          ) : (
+            participants.filter(p => p.user_id !== currentUserId).map(p => (
+              <div key={p.user_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10 }}>
+                <span style={{ fontSize: 12.5, color: '#e5e7eb', fontWeight: 600 }}>{p.profiles?.username || p.profiles?.email || 'Guest User'}</span>
+                <button
+                  onClick={() => handleRemoveParticipant(p.user_id)}
+                  style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Remove
+                </button>
+              </div>
+            ))
+          )}
+        </div>
         {/* CONSENT CHECKBOX */}
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: '#d1cde6', marginBottom: 16, cursor: 'pointer' }}>
           <input
