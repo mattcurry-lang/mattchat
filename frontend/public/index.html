@@ -44,6 +44,14 @@
     name="twitter:image"
     content="https://mattchat-nine.vercel.app/preview.png"
   />
+  <link rel="manifest" href="/manifest.webmanifest" />
+<meta name="theme-color" content="#2457F5" />
+<script>
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    window.__mcInstall = e;
+  });
+</script>
   <!-- Icons -->
   <link rel="icon" href="/favicon.ico" sizes="any" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
