@@ -174,95 +174,77 @@ function HeroSection({ onGetStarted }) {
 
 /* ---------- section: why mattchat ---------- */
 
-const WHY_CARDS = [
-  { icon: 'spark', title: 'Intelligent Conversations', body: 'AI understands context and helps naturally, right inside the conversation you\'re already having.' },
-  { icon: 'link', title: 'Everything Connected', body: 'Messaging, email, meetings, and productivity — one platform instead of six open tabs.' },
-  { icon: 'future', title: 'Built For The Future', body: 'Designed for how people will actually communicate tomorrow, not how apps have always worked.' },
+const WHY_POINTS = [
+  { title: 'Private by default', body: 'No ads, and no selling your attention. Your conversations are not the product.' },
+  { title: 'Your other apps, in the same place', body: 'Manage Gmail, WhatsApp and your calendar from the same app you chat in.' },
+  { title: 'An assistant inside the conversation', body: 'Curry drafts replies and reminds you of what you promised, right where you are talking.' },
 ]
 
 function WhySection() {
   return (
     <section className="mc-section">
-      <Eyebrow>WHY MATTCHAT</Eyebrow>
-      <h2 className="mc-h2">A different kind of inbox for a different kind of day.</h2>
-      <div className="mc-why-grid">
-        {WHY_CARDS.map((c) => (
-          <GlassCard key={c.title} className="mc-why-card">
-            <div className="mc-why-icon"><Icon name={c.icon} /></div>
-            <h3 className="mc-h3">{c.title}</h3>
-            <p className="mc-p">{c.body}</p>
-          </GlassCard>
-        ))}
+      <div className="mc-why2">
+        <h2 className="mc-h2" style={{ marginBottom: 0 }}>
+          Messaging that works for you, not for advertisers.
+        </h2>
+        <div className="mc-why2-list">
+          {WHY_POINTS.map((p) => (
+            <div key={p.title} className="mc-why2-item">
+              <h3 className="mc-h3" style={{ marginTop: 0 }}>{p.title}</h3>
+              <p className="mc-p">{p.body}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   )
 }
 
 /* ---------- section: Curry AI core (signature moment) ---------- */
-
-const CURRY_ABILITIES = [
-  { icon: 'voice', label: 'Voice Assistant' },
-  { icon: 'calendar', label: 'Scheduling' },
-  { icon: 'mail', label: 'Email Intelligence' },
-  { icon: 'reply', label: 'Smart Replies' },
-  { icon: 'meeting', label: 'Meeting Assistant' },
-  { icon: 'doc', label: 'Document Analysis' },
-  { icon: 'weather', label: 'Weather' },
-  { icon: 'task', label: 'Productivity' },
+const CURRY_POINTS = [
+  { title: 'Smart replies', body: 'Suggested answers in your own conversations, one tap to send.' },
+  { title: 'Email drafts', body: 'Curry writes the first version of a Gmail reply for you to edit.' },
+  { title: 'Promise reminders', body: 'When you say you will do something, Curry offers to remind you.' },
+  { title: 'Scheduling and voice', body: 'Ask for your day, the weather or a meeting time by typing or speaking.' },
 ]
 
-function CurryCore() {
-  const wrapRef = useRef(null)
-  const [inView, setInView] = useState(false)
-
-  useEffect(() => {
-    const el = wrapRef.current
-    if (!el) return
-    const obs = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) { setInView(true); obs.disconnect() }
-    }, { threshold: 0.35 })
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [])
-
+function CurryDemo() {
   return (
-    <div className={`mc-curry-wrap ${inView ? 'in-view' : ''}`} ref={wrapRef}>
-      <div className="mc-curry-orb">
-        <div className="mc-curry-orb-core" />
-        <div className="mc-curry-orb-ring r1" />
-        <div className="mc-curry-orb-ring r2" />
+    <div className="mc-curry2-demo" role="img" aria-label="Example of Curry suggesting a reply and a reminder">
+      <div className="mc-demo-msg them">Can you send me the budget by Friday?</div>
+      <div className="mc-demo-suggest">
+        <span className="mc-demo-label">Curry suggests</span>
+        <span className="mc-demo-reply">Sure, I'll send it Thursday evening.</span>
       </div>
-      <div className="mc-curry-abilities">
-        {CURRY_ABILITIES.map((a, i) => {
-          const angle = (360 / CURRY_ABILITIES.length) * i
-          return (
-            <div
-              key={a.label}
-              className="mc-ability"
-              style={{ '--angle': `${angle}deg`, transitionDelay: `${i * 60}ms` }}
-            >
-              <div className="mc-ability-chip">
-                <Icon name={a.icon} size={16} />
-                <span>{a.label}</span>
-              </div>
-            </div>
-          )
-        })}
+      <div className="mc-demo-reminder">
+        <strong>Remind you?</strong> You promised the budget by Friday. Remind you Thursday at 5:00 PM.
       </div>
+      <div className="mc-demo-caption">Example</div>
     </div>
   )
 }
 
 function CurrySection() {
   return (
-    <section className="mc-section mc-curry-section">
-      <Eyebrow>MEET CURRY AI</Eyebrow>
-      <h2 className="mc-h2 mc-center">An assistant woven into every conversation.</h2>
-      <p className="mc-p mc-center mc-curry-sub">
-        Not a chatbot bolted onto the side. A living layer of intelligence that understands
-        what you're saying, who you're saying it to, and what needs to happen next.
-      </p>
-      <CurryCore />
+    <section className="mc-section">
+      <div className="mc-curry2">
+        <div>
+          <h2 className="mc-h2">Curry helps while you talk.</h2>
+          <p className="mc-p" style={{ marginBottom: 32, maxWidth: 460 }}>
+            Curry is the AI assistant built into Mattchat. It reads the conversation you are in
+            and offers the next useful thing, so you stop switching apps to get it done.
+          </p>
+          <div className="mc-curry2-list">
+            {CURRY_POINTS.map((p) => (
+              <div key={p.title} className="mc-curry2-item">
+                <h3 className="mc-h3" style={{ margin: '0 0 4px', fontSize: 16 }}>{p.title}</h3>
+                <p className="mc-p" style={{ fontSize: 14.5 }}>{p.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <CurryDemo />
+      </div>
     </section>
   )
 }
@@ -639,6 +621,7 @@ export default function LandingPage() {
        https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600;700&family=Instrument+Sans:wght@400;500;600&display=swap
 @media (max-width: 900px) {
   .mc-aurora { filter: blur(60px); opacity: 0.28; }
+  .mc-why2, .mc-curry2 { grid-template-columns: 1fr; gap: 36px; }
 }
 @media (hover: none) {
   .mc-cursor-glow { display: none; }
@@ -689,9 +672,9 @@ export default function LandingPage() {
         .mc-center { text-align: center; margin-left: auto; margin-right: auto; }
 
         .mc-eyebrow {
-          font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; letter-spacing: 2.5px;
-          color: ${COLORS.blue}; margin-bottom: 18px; font-weight: 500;
-        }
+  font-family: 'Instrument Sans', system-ui, sans-serif; font-size: 14px; font-weight: 600;
+  color: ${COLORS.purple}; margin-bottom: 14px;
+}
     .mc-h1 {
   font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700;
   font-size: clamp(38px, 5.4vw, 64px); line-height: 1.04; letter-spacing: -1.6px;
@@ -1009,6 +992,30 @@ export default function LandingPage() {
   margin-top: 56px; padding-top: 28px; border-top: 1px solid ${COLORS.glassBorder};
   font-size: 13.5px; color: ${COLORS.muted};
 }
+.mc-why2 { display: grid; grid-template-columns: 1fr 1.1fr; gap: 64px; align-items: start; }
+.mc-why2-item { padding: 24px 0; border-top: 1px solid ${COLORS.glassBorder}; }
+.mc-why2-item:last-child { border-bottom: 1px solid ${COLORS.glassBorder}; }
+
+.mc-curry2 { display: grid; grid-template-columns: 1.1fr 1fr; gap: 64px; align-items: center; }
+.mc-curry2-list { display: grid; gap: 20px; }
+.mc-curry2-item { padding-left: 16px; border-left: 2px solid ${COLORS.purple}; }
+
+.mc-curry2-demo {
+  position: relative; background: #fff; border: 1px solid ${COLORS.glassBorder}; border-radius: 18px;
+  padding: 28px 24px 36px; display: grid; gap: 14px;
+  box-shadow: 0 24px 60px rgba(15,23,32,0.10);
+}
+.mc-demo-msg { font-size: 14.5px; padding: 11px 14px; border-radius: 14px; max-width: 80%; }
+.mc-demo-msg.them { background: #EEF0F4; color: ${COLORS.text}; }
+.mc-demo-suggest {
+  display: grid; gap: 6px; padding: 12px 14px; border-radius: 14px;
+  border: 1px dashed ${COLORS.purple}; background: rgba(36,87,245,0.05); margin-left: auto; max-width: 88%;
+}
+.mc-demo-label { font-size: 12px; font-weight: 600; color: ${COLORS.purple}; }
+.mc-demo-reply { font-size: 14.5px; color: ${COLORS.text}; }
+.mc-demo-reminder { font-size: 13.5px; line-height: 1.5; padding: 12px 14px; border-radius: 12px; background: #F6F7F9; color: ${COLORS.muted}; }
+.mc-demo-reminder strong { color: ${COLORS.text}; }
+.mc-demo-caption { position: absolute; right: 16px; bottom: 10px; font-size: 11.5px; color: ${COLORS.muted}; }
       `}</style>
     </div>
   )
