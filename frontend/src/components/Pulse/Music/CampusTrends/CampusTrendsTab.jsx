@@ -9,6 +9,7 @@ import { IconChevronUp, IconChevronDown, IconPlay, IconPause, IconPlus, IconMusi
 import AddToPlaylistPicker from '../AddToPlaylistPicker'
 import CampusTrendsOnboarding from './CampusTrendsOnboarding'
  import { useDemoMode, makeDemoChart } from './campusTrendsDemo'
+   import { CampusPlaylists, WeeklyRecap } from './CampusTrendsExtras'
 
 const TOP_N = 10
 const SR_ONLY = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }
@@ -351,7 +352,10 @@ export default function CampusTrendsTab() {
     const t = byId.get(row.track.id)
     if (t) playTrack(t, list)
     }, [demoOn, currentTrack?.id, togglePlayPause, byId, playTrack, list])
-
+   const playList = useCallback((tracks) => {
+     if (demoOn || !tracks?.length) return
+     playTrack(tracks[0], tracks)
+   }, [demoOn, playTrack])
   const rowProps = (row) => {
     const active = currentTrack?.id === row.track.id
        return { colors, accent, active, playing: active && isPlaying, onPlay: handlePlay, demo: demoOn }
@@ -491,6 +495,8 @@ export default function CampusTrendsTab() {
               </div>
             </Section>
           )}
+                   <CampusPlaylists chart={chart} rows={rows} colors={colors} disabled={demoOn} onPlayList={playList} delay={0.14} />
+          <WeeklyRecap chart={chart} rows={rows} colors={colors} delay={0.16} />
         </>
       )}
 {!demoOn && (
