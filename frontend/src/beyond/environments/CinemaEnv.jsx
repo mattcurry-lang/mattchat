@@ -398,12 +398,14 @@ export default function CinemaEnv({ ctx, active }) {
 
   // whole-screen states
   const fatal = trending.status === 'error' ? trending.err : null
-  let fatalMsg = null
-  if (fatal instanceof CinemaError) {
-    if (fatal.kind === 'offline') fatalMsg = 'You’re offline. Cinema needs a connection.'
-    else if (fatal.kind === 'not_configured') fatalMsg = 'Cinema isn’t set up yet. The movie service has to be deployed with a TMDB key first.'
+  const FATAL = {
+    offline: 'You’re offline. Cinema needs a connection.',
+    not_deployed: 'Cinema’s movie service isn’t deployed yet. Deploy the beyond-tmdb function in Supabase, then reopen Cinema.',
+    not_configured: 'Cinema’s movie service is deployed, but it has no TMDB key. Set the TMDB_READ_TOKEN secret, then reopen Cinema.',
+    bad_key: 'TMDB rejected the key. Use the long “API Read Access Token” from your TMDB account settings (not the short API key), set it as TMDB_READ_TOKEN, then reopen Cinema.',
+    not_signed_in: 'Cinema needs you to be signed in. Sign out and back in, then try again.',
   }
-  if (fatal && !fatalMsg) fatalMsg = 'Cinema couldn’t load right now.'
+  const fatalMsg = fatal ? (fatal instanceof CinemaError && FATAL[fatal.kind]) || `Cinema couldn’t load right now.${fatal.message ? ` (${fatal.message})` : ''}` : null
 
   const d = feat ? featDetail[feat.id] : null
   const metaGenres = feat ? (d?.genres ? d.genres.map((g) => g.name) : (feat.genre_ids || []).map((g) => genreName[g]).filter(Boolean)).slice(0, 3) : []

@@ -12,7 +12,10 @@ import maplibregl from 'maplibre-gl/dist/maplibre-gl-csp'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import Avatar from '../../components/Avatar'
 import { useContactLocation } from '../useContactLocation'
+import { useContactBattery } from '../useContactBattery'
+import BatteryCard from '../BatteryCard'
 import { LocationState } from '../services/locationFreshness'
+import { problemText } from '../services/dbProblem'
 import { prefersReducedMotion } from '../motion'
 import { STYLE_URL, darkenStyle, circlePolygon, EMPTY_FC } from './mapStyle'
 
@@ -61,13 +64,7 @@ const CSS = `
 .bdw-link{display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:0 16px;border-radius:999px;font:inherit;font-size:13px;font-weight:700;
   text-decoration:none;color:#fff;background:linear-gradient(135deg,#6c63ff,#5a4fe0);border:none;cursor:pointer}
 .bdw-link.ghost{background:rgba(255,255,255,.06);border:1px solid rgba(167,139,250,.28);color:#f1eefc}
-.bdw-toggle{flex:none;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;
-  border:1px solid rgba(167,139,250,.28);background:rgba(255,255,255,.06);color:#f1eefc;cursor:pointer;transition:background .18s}
-.bdw-toggle:hover{background:rgba(108,99,255,.3)}
-.bdw-toggle:focus-visible{outline:2px solid #a78bfa;outline-offset:2px}
-.bdw-toggle svg{transition:transform .2s}
-.bdw-panel.collapsed{padding:10px 10px 10px 12px}
-.bdw-panel.collapsed .bdw-toggle svg{transform:rotate(180deg)}
+
 .bdw-share{margin-top:12px;border-top:1px solid rgba(167,139,250,.16);padding-top:10px}
 .bdw-sum{cursor:pointer;font-size:13px;font-weight:700;color:#d9d2f3;list-style:none;min-height:32px;display:flex;align-items:center}
 .bdw-sum::-webkit-details-marker{display:none}
@@ -78,6 +75,15 @@ const CSS = `
 .bdw-chip:hover:not(:disabled){background:rgba(108,99,255,.32)}
 .bdw-chip:disabled{opacity:.5;cursor:default}
 .bdw-chip.stop{border-color:rgba(248,113,113,.5);background:rgba(248,113,113,.12);color:#fecaca}
+.bdw-switch{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:14px;padding-top:12px;border-top:1px solid rgba(167,139,250,.14);font-size:13px;font-weight:600;color:#d9d2f3;cursor:pointer}
+.bdw-switch small{display:block;margin-top:2px;font-size:11.5px;font-weight:400;color:#b8b0d6;line-height:1.4}
+.bdw-switch input{flex:none;width:44px;height:26px;margin:0;appearance:none;-webkit-appearance:none;border-radius:999px;position:relative;cursor:pointer;
+  background:rgba(255,255,255,.16);transition:background .2s}
+.bdw-switch input::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s}
+.bdw-switch input:checked{background:#6c63ff}
+.bdw-switch input:checked::after{transform:translateX(18px)}
+.bdw-switch input:disabled{opacity:.45;cursor:default}
+.bdw-switch input:focus-visible{outline:2px solid #a78bfa;outline-offset:2px}
 .bdw-err{margin:8px 0 0;font-size:12.5px;color:#fbbf24}
 
 .bdw-overlay{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;
@@ -103,7 +109,6 @@ const IconPlus = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="no
 const IconMinus = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden><path d="M5 12h14" /></svg>)
 const IconTarget = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden><circle cx="12" cy="12" r="6.5" /><circle cx="12" cy="12" r="1.8" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3" /></svg>)
 const IconRoute = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM19 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" /><path d="M7 17h6a3 3 0 0 0 0-6h-2a3 3 0 0 1 0-6h6" /></svg>)
-const IconChevron = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m6 9 6 6 6-6" /></svg>)
 
 function buildMarker(name, avatarUrl) {
   const initial = (name || '?').trim().charAt(0).toUpperCase() || '?'
@@ -135,7 +140,8 @@ function accuracyLine(loc) {
 const MOVEMENT_LABEL = { moving: 'Moving', still: 'Standing still' }
 
 export default function WorldEnv({ contact, ctx, active }) {
-  const { loc, loadError, reload } = useContactLocation({ conversationId: ctx.conversationId, contactId: contact.id })
+  const { loc, problem, reload } = useContactLocation({ conversationId: ctx.conversationId, contactId: contact.id })
+  const battery = useContactBattery({ conversationId: ctx.conversationId, contactId: contact.id })
   const holder = useRef(null)
   const mapRef = useRef(null)
   const markerRef = useRef(null)
@@ -143,7 +149,6 @@ export default function WorldEnv({ contact, ctx, active }) {
   const [mapState, setMapState] = useState('idle') // idle | loading | ready | error
   const [attempt, setAttempt] = useState(0)
   const [busy, setBusy] = useState(false)
-  const [collapsed, setCollapsed] = useState(false)
 
   // ── create the map once the world is actually open ─────────────────────
   useEffect(() => {
@@ -230,7 +235,7 @@ export default function WorldEnv({ contact, ctx, active }) {
       const view = { center: [pos.lng, pos.lat], zoom: 14 }
       if (prefersReducedMotion()) map.jumpTo(view); else map.flyTo({ ...view, duration: 2200 })
     }
-  }, [mapState, pos?.lat, pos?.lng, loc.state, loc.accuracyM, contact.name, contact.avatarUrl])  
+  }, [mapState, pos?.lat, pos?.lng, loc.state, loc.accuracyM, contact.name, contact.avatarUrl]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const zoomBy = (d) => {
     const map = mapRef.current
@@ -259,6 +264,7 @@ export default function WorldEnv({ contact, ctx, active }) {
     setBusy(false)
   }, [live, ctx.conversationId])
 
+  const loadError = !!problem
   const statusText = loadError && loc.state !== LocationState.LIVE ? "Couldn't check their location" : loc.label
   const dotState = loadError ? 'none' : loc.state
   const untilText = mine ? new Date(mine.expires_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''
@@ -286,24 +292,16 @@ export default function WorldEnv({ contact, ctx, active }) {
         </div>
       )}
 
-      <section className={`bdw-panel${collapsed ? ' collapsed' : ''}`} aria-live="polite" aria-label={`${contact.name}'s location`}>
+      <section className="bdw-panel" aria-live="polite" aria-label={`${contact.name}'s location`}>
         <div className="bdw-row">
           <Avatar name={contact.name} size={44} photoUrl={contact.avatarUrl} online={contact.online} />
           <div className="bdw-who">
             <div className="bdw-name">{contact.name}</div>
-                       <div className="bdw-status"><span className="bdw-dot" data-s={dotState} aria-hidden />{statusText}</div>
+            <div className="bdw-status"><span className="bdw-dot" data-s={dotState} aria-hidden />{statusText}</div>
           </div>
-          <button
-            className="bdw-toggle"
-            onClick={() => setCollapsed((v) => !v)}
-            aria-expanded={!collapsed}
-            aria-label={collapsed ? 'Show location details' : 'Hide location details'}
-          >
-            <IconChevron />
-          </button>
         </div>
 
-        {!collapsed && (<>
+        {problem && <p className="bdw-err" role="alert">{problemText(problem, 'Live location')}</p>}
 
         {pos && (
           <ul className="bdw-meta">
@@ -324,6 +322,8 @@ export default function WorldEnv({ contact, ctx, active }) {
             {loadError && <button className="bdw-link ghost" onClick={reload}>Try again</button>}
           </div>
         )}
+
+        <BatteryCard battery={battery} contactName={contact.name} />
 
         <details className="bdw-share">
           <summary className="bdw-sum">{mine ? `You’re sharing until ${untilText}` : 'Share my live location'}</summary>
@@ -346,9 +346,21 @@ export default function WorldEnv({ contact, ctx, active }) {
               </div>
             </>
           )}
+          <label className="bdw-switch">
+            <span>
+              Share my battery with {contact.name}
+              <small>{live.battery.supported ? 'Separate from location. Updates while Mattchat is open.' : 'This browser can’t report battery. Chrome on Android can.'}</small>
+            </span>
+            <input
+              type="checkbox" role="switch"
+              checked={live.battery.isOn(ctx.conversationId)}
+              disabled={!live.battery.supported && !live.battery.isOn(ctx.conversationId)}
+              onChange={(e) => live.battery.set(ctx.conversationId, e.target.checked)}
+            />
+          </label>
+          {live.battery.error && <p className="bdw-err" role="alert">{live.battery.error === 'unsupported' ? 'This browser can’t report battery.' : 'Couldn’t change that. Try again.'}</p>}
           {live.error && <p className="bdw-err" role="alert">{SHARE_ERRORS[live.error] || SHARE_ERRORS.failed}</p>}
-              </details>
-        </>)}
+        </details>
       </section>
     </div>
   )
