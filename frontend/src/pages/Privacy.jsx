@@ -1,4 +1,5 @@
 import React from "react";
+import CampusTrendsPrivacySection from "../components/Pulse/Music/CampusTrends/CampusTrendsPrivacy";
 
 export default function Privacy() {
   return (
@@ -117,7 +118,7 @@ export default function Privacy() {
             <strong>mattchat.app.org@gmail.com</strong>
           </p>
 
-
+ <CampusTrendsPrivacySection />
         </main>
 
       </div>
