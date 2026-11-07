@@ -10,7 +10,7 @@ const hueOf = (s) => { let h = 0; for (const ch of String(s || '')) h = (h * 31 
 const ellipsis = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
 
 // "Dedan Kimathi University of Technology (DeKUT)" -> "DeKUT"
-function shortCampus(name = '') {
+export function shortCampus(name = '') {
   const m = /\(([^)]{2,20})\)\s*$/.exec(name)
   return m ? m[1] : (name.split(' ')[0] || 'Campus')
 }
@@ -26,7 +26,7 @@ function shuffled(list) {
   return a
 }
 
-function Block({ title, subtitle, colors, delay = 0, children }) {
+export function Block({ title, subtitle, colors, delay = 0, children }) {
   const reduce = useReducedMotion()
   return (
     <motion.section
