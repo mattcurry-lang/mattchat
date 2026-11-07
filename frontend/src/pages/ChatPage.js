@@ -1443,27 +1443,7 @@ const [showAddStatus, setShowAddStatus] = useState(false)
 // Dynamic cache for profiles that join via pass codes or aren't in initial members
 const [extraProfiles, setExtraProfiles] = useState(new Map())
 
-// Automatically fetch profile info for any unknown user ID found in typing or messages
-
-
-  // Look in loaded messages array for sender profile
-  const msg = messages.find(m => m.sender_id === uid)
-  if (msg?.profiles?.username) return msg.profiles.username
-
-  // Look in conversation_members
-  const member = activeConvo?.conversation_members?.find(m => m.user_id === uid)
-  if (member?.profiles?.username) return member.profiles.username
-
-  // Look in publicExtras or extraProfiles cache
-  const extra = publicExtras.get(uid)
-  if (extra?.username) return extra.username
-
-  const cached = extraProfiles.get(uid)
-  if (cached?.username) return cached.username
-  if (cached?.email) return cached.email.split('@')[0]
-
-  return null
-}
+ 
 const handleJoinSession = (passData) => {
    setSessionHosts([
     { username: passData.creator_name, bio: 'Session Creator & Security Admin' }
@@ -1581,7 +1561,24 @@ useEffect(() => {
 // Unified helper to resolve any user ID to their real username
 const getUsernameForUser = (uid) => {
   if (!uid || uid === userId) return ''
-  const quickSendReply = async (convo, text) => {
+
+  const msg = messages.find(m => m.sender_id === uid)
+  if (msg?.profiles?.username) return msg.profiles.username
+
+  const member = activeConvo?.conversation_members?.find(m => m.user_id === uid)
+  if (member?.profiles?.username) return member.profiles.username
+
+  const extra = publicExtras.get(uid)
+  if (extra?.username) return extra.username
+
+  const cached = extraProfiles.get(uid)
+  if (cached?.username) return cached.username
+  if (cached?.email) return cached.email.split('@')[0]
+
+  return null
+}
+
+const quickSendReply = async (convo, text) => {
     await supabase.from('messages').insert({ conversation_id: convo.id, sender_id: userId, content: text, message_type: 'text' })
     await supabase.from('conversations').update({ updated_at: new Date().toISOString(), last_message: text }).eq('id', convo.id)
     clearSmartReply(convo.id); clearUnread(convo.id); reload()
@@ -1744,33 +1741,7 @@ const scheduleFromMenu = async (when) => {
 }
 
 
-useEffect(() => {
-  if (!activeConvo?.id || activeConvo.isCurryAI) {
-    setHostDisplayName(null)
-    return
-  }
-
-  // Check if this conversation was joined via pass code, and find the creator
-  supabase
-    .from('temporary_passes')
-    .select('creator_id')
-    .eq('conversation_id', activeConvo.id)
-    .eq('status', 'active')
-    .maybeSingle()
-    .then(async ({ data: passData }) => {
-      if (passData?.creator_id && passData.creator_id !== userId) {
-        const { data: creatorProfile } = await supabase
-          .from('profiles')
-          .select('username')
-          .eq('id', passData.creator_id)
-          .maybeSingle()
-
-        if (creatorProfile?.username) {
-          setHostDisplayName(creatorProfile.username)
-        }
-      }
-    })
-}, [activeConvo?.id, userId])
+ 
 useEffect(() => {
   const unsubscribe = listenForNotificationActions((action, data) => {
     if (data.type === 'call' && action === 'answer') {
@@ -2059,6 +2030,12 @@ if (activeConvo && !window.history.state?.chatOpen) window.history.pushState({ c
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 // Upgrade the stand-in {id, conversation_members: []} to the real row once it loads
+useEffect(() => {
+  if (!activeConvo?.id || activeConvo.isCurryAI) return
+  if (activeConvo.conversation_members?.length) return
+  const full = conversations.find(c => c.id === activeConvo.id)
+  if (full) setActiveConvo(full)
+}, [conversations, activeConvo])
 useEffect(() => {
   if (!activeConvo?.id || activeConvo.isCurryAI) { setHostDisplayName(null); return }
   let cancelled = false
