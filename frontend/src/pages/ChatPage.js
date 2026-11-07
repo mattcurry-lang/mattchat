@@ -139,6 +139,8 @@ import { formatWhen } from '../lib/scheduleTime'
 import ChatCodeManager, { ChatCodeRedeemModal } from '../components/StackedSessionManager'
 import { useBeyond } from '../beyond/useBeyond'
 import BeyondPortal, { BeyondGlyph } from '../beyond/BeyondPortal'
+import { useLiveShare } from '../beyond/useLiveShare'
+import LiveShareBar from '../beyond/LiveShareBar'
 
 // Matches "hey curry", "hey curry,", "hey curry:" at the start of 
 // message (case-insensitive) — this is what routes a message to the
@@ -1341,12 +1343,7 @@ function openWhatsApp() {
   }, 1500)
 }
 
-// Stand-in until real live location sharing is wired in. Same shape as useLiveShare().
-const NO_LIVE_SHARE = {
-  activeFor: () => null,
-  start: async () => { const e = new Error('Live sharing is not set up yet'); e.code = 'unavailable'; throw e },
-  stop: async () => {},
-}
+ 
 export default function ChatPage({ session }) {
   const [activeConvo, setActiveConvo]   = useState(null)
   const userId = session.user.id
@@ -2506,6 +2503,9 @@ const beyond = useBeyond({
 })
   const beyondRef = useRef(null)
 beyondRef.current = beyond
+
+  const liveShare = useLiveShare(userId)
+const myLiveShare = liveShare.activeFor(activeConvo?.id)
   // Curry AI page nudge → opening a suggested conversation from the
   // Daily Brief's reconnect nudges (Phase 3). Just reuses openConvo so
   // unread badges clear the same way as clicking it from the list.
@@ -3509,7 +3509,7 @@ activeConvo.isCurryAI ? (
 {beyond.mounted && (
   <BeyondPortal
     beyond={beyond}
-   ctx={{ conversationId: activeConvo.id, userId, liveShare: NO_LIVE_SHARE }}
+ctx={{ conversationId: activeConvo.id, userId, liveShare }}
     contact={{
       id: otherUserId,
       name: getConvoName(activeConvo),
@@ -3645,6 +3645,12 @@ onSaved={() => { setShowSaved(true); setShowThreeDot(false) }}
     inviterName={getConvoName(activeConvo)}
     onAccept={watchTogether.acceptInvite}
     onDecline={watchTogether.declineInvite}
+  />
+)}
+{myLiveShare && (
+  <LiveShareBar
+    expiresAt={myLiveShare.expires_at}
+    onStop={() => liveShare.stop(activeConvo.id).catch(() => alert("Couldn't stop sharing. Check your connection and try again."))}
   />
 )}
 {autoContext && autoContext.conversationId === activeConvo?.id && (
