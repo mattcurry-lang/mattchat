@@ -7,10 +7,13 @@
 // it is not connected yet. Replace an entry's `Panel` with a React.lazy()
 // import as each phase lands; the shell does not change.
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { Suspense, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useTransform } from 'framer-motion'
 import Avatar from '../components/Avatar'
+
+// MapLibre is large: it loads only when someone opens BEYOND.
+const WorldEnv = React.lazy(() => import('./environments/WorldEnv'))
 
 /* ───────────────────────── custom icons ───────────────────────── */
 
@@ -69,7 +72,7 @@ const IconChevronLeft = () => (
 
 const ENVIRONMENTS = [
   {
-    id: 'world', label: 'World', Icon: IconWorld, phase: 'Next step',
+    id: 'world', label: 'World', Icon: IconWorld, phase: 'Live',
     bg: 'radial-gradient(120% 80% at 80% 0%, #1d1240 0%, #0c0718 55%, #05030a 100%)',
     title: 'World',
     note: 'The live map is next. It will read the location sharing Mattchat already has, so nothing new is shared or tracked from here.',
@@ -145,6 +148,8 @@ const CSS = `
 .bd-back:hover{background:rgba(108,99,255,.22);border-color:rgba(167,139,250,.5)}
 
 .bd-stage{position:relative;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.bd-stage.full{overflow:hidden}
+.bd-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--bd-dim);font-size:14px}
 .bd-panel{max-width:520px;margin:0 auto;padding:clamp(28px,9vh,72px) 24px 140px}
 .bd-panel-title{margin:0 0 14px;font-family:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
   font-weight:500;font-size:clamp(34px,9vw,52px);line-height:1.05;letter-spacing:-.01em}
@@ -174,7 +179,7 @@ const CSS = `
 
 /* ───────────────────────── portal ───────────────────────── */
 
-export default function BeyondPortal({ beyond, contact }) {
+export default function BeyondPortal({ beyond, contact, ctx }) {
   const { progress, open, closeBeyond } = beyond
   const [tab, setTab] = useState('world')
   const closeBtnRef = useRef(null)
@@ -270,8 +275,14 @@ export default function BeyondPortal({ beyond, contact }) {
           </button>
         </header>
 
-        <main className="bd-stage" id={`bd-panel-${env.id}`} role="tabpanel" aria-labelledby={`bd-tab-${env.id}`}>
-          <PendingPanel env={env} name={contact.name} />
+        <main className={`bd-stage${env.id === 'world' ? ' full' : ''}`} id={`bd-panel-${env.id}`} role="tabpanel" aria-labelledby={`bd-tab-${env.id}`}>
+          {env.id === 'world' ? (
+            <Suspense fallback={<div className="bd-loading" role="status">Loading the map…</div>}>
+              <WorldEnv contact={contact} ctx={ctx} active={open} />
+            </Suspense>
+          ) : (
+            <PendingPanel env={env} name={contact.name} />
+          )}
         </main>
 
         <div className="bd-dock-wrap">
