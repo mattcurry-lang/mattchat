@@ -138,6 +138,7 @@ const CSS = `
 .bd-name{font-size:16px;font-weight:700;letter-spacing:.005em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bd-word{font-family:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;font-style:italic;
   font-size:14px;color:var(--bd-lav);letter-spacing:.02em}
+.bd-presence{margin-top:1px;font-size:12px;color:var(--bd-dim)}
 .bd-back{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 16px 0 10px;border-radius:999px;
   border:1px solid rgba(167,139,250,.28);background:rgba(19,11,38,.6);color:var(--bd-ink);
   font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;transition:background .18s,border-color .18s}
@@ -261,6 +262,7 @@ export default function BeyondPortal({ beyond, contact }) {
             <div className="bd-id-text">
               <div className="bd-name">{contact.name}</div>
               <div className="bd-word">Beyond</div>
+              {contact.presenceLabel ? <div className="bd-presence">{contact.presenceLabel}</div> : null}
             </div>
           </div>
           <button ref={closeBtnRef} className="bd-back" onClick={() => closeBeyond()} aria-label={`Back to chat with ${contact.name}`}>
