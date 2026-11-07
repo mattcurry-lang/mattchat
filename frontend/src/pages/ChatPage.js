@@ -1557,8 +1557,8 @@ const getConvoName = (c) => {
   if (c.isCurryAI) return 'Curry AI'
   if (c.is_group) return c.name
   
-  // Look through conversation members for someone other than me
   const members = c.conversation_members || []
+  // Find the other user who is not me
   const otherMember = members.find(m => m.user_id !== userId)
   
   if (otherMember?.profiles?.username) {
@@ -1569,13 +1569,16 @@ const getConvoName = (c) => {
     return otherMember.profiles.email.split('@')[0]
   }
 
-  // If viewed from the guest side or host side and members list is single-sided, 
-  // check if there's a creator or fallback name we can display instead of "Chat User"
-  if (c.last_message_sender && c.last_message_sender !== userId) {
-    return 'Chat Partner'
+  // If there are multiple members or if it's a pass code session, join host names
+  const hostNames = members
+    .filter(m => m.user_id !== userId && m.profiles?.username)
+    .map(m => m.profiles.username)
+
+  if (hostNames.length > 0) {
+    return hostNames.join(' & ')
   }
 
-  return 'Chat Partner'
+  return 'Chat Session'
 }
 // ── DERIVED STATE ──
 const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
@@ -1592,7 +1595,17 @@ const headerStatus = () => {
   if (callStatus === 'ringing')    return '📞 Ringing…'
   if (callStatus === 'connecting') return '📞 Connecting…'
   if (callStatus === 'in-call')    return '🟢 On a call'
-  if (typing.length > 0)           return `${getConvoName(activeConvo)} is typing…`
+  
+  // TYPING INDICATOR FIX: Show the exact name of whoever is typing
+  if (typing.length > 0) {
+    // If typing contains user IDs or names, resolve them cleanly
+    const typingNames = typing.map(uid => {
+      const member = activeConvo.conversation_members?.find(m => m.user_id === uid)
+      return member?.profiles?.username || 'Someone'
+    })
+    return `${typingNames.join(', ')} is typing…`
+  }
+
   if (otherUserId && isOnline(otherUserId)) {
     const s = getPresenceStatus(otherUserId)
     return s === 'busy' ? 'Busy' : s === 'idle' ? 'Away' : 'Online'
