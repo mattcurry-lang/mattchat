@@ -8,8 +8,9 @@ import { chartTracks, describeMovement, formatPeriod } from '../../../../lib/mus
 import { IconChevronUp, IconChevronDown, IconPlay, IconPause, IconPlus, IconMusic } from '../../../Icons'
 import AddToPlaylistPicker from '../AddToPlaylistPicker'
 import CampusTrendsOnboarding from './CampusTrendsOnboarding'
- import { useDemoMode, makeDemoChart } from './campusTrendsDemo'
+ import { useDemoMode, makeDemoChart, makeDemoWrapped, makeDemoBattle } from './campusTrendsDemo'
    import { CampusPlaylists, WeeklyRecap } from './CampusTrendsExtras'
+import { GenreWars, CampusWrapped, CampusFaceOff } from './CampusTrendsMore'
 
 const TOP_N = 10
 const SR_ONLY = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }
@@ -338,6 +339,8 @@ export default function CampusTrendsTab() {
 
     const demoOn = useDemoMode()
    const demoData = useMemo(() => (demoOn ? makeDemoChart() : null), [demoOn])
+   const demoWrapped = useMemo(() => (demoOn ? makeDemoWrapped() : null), [demoOn])
+  const demoBattle = useMemo(() => (demoOn ? makeDemoBattle() : null), [demoOn])
    const chart = demoOn ? demoData : ct.chart
   const ok = chart?.status === 'ok'
   const rows = useMemo(() => (ok ? chart.tracks : []), [ok, chart])
@@ -352,10 +355,10 @@ export default function CampusTrendsTab() {
     const t = byId.get(row.track.id)
     if (t) playTrack(t, list)
     }, [demoOn, currentTrack?.id, togglePlayPause, byId, playTrack, list])
-   const playList = useCallback((tracks) => {
-     if (demoOn || !tracks?.length) return
-     playTrack(tracks[0], tracks)
-   }, [demoOn, playTrack])
+    const playList = useCallback((tracks, start) => {
+    if (demoOn || !tracks?.length) return
+    playTrack(start || tracks[0], tracks)
+  }, [demoOn, playTrack])
   const rowProps = (row) => {
     const active = currentTrack?.id === row.track.id
        return { colors, accent, active, playing: active && isPlaying, onPlay: handlePlay, demo: demoOn }
@@ -495,8 +498,11 @@ export default function CampusTrendsTab() {
               </div>
             </Section>
           )}
+           <GenreWars chart={chart} colors={colors} delay={0.13} />
                    <CampusPlaylists chart={chart} rows={rows} colors={colors} disabled={demoOn} onPlayList={playList} delay={0.14} />
           <WeeklyRecap chart={chart} rows={rows} colors={colors} delay={0.16} />
+           <CampusWrapped userId={userId} colors={colors} accent={accent} disabled={demoOn} demoData={demoWrapped} onPlayList={playList} delay={0.17} />
+  <CampusFaceOff userId={userId} colors={colors} accent={accent} disabled={demoOn} demoData={demoBattle} onPlayList={playList} delay={0.18} />
         </>
       )}
 {!demoOn && (
