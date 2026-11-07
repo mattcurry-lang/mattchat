@@ -146,3 +146,13 @@ export function formatPeriod(chart) {
   const withMonth = { day: 'numeric', month: 'short' }
   return `${fmt(first, withMonth)} to ${fmt(last, withMonth)}`
 }
+
+/** The last four published weekly charts, summarised. Show only when status === 'ok'. */
+export async function getWrapped() {
+  return call('campus_trends_get_wrapped')
+}
+
+/** Face-off with another campus. Only available when both campuses are switched on. */
+export async function getBattle() {
+  return call('campus_trends_get_battle')
+}
