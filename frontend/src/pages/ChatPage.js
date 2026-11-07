@@ -3499,13 +3499,21 @@ activeConvo.isCurryAI ? (
   </div>
 ) : (
   <div className="chat-area" ref={chatAreaRef}>
- {beyond.mounted && (
-  <BeyondPortal beyond={beyond} contact={{
-    name: getConvoName(activeConvo),
-    avatarUrl: getOtherUserAvatar(activeConvo, userId),
-    online: otherUserId ? isOnline(otherUserId) : false,
-  }} />
-)} 
+{beyond.mounted && (
+  <BeyondPortal
+    beyond={beyond}
+    ctx={{ conversationId: activeConvo.id, userId, liveShare: null }}
+    contact={{
+      id: otherUserId,
+      name: getConvoName(activeConvo),
+      avatarUrl: getOtherUserAvatar(activeConvo, userId),
+      online: otherUserId ? isOnline(otherUserId) : false,
+      presenceLabel: !otherUserId ? '' : isOnline(otherUserId)
+        ? ({ busy: 'Busy', idle: 'Away' }[getPresenceStatus(otherUserId)] || 'Online')
+        : getLastSeenLabel(otherUserId),
+    }}
+  />
+)}
     {/* Header */}
 
             <div className="chat-header" style={{
