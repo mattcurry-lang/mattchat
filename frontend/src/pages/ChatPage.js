@@ -1555,16 +1555,12 @@ const handleJoinSession = (passData) => {
 const getConvoName = (c) => {
   if (!c) return ''
   if (c.isCurryAI) return 'Curry AI'
-  if.c?.is_group) return c.name
-
-  // If we fetched a host name via pass code, use it!
-  if (hostDisplayName) {
-    return hostDisplayName
-  }
+  if (c.is_group) return c.name
 
   const members = c.conversation_members || []
   const otherMembers = members.filter(m => m.user_id !== userId)
 
+  // Extract names using member profiles OR publicExtras lookup
   const names = otherMembers
     .map(m => m.profiles?.username || publicExtras.get(m.user_id)?.username)
     .filter(Boolean)
