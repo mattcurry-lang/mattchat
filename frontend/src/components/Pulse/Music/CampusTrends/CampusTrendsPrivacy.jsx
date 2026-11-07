@@ -79,7 +79,7 @@ export default function CampusTrendsPrivacySection() {
       <ul style={ul}>
         <li>Your choices (whether you opted in, when, and your campus): until you change them or delete your account.</li>
         <li>Exact weekly song totals, used only to compare one week with the next: 12 weeks, then deleted.</li>
-        <li>Published weekly charts, which hold ranks and no personal information: up to 12 months, so weeks can be compared.</li>
+        <li>Published weekly charts (ranks only, no personal information): up to 12 months. Song titles, artist names and artwork shown on a chart come from YouTube and are refreshed or deleted within 30 days, as YouTube's rules require.</li>
       </ul>
       <p style={p}>Your playlists and listening history themselves are covered by the rest of this privacy notice.</p>
 
