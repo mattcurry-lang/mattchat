@@ -116,7 +116,35 @@ function PendingPanel({ env, name }) {
     </div>
   )
 }
+function MissingCtx() {
+  return (
+    <div className="bd-panel">
+      <h2 className="bd-panel-title">World</h2>
+      <p className="bd-panel-note">
+        Beyond was opened without a conversation. ChatPage needs to pass the <code>ctx</code> prop
+        (conversationId, userId, liveShare) to BeyondPortal.
+      </p>
+    </div>
+  )
+}
 
+export class BeyondBoundary extends React.Component {
+  state = { error: null }
+  static getDerivedStateFromError(error) { return { error } }
+  componentDidCatch(error, info) {
+    console.error('[Beyond] crashed:', error, info?.componentStack)
+  }
+  render() {
+    if (!this.state.error) return this.props.children
+    return (
+      <div className="bd-panel">
+        <h2 className="bd-panel-title">{this.props.title || 'Beyond'}</h2>
+        <p className="bd-panel-note">Something went wrong in this space. Your chat is fine.</p>
+        <button className="bd-back" onClick={() => this.setState({ error: null })}>Try again</button>
+      </div>
+    )
+  }
+}
 /* ───────────────────────── styles ───────────────────────── */
 
 const CSS = `
@@ -276,13 +304,21 @@ export default function BeyondPortal({ beyond, contact, ctx }) {
         </header>
 
         <main className={`bd-stage${env.id === 'world' ? ' full' : ''}`} id={`bd-panel-${env.id}`} role="tabpanel" aria-labelledby={`bd-tab-${env.id}`}>
-          {env.id === 'world' ? (
-            <Suspense fallback={<div className="bd-loading" role="status">Loading the map…</div>}>
-              <WorldEnv contact={contact} ctx={ctx} active={open} />
-            </Suspense>
-          ) : (
-            <PendingPanel env={env} name={contact.name} />
-          )}
+          <BeyondBoundary key={env.id} title={env.title}>
+    
+ 
+         {env.id === 'world' ? (
+  ctx?.conversationId ? (
+    <Suspense fallback={<div className="bd-loading" role="status">Loading the map…</div>}>
+      <WorldEnv contact={contact} ctx={ctx} active={open} />
+    </Suspense>
+  ) : (
+    <MissingCtx />
+  )
+) : (
+  <PendingPanel env={env} name={contact.name} />
+)}
+             </BeyondBoundary>
         </main>
 
         <div className="bd-dock-wrap">
