@@ -11,9 +11,39 @@ import React, { Suspense, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useTransform } from 'framer-motion'
 import Avatar from '../components/Avatar'
+import { BEYOND_VERSION, BEYOND_FEATURES } from './version'
 
 // MapLibre is large: it loads only when someone opens BEYOND.
 const WorldEnv = React.lazy(() => import('./environments/WorldEnv'))
+const CinemaEnv = React.lazy(() => import('./environments/CinemaEnv'))
+
+// A crash inside one environment must never take the chat down with it.
+class EnvBoundary extends React.Component {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  componentDidCatch(err) { console.error('[beyond] environment crashed:', err) }
+  componentDidUpdate(prev) {
+    if (prev.resetKey !== this.props.resetKey && this.state.failed) this.setState({ failed: false })
+  }
+  render() {
+    if (!this.state.failed) return this.props.children
+    return (
+      <div className="bd-panel">
+        <h2 className="bd-panel-title">That didn’t load</h2>
+        <p className="bd-panel-note">This part of Beyond hit an error. Your chat is fine. Go back to the chat and try again.</p>
+      </div>
+    )
+  }
+}
+
+function NotWired({ what }) {
+  return (
+    <div className="bd-panel">
+      <h2 className="bd-panel-title">Not wired in yet</h2>
+      <p className="bd-panel-note">{what}</p>
+    </div>
+  )
+}
 
 /* ───────────────────────── custom icons ───────────────────────── */
 
@@ -70,6 +100,8 @@ const IconChevronLeft = () => (
 
 /* ───────────────────────── environments ───────────────────────── */
 
+const FULL = new Set(['world', 'cinema']) // these draw edge to edge and manage their own scrolling
+
 const ENVIRONMENTS = [
   {
     id: 'world', label: 'World', Icon: IconWorld, phase: 'Live',
@@ -84,7 +116,7 @@ const ENVIRONMENTS = [
     note: 'A quiet space for breathing, reflection and a private journal. Mood and journal entries will stay private unless you choose to share.',
   },
   {
-    id: 'cinema', label: 'Cinema', Icon: IconCinema, phase: 'Planned',
+    id: 'cinema', label: 'Cinema', Icon: IconCinema, phase: 'Live',
     bg: 'radial-gradient(90% 55% at 50% -8%, rgba(255,214,170,.16), transparent 62%), #050407',
     title: 'Cinema',
     note: 'Movie discovery from TMDB, with suggestions the two of you can accept or decline. Needs a server-side TMDB key before it can load anything.',
@@ -116,35 +148,7 @@ function PendingPanel({ env, name }) {
     </div>
   )
 }
-function MissingCtx() {
-  return (
-    <div className="bd-panel">
-      <h2 className="bd-panel-title">World</h2>
-      <p className="bd-panel-note">
-        Beyond was opened without a conversation. ChatPage needs to pass the <code>ctx</code> prop
-        (conversationId, userId, liveShare) to BeyondPortal.
-      </p>
-    </div>
-  )
-}
 
-export class BeyondBoundary extends React.Component {
-  state = { error: null }
-  static getDerivedStateFromError(error) { return { error } }
-  componentDidCatch(error, info) {
-    console.error('[Beyond] crashed:', error, info?.componentStack)
-  }
-  render() {
-    if (!this.state.error) return this.props.children
-    return (
-      <div className="bd-panel">
-        <h2 className="bd-panel-title">{this.props.title || 'Beyond'}</h2>
-        <p className="bd-panel-note">Something went wrong in this space. Your chat is fine.</p>
-        <button className="bd-back" onClick={() => this.setState({ error: null })}>Try again</button>
-      </div>
-    )
-  }
-}
 /* ───────────────────────── styles ───────────────────────── */
 
 const CSS = `
@@ -225,6 +229,7 @@ export default function BeyondPortal({ beyond, contact, ctx }) {
   // Focus the way back as soon as the world is open.
   useEffect(() => {
     if (!open) return undefined
+    console.info(`[beyond] v${BEYOND_VERSION} (${BEYOND_FEATURES})`)
     const id = requestAnimationFrame(() => closeBtnRef.current?.focus({ preventScroll: true }))
     return () => cancelAnimationFrame(id)
   }, [open])
@@ -263,6 +268,24 @@ export default function BeyondPortal({ beyond, contact, ctx }) {
   }
 
   const env = ENVIRONMENTS.find((x) => x.id === tab)
+
+  const renderEnvironment = () => {
+    if (env.id === 'world' || env.id === 'cinema') {
+      if (!ctx || !ctx.conversationId || !ctx.liveShare) {
+        return <NotWired what="ChatPage isn’t passing this screen its chat details yet. Run scripts/wire-beyond.js again, then reload." />
+      }
+      if (env.id === 'world' && !contact?.id) {
+        return <NotWired what="I couldn’t work out who this chat is with, so there is no location to look up." />
+      }
+      const Env = env.id === 'world' ? WorldEnv : CinemaEnv
+      return (
+        <Suspense fallback={<div className="bd-loading" role="status">Loading…</div>}>
+          <Env contact={contact} ctx={ctx} active={open} />
+        </Suspense>
+      )
+    }
+    return <PendingPanel env={env} name={contact.name} />
+  }
 
   return createPortal(
     <motion.div
@@ -303,22 +326,8 @@ export default function BeyondPortal({ beyond, contact, ctx }) {
           </button>
         </header>
 
-        <main className={`bd-stage${env.id === 'world' ? ' full' : ''}`} id={`bd-panel-${env.id}`} role="tabpanel" aria-labelledby={`bd-tab-${env.id}`}>
-          <BeyondBoundary key={env.id} title={env.title}>
-    
- 
-         {env.id === 'world' ? (
-  ctx?.conversationId ? (
-    <Suspense fallback={<div className="bd-loading" role="status">Loading the map…</div>}>
-      <WorldEnv contact={contact} ctx={ctx} active={open} />
-    </Suspense>
-  ) : (
-    <MissingCtx />
-  )
-) : (
-  <PendingPanel env={env} name={contact.name} />
-)}
-             </BeyondBoundary>
+        <main className={`bd-stage${FULL.has(env.id) ? ' full' : ''}`} id={`bd-panel-${env.id}`} role="tabpanel" aria-labelledby={`bd-tab-${env.id}`}>
+          <EnvBoundary resetKey={env.id}>{renderEnvironment()}</EnvBoundary>
         </main>
 
         <div className="bd-dock-wrap">

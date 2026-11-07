@@ -10,8 +10,11 @@ import { subscribeToChannel } from '../lib/realtimeManager'
 import {
   fetchMyActiveShares, startLiveShare, stopLiveShare, getPositionOnce, createLocationPublisher,
 } from './services/liveLocation'
+import { useMyBatteryShare } from './useMyBatteryShare'
 
+// Also owns battery sharing (`.battery`) so one hook in ChatPage covers everything I share.
 export function useLiveShare(userId) {
+  const battery = useMyBatteryShare(userId)
   const [shares, setShares] = useState([]) // [{ conversation_id, expires_at }]
   const [error, setError] = useState(null) // null | 'denied' | 'unsupported' | 'failed'
   const publisher = useRef(null)
@@ -94,7 +97,7 @@ export function useLiveShare(userId) {
   )
 
   return useMemo(
-    () => ({ shares, activeFor, start, stop, error, clearError: () => setError(null) }),
-    [shares, activeFor, start, stop, error],
+    () => ({ shares, activeFor, start, stop, error, clearError: () => setError(null), battery }),
+    [shares, activeFor, start, stop, error, battery],
   )
 }

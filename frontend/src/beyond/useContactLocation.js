@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase'
 import { subscribeToChannel } from '../lib/realtimeManager'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import { classifyLocation } from './services/locationFreshness'
+import { classifyDbError, withTimeout } from './services/dbProblem'
 
 const TICK_MS = 15 * 1000 // re-evaluate age so "live" turns into "recent" on its own
 
@@ -17,27 +18,33 @@ export function useContactLocation({ conversationId, contactId }) {
   const viewerOnline = useOnlineStatus()
   const [share, setShare] = useState(undefined) // undefined = not loaded yet, null = no share row
   const [fix, setFix] = useState(null)
-  const [loadError, setLoadError] = useState(false)
+  const [problem, setProblem] = useState(null) // null | { kind, message }
   const [now, setNow] = useState(() => Date.now())
 
   const load = useCallback(async () => {
     if (!conversationId || !contactId) return
-    const [s, f] = await Promise.all([
-      supabase.from('live_location_shares').select('expires_at, stopped_at')
-        .eq('owner_id', contactId).eq('conversation_id', conversationId).maybeSingle(),
-      // RLS only returns this row while the share is active and unexpired
-      supabase.from('live_locations').select('lat, lng, accuracy, speed, heading, recorded_at')
-        .eq('user_id', contactId).maybeSingle(),
-    ])
-    if (s.error || f.error) { setLoadError(true); return }
-    setLoadError(false)
-    setShare(s.data || null)
-    setFix(f.data || null)
+    try {
+      const [s, f] = await withTimeout(Promise.all([
+        supabase.from('live_location_shares').select('expires_at, stopped_at')
+          .eq('owner_id', contactId).eq('conversation_id', conversationId).maybeSingle(),
+        // RLS only returns this row while the share is active and unexpired
+        supabase.from('live_locations').select('lat, lng, accuracy, speed, heading, recorded_at')
+          .eq('user_id', contactId).maybeSingle(),
+      ]))
+      const err = s.error || f.error
+      if (err) { console.error('[beyond] location load failed:', err); setProblem(classifyDbError(err)); return }
+      setProblem(null)
+      setShare(s.data || null)
+      setFix(f.data || null)
+    } catch (e) {
+      console.error('[beyond] location load failed:', e)
+      setProblem(classifyDbError(e))
+    }
   }, [conversationId, contactId])
 
   useEffect(() => {
     if (!conversationId || !contactId) return undefined
-    setShare(undefined); setFix(null); setLoadError(false)
+    setShare(undefined); setFix(null); setProblem(null)
     load()
     return subscribeToChannel(
       `beyond-loc:${conversationId}:${contactId}`,
@@ -68,8 +75,8 @@ export function useContactLocation({ conversationId, contactId }) {
     fix: fix ? { lat: fix.lat, lng: fix.lng, accuracy: fix.accuracy ?? undefined, speed: fix.speed ?? undefined, heading: fix.heading ?? undefined, recordedAt: fix.recorded_at } : null,
     now,
     viewerOnline,
-    loading: share === undefined && !loadError,
-  }), [share, fix, now, viewerOnline, loadError])
+    loading: share === undefined && !problem,
+  }), [share, fix, now, viewerOnline, problem])
 
-  return { loc, loadError, reload: load }
+  return { loc, problem, loadError: !!problem, reload: load }
 }

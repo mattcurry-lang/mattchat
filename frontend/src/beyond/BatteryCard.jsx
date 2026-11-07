@@ -8,6 +8,7 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import { prefersReducedMotion } from './motion'
 import { BatteryState } from './services/batteryStatus'
+import { problemText } from './services/dbProblem'
 
 const FILL_MAX = 44
 
@@ -39,7 +40,8 @@ function BatteryGlyph({ level, charging, current }) {
 }
 
 export default function BatteryCard({ battery, contactName }) {
-  if (battery.state === BatteryState.LOADING) return null
+  if (battery.problem) return <p style={{ ...muted, color: '#fbbf24' }} role="alert">{problemText(battery.problem, 'Battery sharing')}</p>
+  if (battery.state === BatteryState.LOADING) return <p style={muted}>Checking battery…</p>
 
   if (battery.state === BatteryState.NOT_SHARING) {
     return <p style={muted}>{contactName} isn’t sharing their battery</p>
