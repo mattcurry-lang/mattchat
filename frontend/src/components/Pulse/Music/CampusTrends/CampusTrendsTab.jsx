@@ -316,7 +316,7 @@ function Settings({ ct, colors, accent }) {
       )}
       {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 600, color: colors.textPrimary }}>{message}</div>}
 
-      <a className="ctt-link" href="/privacy" target="_blank" rel="noopener noreferrer"
+      <a className="ctt-link" href="/privacy#campus-trends" target="_blank" rel="noopener noreferrer"
         style={{ display: 'inline-block', marginTop: 12, fontSize: 12, fontWeight: 700, color: accent }}>
         Privacy notice
       </a>
