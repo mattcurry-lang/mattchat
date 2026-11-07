@@ -8,6 +8,7 @@ import { chartTracks, describeMovement, formatPeriod } from '../../../../lib/mus
 import { IconChevronUp, IconChevronDown, IconPlay, IconPause, IconPlus, IconMusic } from '../../../Icons'
 import AddToPlaylistPicker from '../AddToPlaylistPicker'
 import CampusTrendsOnboarding from './CampusTrendsOnboarding'
+   import { demoEnabled, makeDemoChart } from './campusTrendsDemo'
 
 const TOP_N = 10
 const SR_ONLY = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }
@@ -183,7 +184,7 @@ function AddToPlaylistButton({ track, colors }) {
   )
 }
 
-function SongRow({ row, colors, accent, active, playing, onPlay, tag }) {
+function SongRow({ row, colors, accent, active, playing, onPlay, tag, demo }) {
   const t = row.track
   return (
     <div
@@ -202,7 +203,7 @@ function SongRow({ row, colors, accent, active, playing, onPlay, tag }) {
         </div>
         {tag && <span style={{ display: 'inline-block', marginTop: 3, fontSize: 9.5, fontWeight: 800, letterSpacing: 0.3, padding: '1px 6px', borderRadius: 5, textTransform: 'uppercase', color: accent, background: 'rgba(167,139,250,0.16)' }}>{tag}</span>}
       </div>
-      <AddToPlaylistButton track={t} colors={colors} />
+        {!demo && <AddToPlaylistButton track={t} colors={colors} />}
       <button
         className="ctt-btn" aria-label={playing ? `Pause ${t.title}` : `Play ${t.title}`}
         onClick={(e) => { e.stopPropagation(); onPlay(row) }}
@@ -334,7 +335,9 @@ export default function CampusTrendsTab() {
   const [showAll, setShowAll] = useState(false)
   const accent = colors.isDark ? '#a78bfa' : '#5b4bd5'
 
-  const chart = ct.chart
+    const demoOn = demoEnabled()
+   const demoData = useMemo(() => (demoOn ? makeDemoChart() : null), [demoOn])
+   const chart = demoOn ? demoData : ct.chart
   const ok = chart?.status === 'ok'
   const rows = useMemo(() => (ok ? chart.tracks : []), [ok, chart])
   const list = useMemo(() => chartTracks(chart), [chart])
@@ -342,24 +345,25 @@ export default function CampusTrendsTab() {
   const rising = useMemo(() => rows.filter((r) => r.is_rising), [rows])
   const fresh = useMemo(() => rows.filter((r) => r.movement === 'new'), [rows])
 
-  const handlePlay = useCallback((row) => {
+    const handlePlay = useCallback((row) => {
+     if (demoOn) return // demo songs are not real and cannot be played
     if (currentTrack?.id === row.track.id) { togglePlayPause(); return }
     const t = byId.get(row.track.id)
     if (t) playTrack(t, list)
-  }, [currentTrack?.id, togglePlayPause, byId, playTrack, list])
+    }, [demoOn, currentTrack?.id, togglePlayPause, byId, playTrack, list])
 
   const rowProps = (row) => {
     const active = currentTrack?.id === row.track.id
-    return { colors, accent, active, playing: active && isPlaying, onPlay: handlePlay }
+       return { colors, accent, active, playing: active && isPlaying, onPlay: handlePlay, demo: demoOn }
   }
 
   if (!userId) return <div style={{ padding: '20px 0', fontSize: 13, color: colors.textSecondary }}>Sign in to see campus trends.</div>
 
   const shell = (children) => <div style={{ paddingBottom: 12 }}><style>{CSS}</style>{children}</div>
 
-  if (ct.loading) return shell(<Skeleton colors={colors} />)
+   if (ct.loading && !demoOn) return shell(<Skeleton colors={colors} />)
 
-  if (ct.error && !ct.ready) {
+  if (ct.error && !ct.ready && !demoOn) {
     return shell(
       <EmptyCard colors={colors} title="Couldn't load campus trends" action={
         <button className="ctt-btn" onClick={ct.refresh} style={{ marginTop: 14, minHeight: 44, padding: '0 20px', borderRadius: 14, border: 'none', fontFamily: 'inherit', fontSize: 14, fontWeight: 800, cursor: 'pointer', color: '#fff', background: 'linear-gradient(135deg,#6c63ff,#5648e6)' }}>
@@ -371,7 +375,7 @@ export default function CampusTrendsTab() {
     )
   }
 
-  if (ct.step) return shell(<CampusTrendsOnboarding ct={ct} />)
+ if (ct.step && !demoOn) return shell(<CampusTrendsOnboarding ct={ct} />)
 
   const period = formatPeriod(chart)
   const campusName = chart?.campus || ct.campus?.name || ''
@@ -380,6 +384,11 @@ export default function CampusTrendsTab() {
   return shell(
     <>
       <Hero campusName={campusName} period={ok ? period : ''} />
+         {demoOn && (
+     <Note colors={colors} tone="warn">
+       DEMO DATA, for development only. Every song, artist and rank here is made up and none of it comes from real students. Playing and saving are switched off.
+     </Note>
+   )}
 
       {ct.declined && <Note colors={colors}>You're exploring campus music trends without contributing your personal activity.</Note>}
       {ct.participating && <Note colors={colors}>You're contributing to campus trends. Others only ever see combined ranks.</Note>}
@@ -484,10 +493,11 @@ export default function CampusTrendsTab() {
           )}
         </>
       )}
-
+{!demoOn && (
       <Section reduce={reduce} delay={0.14}>
         <Settings ct={ct} colors={colors} accent={accent} />
       </Section>
+  )}
     </>,
   )
 }
