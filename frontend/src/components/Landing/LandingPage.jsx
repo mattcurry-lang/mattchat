@@ -630,25 +630,19 @@ const { installed, install, helpOpen, closeHelp } = useInstallApp()
       </button>
     )}
     <a href="/auth" className="mc-nav-link mc-nav-signin" onClick={(e) => goTo(e, '/auth')}>Sign in</a>
-    <GlowButton primary onClick={() => navigate('/auth')}>Get started</GlowButton>
-     <div id="curry" className="mc-band"><CurrySection /></div>
+      <GlowButton primary onClick={() => navigate('/auth')}>Get started</GlowButton>
+  </div>
+</nav>
+<InstallHelp open={helpOpen} onClose={closeHelp} />
+<HeroSection onGetStarted={() => navigate('/auth')} />
+<WhySection />
+<div id="curry" className="mc-band"><CurrySection /></div>
 <PlatformSection />
 <div id="how" className="mc-band"><HowItWorksSection /></div>
 <CompareSection />
 <div id="apps" className="mc-band"><IntegrationsSection /></div>
-  </div>
-</nav>
-<InstallHelp open={helpOpen} onClose={closeHelp} />
-     <HeroSection onGetStarted={() => navigate('/auth')} />
-<WhySection />
-<div className="mc-band"><CurrySection /></div>
-<PlatformSection />
-<div className="mc-band"><HowItWorksSection /></div>
-<CompareSection />
-<div className="mc-band"><IntegrationsSection /></div>
 <TestimonialsSection onGetStarted={() => navigate('/auth')} />
 <FinalCTASection onGetStarted={() => navigate('/auth')} />
-
       <Footer onNavigate={goTo} />
 
       <style>{`
@@ -1088,6 +1082,7 @@ html { scroll-behavior: smooth; scroll-padding-top: 76px; }
   .mc-install-text { display: none; }
   .mc-nav-links .mc-install { padding: 10px 12px; }
 }
+.mc-nav-link, .mc-nav .mc-btn { white-space: nowrap; }
       `}</style>
     </div>
   )
