@@ -1553,8 +1553,8 @@ const getConvoName = (c) => {
   if (c.is_group) return c.name
   const other = c.conversation_members?.find(m => m.user_id !== userId)
   const otherId = other?.user_id
-  if (otherId && (blockedUserIds.has(otherId) || !other?.profiles)) return 'Secure Guest'
-  return other?.profiles?.username || other?.profiles?.email?.split('@')[0] || 'Secure Guest'
+  if (otherId && (blockedUserIds.has(otherId) || !other?.profiles)) return 'Chat User'
+  return other?.profiles?.username || other?.profiles?.email?.split('@')[0] || 'Chat User'
 }
 
 // ── DERIVED STATE ──
