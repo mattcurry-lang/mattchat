@@ -58,7 +58,7 @@ function useExtra(loader, userId, demoData) {
     let alive = true
     loader().then((d) => { if (alive) setData(d) }).catch(() => {})
     return () => { alive = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [userId, demoData])
   return data
 }
