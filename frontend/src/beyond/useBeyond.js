@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { animate, useMotionValue } from 'framer-motion'
-import { getSetting } from '../lib/appearanceStore'
+import { prefersReducedMotion } from './motion'
 
 const LOCK_PX = 10          // movement before we decide a direction
 const H_DOMINANCE = 1.6     // |dx| must beat |dy| by this factor to count as horizontal
@@ -21,10 +21,6 @@ const EDGE_GUARD = 24       // ignore touches starting at the right edge (Androi
 const DRAG_SPAN = 0.7       // fraction of screen width that equals full progress
 const COMMIT_PROGRESS = 0.3 // release past this => open
 const COMMIT_VELOCITY = 0.55 // px/ms leftward flick => open
-
-const prefersReducedMotion = () =>
-  !!getSetting('reduceMotion') ||
-  (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
 
 export function useBeyond({ chatRef, scrollerRef, convoKey, enabled }) {
   const progress = useMotionValue(0)
