@@ -1,12 +1,37 @@
-// Development-only demo data for the Campus tab. Switched on by running the dev server and opening
-// the app with ?campusDemo=1. In a production build import.meta.env.DEV is false, so this cannot run.
-const DEV = (() => { try { return Boolean(import.meta.env && import.meta.env.DEV) } catch { return false } })()
+import { useEffect, useState } from 'react'
+import { supabase } from '../../../../lib/supabase'
+
+// Demo mode for the Campus tab. It needs BOTH of these, so students can never see it:
+//   1) you ask for it: open the app with ?campusDemo=1, or run localStorage.setItem('campusDemo','1') in the browser console
+//   2) the database confirms you are an admin (campus_trends_is_admin)
+// It shows made-up data only, writes nothing, and plays nothing.
+const FLAG_KEY = 'campusDemo'
 const EAT_MS = 3 * 3600 * 1000
 const DAY = 86400000
 
-export function demoEnabled() {
-  if (!DEV || typeof window === 'undefined') return false
-  try { return new URLSearchParams(window.location.search).get('campusDemo') === '1' } catch { return false }
+function requested() {
+  try {
+    if (new URLSearchParams(window.location.search).get('campusDemo') === '1') return true
+    return localStorage.getItem(FLAG_KEY) === '1'
+  } catch { return false }
+}
+
+export function useDemoMode() {
+  const [on, setOn] = useState(false)
+  useEffect(() => {
+    if (!requested()) { setOn(false); return undefined }
+    let alive = true
+    ;(async () => {
+      try {
+        const { data, error } = await supabase.rpc('campus_trends_is_admin')
+        if (alive) setOn(!error && data === true)
+      } catch {
+        if (alive) setOn(false)
+      }
+    })()
+    return () => { alive = false }
+  }, [])
+  return on
 }
 
 function currentWeekStart() {
@@ -26,9 +51,11 @@ const SONGS = [
   ['Demo Song Seven', 'Demo Artist E', null, 'same', 0, null],
   ['Demo Song Eight', 'Demo Artist C', 'Gospel', 'down', -2, null],
   ['Demo Song Nine', 'Demo Artist F', 'R&B', 'new', null, null],
-  ['Demo Song Ten', 'Demo Artist D', 'Amapiano', 'up', 1, null],
-  ['Demo Song Eleven', 'Demo Artist E', null, 'new', null, null],
-  ['Demo Song Twelve', 'Demo Artist F', 'R&B', 'down', -4, null],
+  ['Demo Song Ten', 'Demo Artist D', 'Amapiano', 'up', 1, 'emerging'],
+  ['Demo Song Eleven', 'Demo Artist E', 'Afrobeats', 'new', null, null],
+  ['Demo Song Twelve', 'Demo Artist F', 'Afrobeats', 'down', -4, null],
+  ['Demo Song Thirteen', 'Demo Artist A', 'Afrobeats', 'same', 0, null],
+  ['Demo Song Fourteen', 'Demo Artist B', 'Afrobeats', 'up', 1, null],
 ]
 
 export function makeDemoChart() {
