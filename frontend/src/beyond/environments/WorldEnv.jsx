@@ -235,7 +235,7 @@ export default function WorldEnv({ contact, ctx, active }) {
       const view = { center: [pos.lng, pos.lat], zoom: 14 }
       if (prefersReducedMotion()) map.jumpTo(view); else map.flyTo({ ...view, duration: 2200 })
     }
-  }, [mapState, pos?.lat, pos?.lng, loc.state, loc.accuracyM, contact.name, contact.avatarUrl]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mapState, pos?.lat, pos?.lng, loc.state, loc.accuracyM, contact.name, contact.avatarUrl])  
 
   const zoomBy = (d) => {
     const map = mapRef.current
