@@ -1439,7 +1439,53 @@ const [showAddStatus, setShowAddStatus] = useState(false)
   const [showRedeemModal, setShowRedeemModal] = useState(false)
   const chatAreaRef = useRef(null)
   const [myJoinTime, setMyJoinTime] = useState(null)
+// Dynamic cache for profiles that join via pass codes or aren't in initial members
+const [extraProfiles, setExtraProfiles] = useState(new Map())
 
+// Automatically fetch profile info for any unknown user ID found in typing or messages
+useEffect(() => {
+  const uidsToFetch = new Set()
+  typing.forEach(uid => {
+    if (!publicExtras.get(uid)?.username && !extraProfiles.has(uid)) uidsToFetch.add(uid)
+  })
+  messages.forEach(m => {
+    if (m.sender_id && !m.profiles?.username && !publicExtras.get(m.sender_id)?.username && !extraProfiles.has(m.sender_id)) {
+      uidsToFetch.add(m.sender_id)
+    }
+  })
+
+  if (uidsToFetch.size === 0) return
+
+  supabase.from('profiles').select('id, username, email').in('id', Array.from(uidsToFetch))
+    .then(({ data }) => {
+      if (data) {
+        setExtraProfiles(prev => {
+          const next = new Map(prev)
+          data.forEach(p => next.set(p.id, p))
+          return next
+        })
+      }
+    })
+}, [typing, messages, publicExtras])
+
+// Unified helper to resolve any user ID to their real username
+const getUsernameForUser = (uid) => {
+  if (!uid || uid === userId) return ''
+  const msg = messages.find(m => m.sender_id === uid)
+  if (msg?.profiles?.username) return msg.profiles.username
+
+  const member = activeConvo?.conversation_members?.find(m => m.user_id === uid)
+  if (member?.profiles?.username) return member.profiles.username
+
+  const extra = publicExtras.get(uid)
+  if (extra?.username) return extra.username
+
+  const cached = extraProfiles.get(uid)
+  if (cached?.username) return cached.username
+  if (cached?.email) return cached.email.split('@')[0]
+
+  return null
+}
 const handleJoinSession = (passData) => {
   setSessionHosts([
     targetProfile || { username: passData.creator_name }, 
@@ -1557,39 +1603,24 @@ const getConvoName = (c) => {
   if (c.isCurryAI) return 'Curry AI'
   if (c.is_group) return c.name
 
-  // 1. Gather all unique user IDs in this chat except the current user
+  // Gather all unique user IDs in this chat except current user
   const otherUserIds = new Set()
-  
-  // Check members
   (c.conversation_members || []).forEach(m => {
     if (m.user_id !== userId) otherUserIds.add(m.user_id)
   })
-  
-  // Check message senders (covers pass-code guests & hosts instantly)
   messages.forEach(m => {
     if (m.sender_id && m.sender_id !== userId) otherUserIds.add(m.sender_id)
   })
 
-  // 2. Resolve names from profiles inside members, messages, or publicExtras
-  const resolvedNames = Array.from(otherUserIds).map(uid => {
-    const memberMatch = c.conversation_members?.find(m => m.user_id === uid)?.profiles?.username
-    if (memberMatch) return memberMatch
-
-    const msgMatch = messages.find(m => m.sender_id === uid)?.profiles?.username
-    if (msgMatch) return msgMatch
-
-    const extraMatch = publicExtras.get(uid)?.username
-    if (extraMatch) return extraMatch
-
-    return null
-  }).filter(Boolean)
+  const resolvedNames = Array.from(otherUserIds)
+    .map(uid => getUsernameForUser(uid))
+    .filter(Boolean)
 
   if (resolvedNames.length > 0) {
-    // Return unique host/guest names (e.g. "Matt" or "Matt & Lainey")
     return Array.from(new Set(resolvedNames)).join(' & ')
   }
 
-  return 'Chat Partner'
+  return 'Chat Session'
 }
 // ── DERIVED STATE ──
 const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
@@ -1608,22 +1639,11 @@ const headerStatus = () => {
   if (callStatus === 'in-call')    return '🟢 On a call'
 
   if (typing.length > 0) {
-    const typingNames = typing.map(uid => {
-      // 1. Check conversation_members
-      const member = activeConvo.conversation_members?.find(m => m.user_id === uid)
-      if (member?.profiles?.username) return member.profiles.username
-
-      // 2. Check loaded messages for sender profile (e.g. Kane)
-      const msgSender = messages.find(m => m.sender_id === uid)?.profiles?.username
-      if (msgSender) return msgSender
-
-      // 3. Check publicExtras cache
-      const extraName = publicExtras.get(uid)?.username
-      if (extraName) return extraName
-
-      return 'Guest'
-    })
-    return `${typingNames.join(', ')} is typing…`
+    const typingNames = typing.map(uid => getUsernameForUser(uid)).filter(Boolean)
+    if (typingNames.length > 0) {
+      return `${typingNames.join(', ')} is typing…`
+    }
+    return 'Someone is typing…'
   }
 
   if (otherUserId && isOnline(otherUserId)) {
