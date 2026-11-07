@@ -1262,8 +1262,13 @@ function CallButtons({ onVoiceCall, onVideoCall, onZoomCall, onEditZoom, disable
 const CURRY_AI_CONTACT = { id: 'curry-ai', isCurryAI: true }
 
 function getOtherUserId(convo, myUserId) {
-  const other = convo?.conversation_members?.find(m => m.user_id !== myUserId)
-  return other?.user_id || null
+  if (!convo?.conversation_members) return null
+  // Find any member who is not the current user
+  const other = convo.conversation_members.find(m => m.user_id !== myUserId)
+  if (other) return other.user_id
+  
+  // Fallback for pass code sessions where members list might be building up
+  return null
 }
 
 function getOtherUserAvatar(convo, myUserId, blockedUserIds = new Set()) {
@@ -1551,10 +1556,26 @@ const getConvoName = (c) => {
   if (!c) return ''
   if (c.isCurryAI) return 'Curry AI'
   if (c.is_group) return c.name
-  const other = c.conversation_members?.find(m => m.user_id !== userId)
-  const otherId = other?.user_id
-  if (otherId && (blockedUserIds.has(otherId) || !other?.profiles)) return 'Chat User'
-  return other?.profiles?.username || other?.profiles?.email?.split('@')[0] || 'Chat User'
+  
+  // Look through conversation members for someone other than me
+  const members = c.conversation_members || []
+  const otherMember = members.find(m => m.user_id !== userId)
+  
+  if (otherMember?.profiles?.username) {
+    return otherMember.profiles.username
+  }
+  
+  if (otherMember?.profiles?.email) {
+    return otherMember.profiles.email.split('@')[0]
+  }
+
+  // If viewed from the guest side or host side and members list is single-sided, 
+  // check if there's a creator or fallback name we can display instead of "Chat User"
+  if (c.last_message_sender && c.last_message_sender !== userId) {
+    return 'Chat Partner'
+  }
+
+  return 'Chat Partner'
 }
 // ── DERIVED STATE ──
 const otherUserId = activeConvo && !activeConvo.isCurryAI ? getOtherUserId(activeConvo, userId) : null
