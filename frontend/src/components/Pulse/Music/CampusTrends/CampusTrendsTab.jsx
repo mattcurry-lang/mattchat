@@ -8,7 +8,7 @@ import { chartTracks, describeMovement, formatPeriod } from '../../../../lib/mus
 import { IconChevronUp, IconChevronDown, IconPlay, IconPause, IconPlus, IconMusic } from '../../../Icons'
 import AddToPlaylistPicker from '../AddToPlaylistPicker'
 import CampusTrendsOnboarding from './CampusTrendsOnboarding'
-   import { demoEnabled, makeDemoChart } from './campusTrendsDemo'
+ import { useDemoMode, makeDemoChart } from './campusTrendsDemo'
 
 const TOP_N = 10
 const SR_ONLY = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }
@@ -335,7 +335,7 @@ export default function CampusTrendsTab() {
   const [showAll, setShowAll] = useState(false)
   const accent = colors.isDark ? '#a78bfa' : '#5b4bd5'
 
-    const demoOn = demoEnabled()
+    const demoOn = useDemoMode()
    const demoData = useMemo(() => (demoOn ? makeDemoChart() : null), [demoOn])
    const chart = demoOn ? demoData : ct.chart
   const ok = chart?.status === 'ok'
